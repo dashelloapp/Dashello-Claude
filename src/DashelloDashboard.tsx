@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { supabase } from "./lib/supabase";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -1557,10 +1558,24 @@ function Sidebar({active,onNav,collapsed,onToggle}:{active:Page;onNav:(p:Page)=>
         </div>
       )}
 
-      {/* Logo */}
+      {/* Logo + Sign Out */}
       <div style={{color:"rgba(255,255,255,0.7)",fontSize:collapsed?12:13,fontWeight:700,marginTop:16,textAlign:"center",whiteSpace:"nowrap"}}>
         {collapsed?"●●":"●● Dashello"}
       </div>
+      {!collapsed&&(
+        <button
+          onClick={()=>supabase.auth.signOut()}
+          style={{marginTop:10,width:"100%",padding:"8px 0",borderRadius:8,border:"1.5px solid rgba(255,255,255,0.4)",
+            background:"transparent",color:"rgba(255,255,255,0.85)",fontSize:12,fontWeight:600,cursor:"pointer"}}>
+          Sign Out
+        </button>
+      )}
+      {collapsed&&(
+        <div onClick={()=>supabase.auth.signOut()} title="Sign Out"
+          style={{marginTop:10,textAlign:"center",fontSize:18,cursor:"pointer",color:"rgba(255,255,255,0.7)"}}>
+          ⏻
+        </div>
+      )}
     </aside>
   );
 }
