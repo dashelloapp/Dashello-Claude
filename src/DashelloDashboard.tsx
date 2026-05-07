@@ -1055,14 +1055,6 @@ function GoalsPage({goals, setGoals}:{goals:any[];setGoals:(g:any[])=>void}) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 function TasksPage({tasks, setTasks}:{tasks:any[];setTasks:(t:any[])=>void}) {
-    {id:"1",text:"Review Q3 financials",done:false,assignee:"AJ",due:"Mar 15"},
-    {id:"2",text:"Follow up with 5 leads",done:true,assignee:"BK",due:"Mar 12"},
-    {id:"3",text:"Update marketing report",done:false,assignee:"CL",due:"Mar 18"},
-    {id:"4",text:"Team standup notes",done:true,assignee:"AJ",due:"Mar 11"},
-    {id:"5",text:"Invoice client #4821",done:false,assignee:"DM",due:"Mar 20"},
-    {id:"6",text:"Send 34 quotes",done:false,assignee:"BK",due:"Mar 22"},
-    {id:"7",text:"Add $9,756 to Tax account",done:false,assignee:"AJ",due:"Mar 14"},
-  ]);
   const [filter,setFilter]=useState<"all"|"active"|"completed">("all");
   const toggle=(id:string)=>setTasks(t=>t.map(x=>x.id===id?{...x,done:!x.done}:x));
   const filtered=tasks.filter(t=>filter==="all"?true:filter==="active"?!t.done:t.done);
