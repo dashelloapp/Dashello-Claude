@@ -1421,8 +1421,7 @@ function SettingsPage({userId, userEmail, onProfileSaved}:{
     if (!error) {
       const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(path);
       console.log("Upload success, new URL:", urlData.publicUrl);
-      const newUrl = urlData.publicUrl + "?t=" + Date.now();
-      const updated = { ...localProfile, avatar_url: newUrl };
+      const newUrl = `https://rhkrkdwqrzzmakxxsozg.supabase.co/storage/v1/object/public/avatars/${path}?t=${Date.now()}`;      const updated = { ...localProfile, avatar_url: newUrl };
       setLocalProfile(updated);
       await supabase.from("profiles").upsert({
         id: userId,
