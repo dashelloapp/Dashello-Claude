@@ -1343,6 +1343,7 @@ function SettingsPage({userId, userEmail, profile, setProfile}:{
   profile:any; setProfile:(p:any)=>void;
 }) {
   const [localProfile, setLocalProfile] = useState({...profile});
+  const initialized = useRef(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -1350,6 +1351,14 @@ function SettingsPage({userId, userEmail, profile, setProfile}:{
   const [notif, setNotif] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Only sync from parent profile once on first load
+  useEffect(() => {
+    if (!initialized.current && profile.full_name !== undefined) {
+      setLocalProfile({...profile});
+      initialized.current = true;
+    }
+  }, [profile]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -1367,9 +1376,9 @@ function SettingsPage({userId, userEmail, profile, setProfile}:{
       updated_at: new Date().toISOString(),
     });
     if (!error) {
-      setProfile(localProfile);
+      setProfile({...localProfile});
       setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
+      setTimeout(() => setSaved(false), 3000);
     }
     setSaving(false);
   };
@@ -1383,7 +1392,15 @@ function SettingsPage({userId, userEmail, profile, setProfile}:{
     const { error } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
     if (!error) {
       const { data } = supabase.storage.from("avatars").getPublicUrl(path);
-      setLocalProfile((p: any) => ({ ...p, avatar_url: data.publicUrl }));
+      const newUrl = data.publicUrl + "?t=" + Date.now();
+      setLocalProfile((p: any) => ({ ...p, avatar_url: newUrl }));
+      // Also save to DB and update parent immediately
+      await supabase.from("profiles").upsert({
+        id: userId,
+        avatar_url: newUrl,
+        updated_at: new Date().toISOString(),
+      });
+      setProfile((p: any) => ({ ...p, avatar_url: newUrl }));
     }
     setUploading(false);
   };
