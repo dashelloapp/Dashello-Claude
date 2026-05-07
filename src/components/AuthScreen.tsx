@@ -89,6 +89,13 @@ export default function AuthScreen() {
             {mode === 'login' ? 'Sign up' : 'Sign in'}
           </span>
         </div>
+        <div style={{ textAlign: 'center', marginTop: 16, fontSize: 12, color: '#cbd5e1' }}>
+          By signing in you agree to our{' '}
+          <a href="https://dashello.co/terms-and-privacy/" target="_blank" rel="noreferrer"
+            style={{ color: '#94a3b8', textDecoration: 'underline' }}>
+            Privacy Policy & Terms
+          </a>
+        </div>
       </div>
     </div>
   )
