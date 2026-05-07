@@ -1620,16 +1620,16 @@ const NAV=[
   {icon:"⚙",label:"Settings",   page:"settings"     as Page},
 ];
 
-function Sidebar({active,onNav,collapsed,onToggle,avatarUrl,firstName}:{
-  active:Page;onNav:(p:Page)=>void;collapsed:boolean;onToggle:()=>void;avatarUrl?:string;firstName?:string;
+function Sidebar({active,onNav,onClose,isMobile,avatarUrl,firstName}:{
+  active:Page; onNav:(p:Page)=>void; onClose:()=>void;
+  isMobile:boolean; avatarUrl?:string; firstName?:string;
 }) {
-  const w = collapsed ? 64 : 260;
-  return (
+  return(
     <aside style={{
-      width:w, flexShrink:0, background:"#fff",
+      width:260, flexShrink:0, background:"#fff",
       display:"flex", flexDirection:"column",
-      boxShadow:"2px 0 12px rgba(0,0,0,0.07)",
-      transition:"width 0.25s ease", position:"relative", zIndex:10,
+      boxShadow:"2px 0 12px rgba(0,0,0,0.08)",
+      height:"100%", minHeight:"100vh",
       overflowY:"auto", overflowX:"hidden",
       scrollbarWidth:"none", msOverflowStyle:"none",
     } as React.CSSProperties}>
@@ -1638,97 +1638,77 @@ function Sidebar({active,onNav,collapsed,onToggle,avatarUrl,firstName}:{
         .nav-item:hover{background:#f1f5f9 !important}
       `}</style>
 
-      {/* Collapse tab — subtle arrow on right edge */}
-      <div onClick={onToggle} style={{
-        position:"absolute", top:"50%", right:-12, transform:"translateY(-50%)",
-        width:24, height:48, background:"#fff", border:"1px solid #e2e8f0",
-        borderRadius:"0 8px 8px 0", display:"flex", alignItems:"center",
-        justifyContent:"center", cursor:"pointer", zIndex:20,
-        boxShadow:"2px 0 6px rgba(0,0,0,0.06)", color:"#94a3b8", fontSize:12,
-      }}>
-        {collapsed ? "›" : "‹"}
-      </div>
-
-      {/* Profile section */}
+      {/* Profile section with close control */}
       <div style={{
-        padding: collapsed ? "24px 0 16px" : "28px 20px 20px",
+        padding:"28px 20px 20px",
         borderBottom:"1px solid #f1f5f9",
-        display:"flex", flexDirection:"column",
-        alignItems: collapsed ? "center" : "flex-start", gap:12,
+        display:"flex", alignItems:"center", gap:12,
       }}>
         <div style={{
-          width: collapsed ? 36 : 56, height: collapsed ? 36 : 56,
-          borderRadius:"50%", background:"#e2e8f0", flexShrink:0,
-          overflow:"hidden", display:"flex", alignItems:"center",
-          justifyContent:"center", fontSize: collapsed ? 14 : 22,
+          width:52, height:52, borderRadius:"50%",
+          background:"#e2e8f0", flexShrink:0,
+          overflow:"hidden", display:"flex",
+          alignItems:"center", justifyContent:"center", fontSize:20,
         }}>
           {avatarUrl
             ? <img src={avatarUrl} alt="avatar" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
             : <span style={{color:"#94a3b8"}}>👤</span>}
         </div>
-        {!collapsed && (
-          <div>
-            <div style={{fontSize:13,fontWeight:600,color:"#1a2332",lineHeight:1.3}}>
-              {firstName ? `Welcome ${firstName}` : "Welcome"}
-            </div>
-            <div style={{fontSize:12,color:"#94a3b8",marginTop:2}}>to your dashboard</div>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:13,fontWeight:600,color:"#1a2332",lineHeight:1.3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+            {firstName ? `Welcome ${firstName}` : "Welcome"}
           </div>
-        )}
+          <div style={{fontSize:12,color:"#94a3b8",marginTop:2}}>to your dashboard</div>
+        </div>
+        {/* Close control — arrow on desktop, × on mobile */}
+        <div onClick={onClose} style={{
+          flexShrink:0, cursor:"pointer",
+          color:"#94a3b8", fontSize: isMobile ? 22 : 16,
+          padding:"4px", lineHeight:1,
+          display:"flex", alignItems:"center", justifyContent:"center",
+        }}>
+          {isMobile ? "×" : "‹"}
+        </div>
       </div>
 
       {/* Nav */}
-      <nav style={{flex:1, padding: collapsed ? "12px 8px" : "12px 12px"}}>
+      <nav style={{flex:1, padding:"12px 12px"}}>
         {NAV.map(item=>(
           <div key={item.label} className="nav-item" onClick={()=>onNav(item.page)}
-            title={collapsed ? item.label : undefined}
             style={{
-              display:"flex", alignItems:"center",
-              gap: collapsed ? 0 : 10,
-              padding: collapsed ? "10px 0" : "10px 12px",
-              borderRadius:10, marginBottom:2, cursor:"pointer",
-              justifyContent: collapsed ? "center" : "flex-start",
+              display:"flex", alignItems:"center", gap:10,
+              padding:"10px 12px", borderRadius:10, marginBottom:2,
+              cursor:"pointer",
               background: active===item.page ? "#EFF6FF" : "transparent",
               color: active===item.page ? "#3B82F6" : "#475569",
               fontSize:13, fontWeight: active===item.page ? 600 : 400,
               transition:"background 0.15s",
             }}>
-            <span style={{fontSize: collapsed ? 18 : 15, flexShrink:0}}>{item.icon}</span>
-            {!collapsed && <span style={{whiteSpace:"nowrap"}}>{item.label}</span>}
+            <span style={{fontSize:15,flexShrink:0}}>{item.icon}</span>
+            <span style={{whiteSpace:"nowrap"}}>{item.label}</span>
           </div>
         ))}
       </nav>
 
       {/* Bottom — logo + sign out */}
-      <div style={{
-        padding: collapsed ? "16px 8px" : "16px 20px",
-        borderTop:"1px solid #f1f5f9",
-        display:"flex", flexDirection:"column",
-        alignItems: collapsed ? "center" : "stretch", gap:10,
-      }}>
-        {!collapsed && (
-          <img
-            src="https://dashello.co/wp-content/uploads/2023/08/Logo.png"
-            alt="Dashello"
-            style={{height:28, objectFit:"contain", maxWidth:"100%"}}
-          />
-        )}
-        {collapsed && (
-          <div style={{fontSize:11,fontWeight:700,color:"#94a3b8",textAlign:"center"}}>●●</div>
-        )}
+      <div style={{padding:"16px 20px", borderTop:"1px solid #f1f5f9"}}>
+        <img
+          src="https://dashello.co/wp-content/uploads/2023/08/Logo.png"
+          alt="Dashello"
+          style={{height:28, objectFit:"contain", maxWidth:"100%", display:"block", marginBottom:12}}
+        />
         <button onClick={()=>supabase.auth.signOut()} style={{
-          padding: collapsed ? "8px 0" : "8px 0",
-          borderRadius:8, border:"1.5px solid #e2e8f0",
-          background:"transparent", color:"#94a3b8",
-          fontSize:12, fontWeight:600, cursor:"pointer",
-          width:"100%", display:"flex", alignItems:"center",
-          justifyContent:"center", gap:6,
+          width:"100%", padding:"8px 0", borderRadius:8,
+          border:"1.5px solid #e2e8f0", background:"transparent",
+          color:"#94a3b8", fontSize:12, fontWeight:600, cursor:"pointer",
         }}>
-          {collapsed ? "⏻" : "Sign Out"}
+          Sign Out
         </button>
       </div>
     </aside>
   );
 }
+
 
 // ═══════════════════════════════════════════════════════════════════════════
 // HOME PAGE
@@ -1800,10 +1780,10 @@ export default function DashelloDashboard() {
   const [modal, setModal] = useState<MetricModalData | null>(null);
   const [editingFromModal, setEditingFromModal] = useState(false);
   const [selectedApp, setSelectedApp] = useState<typeof APPS[0] | null>(null);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showChat, setShowChat] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string>("");
   const [dbReady, setDbReady] = useState(false);
@@ -1900,19 +1880,25 @@ export default function DashelloDashboard() {
   }, [goalsData, userId, dbReady]);
 
   // ── Mobile detection ──────────────────────────────────────────────────
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
+    useEffect(() => {
+    const check = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (!mobile) setSidebarOpen(true); // default open on desktop
+    };
     check();
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  const handleSelectApp = (app: typeof APPS[0]) => { setSelectedApp(app); setPage("app-detail"); };
+
+    const handleSelectApp = (app: typeof APPS[0]) => { setSelectedApp(app); setPage("app-detail"); };
   const handleEditFromModal = () => { setEditingFromModal(true); setModal(null); };
   const handleNav = (p: Page) => {
     setPage(p); setSelectedApp(null);
-    if (isMobile) setMobileMenuOpen(false);
+    setSidebarOpen(false);
   };
+
 
   // ── Loading screen ────────────────────────────────────────────────────
   if (!dbReady) return (
@@ -1923,53 +1909,56 @@ export default function DashelloDashboard() {
     </div>
   );
 
-  const sidebarEl = (
-    <Sidebar active={page} onNav={handleNav}
-      collapsed={isMobile ? false : sidebarCollapsed}
-      onToggle={isMobile ? () => setMobileMenuOpen(false) : () => setSidebarCollapsed(v => !v)}
+    const sidebarEl = (
+    <Sidebar
+      active={page}
+      onNav={handleNav}
+      onClose={() => setSidebarOpen(false)}
+      isMobile={isMobile}
       avatarUrl={profile.avatar_url}
       firstName={profile.full_name?.split(" ")[0] ?? ""}/>
   );
 
-  return (
+
+    return (
     <div style={{ display: "flex", height: "100vh", fontFamily: "'Inter',system-ui,sans-serif", background: "#F8FAFC", position: "relative" }}>
 
-      {isMobile && mobileMenuOpen && (
-        <div onClick={() => setMobileMenuOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 900 }} />
+      {/* Overlay for mobile */}
+      {isMobile && sidebarOpen && (
+        <div onClick={() => setSidebarOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 900 }} />
       )}
 
-      {isMobile ? (
-        <div style={{ position: "fixed", left: mobileMenuOpen ? 0 : -280, top: 0, bottom: 0, zIndex: 1000, transition: "left 0.25s ease", width:260 }}>
-          {sidebarEl}
-          {/* Floating X button */}
-          {mobileMenuOpen && (
-            <div onClick={() => setMobileMenuOpen(false)} style={{
-              position:"absolute", top:16, right:-48,
-              width:36, height:36, borderRadius:"50%",
-              background:"#fff", boxShadow:"0 2px 8px rgba(0,0,0,0.15)",
-              display:"flex", alignItems:"center", justifyContent:"center",
-              cursor:"pointer", fontSize:18, color:"#475569",
-            }}>×</div>
-          )}
-        </div>
-      ) : sidebarEl}
+      {/* Sidebar — overlay on mobile, inline on desktop */}
+      {sidebarOpen && (
+        isMobile ? (
+          <div style={{ position: "fixed", left: 0, top: 0, bottom: 0, width: 260, zIndex: 1000 }}>
+            {sidebarEl}
+          </div>
+        ) : sidebarEl
+      )}
 
+      {/* Main content */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
+
+        {/* Top bar */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px clamp(12px,3vw,28px)", borderBottom: "1px solid #E8EDF2", background: "#fff", flexShrink: 0, flexWrap: "wrap" }}>
-         {isMobile && (
-            <div onClick={() => setMobileMenuOpen(v => !v)} style={{
-              width:36, height:36, borderRadius:"50%",
-              background:"#f1f5f9", display:"flex",
-              alignItems:"center", justifyContent:"center",
-              cursor:"pointer", marginRight:4, flexShrink:0,
+
+          {/* Hamburger — shows when sidebar is closed */}
+          {!sidebarOpen && (
+            <div onClick={() => setSidebarOpen(true)} style={{
+              width: 36, height: 36, borderRadius: "50%",
+              background: "#f1f5f9", display: "flex",
+              alignItems: "center", justifyContent: "center",
+              cursor: "pointer", marginRight: 4, flexShrink: 0,
             }}>
-              <div style={{display:"flex",flexDirection:"column",gap:4,padding:8}}>
-                <div style={{width:16,height:2,background:"#475569",borderRadius:2}}/>
-                <div style={{width:16,height:2,background:"#475569",borderRadius:2}}/>
-                <div style={{width:16,height:2,background:"#475569",borderRadius:2}}/>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <div style={{ width: 16, height: 2, background: "#475569", borderRadius: 2 }} />
+                <div style={{ width: 16, height: 2, background: "#475569", borderRadius: 2 }} />
+                <div style={{ width: 16, height: 2, background: "#475569", borderRadius: 2 }} />
               </div>
             </div>
           )}
+
           {page === "home" && (
             <div style={{ display: "flex", borderRadius: 8, border: "1px solid #e2e8f0", overflow: "hidden" }}>
               {["Row", "Column"].map((lbl, i) => (
@@ -1983,6 +1972,7 @@ export default function DashelloDashboard() {
           <div style={{ padding: "8px clamp(12px,2vw,22px)", borderRadius: 8, background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Customize</div>
         </div>
 
+        {/* Page content */}
         <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
           {page === "home" && <HomePage sections={sections} setSections={setSections} setModal={setModal} />}
           {page === "goals" && <div style={{ flex: 1, overflowY: "auto" }}><GoalsPage goals={goalsData} setGoals={setGoalsData} /></div>}
@@ -2002,3 +1992,4 @@ export default function DashelloDashboard() {
     </div>
   );
 }
+
