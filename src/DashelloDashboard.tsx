@@ -1638,36 +1638,49 @@ function Sidebar({active,onNav,onClose,isMobile,avatarUrl,firstName}:{
         .nav-item:hover{background:#f1f5f9 !important}
       `}</style>
 
-      {/* Profile section with close control */}
+      {/* Profile section */}
       <div style={{
         padding:"28px 20px 20px",
         borderBottom:"1px solid #f1f5f9",
-        display:"flex", alignItems:"center", gap:12,
+        display:"flex", flexDirection:"column",
+        alignItems:"center", gap:0,
+        position:"relative",
       }}>
+        {/* Photo row — photo centered, arrow to the right */}
         <div style={{
-          width:52, height:52, borderRadius:"50%",
-          background:"#e2e8f0", flexShrink:0,
-          overflow:"hidden", display:"flex",
-          alignItems:"center", justifyContent:"center", fontSize:20,
+          display:"flex", alignItems:"center",
+          justifyContent:"center", width:"100%",
+          position:"relative", marginBottom:12,
         }}>
-          {avatarUrl
-            ? <img src={avatarUrl} alt="avatar" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
-            : <span style={{color:"#94a3b8"}}>👤</span>}
+          <div style={{
+            width:60, height:60, borderRadius:"50%",
+            background:"#e2e8f0", overflow:"hidden",
+            display:"flex", alignItems:"center",
+            justifyContent:"center", fontSize:22,
+          }}>
+            {avatarUrl
+              ? <img src={avatarUrl} alt="avatar" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+              : <span style={{color:"#94a3b8"}}>👤</span>}
+          </div>
+          {/* Desktop close arrow — circle style like dashboard row arrows */}
+          {!isMobile && (
+            <div onClick={onClose} style={{
+              position:"absolute", right:0,
+              width:28, height:28, borderRadius:"50%",
+              border:"1.5px solid #e2e8f0", background:"#fff",
+              display:"flex", alignItems:"center", justifyContent:"center",
+              cursor:"pointer", color:"#94a3b8", fontSize:16,
+              flexShrink:0,
+            }}>‹</div>
+          )}
         </div>
-        <div style={{flex:1,minWidth:0}}>
-          <div style={{fontSize:13,fontWeight:600,color:"#1a2332",lineHeight:1.3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+
+        {/* Welcome text centered below photo */}
+        <div style={{textAlign:"center"}}>
+          <div style={{fontSize:13,fontWeight:600,color:"#1a2332",lineHeight:1.3}}>
             {firstName ? `Welcome ${firstName}` : "Welcome"}
           </div>
           <div style={{fontSize:12,color:"#94a3b8",marginTop:2}}>to your dashboard</div>
-        </div>
-        {/* Close control — arrow on desktop, × on mobile */}
-        <div onClick={onClose} style={{
-          flexShrink:0, cursor:"pointer",
-          color:"#94a3b8", fontSize: isMobile ? 22 : 16,
-          padding:"4px", lineHeight:1,
-          display:"flex", alignItems:"center", justifyContent:"center",
-        }}>
-          {isMobile ? "×" : "‹"}
         </div>
       </div>
 
@@ -1690,12 +1703,17 @@ function Sidebar({active,onNav,onClose,isMobile,avatarUrl,firstName}:{
         ))}
       </nav>
 
-      {/* Bottom — logo + sign out */}
-      <div style={{padding:"16px 20px", borderTop:"1px solid #f1f5f9"}}>
+      {/* Bottom — logo centered + sign out */}
+      <div style={{
+        padding:"16px 20px",
+        borderTop:"1px solid #f1f5f9",
+        display:"flex", flexDirection:"column",
+        alignItems:"center", gap:10,
+      }}>
         <img
           src="https://dashello.co/wp-content/uploads/2023/08/Logo.png"
           alt="Dashello"
-          style={{height:28, objectFit:"contain", maxWidth:"100%", display:"block", marginBottom:12}}
+          style={{height:28, objectFit:"contain", maxWidth:"80%"}}
         />
         <button onClick={()=>supabase.auth.signOut()} style={{
           width:"100%", padding:"8px 0", borderRadius:8,
@@ -1928,11 +1946,19 @@ export default function DashelloDashboard() {
         <div onClick={() => setSidebarOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 900 }} />
       )}
 
-      {/* Sidebar — overlay on mobile, inline on desktop */}
+     {/* Sidebar — overlay on mobile, inline on desktop */}
       {sidebarOpen && (
         isMobile ? (
           <div style={{ position: "fixed", left: 0, top: 0, bottom: 0, width: 260, zIndex: 1000 }}>
             {sidebarEl}
+            {/* Floating × outside sidebar on mobile */}
+            <div onClick={() => setSidebarOpen(false)} style={{
+              position:"absolute", top:16, right:-48,
+              width:36, height:36, borderRadius:"50%",
+              background:"#fff", boxShadow:"0 2px 8px rgba(0,0,0,0.15)",
+              display:"flex", alignItems:"center", justifyContent:"center",
+              cursor:"pointer", fontSize:20, color:"#475569", zIndex:1001,
+            }}>×</div>
           </div>
         ) : sidebarEl
       )}
