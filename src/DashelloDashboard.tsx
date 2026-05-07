@@ -1411,7 +1411,7 @@ function SettingsPage({userId, userEmail, onProfileSaved}:{
     setSaving(false);
   };
 
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+ const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !userId) return;
     setUploading(true);
@@ -1421,14 +1421,14 @@ function SettingsPage({userId, userEmail, onProfileSaved}:{
     if (!error) {
       const { data } = supabase.storage.from("avatars").getPublicUrl(path);
       const newUrl = data.publicUrl + "?t=" + Date.now();
-      setLocalProfile((p: any) => ({ ...p, avatar_url: newUrl }));
-      // Also save to DB and update parent immediately
+      const updated = { ...localProfile, avatar_url: newUrl };
+      setLocalProfile(updated);
       await supabase.from("profiles").upsert({
         id: userId,
         avatar_url: newUrl,
         updated_at: new Date().toISOString(),
       });
-     onProfileSaved({...localProfile, avatar_url: newUrl});
+      onProfileSaved(updated);
     }
     setUploading(false);
   };
