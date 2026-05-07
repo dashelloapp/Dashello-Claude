@@ -49,7 +49,11 @@ export default function AuthScreen() {
         width: '100%', maxWidth: 420, boxShadow: '0 32px 80px rgba(0,0,0,0.18)'
       }}>
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <div style={{ fontSize: 28, fontWeight: 700, color: '#1a2332', marginBottom: 6 }}>●● Dashello</div>
+          <img
+            src="https://dashello.co/wp-content/uploads/2023/08/White-Logo-Full.png"
+            alt="Dashello"
+            style={{ height: 48, marginBottom: 12, objectFit: 'contain' }}
+          />
           <div style={{ fontSize: 14, color: '#94a3b8' }}>
             {mode === 'login' ? 'Sign in to your dashboard' : 'Create your account'}
           </div>
