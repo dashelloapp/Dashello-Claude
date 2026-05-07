@@ -1338,84 +1338,179 @@ function TeamPage() {
 // PAGE: SETTINGS
 // ═══════════════════════════════════════════════════════════════════════════
 
-function SettingsPage() {
-  const [name,setName]=useState("Alex Johnson");
-  const [email,setEmail]=useState("alex@company.com");
-  const [company,setCompany]=useState("Acme Corp");
-  const [plan,setPlan]=useState("Pro");
-  const [notif,setNotif]=useState(true);
-  const [darkMode,setDarkMode]=useState(false);
-  const [twoFa,setTwoFa]=useState(false);
-  const [fiveSystem,setFiveSystem]=useState(true);
+function SettingsPage({userId, userEmail, profile, setProfile}:{
+  userId:string; userEmail:string;
+  profile:any; setProfile:(p:any)=>void;
+}) {
+  const [localProfile, setLocalProfile] = useState({...profile});
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [plan, setPlan] = useState("Pro");
+  const [notif, setNotif] = useState(true);
+  const [darkMode, setDarkMode] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
-  const Field=({label,value,onChange}:{label:string;value:string;onChange:(v:string)=>void})=>(
-    <div style={{marginBottom:16}}>
-      <label style={{fontSize:13,color:"#64748b",display:"block",marginBottom:4}}>{label}</label>
-      <input value={value} onChange={e=>onChange(e.target.value)}
-        style={{width:"100%",padding:"9px 14px",borderRadius:8,border:"1.5px solid #e2e8f0",fontSize:14,outline:"none",boxSizing:"border-box",background:"#fff"}}/>
+  const handleSave = async () => {
+    setSaving(true);
+    const { error } = await supabase.from("profiles").upsert({
+      id: userId,
+      full_name: localProfile.full_name,
+      company: localProfile.company,
+      street: localProfile.street,
+      city: localProfile.city,
+      state: localProfile.state,
+      zip: localProfile.zip,
+      country: localProfile.country,
+      avatar_url: localProfile.avatar_url,
+      five_account_enabled: localProfile.five_account_enabled,
+      updated_at: new Date().toISOString(),
+    });
+    if (!error) {
+      setProfile(localProfile);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    }
+    setSaving(false);
+  };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !userId) return;
+    setUploading(true);
+    const ext = file.name.split(".").pop();
+    const path = `${userId}/avatar.${ext}`;
+    const { error } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
+    if (!error) {
+      const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+      setLocalProfile((p: any) => ({ ...p, avatar_url: data.publicUrl }));
+    }
+    setUploading(false);
+  };
+
+  const Field = ({ label, value, onChange, disabled }: { label: string; value: string; onChange?: (v: string) => void; disabled?: boolean }) => (
+    <div style={{ marginBottom: 16 }}>
+      <label style={{ fontSize: 13, color: "#64748b", display: "block", marginBottom: 4 }}>{label}</label>
+      <input value={value} onChange={e => onChange?.(e.target.value)} disabled={disabled}
+        style={{ width: "100%", padding: "9px 14px", borderRadius: 8,
+          border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none",
+          boxSizing: "border-box" as const, background: disabled ? "#f8fafc" : "#fff",
+          color: disabled ? "#94a3b8" : "#1a2332" }} />
     </div>
   );
 
-  return(
-    <div style={{padding:"clamp(16px,4vw,32px)",maxWidth:900}}>
-      <div style={{display:"flex",alignItems:"center",gap:16,marginBottom:28,flexWrap:"wrap"}}>
-        <h1 style={{margin:0,fontSize:"clamp(20px,4vw,26px)",fontWeight:700,color:"#1a2332"}}>Profile</h1>
-        <div style={{marginLeft:"auto",padding:"6px 16px",borderRadius:20,background:"linear-gradient(135deg,#3B82F6,#06B6D4)",color:"#fff",fontSize:13,fontWeight:600}}>
+  return (
+    <div style={{ padding: "clamp(16px,4vw,32px)", maxWidth: 900 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 28, flexWrap: "wrap" }}>
+        <h1 style={{ margin: 0, fontSize: "clamp(20px,4vw,26px)", fontWeight: 700, color: "#1a2332" }}>Profile</h1>
+        <div style={{ marginLeft: "auto", padding: "6px 16px", borderRadius: 20,
+          background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600 }}>
           {plan} Plan
         </div>
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:24}}>
-        <div style={{background:"#fff",borderRadius:16,padding:24,border:"1px solid #f1f5f9"}}>
-          <div style={{display:"flex",alignItems:"center",gap:16,marginBottom:24}}>
-            <div style={{width:64,height:64,borderRadius:"50%",background:"#4C9FE8",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,fontWeight:700,color:"#fff"}}>AJ</div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 24 }}>
+
+        {/* Profile card */}
+        <div style={{ background: "#fff", borderRadius: 16, padding: 24, border: "1px solid #f1f5f9" }}>
+
+          {/* Avatar */}
+          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
+            <div onClick={() => fileRef.current?.click()}
+              style={{ width: 64, height: 64, borderRadius: "50%", background: "#4C9FE8", cursor: "pointer",
+                overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 24, fontWeight: 700, color: "#fff", flexShrink: 0, position: "relative" }}>
+              {localProfile.avatar_url
+                ? <img src={localProfile.avatar_url} alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                : (localProfile.full_name?.[0]?.toUpperCase() ?? "👤")}
+              <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.3)", display: "flex",
+                alignItems: "center", justifyContent: "center", opacity: 0, transition: "opacity 0.2s" }}
+                onMouseEnter={e => (e.currentTarget.style.opacity = "1")}
+                onMouseLeave={e => (e.currentTarget.style.opacity = "0")}>
+                <span style={{ fontSize: 11, color: "#fff", fontWeight: 600 }}>Change</span>
+              </div>
+            </div>
+            <input ref={fileRef} type="file" accept="image/*" onChange={handlePhotoUpload} style={{ display: "none" }} />
             <div>
-              <div style={{fontSize:16,fontWeight:700,color:"#1a2332"}}>{name}</div>
-              <button style={{fontSize:12,color:"#3B82F6",background:"none",border:"none",cursor:"pointer",padding:0}}>Change photo</button>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "#1a2332" }}>{localProfile.full_name || "Your Name"}</div>
+              <button onClick={() => fileRef.current?.click()}
+                style={{ fontSize: 12, color: "#3B82F6", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                {uploading ? "Uploading..." : "Change photo"}
+              </button>
             </div>
           </div>
-          <h3 style={{margin:"0 0 16px",fontSize:15,fontWeight:600,color:"#1a2332"}}>Account</h3>
-          <Field label="Full Name" value={name} onChange={setName}/>
-          <Field label="Email" value={email} onChange={setEmail}/>
-          <Field label="Company" value={company} onChange={setCompany}/>
-          <h3 style={{margin:"20px 0 16px",fontSize:15,fontWeight:600,color:"#1a2332"}}>Address</h3>
-          <Field label="City" value="Nashville" onChange={()=>{}}/>
-          <Field label="State" value="Tennessee" onChange={()=>{}}/>
-          <button style={{width:"100%",padding:"10px",borderRadius:8,border:"none",background:"linear-gradient(135deg,#3B82F6,#06B6D4)",color:"#fff",fontSize:14,fontWeight:600,cursor:"pointer",marginTop:8}}>
-            Save Changes
+
+          <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 600, color: "#1a2332" }}>Account</h3>
+          <Field label="Full Name" value={localProfile.full_name}
+            onChange={v => setLocalProfile((p: any) => ({ ...p, full_name: v }))} />
+          <Field label="Email" value={userEmail} disabled />
+          <Field label="Company" value={localProfile.company}
+            onChange={v => setLocalProfile((p: any) => ({ ...p, company: v }))} />
+
+          <h3 style={{ margin: "20px 0 16px", fontSize: 15, fontWeight: 600, color: "#1a2332" }}>Address</h3>
+          <Field label="Street Address" value={localProfile.street}
+            onChange={v => setLocalProfile((p: any) => ({ ...p, street: v }))} />
+          <Field label="City" value={localProfile.city}
+            onChange={v => setLocalProfile((p: any) => ({ ...p, city: v }))} />
+          <Field label="State" value={localProfile.state}
+            onChange={v => setLocalProfile((p: any) => ({ ...p, state: v }))} />
+          <Field label="ZIP Code" value={localProfile.zip}
+            onChange={v => setLocalProfile((p: any) => ({ ...p, zip: v }))} />
+          <Field label="Country" value={localProfile.country}
+            onChange={v => setLocalProfile((p: any) => ({ ...p, country: v }))} />
+
+          <button onClick={handleSave} disabled={saving}
+            style={{ width: "100%", padding: "10px", borderRadius: 8, border: "none",
+              background: saved ? "#4CAF7D" : "linear-gradient(135deg,#3B82F6,#06B6D4)",
+              color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer", marginTop: 8 }}>
+            {saving ? "Saving..." : saved ? "✓ Saved!" : "Save Changes"}
           </button>
         </div>
-        <div style={{display:"flex",flexDirection:"column",gap:16}}>
-          <div style={{background:"#fff",borderRadius:16,padding:24,border:"1px solid #f1f5f9"}}>
-            <h3 style={{margin:"0 0 16px",fontSize:15,fontWeight:600,color:"#1a2332"}}>Plan</h3>
-            {[{name:"Free",price:"$0/mo",features:"3 rows, 10 metrics"},{name:"Pro",price:"$29/mo",features:"Unlimited rows, integrations"},{name:"Business",price:"$79/mo",features:"Team access, all apps"}].map(p=>(
-              <div key={p.name} onClick={()=>setPlan(p.name)} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",borderRadius:10,marginBottom:8,cursor:"pointer",
-                background:plan===p.name?"#EFF6FF":"#F8FAFC",border:plan===p.name?"1.5px solid #3B82F6":"1.5px solid transparent"}}>
-                <div style={{width:16,height:16,borderRadius:"50%",border:"2px solid",borderColor:plan===p.name?"#3B82F6":"#d1d5db",
-                  background:plan===p.name?"#3B82F6":"transparent",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                  {plan===p.name&&<div style={{width:6,height:6,borderRadius:"50%",background:"#fff"}}/>}
+
+        {/* Plan + Preferences */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ background: "#fff", borderRadius: 16, padding: 24, border: "1px solid #f1f5f9" }}>
+            <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 600, color: "#1a2332" }}>Plan</h3>
+            {[{ name: "Free", price: "$0/mo", features: "3 rows, 10 metrics" },
+              { name: "Pro", price: "$29/mo", features: "Unlimited rows, integrations" },
+              { name: "Business", price: "$79/mo", features: "Team access, all apps" }].map(p => (
+              <div key={p.name} onClick={() => setPlan(p.name)}
+                style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px",
+                  borderRadius: 10, marginBottom: 8, cursor: "pointer",
+                  background: plan === p.name ? "#EFF6FF" : "#F8FAFC",
+                  border: plan === p.name ? "1.5px solid #3B82F6" : "1.5px solid transparent" }}>
+                <div style={{ width: 16, height: 16, borderRadius: "50%", border: "2px solid",
+                  borderColor: plan === p.name ? "#3B82F6" : "#d1d5db",
+                  background: plan === p.name ? "#3B82F6" : "transparent",
+                  display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  {plan === p.name && <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#fff" }} />}
                 </div>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:14,fontWeight:600,color:"#1a2332"}}>{p.name}</div>
-                  <div style={{fontSize:12,color:"#94a3b8"}}>{p.features}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "#1a2332" }}>{p.name}</div>
+                  <div style={{ fontSize: 12, color: "#94a3b8" }}>{p.features}</div>
                 </div>
-                <div style={{fontSize:13,fontWeight:600,color:"#3B82F6"}}>{p.price}</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#3B82F6" }}>{p.price}</div>
               </div>
             ))}
           </div>
-          <div style={{background:"#fff",borderRadius:16,padding:24,border:"1px solid #f1f5f9"}}>
-            <h3 style={{margin:"0 0 16px",fontSize:15,fontWeight:600,color:"#1a2332"}}>Preferences</h3>
+
+          <div style={{ background: "#fff", borderRadius: 16, padding: 24, border: "1px solid #f1f5f9" }}>
+            <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 600, color: "#1a2332" }}>Preferences</h3>
             {[
-              {label:"Email notifications",sub:"Daily digest of key metrics",on:notif,set:setNotif},
-              {label:"Dark mode",sub:"Switch to dark theme",on:darkMode,set:setDarkMode},
-              {label:"Two-factor auth",sub:"Require 2FA on login",on:twoFa,set:setTwoFa},
-              {label:"Five-Account System",sub:"Enable Profit First method globally",on:fiveSystem,set:setFiveSystem},
-            ].map((item,i)=>(
-              <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 0",borderBottom:i<3?"1px solid #f1f5f9":"none"}}>
+              { label: "Email notifications", sub: "Daily digest of key metrics", on: notif, set: setNotif },
+              { label: "Dark mode", sub: "Switch to dark theme", on: darkMode, set: setDarkMode },
+              { label: "Two-factor auth (coming soon)", sub: "Require 2FA on login", on: false, set: () => {} },
+              { label: "Five-Account System", sub: "Enable Profit First method globally",
+                on: localProfile.five_account_enabled,
+                set: (v: boolean) => setLocalProfile((p: any) => ({ ...p, five_account_enabled: v })) },
+            ].map((item, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "10px 0", borderBottom: i < 3 ? "1px solid #f1f5f9" : "none" }}>
                 <div>
-                  <div style={{fontSize:14,color:"#1a2332"}}>{item.label}</div>
-                  <div style={{fontSize:12,color:"#94a3b8"}}>{item.sub}</div>
+                  <div style={{ fontSize: 14, color: i === 2 ? "#94a3b8" : "#1a2332" }}>{item.label}</div>
+                  <div style={{ fontSize: 12, color: "#94a3b8" }}>{item.sub}</div>
                 </div>
-                <Toggle on={item.on} onChange={item.set}/>
+                <Toggle on={item.on} onChange={item.set} />
               </div>
             ))}
           </div>
@@ -1424,7 +1519,6 @@ function SettingsPage() {
     </div>
   );
 }
-
 // ═══════════════════════════════════════════════════════════════════════════
 // CHAT PANEL
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1492,12 +1586,14 @@ const NAV=[
   {icon:"⚙",label:"Settings",   page:"settings"     as Page},
 ];
 
-function Sidebar({active,onNav,collapsed,onToggle}:{active:Page;onNav:(p:Page)=>void;collapsed:boolean;onToggle:()=>void}) {
+function Sidebar({active,onNav,collapsed,onToggle,avatarUrl,firstName}:{active:Page;onNav:(p:Page)=>void;collapsed:boolean;onToggle:()=>void;avatarUrl?:string;firstName?:string}) {
   const w=collapsed?60:185;
   return(
     <aside style={{width:w,flexShrink:0,background:"linear-gradient(160deg,#2196F3 0%,#00BCD4 100%)",
       display:"flex",flexDirection:"column",padding:collapsed?"20px 8px":"24px 12px 20px",
-      boxShadow:"4px 0 20px rgba(33,150,243,0.2)",transition:"width 0.25s ease",overflow:"hidden",position:"relative",zIndex:10}}>
+      boxShadow:"4px 0 20px rgba(33,150,243,0.2)",transition:"width 0.25s ease",overflow:"hidden",position:"relative",zIndex:10,
+      overflowY:"auto",scrollbarWidth:"none",msOverflowStyle:"none"} as React.CSSProperties}>
+      <style>{`aside::-webkit-scrollbar{display:none}`}</style>
 
       {/* Collapse toggle */}
       <button onClick={onToggle} style={{position:"absolute",top:12,right:collapsed?8:10,background:"rgba(255,255,255,0.2)",border:"none",
@@ -1509,12 +1605,22 @@ function Sidebar({active,onNav,collapsed,onToggle}:{active:Page;onNav:(p:Page)=>
       {!collapsed&&(
         <div style={{textAlign:"center",marginBottom:24,marginTop:8}}>
           <div style={{width:72,height:72,borderRadius:"50%",background:"rgba(255,255,255,0.3)",margin:"0 auto 10px",
-            border:"3px solid rgba(255,255,255,0.6)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:28}}>👤</div>
-          <div style={{color:"#fff",fontSize:12,fontWeight:500,lineHeight:1.4}}>Welcome to your<br/>business dashboard</div>
+            border:"3px solid rgba(255,255,255,0.6)",overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",fontSize:28}}>
+            {avatarUrl
+              ? <img src={avatarUrl} alt="avatar" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+              : "👤"}
+          </div>
+          <div style={{color:"#fff",fontSize:12,fontWeight:500,lineHeight:1.4}}>
+            {firstName ? `Welcome ${firstName} to your dashboard` : "Welcome to your dashboard"}
+          </div>
         </div>
       )}
-      {collapsed&&<div style={{width:36,height:36,borderRadius:"50%",background:"rgba(255,255,255,0.3)",margin:"36px auto 20px",border:"2px solid rgba(255,255,255,0.5)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>👤</div>}
-
+      {collapsed&&(
+        <div style={{width:36,height:36,borderRadius:"50%",background:"rgba(255,255,255,0.3)",margin:"36px auto 20px",
+          border:"2px solid rgba(255,255,255,0.5)",overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>
+          {avatarUrl?<img src={avatarUrl} alt="avatar" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:"👤"}
+        </div>
+      )}
       {/* Nav */}
       <nav style={{flex:1}}>
         {NAV.map(item=>(
@@ -1657,19 +1763,28 @@ export default function DashelloDashboard() {
   const [isMobile, setIsMobile] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string>("");
   const [dbReady, setDbReady] = useState(false);
+  const [profile, setProfile] = useState({
+    full_name: "", company: "", street: "", city: "",
+    state: "", zip: "", country: "", avatar_url: "",
+    five_account_enabled: false,
+  });
 
   // ── Get current user ──────────────────────────────────────────────────
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) setUserId(session.user.id);
+      if (session?.user) {
+        setUserId(session.user.id);
+        setUserEmail(session.user.email ?? "");
+      }
     });
   }, []);
 
   // ── Load all data on login ────────────────────────────────────────────
   useEffect(() => {
     if (!userId) return;
-    async function load() {
+  async function load() {
       const [savedSections, savedTasks, savedGoals] = await Promise.all([
         loadUserData("sections", userId!),
         loadUserData("tasks", userId!),
@@ -1679,6 +1794,25 @@ export default function DashelloDashboard() {
       else setSections([]);
       if (savedTasks) setTasksData(savedTasks);
       if (savedGoals) setGoalsData(savedGoals);
+
+      // Load profile
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", userId!)
+        .maybeSingle();
+      if (prof) setProfile({
+        full_name: prof.full_name ?? "",
+        company: prof.company ?? "",
+        street: prof.street ?? "",
+        city: prof.city ?? "",
+        state: prof.state ?? "",
+        zip: prof.zip ?? "",
+        country: prof.country ?? "",
+        avatar_url: prof.avatar_url ?? "",
+        five_account_enabled: prof.five_account_enabled ?? false,
+      });
+
       setDbReady(true);
     }
     load();
@@ -1750,7 +1884,9 @@ export default function DashelloDashboard() {
   const sidebarEl = (
     <Sidebar active={page} onNav={handleNav}
       collapsed={isMobile ? false : sidebarCollapsed}
-      onToggle={isMobile ? () => setMobileMenuOpen(false) : () => setSidebarCollapsed(v => !v)} />
+      onToggle={isMobile ? () => setMobileMenuOpen(false) : () => setSidebarCollapsed(v => !v)}
+      avatarUrl={profile.avatar_url}
+      firstName={profile.full_name?.split(" ")[0] ?? ""}/>
   );
 
   return (
@@ -1791,7 +1927,7 @@ export default function DashelloDashboard() {
           {page === "integrations" && <div style={{ flex: 1, overflowY: "auto" }}><IntegrationsPage onSelectApp={handleSelectApp} /></div>}
           {page === "app-detail" && selectedApp && <div style={{ flex: 1, overflowY: "auto" }}><AppDetailPage app={selectedApp} onBack={() => setPage("integrations")} /></div>}
           {page === "team" && <div style={{ flex: 1, overflowY: "auto" }}><TeamPage /></div>}
-          {page === "settings" && <div style={{ flex: 1, overflowY: "auto" }}><SettingsPage /></div>}
+          {page === "settings" && <div style={{ flex: 1, overflowY: "auto" }}><SettingsPage userId={userId!} userEmail={userEmail} profile={profile} setProfile={setProfile}/></div>}
         </div>
       </div>
 
