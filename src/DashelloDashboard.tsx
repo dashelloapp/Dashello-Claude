@@ -1419,6 +1419,7 @@ function SettingsPage({userId, userEmail, onProfileSaved}:{
     const path = `${userId}/avatar.${ext}`;
     const { error } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
     if (!error) {
+      console.log("Upload success, new URL:", data.publicUrl);
       const { data } = supabase.storage.from("avatars").getPublicUrl(path);
       const newUrl = data.publicUrl + "?t=" + Date.now();
       const updated = { ...localProfile, avatar_url: newUrl };
