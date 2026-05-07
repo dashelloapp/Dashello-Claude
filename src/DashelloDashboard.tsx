@@ -1056,7 +1056,10 @@ function GoalsPage({goals, setGoals}:{goals:any[];setGoals:(g:any[])=>void}) {
 
 function TasksPage({tasks, setTasks}:{tasks:any[];setTasks:(t:any[])=>void}) {
   const [filter,setFilter]=useState<"all"|"active"|"completed">("all");
-  const toggle=(id:string)=>setTasks((t:any[])=>t.map((x:any)=>x.id===id?{...x,done:!x.done}:x));
+  const toggle=(id:string)=>{
+  const updated=tasks.map((x:any)=>x.id===id?{...x,done:!x.done}:x);
+  setTasks(updated);
+};
   const filtered=tasks.filter(t=>filter==="all"?true:filter==="active"?!t.done:t.done);
   const suggestedTasks=[
     {text:"Close 5 more calls",tag:"Sales"},
