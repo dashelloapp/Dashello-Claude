@@ -50,7 +50,7 @@ export default function AuthScreen() {
       }}>
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <img
-            src="https://dashello.co/wp-content/uploads/2023/08/White-Logo-Full.png"
+            src="https://dashello.co/wp-content/uploads/2023/08/Logo.png"
             alt="Dashello"
             style={{ height: 48, marginBottom: 12, objectFit: 'contain' }}
           />
