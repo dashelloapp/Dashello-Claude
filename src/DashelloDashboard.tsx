@@ -1620,104 +1620,112 @@ const NAV=[
   {icon:"⚙",label:"Settings",   page:"settings"     as Page},
 ];
 
-function Sidebar({active,onNav,collapsed,onToggle,avatarUrl,firstName}:{active:Page;onNav:(p:Page)=>void;collapsed:boolean;onToggle:()=>void;avatarUrl?:string;firstName?:string}) {
-  const w=collapsed?60:185;
-  return(
-    <aside style={{width:w,flexShrink:0,background:"linear-gradient(160deg,#2196F3 0%,#00BCD4 100%)",
-      display:"flex",flexDirection:"column",padding:collapsed?"20px 8px":"24px 12px 20px",
-      boxShadow:"4px 0 20px rgba(33,150,243,0.2)",transition:"width 0.25s ease",overflow:"hidden",position:"relative",zIndex:10,
-      overflowY:"auto",scrollbarWidth:"none",msOverflowStyle:"none"} as React.CSSProperties}>
-      <style>{`aside::-webkit-scrollbar{display:none}`}</style>
+function Sidebar({active,onNav,collapsed,onToggle,avatarUrl,firstName}:{
+  active:Page;onNav:(p:Page)=>void;collapsed:boolean;onToggle:()=>void;avatarUrl?:string;firstName?:string;
+}) {
+  const w = collapsed ? 64 : 260;
+  return (
+    <aside style={{
+      width:w, flexShrink:0, background:"#fff",
+      display:"flex", flexDirection:"column",
+      boxShadow:"2px 0 12px rgba(0,0,0,0.07)",
+      transition:"width 0.25s ease", position:"relative", zIndex:10,
+      overflowY:"auto", overflowX:"hidden",
+      scrollbarWidth:"none", msOverflowStyle:"none",
+    } as React.CSSProperties}>
+      <style>{`
+        aside::-webkit-scrollbar{display:none}
+        .nav-item:hover{background:#f1f5f9 !important}
+      `}</style>
 
-      {/* Collapse toggle */}
-      <button onClick={onToggle} style={{position:"absolute",top:12,right:collapsed?8:10,background:"rgba(255,255,255,0.2)",border:"none",
-        borderRadius:"50%",width:24,height:24,cursor:"pointer",color:"#fff",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-        {collapsed?"›":"‹"}
-      </button>
+      {/* Collapse tab — subtle arrow on right edge */}
+      <div onClick={onToggle} style={{
+        position:"absolute", top:"50%", right:-12, transform:"translateY(-50%)",
+        width:24, height:48, background:"#fff", border:"1px solid #e2e8f0",
+        borderRadius:"0 8px 8px 0", display:"flex", alignItems:"center",
+        justifyContent:"center", cursor:"pointer", zIndex:20,
+        boxShadow:"2px 0 6px rgba(0,0,0,0.06)", color:"#94a3b8", fontSize:12,
+      }}>
+        {collapsed ? "›" : "‹"}
+      </div>
 
-      {/* Profile */}
-      {!collapsed&&(
-        <div style={{textAlign:"center",marginBottom:24,marginTop:8}}>
-          <div style={{width:72,height:72,borderRadius:"50%",background:"rgba(255,255,255,0.3)",margin:"0 auto 10px",
-            border:"3px solid rgba(255,255,255,0.6)",overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",fontSize:28}}>
-            {avatarUrl
-              ? <img src={avatarUrl} alt="avatar" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
-              : "👤"}
-          </div>
-          <div style={{color:"#fff",fontSize:12,fontWeight:500,lineHeight:1.4}}>
-            {firstName ? `Welcome ${firstName} to your dashboard` : "Welcome to your dashboard"}
-          </div>
+      {/* Profile section */}
+      <div style={{
+        padding: collapsed ? "24px 0 16px" : "28px 20px 20px",
+        borderBottom:"1px solid #f1f5f9",
+        display:"flex", flexDirection:"column",
+        alignItems: collapsed ? "center" : "flex-start", gap:12,
+      }}>
+        <div style={{
+          width: collapsed ? 36 : 56, height: collapsed ? 36 : 56,
+          borderRadius:"50%", background:"#e2e8f0", flexShrink:0,
+          overflow:"hidden", display:"flex", alignItems:"center",
+          justifyContent:"center", fontSize: collapsed ? 14 : 22,
+        }}>
+          {avatarUrl
+            ? <img src={avatarUrl} alt="avatar" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+            : <span style={{color:"#94a3b8"}}>👤</span>}
         </div>
-      )}
-      {collapsed&&(
-        <div style={{width:36,height:36,borderRadius:"50%",background:"rgba(255,255,255,0.3)",margin:"36px auto 20px",
-          border:"2px solid rgba(255,255,255,0.5)",overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>
-          {avatarUrl?<img src={avatarUrl} alt="avatar" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:"👤"}
-        </div>
-      )}
+        {!collapsed && (
+          <div>
+            <div style={{fontSize:13,fontWeight:600,color:"#1a2332",lineHeight:1.3}}>
+              {firstName ? `Welcome ${firstName}` : "Welcome"}
+            </div>
+            <div style={{fontSize:12,color:"#94a3b8",marginTop:2}}>to your dashboard</div>
+          </div>
+        )}
+      </div>
+
       {/* Nav */}
-      <nav style={{flex:1}}>
+      <nav style={{flex:1, padding: collapsed ? "12px 8px" : "12px 12px"}}>
         {NAV.map(item=>(
-          <div key={item.label} onClick={()=>onNav(item.page)} title={collapsed?item.label:undefined}
-            style={{display:"flex",alignItems:"center",gap:collapsed?0:8,padding:collapsed?"10px 0":"9px 12px",
-              borderRadius:10,marginBottom:2,cursor:"pointer",justifyContent:collapsed?"center":"flex-start",
-              background:active===item.page?"rgba(255,255,255,0.25)":"transparent",
-              color:"#fff",fontSize:13,fontWeight:active===item.page?600:400,transition:"background 0.15s"}}>
-            <span style={{fontSize:collapsed?20:14,flexShrink:0}}>{item.icon}</span>
-            {!collapsed&&<span style={{whiteSpace:"nowrap",overflow:"hidden"}}>{item.label}</span>}
+          <div key={item.label} className="nav-item" onClick={()=>onNav(item.page)}
+            title={collapsed ? item.label : undefined}
+            style={{
+              display:"flex", alignItems:"center",
+              gap: collapsed ? 0 : 10,
+              padding: collapsed ? "10px 0" : "10px 12px",
+              borderRadius:10, marginBottom:2, cursor:"pointer",
+              justifyContent: collapsed ? "center" : "flex-start",
+              background: active===item.page ? "#EFF6FF" : "transparent",
+              color: active===item.page ? "#3B82F6" : "#475569",
+              fontSize:13, fontWeight: active===item.page ? 600 : 400,
+              transition:"background 0.15s",
+            }}>
+            <span style={{fontSize: collapsed ? 18 : 15, flexShrink:0}}>{item.icon}</span>
+            {!collapsed && <span style={{whiteSpace:"nowrap"}}>{item.label}</span>}
           </div>
         ))}
       </nav>
 
-      {/* Health bar */}
-      {!collapsed&&(
-        <div style={{marginBottom:16}}>
-          <div style={{color:"rgba(255,255,255,0.85)",fontSize:12,marginBottom:6}}>Health — <strong>50%</strong></div>
-          <div style={{height:8,borderRadius:99,background:"rgba(255,255,255,0.25)"}}>
-            <div style={{width:"50%",height:"100%",borderRadius:99,background:"#4ADE80"}}/>
-          </div>
-        </div>
-      )}
-
-      {/* Tasks widget */}
-      {!collapsed&&(
-        <div style={{background:"rgba(255,255,255,0.15)",borderRadius:12,padding:"12px 10px"}}>
-          <div style={{background:"#3B82F6",borderRadius:8,padding:"4px 10px",color:"#fff",fontSize:12,fontWeight:600,marginBottom:10,display:"inline-block"}}>Your Tasks</div>
-          {[1,2,3,4,5].map(i=>(
-            <div key={i} style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
-              <div style={{width:14,height:14,borderRadius:"50%",border:"1.5px solid rgba(255,255,255,0.5)",flexShrink:0}}/>
-              <div style={{height:7,borderRadius:99,flex:1,background:"rgba(255,255,255,0.35)"}}/>
-            </div>
-          ))}
-          <div style={{color:"rgba(255,255,255,0.75)",fontSize:11,marginTop:4,cursor:"pointer"}} onClick={()=>onNav("tasks")}>View All</div>
-        </div>
-      )}
-
-      {/* Logo + Sign Out */}
-      <div style={{marginTop:16,textAlign:"center"}}>
-        {collapsed
-          ? <div style={{color:"rgba(255,255,255,0.7)",fontSize:12,fontWeight:700}}>●●</div>
-          : <img
-              src="https://dashello.co/wp-content/uploads/2023/08/White-Logo-Full.png"
-              alt="Dashello"
-              style={{height:32,objectFit:"contain",maxWidth:"100%"}}
-            />
-        }
-      </div>
-      {!collapsed&&(
-        <button
-          onClick={()=>supabase.auth.signOut()}
-          style={{marginTop:10,width:"100%",padding:"8px 0",borderRadius:8,border:"1.5px solid rgba(255,255,255,0.4)",
-            background:"transparent",color:"rgba(255,255,255,0.85)",fontSize:12,fontWeight:600,cursor:"pointer"}}>
-          Sign Out
+      {/* Bottom — logo + sign out */}
+      <div style={{
+        padding: collapsed ? "16px 8px" : "16px 20px",
+        borderTop:"1px solid #f1f5f9",
+        display:"flex", flexDirection:"column",
+        alignItems: collapsed ? "center" : "stretch", gap:10,
+      }}>
+        {!collapsed && (
+          <img
+            src="https://dashello.co/wp-content/uploads/2023/08/Logo.png"
+            alt="Dashello"
+            style={{height:28, objectFit:"contain", maxWidth:"100%"}}
+          />
+        )}
+        {collapsed && (
+          <div style={{fontSize:11,fontWeight:700,color:"#94a3b8",textAlign:"center"}}>●●</div>
+        )}
+        <button onClick={()=>supabase.auth.signOut()} style={{
+          padding: collapsed ? "8px 0" : "8px 0",
+          borderRadius:8, border:"1.5px solid #e2e8f0",
+          background:"transparent", color:"#94a3b8",
+          fontSize:12, fontWeight:600, cursor:"pointer",
+          width:"100%", display:"flex", alignItems:"center",
+          justifyContent:"center", gap:6,
+        }}>
+          {collapsed ? "⏻" : "Sign Out"}
         </button>
-      )}
-      {collapsed&&(
-        <div onClick={()=>supabase.auth.signOut()} title="Sign Out"
-          style={{marginTop:10,textAlign:"center",fontSize:18,cursor:"pointer",color:"rgba(255,255,255,0.7)"}}>
-          ⏻
-        </div>
-      )}
+      </div>
     </aside>
   );
 }
@@ -1931,15 +1939,36 @@ export default function DashelloDashboard() {
       )}
 
       {isMobile ? (
-        <div style={{ position: "fixed", left: mobileMenuOpen ? 0 : -220, top: 0, bottom: 0, zIndex: 1000, transition: "left 0.25s ease" }}>
+        <div style={{ position: "fixed", left: mobileMenuOpen ? 0 : -280, top: 0, bottom: 0, zIndex: 1000, transition: "left 0.25s ease", width:260 }}>
           {sidebarEl}
+          {/* Floating X button */}
+          {mobileMenuOpen && (
+            <div onClick={() => setMobileMenuOpen(false)} style={{
+              position:"absolute", top:16, right:-48,
+              width:36, height:36, borderRadius:"50%",
+              background:"#fff", boxShadow:"0 2px 8px rgba(0,0,0,0.15)",
+              display:"flex", alignItems:"center", justifyContent:"center",
+              cursor:"pointer", fontSize:18, color:"#475569",
+            }}>×</div>
+          )}
         </div>
       ) : sidebarEl}
 
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px clamp(12px,3vw,28px)", borderBottom: "1px solid #E8EDF2", background: "#fff", flexShrink: 0, flexWrap: "wrap" }}>
-          {isMobile && (
-            <button onClick={() => setMobileMenuOpen(v => !v)} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#1a2332", padding: 0, marginRight: 4 }}>☰</button>
+         {isMobile && (
+            <div onClick={() => setMobileMenuOpen(v => !v)} style={{
+              width:36, height:36, borderRadius:"50%",
+              background:"#f1f5f9", display:"flex",
+              alignItems:"center", justifyContent:"center",
+              cursor:"pointer", marginRight:4, flexShrink:0,
+            }}>
+              <div style={{display:"flex",flexDirection:"column",gap:4,padding:8}}>
+                <div style={{width:16,height:2,background:"#475569",borderRadius:2}}/>
+                <div style={{width:16,height:2,background:"#475569",borderRadius:2}}/>
+                <div style={{width:16,height:2,background:"#475569",borderRadius:2}}/>
+              </div>
+            </div>
           )}
           {page === "home" && (
             <div style={{ display: "flex", borderRadius: 8, border: "1px solid #e2e8f0", overflow: "hidden" }}>
