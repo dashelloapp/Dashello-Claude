@@ -1027,7 +1027,7 @@ function GoalsPage({goals, setGoals}:{goals:any[];setGoals:(g:any[])=>void}) {
                 <span style={{fontSize:12,color:"#94a3b8",flexShrink:0}}>Due: {g.due}</span>
               </div>
               <div style={{fontSize:13,fontWeight:700,color:"#1a2332",marginBottom:10}}>Projections:</div>
-              {g.projections.map((p,pi)=>(
+              {g.projections.map((p:any,pi:any)=>(
                 <div key={pi} style={{marginBottom:10}}>
                   <div style={{fontSize:12,color:"#94a3b8"}}>{p.label}</div>
                   <div style={{fontSize:16,fontWeight:700,color:"#1a2332"}}>{p.value}</div>
@@ -1035,7 +1035,7 @@ function GoalsPage({goals, setGoals}:{goals:any[];setGoals:(g:any[])=>void}) {
               ))}
               <div style={{fontSize:13,fontWeight:700,color:"#1a2332",marginTop:14,marginBottom:10}}>Metrics Tracking This Goal:</div>
               <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                {g.metrics.map((m,mi)=>(
+                {g.metrics.map((m:any,mi:any)=>(
                   <div key={mi} style={{background:MS[m.color as MetricColor].bg,borderRadius:10,padding:"8px 12px",minWidth:80}}>
                     <div style={{fontSize:11,color:MS[m.color as MetricColor].text,fontWeight:600}}>{m.label}</div>
                     <div style={{fontSize:14,fontWeight:700,color:MS[m.color as MetricColor].text,marginTop:2}}>{m.value}</div>
@@ -1056,7 +1056,7 @@ function GoalsPage({goals, setGoals}:{goals:any[];setGoals:(g:any[])=>void}) {
 
 function TasksPage({tasks, setTasks}:{tasks:any[];setTasks:(t:any[])=>void}) {
   const [filter,setFilter]=useState<"all"|"active"|"completed">("all");
-  const toggle=(id:string)=>setTasks(t=>t.map(x=>x.id===id?{...x,done:!x.done}:x));
+  const toggle=(id:string)=>setTasks((t:any[])=>t.map((x:any)=>x.id===id?{...x,done:!x.done}:x));
   const filtered=tasks.filter(t=>filter==="all"?true:filter==="active"?!t.done:t.done);
   const suggestedTasks=[
     {text:"Close 5 more calls",tag:"Sales"},
