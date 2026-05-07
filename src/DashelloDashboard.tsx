@@ -1559,8 +1559,15 @@ function Sidebar({active,onNav,collapsed,onToggle}:{active:Page;onNav:(p:Page)=>
       )}
 
       {/* Logo + Sign Out */}
-      <div style={{color:"rgba(255,255,255,0.7)",fontSize:collapsed?12:13,fontWeight:700,marginTop:16,textAlign:"center",whiteSpace:"nowrap"}}>
-        {collapsed?"●●":"●● Dashello"}
+      <div style={{marginTop:16,textAlign:"center"}}>
+        {collapsed
+          ? <div style={{color:"rgba(255,255,255,0.7)",fontSize:12,fontWeight:700}}>●●</div>
+          : <img
+              src="https://dashello.co/wp-content/uploads/2023/08/White-Logo-Full.png"
+              alt="Dashello"
+              style={{height:32,objectFit:"contain",maxWidth:"100%"}}
+            />
+        }
       </div>
       {!collapsed&&(
         <button
