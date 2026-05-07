@@ -1,6 +1,34 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { supabase } from "./lib/supabase";
 
+// ── DB helpers ────────────────────────────────────────────────────────────
+async function loadUserData(table: string, userId: string) {
+  const { data } = await supabase
+    .from(table)
+    .select("data")
+    .eq("user_id", userId)
+    .maybeSingle();
+  return data?.data ?? null;
+}
+
+async function saveUserData(table: string, userId: string, payload: any) {
+  const { data: existing } = await supabase
+    .from(table)
+    .select("id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (existing) {
+    await supabase
+      .from(table)
+      .update({ data: payload, updated_at: new Date().toISOString() })
+      .eq("user_id", userId);
+  } else {
+    await supabase
+      .from(table)
+      .insert({ user_id: userId, data: payload });
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
 // ═══════════════════════════════════════════════════════════════════════════
@@ -221,23 +249,7 @@ const SALES_MODALS:Record<string,MetricModalData> = {
     suggestions:[],nextActions:[{avatar:"AJ"},{avatar:"BK"},{avatar:"CL"},{}]}),
 };
 
-const INIT_SECTIONS:Section[] = [
-  {id:"cashflow",title:"Cashflow",avatars:["AJ","BK","CL"],metrics:[
-    {id:"overhead",   label:"Overhead",   value:"$79,941.08", icon:"💳",color:"gray",modal:CASHFLOW_MODALS.overhead},
-    {id:"profit",     label:"Profit",     value:"$235,000.00",icon:"↗", color:"gray",modal:CASHFLOW_MODALS.profit},
-    {id:"tax",        label:"Tax",        value:"$23,750.00", icon:">>",color:"gray",modal:CASHFLOW_MODALS.tax},
-    {id:"investments",label:"Investments",value:"$0.00",      icon:"👜",color:"gray",modal:CASHFLOW_MODALS.investments},
-    {id:"owner",      label:"Owner",      value:"$7,500",     icon:"👜",color:"gray",modal:CASHFLOW_MODALS.owner},
-  ]},
-  {id:"sales",title:"Sales",avatars:["DM"],metrics:[
-    {id:"leads",   label:"Leads",               value:"12",         icon:"👤",color:"gray",modal:SALES_MODALS.leads},
-    {id:"emails",  label:"Emails Opened",        value:"789",        icon:"✉", color:"gray",modal:SALES_MODALS.emails},
-    {id:"invoices",label:"Invoices In Progress", value:"$10,050.76", icon:"↻", color:"gray",modal:SALES_MODALS.invoices},
-  ]},
-  {id:"marketing",title:"Marketing",avatars:["EN","FO"],metrics:[
-    {id:"website",label:"Website Engagement",value:"67%",icon:"🌐",color:"gray",modal:SALES_MODALS.website},
-  ]},
-];
+const INIT_SECTIONS: Section[] = [];
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SHARED COMPONENTS
@@ -1652,97 +1664,159 @@ function HomePage({sections,setSections,setModal}:{sections:Section[];setSection
 // ═══════════════════════════════════════════════════════════════════════════
 
 export default function DashelloDashboard() {
-  const [page,setPage]=useState<Page>("home");
-  const [sections,setSections]=useState<Section[]>(INIT_SECTIONS);
-  const [modal,setModal]=useState<MetricModalData|null>(null);
-  const [editingFromModal,setEditingFromModal]=useState(false);
-  const [selectedApp,setSelectedApp]=useState<typeof APPS[0]|null>(null);
-  const [sidebarCollapsed,setSidebarCollapsed]=useState(false);
-  const [showChat,setShowChat]=useState(false);
-  const [isMobile,setIsMobile]=useState(false);
-  const [mobileMenuOpen,setMobileMenuOpen]=useState(false);
+  const [page, setPage] = useState<Page>("home");
+  const [sections, setSections] = useState<Section[]>([]);
+  const [modal, setModal] = useState<MetricModalData | null>(null);
+  const [editingFromModal, setEditingFromModal] = useState(false);
+  const [selectedApp, setSelectedApp] = useState<typeof APPS[0] | null>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [showChat, setShowChat] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [dbReady, setDbReady] = useState(false);
 
-  useEffect(()=>{
-    const check=()=>setIsMobile(window.innerWidth<768);
+  // ── Get current user ──────────────────────────────────────────────────
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) setUserId(session.user.id);
+    });
+  }, []);
+
+  // ── Load all data on login ────────────────────────────────────────────
+  useEffect(() => {
+    if (!userId) return;
+    async function load() {
+      const [savedSections, savedTasks, savedGoals] = await Promise.all([
+        loadUserData("sections", userId!),
+        loadUserData("tasks", userId!),
+        loadUserData("goals", userId!),
+      ]);
+      if (savedSections) setSections(savedSections);
+      else setSections([]);
+      if (savedTasks) setTasksData(savedTasks);
+      if (savedGoals) setGoalsData(savedGoals);
+      setDbReady(true);
+    }
+    load();
+  }, [userId]);
+
+  // ── Shared task + goal state (lifted up so we can save them) ─────────
+  const [tasksData, setTasksData] = useState([
+    { id: "1", text: "Review Q3 financials", done: false, assignee: "AJ", due: "Mar 15" },
+    { id: "2", text: "Follow up with 5 leads", done: true, assignee: "BK", due: "Mar 12" },
+    { id: "3", text: "Update marketing report", done: false, assignee: "CL", due: "Mar 18" },
+    { id: "4", text: "Team standup notes", done: true, assignee: "AJ", due: "Mar 11" },
+    { id: "5", text: "Invoice client #4821", done: false, assignee: "DM", due: "Mar 20" },
+    { id: "6", text: "Send 34 quotes", done: false, assignee: "BK", due: "Mar 22" },
+    { id: "7", text: "Add $9,756 to Tax account", done: false, assignee: "AJ", due: "Mar 14" },
+  ]);
+
+  const [goalsData, setGoalsData] = useState([
+    { label: "Increase Sales by 25%", current: "$235,000", target: "$1,200,000", pct: 20, due: "May 26th",
+      projections: [{ label: "Projected Sales This Month", value: "<27" }, { label: "Projected Income From Sales", value: "<$10,000" }, { label: "Projected New Customers", value: "<250" }],
+      metrics: [{ label: "Leads", value: "12", color: "red" }, { label: "Emails Opened", value: "789", color: "green" }, { label: "Invoices In Progress", value: "$10,050.76", color: "gray" }] },
+    { label: "Fully Fund Business Emergency - $200k", current: "$70,000", target: "$200,000", pct: 35, due: "Dec 17th",
+      projections: [{ label: "Projected Funded Date", value: "Mar. 17/25" }, { label: "Projected Monthly Save", value: "$20,000" }],
+      metrics: [{ label: "Overhead", value: "$79,941", color: "green" }, { label: "Profit", value: "$235K", color: "yellow" }, { label: "Tax", value: "$23,750", color: "gray" }] },
+    { label: "500 New Sign Ups Per Month", current: "125", target: "500", pct: 25, due: "30th",
+      projections: [{ label: "Projected New Sign Ups", value: "350" }, { label: "Projected Click Conversion", value: "4.2%" }],
+      metrics: [{ label: "Website", value: "67%", color: "green" }] },
+  ]);
+
+  // ── Auto-save whenever data changes ──────────────────────────────────
+  useEffect(() => {
+    if (!userId || !dbReady) return;
+    saveUserData("sections", userId, sections);
+  }, [sections, userId, dbReady]);
+
+  useEffect(() => {
+    if (!userId || !dbReady) return;
+    saveUserData("tasks", userId, tasksData);
+  }, [tasksData, userId, dbReady]);
+
+  useEffect(() => {
+    if (!userId || !dbReady) return;
+    saveUserData("goals", userId, goalsData);
+  }, [goalsData, userId, dbReady]);
+
+  // ── Mobile detection ──────────────────────────────────────────────────
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
     check();
-    window.addEventListener("resize",check);
-    return()=>window.removeEventListener("resize",check);
-  },[]);
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
-  const handleSelectApp=(app:typeof APPS[0])=>{setSelectedApp(app);setPage("app-detail");};
-  const handleEditFromModal=()=>{setEditingFromModal(true);setModal(null);};
-
-  const handleNav=(p:Page)=>{
-    setPage(p);setSelectedApp(null);
-    if(isMobile)setMobileMenuOpen(false);
+  const handleSelectApp = (app: typeof APPS[0]) => { setSelectedApp(app); setPage("app-detail"); };
+  const handleEditFromModal = () => { setEditingFromModal(true); setModal(null); };
+  const handleNav = (p: Page) => {
+    setPage(p); setSelectedApp(null);
+    if (isMobile) setMobileMenuOpen(false);
   };
 
-  // Mobile: sidebar as overlay drawer
-  const sidebarEl=(
-    <Sidebar active={page} onNav={handleNav}
-      collapsed={isMobile?false:sidebarCollapsed}
-      onToggle={isMobile?()=>setMobileMenuOpen(false):()=>setSidebarCollapsed(v=>!v)}/>
+  // ── Loading screen ────────────────────────────────────────────────────
+  if (!dbReady) return (
+    <div style={{ display: "flex", height: "100vh", alignItems: "center", justifyContent: "center",
+      background: "linear-gradient(160deg,#2196F3 0%,#00BCD4 100%)", fontSize: 18, color: "#fff",
+      fontFamily: "Inter, sans-serif" }}>
+      Loading your dashboard...
+    </div>
   );
 
-  return(
-    <div style={{display:"flex",height:"100vh",fontFamily:"'Inter',system-ui,sans-serif",background:"#F8FAFC",position:"relative"}}>
+  const sidebarEl = (
+    <Sidebar active={page} onNav={handleNav}
+      collapsed={isMobile ? false : sidebarCollapsed}
+      onToggle={isMobile ? () => setMobileMenuOpen(false) : () => setSidebarCollapsed(v => !v)} />
+  );
 
-      {/* Mobile drawer overlay */}
-      {isMobile&&mobileMenuOpen&&(
-        <div onClick={()=>setMobileMenuOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:900}}/>
+  return (
+    <div style={{ display: "flex", height: "100vh", fontFamily: "'Inter',system-ui,sans-serif", background: "#F8FAFC", position: "relative" }}>
+
+      {isMobile && mobileMenuOpen && (
+        <div onClick={() => setMobileMenuOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 900 }} />
       )}
 
-      {/* Sidebar — inline on desktop, drawer on mobile */}
-      {isMobile?(
-        <div style={{position:"fixed",left:mobileMenuOpen?0:-220,top:0,bottom:0,zIndex:1000,transition:"left 0.25s ease"}}>
+      {isMobile ? (
+        <div style={{ position: "fixed", left: mobileMenuOpen ? 0 : -220, top: 0, bottom: 0, zIndex: 1000, transition: "left 0.25s ease" }}>
           {sidebarEl}
         </div>
-      ):sidebarEl}
+      ) : sidebarEl}
 
-      {/* Main content */}
-      <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",minWidth:0}}>
-
-        {/* Top bar */}
-        <div style={{display:"flex",alignItems:"center",gap:8,padding:"12px clamp(12px,3vw,28px)",borderBottom:"1px solid #E8EDF2",background:"#fff",flexShrink:0,flexWrap:"wrap"}}>
-          {/* Hamburger on mobile */}
-          {isMobile&&(
-            <button onClick={()=>setMobileMenuOpen(v=>!v)} style={{background:"none",border:"none",fontSize:22,cursor:"pointer",color:"#1a2332",padding:0,marginRight:4}}>☰</button>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px clamp(12px,3vw,28px)", borderBottom: "1px solid #E8EDF2", background: "#fff", flexShrink: 0, flexWrap: "wrap" }}>
+          {isMobile && (
+            <button onClick={() => setMobileMenuOpen(v => !v)} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#1a2332", padding: 0, marginRight: 4 }}>☰</button>
           )}
-          {page==="home"&&(
-            <div style={{display:"flex",borderRadius:8,border:"1px solid #e2e8f0",overflow:"hidden"}}>
-              {["Row","Column"].map((lbl,i)=>(
-                <div key={lbl} style={{padding:"6px 14px",fontSize:13,fontWeight:500,cursor:"pointer",
-                  background:i===0?"#3B82F6":"#fff",color:i===0?"#fff":"#94a3b8"}}>{lbl}</div>
+          {page === "home" && (
+            <div style={{ display: "flex", borderRadius: 8, border: "1px solid #e2e8f0", overflow: "hidden" }}>
+              {["Row", "Column"].map((lbl, i) => (
+                <div key={lbl} style={{ padding: "6px 14px", fontSize: 13, fontWeight: 500, cursor: "pointer",
+                  background: i === 0 ? "#3B82F6" : "#fff", color: i === 0 ? "#fff" : "#94a3b8" }}>{lbl}</div>
               ))}
             </div>
           )}
-          <div style={{flex:1}}/>
-          <div onClick={()=>setShowChat(v=>!v)} style={{padding:"7px 18px",borderRadius:20,border:"1px solid #e2e8f0",fontSize:13,color:"#64748b",cursor:"pointer",background:showChat?"#EFF6FF":"#fff"}}>Chat</div>
-          <div style={{padding:"8px clamp(12px,2vw,22px)",borderRadius:8,background:"linear-gradient(135deg,#3B82F6,#06B6D4)",color:"#fff",fontSize:13,fontWeight:600,cursor:"pointer"}}>Customize</div>
+          <div style={{ flex: 1 }} />
+          <div onClick={() => setShowChat(v => !v)} style={{ padding: "7px 18px", borderRadius: 20, border: "1px solid #e2e8f0", fontSize: 13, color: "#64748b", cursor: "pointer", background: showChat ? "#EFF6FF" : "#fff" }}>Chat</div>
+          <div style={{ padding: "8px clamp(12px,2vw,22px)", borderRadius: 8, background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Customize</div>
         </div>
 
-        {/* Page */}
-        <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
-          {page==="home"        && <HomePage sections={sections} setSections={setSections} setModal={setModal}/>}
-          {page==="goals"       && <div style={{flex:1,overflowY:"auto"}}><GoalsPage/></div>}
-          {page==="tasks"       && <div style={{flex:1,overflowY:"auto"}}><TasksPage/></div>}
-          {page==="integrations"&& <div style={{flex:1,overflowY:"auto"}}><IntegrationsPage onSelectApp={handleSelectApp}/></div>}
-          {page==="app-detail"  && selectedApp&&<div style={{flex:1,overflowY:"auto"}}><AppDetailPage app={selectedApp} onBack={()=>setPage("integrations")}/></div>}
-          {page==="team"        && <div style={{flex:1,overflowY:"auto"}}><TeamPage/></div>}
-          {page==="settings"    && <div style={{flex:1,overflowY:"auto"}}><SettingsPage/></div>}
+        <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+          {page === "home" && <HomePage sections={sections} setSections={setSections} setModal={setModal} />}
+          {page === "goals" && <div style={{ flex: 1, overflowY: "auto" }}><GoalsPage goals={goalsData} setGoals={setGoalsData} /></div>}
+          {page === "tasks" && <div style={{ flex: 1, overflowY: "auto" }}><TasksPage tasks={tasksData} setTasks={setTasksData} /></div>}
+          {page === "integrations" && <div style={{ flex: 1, overflowY: "auto" }}><IntegrationsPage onSelectApp={handleSelectApp} /></div>}
+          {page === "app-detail" && selectedApp && <div style={{ flex: 1, overflowY: "auto" }}><AppDetailPage app={selectedApp} onBack={() => setPage("integrations")} /></div>}
+          {page === "team" && <div style={{ flex: 1, overflowY: "auto" }}><TeamPage /></div>}
+          {page === "settings" && <div style={{ flex: 1, overflowY: "auto" }}><SettingsPage /></div>}
         </div>
       </div>
 
-      {/* Chat panel */}
-      {showChat&&<ChatPanel sections={sections} onClose={()=>setShowChat(false)}/>}
-
-      {/* Metric detail modal */}
-      {modal&&<MetricModal data={modal} onClose={()=>setModal(null)} onEdit={handleEditFromModal}/>}
-
-      {/* Settings modal from Edit button in detail modal */}
-      {editingFromModal&&<MetricBoxSettingsModal
-        onSave={()=>setEditingFromModal(false)}
-        onClose={()=>setEditingFromModal(false)}/>}
+      {showChat && <ChatPanel sections={sections} onClose={() => setShowChat(false)} />}
+      {modal && <MetricModal data={modal} onClose={() => setModal(null)} onEdit={handleEditFromModal} />}
+      {editingFromModal && <MetricBoxSettingsModal
+        onSave={() => setEditingFromModal(false)}
+        onClose={() => setEditingFromModal(false)} />}
     </div>
   );
 }
