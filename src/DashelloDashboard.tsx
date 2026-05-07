@@ -1338,12 +1338,14 @@ function TeamPage() {
 // PAGE: SETTINGS
 // ═══════════════════════════════════════════════════════════════════════════
 
-function SettingsPage({userId, userEmail, profile, setProfile}:{
-  userId:string; userEmail:string;
-  profile:any; setProfile:(p:any)=>void;
+function SettingsPage({userId, userEmail, onProfileSaved}:{
+  userId:string; userEmail:string; onProfileSaved:(p:any)=>void;
 }) {
-  const [localProfile, setLocalProfile] = useState({...profile});
-  const initialized = useRef(false);
+  const [localProfile, setLocalProfile] = useState({
+    full_name:"", company:"", street:"", city:"",
+    state:"", zip:"", country:"", avatar_url:"",
+    five_account_enabled:false,
+  });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -1352,13 +1354,23 @@ function SettingsPage({userId, userEmail, profile, setProfile}:{
   const [darkMode, setDarkMode] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // Only sync from parent profile once on first load
+  // Load profile once on mount
   useEffect(() => {
-    if (!initialized.current && profile.full_name !== undefined) {
-      setLocalProfile({...profile});
-      initialized.current = true;
-    }
-  }, [profile]);
+    if (!userId) return;
+    supabase.from("profiles").select("*").eq("id", userId).maybeSingle().then(({ data }) => {
+      if (data) setLocalProfile({
+        full_name: data.full_name ?? "",
+        company: data.company ?? "",
+        street: data.street ?? "",
+        city: data.city ?? "",
+        state: data.state ?? "",
+        zip: data.zip ?? "",
+        country: data.country ?? "",
+        avatar_url: data.avatar_url ?? "",
+        five_account_enabled: data.five_account_enabled ?? false,
+      });
+    });
+  }, [userId]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -1375,8 +1387,8 @@ function SettingsPage({userId, userEmail, profile, setProfile}:{
       five_account_enabled: localProfile.five_account_enabled,
       updated_at: new Date().toISOString(),
     });
-    if (!error) {
-      setProfile({...localProfile});
+   if (!error) {
+      onProfileSaved({...localProfile});
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     }
@@ -1400,7 +1412,7 @@ function SettingsPage({userId, userEmail, profile, setProfile}:{
         avatar_url: newUrl,
         updated_at: new Date().toISOString(),
       });
-      setProfile((p: any) => ({ ...p, avatar_url: newUrl }));
+     onProfileSaved({...localProfile, avatar_url: newUrl});
     }
     setUploading(false);
   };
@@ -1944,7 +1956,7 @@ export default function DashelloDashboard() {
           {page === "integrations" && <div style={{ flex: 1, overflowY: "auto" }}><IntegrationsPage onSelectApp={handleSelectApp} /></div>}
           {page === "app-detail" && selectedApp && <div style={{ flex: 1, overflowY: "auto" }}><AppDetailPage app={selectedApp} onBack={() => setPage("integrations")} /></div>}
           {page === "team" && <div style={{ flex: 1, overflowY: "auto" }}><TeamPage /></div>}
-          {page === "settings" && <div style={{ flex: 1, overflowY: "auto" }}><SettingsPage userId={userId!} userEmail={userEmail} profile={profile} setProfile={setProfile}/></div>}
+          {page === "settings" && <div style={{ flex: 1, overflowY: "auto" }}><SettingsPage userId={userId!} userEmail={userEmail} onProfileSaved={(p:any)=>setProfile(p)}/></div>}
         </div>
       </div>
 
