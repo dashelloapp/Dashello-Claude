@@ -975,19 +975,8 @@ function DashSection({section,onAddMetric,onRemoveMetric,onUpdateMetric,onRename
 // PAGE: GOALS (list + expanded view)
 // ═══════════════════════════════════════════════════════════════════════════
 
-function GoalsPage() {
+function GoalsPage({goals, setGoals}:{goals:any[];setGoals:(g:any[])=>void}) {
   const [view,setView]=useState<"list"|"expanded">("list");
-  const goals=[
-    {label:"Increase Sales by 25%",current:"$235,000",target:"$1,200,000",pct:20,due:"May 26th",
-      projections:[{label:"Projected Sales This Month",value:"<27"},{label:"Projected Income From Sales",value:"<$10,000"},{label:"Projected New Customers",value:"<250"}],
-      metrics:[{label:"Leads",value:"12",color:"red"},{label:"Emails Opened",value:"789",color:"green"},{label:"Invoices In Progress",value:"$10,050.76",color:"gray"}]},
-    {label:"Fully Fund Business Emergency - $200k",current:"$70,000",target:"$200,000",pct:35,due:"Dec 17th",
-      projections:[{label:"Projected Funded Date",value:"Mar. 17/25"},{label:"Projected Monthly Save",value:"$20,000"}],
-      metrics:[{label:"Overhead",value:"$79,941",color:"green"},{label:"Profit",value:"$235K",color:"yellow"},{label:"Tax",value:"$23,750",color:"gray"}]},
-    {label:"500 New Sign Ups Per Month",current:"125",target:"500",pct:25,due:"30th",
-      projections:[{label:"Projected New Sign Ups",value:"350"},{label:"Projected Click Conversion",value:"4.2%"}],
-      metrics:[{label:"Website",value:"67%",color:"green"}]},
-  ];
   return(
     <div style={{padding:"clamp(16px,4vw,32px)"}}>
       <div style={{display:"flex",alignItems:"center",gap:16,marginBottom:28,flexWrap:"wrap"}}>
@@ -1065,8 +1054,7 @@ function GoalsPage() {
 // PAGE: TASKS
 // ═══════════════════════════════════════════════════════════════════════════
 
-function TasksPage() {
-  const [tasks,setTasks]=useState([
+function TasksPage({tasks, setTasks}:{tasks:any[];setTasks:(t:any[])=>void}) {
     {id:"1",text:"Review Q3 financials",done:false,assignee:"AJ",due:"Mar 15"},
     {id:"2",text:"Follow up with 5 leads",done:true,assignee:"BK",due:"Mar 12"},
     {id:"3",text:"Update marketing report",done:false,assignee:"CL",due:"Mar 18"},
