@@ -1338,6 +1338,17 @@ function TeamPage() {
 // PAGE: SETTINGS
 // ═══════════════════════════════════════════════════════════════════════════
 
+const Field = ({ label, value, onChange, disabled }: { label: string; value: string; onChange?: (v: string) => void; disabled?: boolean }) => (
+    <div style={{ marginBottom: 16 }}>
+      <label style={{ fontSize: 13, color: "#64748b", display: "block", marginBottom: 4 }}>{label}</label>
+      <input value={value} onChange={e => onChange?.(e.target.value)} disabled={disabled}
+        style={{ width: "100%", padding: "9px 14px", borderRadius: 8,
+          border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none",
+          boxSizing: "border-box" as const, background: disabled ? "#f8fafc" : "#fff",
+          color: disabled ? "#94a3b8" : "#1a2332" }} />
+    </div>
+  );
+
 function SettingsPage({userId, userEmail, onProfileSaved}:{
   userId:string; userEmail:string; onProfileSaved:(p:any)=>void;
 }) {
@@ -1417,17 +1428,6 @@ function SettingsPage({userId, userEmail, onProfileSaved}:{
     setUploading(false);
   };
 
-  const Field = ({ label, value, onChange, disabled }: { label: string; value: string; onChange?: (v: string) => void; disabled?: boolean }) => (
-    <div style={{ marginBottom: 16 }}>
-      <label style={{ fontSize: 13, color: "#64748b", display: "block", marginBottom: 4 }}>{label}</label>
-      <input value={value} onChange={e => onChange?.(e.target.value)} disabled={disabled}
-        style={{ width: "100%", padding: "9px 14px", borderRadius: 8,
-          border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none",
-          boxSizing: "border-box" as const, background: disabled ? "#f8fafc" : "#fff",
-          color: disabled ? "#94a3b8" : "#1a2332" }} />
-    </div>
-  );
-
   return (
     <div style={{ padding: "clamp(16px,4vw,32px)", maxWidth: 900 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 28, flexWrap: "wrap" }}>
@@ -1470,23 +1470,21 @@ function SettingsPage({userId, userEmail, onProfileSaved}:{
           </div>
 
           <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 600, color: "#1a2332" }}>Account</h3>
-          <Field label="Full Name" value={localProfile.full_name}
-            onChange={v => setLocalProfile((p: any) => ({ ...p, full_name: v }))} />
-          <Field label="Email" value={userEmail} disabled />
-          <Field label="Company" value={localProfile.company}
-            onChange={v => setLocalProfile((p: any) => ({ ...p, company: v }))} />
-
-          <h3 style={{ margin: "20px 0 16px", fontSize: 15, fontWeight: 600, color: "#1a2332" }}>Address</h3>
-          <Field label="Street Address" value={localProfile.street}
-            onChange={v => setLocalProfile((p: any) => ({ ...p, street: v }))} />
-          <Field label="City" value={localProfile.city}
-            onChange={v => setLocalProfile((p: any) => ({ ...p, city: v }))} />
-          <Field label="State" value={localProfile.state}
-            onChange={v => setLocalProfile((p: any) => ({ ...p, state: v }))} />
-          <Field label="ZIP Code" value={localProfile.zip}
-            onChange={v => setLocalProfile((p: any) => ({ ...p, zip: v }))} />
-          <Field label="Country" value={localProfile.country}
-            onChange={v => setLocalProfile((p: any) => ({ ...p, country: v }))} />
+          <ProfileField label="Full Name" value={localProfile.full_name}
+  onChange={v => setLocalProfile((p: any) => ({ ...p, full_name: v }))} />
+<ProfileField label="Email" value={userEmail} disabled />
+<ProfileField label="Company" value={localProfile.company}
+  onChange={v => setLocalProfile((p: any) => ({ ...p, company: v }))} />
+<ProfileField label="Street Address" value={localProfile.street}
+  onChange={v => setLocalProfile((p: any) => ({ ...p, street: v }))} />
+<ProfileField label="City" value={localProfile.city}
+  onChange={v => setLocalProfile((p: any) => ({ ...p, city: v }))} />
+<ProfileField label="State" value={localProfile.state}
+  onChange={v => setLocalProfile((p: any) => ({ ...p, state: v }))} />
+<ProfileField label="ZIP Code" value={localProfile.zip}
+  onChange={v => setLocalProfile((p: any) => ({ ...p, zip: v }))} />
+<ProfileField label="Country" value={localProfile.country}
+  onChange={v => setLocalProfile((p: any) => ({ ...p, country: v }))} />
 
           <button onClick={handleSave} disabled={saving}
             style={{ width: "100%", padding: "10px", borderRadius: 8, border: "none",
