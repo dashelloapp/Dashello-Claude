@@ -90,7 +90,6 @@ export default function AuthScreen() {
           </span>
         </div>
         <div style={{ textAlign: 'center', marginTop: 16, fontSize: 12, color: '#cbd5e1' }}>
-          {' '}
           <a href="https://dashello.co/terms-and-privacy/" target="_blank" rel="noreferrer"
             style={{ color: '#94a3b8', textDecoration: 'underline' }}>
             Privacy Policy & Terms
