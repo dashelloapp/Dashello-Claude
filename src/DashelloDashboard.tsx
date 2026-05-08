@@ -849,23 +849,25 @@ function MetricBlock({metric,onRemove,onClick,onEdit,onDragStart,onDragOver,onDr
   const s=MS[activeColor];
   const [hov,setHov]=useState(false);
   const hasIcon = metric.icon && metric.icon !== ICON_NONE;
-  return(
+    return(
     <div draggable onDragStart={onDragStart} onDragOver={onDragOver} onDrop={e=>{e.preventDefault();onDrop();}}
       onClick={onClick} onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
       style={{width:140,minHeight:140,borderRadius:16,background:s.bg,padding:"16px 14px",
-        display:"flex",flexDirection:"column",justifyContent:"space-between",cursor:"grab",position:"relative",flexShrink:0,
+        display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
+        cursor:"grab",position:"relative",flexShrink:0,gap:6,
         transform:hov?"translateY(-3px)":"none",transition:"transform 0.15s,box-shadow 0.15s",
         boxShadow:hov?"0 10px 28px rgba(0,0,0,0.15)":"0 2px 8px rgba(0,0,0,0.06)",
         outline:isDragOver?"3px dashed rgba(59,130,246,0.6)":"3px solid transparent"}}>
-      <div style={{fontSize:12,fontWeight:600,color:s.text,lineHeight:1.3}}>{metric.label}</div>
       {hasIcon&&(
-        <div style={{width:44,height:44,borderRadius:"50%",background:s.iconBg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,margin:"8px 0",alignSelf:"flex-start"}}>
+        <div style={{width:44,height:44,borderRadius:"50%",background:s.iconBg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>
           <span style={{color:s.text}}>{metric.icon}</span>
         </div>
       )}
-      <div style={{fontSize:15,fontWeight:700,color:s.text,marginTop:hasIcon?0:"auto"}}>{metric.value}</div>
+      <div style={{fontSize:12,fontWeight:600,color:s.text,lineHeight:1.3,textAlign:"center"}}>{metric.label}</div>
+      <div style={{fontSize:15,fontWeight:700,color:s.text,textAlign:"center"}}>{metric.value}</div>
     </div>
   );
+
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
