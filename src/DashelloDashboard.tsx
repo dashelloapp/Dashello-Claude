@@ -594,7 +594,12 @@ function AddColorRuleModal({onSave,onClose,existing}:{
 // ═══════════════════════════════════════════════════════════════════════════
 // METRIC BOX SETTINGS MODAL  (create new OR edit existing)
 // ═══════════════════════════════════════════════════════════════════════════
-
+function MetricTitleInput({value,onChange}:{value:string;onChange:(v:string)=>void}) {
+  return(
+    <input value={value} onChange={e=>onChange(e.target.value)} placeholder="Metric Box Title"
+      style={{fontSize:18,fontWeight:700,border:"none",outline:"none",color:"#1a2332",background:"transparent",flex:1,minWidth:0}}/>
+  );
+}
 function MetricBoxSettingsModal({initial,onSave,onDelete,onClose}:{
   initial?:Metric; onSave:(m:Omit<Metric,"id">)=>void; onDelete?:()=>void; onClose:()=>void;
 }) {
@@ -644,8 +649,7 @@ function MetricBoxSettingsModal({initial,onSave,onDelete,onClose}:{
 
         {/* Header */}
         <div style={{padding:"22px 24px 0",display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
-          <input value={label} onChange={e=>setLabel(e.target.value)} placeholder="Metric Box Title"
-            style={{fontSize:18,fontWeight:700,border:"none",outline:"none",color:"#1a2332",background:"transparent",flex:1,minWidth:0}}/>
+          <MetricTitleInput value={label} onChange={setLabel}/>
           <button onClick={onClose} style={{background:"none",border:"none",fontSize:24,cursor:"pointer",color:"#94a3b8",padding:"0 0 0 12px",flexShrink:0}}>×</button>
         </div>
 
@@ -955,13 +959,13 @@ function DashSection({section,onAddMetric,onRemoveMetric,onUpdateMetric,onRename
       </div>
       <div style={{height:1,background:"#f1f5f9",marginTop:24}}/>
 
-      {showAdd&&<MetricBoxSettingsModal
-        onSave={m=>onAddMetric(section.id,m)}
+     {showAdd&&<MetricBoxSettingsModal
+        onSave={m=>{onAddMetric(section.id,m);setShowAdd(false);onClickMetric({...m.modal,title:m.label,mainValue:m.value});}}
         onClose={()=>setShowAdd(false)}/>}
 
       {editingMetric&&<MetricBoxSettingsModal
         initial={editingMetric}
-        onSave={m=>onUpdateMetric(section.id,editingMetric.id,m)}
+        onSave={m=>{onUpdateMetric(section.id,editingMetric.id,m);setEditingMetric(null);onClickMetric({...m.modal,title:m.label,mainValue:m.value});}}
         onDelete={()=>onRemoveMetric(section.id,editingMetric.id)}
         onClose={()=>setEditingMetric(null)}/>}
 
