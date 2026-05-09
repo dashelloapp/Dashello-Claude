@@ -321,7 +321,8 @@ function TxnTable({transactions}:{transactions:Transaction[]}) {
 // METRIC DETAIL MODAL
 // ═══════════════════════════════════════════════════════════════════════════
 
-function MetricModal({data,onClose,onEdit,onUpdateValue}:{data:MetricModalData;onClose:()=>void;onEdit?:()=>void;onUpdateValue?:(newVal:string)=>void}) {  const overlayRef=useRef<HTMLDivElement>(null);
+function MetricModal({data,onClose,onEdit}:{data:MetricModalData;onClose:()=>void;onEdit?:()=>void}) {
+  const overlayRef=useRef<HTMLDivElement>(null);
   useEffect(()=>{
     const h=(e:KeyboardEvent)=>{if(e.key==="Escape")onClose();};
     window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h);
@@ -500,20 +501,11 @@ function MetricModal({data,onClose,onEdit,onUpdateValue}:{data:MetricModalData;o
             <div>
               <div style={{fontSize:14,fontWeight:600,color:"#1a2332",marginBottom:10}}>Manually Adjust Metric</div>
               <div style={{display:"flex",alignItems:"center",gap:16,marginBottom:16}}>
-                <button onClick={()=>{
-                const cur=parseFloat(data.mainValue.replace(/[^0-9.]/g,""))||0;
-                const next=Math.max(0,cur-1);
-                const fmt=data.mainValue.startsWith("$")?`$${next.toLocaleString("en-US",{minimumFractionDigits:2})}`:data.mainValue.endsWith("%")?`${next}%`:`${next}`;
-                onUpdateValue?.(fmt);
-              }} style={{width:32,height:32,borderRadius:"50%",border:"1.5px solid #d1d5db",background:"none",fontSize:18,cursor:"pointer",color:"#9CA3AF"}}>−</button>
-              <div><div style={{fontSize:32,fontWeight:700,color:"#1a2332",lineHeight:1}}>{data.mainValue}</div>
-                <div style={{fontSize:11,color:"#94a3b8",fontStyle:"italic"}}>Synced from {data.syncTime}</div></div>
-              <button onClick={()=>{
-                const cur=parseFloat(data.mainValue.replace(/[^0-9.]/g,""))||0;
-                const next=cur+1;
-                const fmt=data.mainValue.startsWith("$")?`$${next.toLocaleString("en-US",{minimumFractionDigits:2})}`:data.mainValue.endsWith("%")?`${next}%`:`${next}`;
-                onUpdateValue?.(fmt);
-              }} style={{width:32,height:32,borderRadius:"50%",border:"1.5px solid #d1d5db",background:"none",fontSize:18,cursor:"pointer",color:"#9CA3AF"}}>+</button>
+                <button style={{width:32,height:32,borderRadius:"50%",border:"1.5px solid #d1d5db",background:"none",fontSize:18,cursor:"pointer",color:"#9CA3AF"}}>−</button>
+                <div><div style={{fontSize:32,fontWeight:700,color:"#1a2332",lineHeight:1}}>{data.mainValue}</div>
+                  <div style={{fontSize:11,color:"#94a3b8",fontStyle:"italic"}}>Synced from {data.syncTime}</div></div>
+                <button style={{width:32,height:32,borderRadius:"50%",border:"1.5px solid #d1d5db",background:"none",fontSize:18,cursor:"pointer",color:"#9CA3AF"}}>+</button>
+              </div>
               <div style={{border:"1px solid #e2e8f0",borderRadius:12,padding:"6px 10px"}}><Sparkline/></div>
             </div>
           </div>
@@ -603,31 +595,11 @@ function AddColorRuleModal({onSave,onClose,existing}:{
 // METRIC BOX SETTINGS MODAL  (create new OR edit existing)
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Standalone title input — prevents focus loss on re-render
-function MetricTitleInput({value,onChange}:{value:string;onChange:(v:string)=>void}) {
-  return(
-    <input value={value} onChange={e=>onChange(e.target.value)} placeholder="Metric Box Title"
-      style={{fontSize:18,fontWeight:700,border:"none",outline:"none",color:"#1a2332",background:"transparent",flex:1,minWidth:0}}/>
-  );
-}
-
-// Format a raw number string based on metric type
-function formatMetricValue(raw:string, type:MetricType): string {
-  const num = parseFloat(raw.replace(/[^0-9.]/g,""));
-  if(isNaN(num)) return raw;
-  if(type==="percentage") return `${num}%`;
-  if(type==="financial") return `$${num.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}`;
-  return `${num}`;
-}
 function MetricBoxSettingsModal({initial,onSave,onDelete,onClose}:{
   initial?:Metric; onSave:(m:Omit<Metric,"id">)=>void; onDelete?:()=>void; onClose:()=>void;
 }) {
   const [label,      setLabel]      =useState(initial?.label??"");
-  const [rawValue,   setRawValue]   =useState(()=>{
-    // Strip formatting to get raw number for editing
-    const v = initial?.value??"";
-    return v.replace(/[^0-9.]/g,"");
-  });
+  const [value,      setValue]      =useState(initial?.value??"");
   const [icon,       setIcon]       =useState(initial?.icon??ICON_NONE);
   const [graphType,  setGraphType]  =useState<GraphType>(initial?.graphType??"linear");
   const [metricType, setMetricType] =useState<MetricType>(initial?.metricType??"counter");
@@ -635,10 +607,6 @@ function MetricBoxSettingsModal({initial,onSave,onDelete,onClose}:{
   const [rules,      setRules]      =useState<ColorRule[]>(initial?.colorRules??[]);
   const [showRuleModal,setShowRuleModal]=useState(false);
   const [editingRule,  setEditingRule]  =useState<ColorRule|undefined>();
-
-  // Live preview of formatted value
-  const displayValue = formatMetricValue(rawValue, metricType);
-  const placeholder = metricType==="financial" ? "e.g. 12000" : metricType==="percentage" ? "e.g. 75" : "e.g. 12";
 
   const graphTypes:[GraphType,string][]=[["bar-h","Bar Horizontal"],["linear","Linear"],["pie","Pie Chart"],["bar-v","Bar Vertical"]];
   const metricTypes:[MetricType,string][]=[["counter","Counter"],["percentage","Percentage"],["financial","Financial"]];
@@ -661,10 +629,9 @@ function MetricBoxSettingsModal({initial,onSave,onDelete,onClose}:{
 
   const handleSave=()=>{
     if(!label.trim())return;
-    const formatted = formatMetricValue(rawValue||"0", metricType);
     const baseColor:MetricColor="gray";
-    const m=makeModal(label,formatted,baseColor,{fiveAccountEnabled:fiveOn,type:fiveOn?"cashflow":"generic"});
-    onSave({label,value:formatted,icon,color:baseColor,modal:m,graphType,metricType,colorRules:rules,connectedApps:initial?.connectedApps??[]});
+    const m=makeModal(label,value||"0",baseColor,{fiveAccountEnabled:fiveOn,type:fiveOn?"cashflow":"generic"});
+    onSave({label,value:value||"0",icon,color:baseColor,modal:m,graphType,metricType,colorRules:rules,connectedApps:initial?.connectedApps??[]});
     onClose();
   };
 
@@ -677,7 +644,8 @@ function MetricBoxSettingsModal({initial,onSave,onDelete,onClose}:{
 
         {/* Header */}
         <div style={{padding:"22px 24px 0",display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
-          <MetricTitleInput value={label} onChange={setLabel}/>
+          <input value={label} onChange={e=>setLabel(e.target.value)} placeholder="Metric Box Title"
+            style={{fontSize:18,fontWeight:700,border:"none",outline:"none",color:"#1a2332",background:"transparent",flex:1,minWidth:0}}/>
           <button onClick={onClose} style={{background:"none",border:"none",fontSize:24,cursor:"pointer",color:"#94a3b8",padding:"0 0 0 12px",flexShrink:0}}>×</button>
         </div>
 
@@ -686,31 +654,15 @@ function MetricBoxSettingsModal({initial,onSave,onDelete,onClose}:{
 
             {/* ── LEFT COLUMN ── */}
             <div style={{display:"flex",flexDirection:"column",gap:16}}>
-
-              {/* 1. Current Value — now FIRST */}
-              <div>
-                <SectionLabel>Current Value</SectionLabel>
-                <div style={{position:"relative"}}>
-                  <input
-                    value={rawValue}
-                    onChange={e=>setRawValue(e.target.value.replace(/[^0-9.]/g,""))}
-                    placeholder={placeholder}
-                    style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1.5px solid #e2e8f0",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
-                </div>
-                {rawValue&&(
-                  <div style={{fontSize:12,color:"#3B82F6",marginTop:4}}>
-                    Preview: <strong>{displayValue}</strong>
-                  </div>
-                )}
-              </div>
-
-              {/* 2. Select Metric Type — now SECOND */}
               <div>
                 <SectionLabel>Select Metric Type</SectionLabel>
-                {metricTypes.map(([t,l])=><Radio key={t} checked={metricType===t} onChange={()=>setMetricType(t as MetricType)} label={l}/>)}
+                {metricTypes.map(([t,l])=><Radio key={t} checked={metricType===t} onChange={()=>setMetricType(t)} label={l}/>)}
               </div>
-
-              {/* 3. Connected Apps */}
+              <div>
+                <SectionLabel>Current Value</SectionLabel>
+                <input value={value} onChange={e=>setValue(e.target.value)} placeholder="e.g. 75 or $12,000"
+                  style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1.5px solid #e2e8f0",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
+              </div>
               <div>
                 <SectionLabel>Connected Apps</SectionLabel>
                 {(initial?.connectedApps??[]).length===0
@@ -720,8 +672,6 @@ function MetricBoxSettingsModal({initial,onSave,onDelete,onClose}:{
                   ))
                 }
               </div>
-
-              {/* 4. Five-Account System */}
               <div style={{background:"#F0FDF4",border:"1px solid #c3e6d4",borderRadius:10,padding:"10px 14px"}}>
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:fiveOn?8:0}}>
                   <div>
@@ -733,8 +683,6 @@ function MetricBoxSettingsModal({initial,onSave,onDelete,onClose}:{
                 {fiveOn&&<div style={{fontSize:11,color:"#0F6E56",background:"#dcfce7",borderRadius:6,padding:"6px 10px"}}>
                   ✓ Box will display bank transactions and 5-account math.</div>}
               </div>
-
-              {/* 5. Create Equation + Color Rule */}
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
                 <button style={{padding:"9px 0",borderRadius:8,border:"none",background:"#64748b",color:"#fff",fontSize:12,fontWeight:600,cursor:"pointer"}}>
                   Create Equation
@@ -743,8 +691,6 @@ function MetricBoxSettingsModal({initial,onSave,onDelete,onClose}:{
                   Create Color Rule
                 </button>
               </div>
-
-              {/* Active rules list */}
               {rules.length>0&&(
                 <div>
                   <SectionLabel>Active Color Rules</SectionLabel>
@@ -796,7 +742,7 @@ function MetricBoxSettingsModal({initial,onSave,onDelete,onClose}:{
               </div>
               <div>
                 <SectionLabel>Select Graph Type</SectionLabel>
-                {graphTypes.map(([g,l])=><Radio key={g} checked={graphType===g} onChange={()=>setGraphType(g as GraphType)} label={l}/>)}
+                {graphTypes.map(([g,l])=><Radio key={g} checked={graphType===g} onChange={()=>setGraphType(g)} label={l}/>)}
               </div>
             </div>
           </div>
@@ -1010,23 +956,15 @@ function DashSection({section,onAddMetric,onRemoveMetric,onUpdateMetric,onRename
       <div style={{height:1,background:"#f1f5f9",marginTop:24}}/>
 
       {showAdd&&<MetricBoxSettingsModal
-        onSave={m=>{
-          onAddMetric(section.id,m);
-          setShowAdd(false);
-          onClickMetric({...m.modal,title:m.label,mainValue:m.value});
-        }}
+        onSave={m=>onAddMetric(section.id,m)}
         onClose={()=>setShowAdd(false)}/>}
 
       {editingMetric&&<MetricBoxSettingsModal
         initial={editingMetric}
-        onSave={m=>{
-          onUpdateMetric(section.id,editingMetric.id,m);
-          setEditingMetric(null);
-          onClickMetric({...m.modal,title:m.label,mainValue:m.value});
-        }}
+        onSave={m=>onUpdateMetric(section.id,editingMetric.id,m)}
         onDelete={()=>onRemoveMetric(section.id,editingMetric.id)}
         onClose={()=>setEditingMetric(null)}/>}
-      
+
       {showRowModal&&<EditAddRowModal
         initial={section.title}
         onSave={name=>onRenameSection(section.id,name)}
@@ -2075,27 +2013,10 @@ export default function DashelloDashboard() {
       </div>
 
       {showChat && <ChatPanel sections={sections} onClose={() => setShowChat(false)} />}
-{modal && <MetricModal
-        data={modal}
-        onClose={() => setModal(null)}
-        onEdit={handleEditFromModal}
-        onUpdateValue={(newVal) => {
-          setSections(prev => prev.map(s => ({
-            ...s,
-            metrics: s.metrics.map(m => {
-              if(m.modal.title === modal.title && m.value === modal.mainValue) {
-                const updated = {...m, value: newVal, modal: {...m.modal, mainValue: newVal}};
-                return updated;
-              }
-              return m;
-            })
-          })));
-          setModal(prev => prev ? {...prev, mainValue: newVal} : null);
-        }}
-      />}      {editingFromModal && <MetricBoxSettingsModal
+      {modal && <MetricModal data={modal} onClose={() => setModal(null)} onEdit={handleEditFromModal} />}
+      {editingFromModal && <MetricBoxSettingsModal
         onSave={() => setEditingFromModal(false)}
         onClose={() => setEditingFromModal(false)} />}
     </div>
   );
 }
-
