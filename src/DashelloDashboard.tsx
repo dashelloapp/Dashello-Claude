@@ -321,8 +321,7 @@ function TxnTable({transactions}:{transactions:Transaction[]}) {
 // METRIC DETAIL MODAL
 // ═══════════════════════════════════════════════════════════════════════════
 
-function MetricModal({data,onClose,onEdit}:{data:MetricModalData;onClose:()=>void;onEdit?:()=>void}) {
-  const overlayRef=useRef<HTMLDivElement>(null);
+function MetricModal({data,onClose,onEdit,onUpdateValue}:{data:MetricModalData;onClose:()=>void;onEdit?:()=>void;onUpdateValue?:(newVal:string)=>void}) {  const overlayRef=useRef<HTMLDivElement>(null);
   useEffect(()=>{
     const h=(e:KeyboardEvent)=>{if(e.key==="Escape")onClose();};
     window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h);
@@ -501,11 +500,20 @@ function MetricModal({data,onClose,onEdit}:{data:MetricModalData;onClose:()=>voi
             <div>
               <div style={{fontSize:14,fontWeight:600,color:"#1a2332",marginBottom:10}}>Manually Adjust Metric</div>
               <div style={{display:"flex",alignItems:"center",gap:16,marginBottom:16}}>
-                <button style={{width:32,height:32,borderRadius:"50%",border:"1.5px solid #d1d5db",background:"none",fontSize:18,cursor:"pointer",color:"#9CA3AF"}}>−</button>
-                <div><div style={{fontSize:32,fontWeight:700,color:"#1a2332",lineHeight:1}}>{data.mainValue}</div>
-                  <div style={{fontSize:11,color:"#94a3b8",fontStyle:"italic"}}>Synced from {data.syncTime}</div></div>
-                <button style={{width:32,height:32,borderRadius:"50%",border:"1.5px solid #d1d5db",background:"none",fontSize:18,cursor:"pointer",color:"#9CA3AF"}}>+</button>
-              </div>
+                <button onClick={()=>{
+                const cur=parseFloat(data.mainValue.replace(/[^0-9.]/g,""))||0;
+                const next=Math.max(0,cur-1);
+                const fmt=data.mainValue.startsWith("$")?`$${next.toLocaleString("en-US",{minimumFractionDigits:2})}`:data.mainValue.endsWith("%")?`${next}%`:`${next}`;
+                onUpdateValue?.(fmt);
+              }} style={{width:32,height:32,borderRadius:"50%",border:"1.5px solid #d1d5db",background:"none",fontSize:18,cursor:"pointer",color:"#9CA3AF"}}>−</button>
+              <div><div style={{fontSize:32,fontWeight:700,color:"#1a2332",lineHeight:1}}>{data.mainValue}</div>
+                <div style={{fontSize:11,color:"#94a3b8",fontStyle:"italic"}}>Synced from {data.syncTime}</div></div>
+              <button onClick={()=>{
+                const cur=parseFloat(data.mainValue.replace(/[^0-9.]/g,""))||0;
+                const next=cur+1;
+                const fmt=data.mainValue.startsWith("$")?`$${next.toLocaleString("en-US",{minimumFractionDigits:2})}`:data.mainValue.endsWith("%")?`${next}%`:`${next}`;
+                onUpdateValue?.(fmt);
+              }} style={{width:32,height:32,borderRadius:"50%",border:"1.5px solid #d1d5db",background:"none",fontSize:18,cursor:"pointer",color:"#9CA3AF"}}>+</button>
               <div style={{border:"1px solid #e2e8f0",borderRadius:12,padding:"6px 10px"}}><Sparkline/></div>
             </div>
           </div>
@@ -1002,15 +1010,23 @@ function DashSection({section,onAddMetric,onRemoveMetric,onUpdateMetric,onRename
       <div style={{height:1,background:"#f1f5f9",marginTop:24}}/>
 
       {showAdd&&<MetricBoxSettingsModal
-        onSave={m=>onAddMetric(section.id,m)}
+        onSave={m=>{
+          onAddMetric(section.id,m);
+          setShowAdd(false);
+          onClickMetric({...m.modal,title:m.label,mainValue:m.value});
+        }}
         onClose={()=>setShowAdd(false)}/>}
 
       {editingMetric&&<MetricBoxSettingsModal
         initial={editingMetric}
-        onSave={m=>onUpdateMetric(section.id,editingMetric.id,m)}
+        onSave={m=>{
+          onUpdateMetric(section.id,editingMetric.id,m);
+          setEditingMetric(null);
+          onClickMetric({...m.modal,title:m.label,mainValue:m.value});
+        }}
         onDelete={()=>onRemoveMetric(section.id,editingMetric.id)}
         onClose={()=>setEditingMetric(null)}/>}
-
+      
       {showRowModal&&<EditAddRowModal
         initial={section.title}
         onSave={name=>onRenameSection(section.id,name)}
@@ -2059,8 +2075,24 @@ export default function DashelloDashboard() {
       </div>
 
       {showChat && <ChatPanel sections={sections} onClose={() => setShowChat(false)} />}
-      {modal && <MetricModal data={modal} onClose={() => setModal(null)} onEdit={handleEditFromModal} />}
-      {editingFromModal && <MetricBoxSettingsModal
+{modal && <MetricModal
+        data={modal}
+        onClose={() => setModal(null)}
+        onEdit={handleEditFromModal}
+        onUpdateValue={(newVal) => {
+          setSections(prev => prev.map(s => ({
+            ...s,
+            metrics: s.metrics.map(m => {
+              if(m.modal.title === modal.title && m.value === modal.mainValue) {
+                const updated = {...m, value: newVal, modal: {...m.modal, mainValue: newVal}};
+                return updated;
+              }
+              return m;
+            })
+          })));
+          setModal(prev => prev ? {...prev, mainValue: newVal} : null);
+        }}
+      />}      {editingFromModal && <MetricBoxSettingsModal
         onSave={() => setEditingFromModal(false)}
         onClose={() => setEditingFromModal(false)} />}
     </div>
