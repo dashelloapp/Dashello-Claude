@@ -594,8 +594,16 @@ function AddColorRuleModal({onSave,onClose,existing}:{
 // ═══════════════════════════════════════════════════════════════════════════
 // METRIC BOX SETTINGS MODAL  (create new OR edit existing)
 // ═══════════════════════════════════════════════════════════════════════════
-function MetricTitleInput({value,onChange}:{value:string;onChange:(v:string)=>void}) {
+
+    function MetricTitleInput({value,onChange,onEnter}:{value:string;onChange:(v:string)=>void;onEnter:()=>void}) {
   return(
+    <input
+      value={value}
+      onChange={e=>onChange(e.target.value)}
+      onKeyDown={e=>{if(e.key==="Enter")onEnter();}}
+      <MetricTitleInput value={label} onChange={setLabel} onEnter={handleSave}/>
+  );
+}
     <input value={value} onChange={e=>onChange(e.target.value)} placeholder="Metric Box Title"
       style={{fontSize:18,fontWeight:700,border:"none",outline:"none",color:"#1a2332",background:"transparent",flex:1,minWidth:0}}/>
   );
