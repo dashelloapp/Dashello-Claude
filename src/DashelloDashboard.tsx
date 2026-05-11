@@ -95,6 +95,54 @@ function getColorForValue(val: number, rules: ColorRule[]): MetricColor {
   }
   return "gray";
 }
+// ─── Health score calculation ──────────────────────────────────────────────
+type HealthResult = {
+  score: number;
+  barColor: "green" | "yellow" | "red";
+  hasData: boolean;
+  counts: { green: number; yellow: number; red: number; gray: number };
+};
+
+function calculateHealth(
+  sections: Section[],
+  greenMult: number,
+  yellowMult: number,
+  redMult: number
+): HealthResult {
+  // Only boxes WITH color rules count toward health
+  const rulesBoxes = sections
+    .flatMap(s => s.metrics)
+    .filter(m => Array.isArray(m.colorRules) && m.colorRules.length > 0);
+
+  const N = rulesBoxes.length;
+  const counts = { green: 0, yellow: 0, red: 0, gray: 0 };
+
+  if (N === 0) {
+    return { score: 0, barColor: "green", hasData: false, counts };
+  }
+
+  const baseWeight = 100 / N;
+  let total = 0;
+
+  for (const metric of rulesBoxes) {
+    const color = resolveColor(metric);
+    counts[color]++;
+    if (color === "green") total += baseWeight * greenMult;
+    else if (color === "yellow") total += baseWeight * yellowMult;
+    else if (color === "red") total += baseWeight * redMult;
+    // gray (rule didn't match) contributes 0
+  }
+
+  const score = Math.max(0, Math.min(100, Math.round(total)));
+
+  // Bar color: any red → red; else any yellow → yellow; else green
+  let barColor: "green" | "yellow" | "red";
+  if (counts.red > 0) barColor = "red";
+  else if (counts.yellow > 0) barColor = "yellow";
+  else barColor = "green";
+
+  return { score, barColor, hasData: true, counts };
+}
 
 // ─── Value formatting ──────────────────────────────────────────────────────
 function formatValue(raw: string, mt: MetricType, currency = "$"): string {
@@ -1747,9 +1795,12 @@ function SettingsPage({ userId, userEmail, onProfileSaved, onFiveAccountCreated 
   onFiveAccountCreated: () => void;
 }) {
   const [localProfile, setLocalProfile] = useState({
-    full_name: "", company: "", street: "", city: "", state: "", zip: "", country: "",
-    avatar_url: "", five_account_enabled: false,
-  });
+  full_name: "", company: "", street: "", city: "", state: "", zip: "", country: "",
+  avatar_url: "", five_account_enabled: false,
+  health_green_multiplier: 1.0,
+  health_yellow_multiplier: 0.5,
+  health_red_multiplier: -1.0,
+});
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -1757,16 +1808,19 @@ function SettingsPage({ userId, userEmail, onProfileSaved, onFiveAccountCreated 
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!userId) return;
-    supabase.from("profiles").select("*").eq("id", userId).maybeSingle().then(({ data }) => {
-      if (data) setLocalProfile({
-        full_name: data.full_name ?? "", company: data.company ?? "",
-        street: data.street ?? "", city: data.city ?? "", state: data.state ?? "",
-        zip: data.zip ?? "", country: data.country ?? "", avatar_url: data.avatar_url ?? "",
-        five_account_enabled: data.five_account_enabled ?? false,
-      });
+  if (!userId) return;
+  supabase.from("profiles").select("*").eq("id", userId).maybeSingle().then(({ data }) => {
+    if (data) setLocalProfile({
+      full_name: data.full_name ?? "", company: data.company ?? "",
+      street: data.street ?? "", city: data.city ?? "", state: data.state ?? "",
+      zip: data.zip ?? "", country: data.country ?? "", avatar_url: data.avatar_url ?? "",
+      five_account_enabled: data.five_account_enabled ?? false,
+      health_green_multiplier: data.health_green_multiplier ?? 1.0,
+      health_yellow_multiplier: data.health_yellow_multiplier ?? 0.5,
+      health_red_multiplier: data.health_red_multiplier ?? -1.0,
     });
-  }, [userId]);
+  });
+}, [userId]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -1885,6 +1939,43 @@ function SettingsPage({ userId, userEmail, onProfileSaved, onFiveAccountCreated 
               </div>
             )}
           </div>
+
+          {/* Health Score multipliers */}
+          <div style={{ background: "#fff", borderRadius: 14, padding: 20, border: "1px solid #f1f5f9" }}>
+            <h3 style={{ margin: "0 0 6px", fontSize: 14, fontWeight: 600, color: "#1a2332" }}>Health Score</h3>
+            <p style={{ margin: "0 0 14px", fontSize: 11, color: "#94a3b8", lineHeight: 1.5 }}>
+              Adjust how each metric color contributes to your overall dashboard health score. Only boxes with color rules count.
+            </p>
+            {[
+              { key: "health_green_multiplier" as const, label: "Green multiplier", color: "#4CAF7D" },
+              { key: "health_yellow_multiplier" as const, label: "Yellow multiplier", color: "#F5A623" },
+              { key: "health_red_multiplier" as const, label: "Red multiplier", color: "#E85D75" },
+            ].map(({ key, label, color }) => (
+              <div key={key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #f1f5f9" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ width: 10, height: 10, borderRadius: "50%", background: color, display: "inline-block" }} />
+                  <span style={{ fontSize: 13, color: "#1a2332" }}>{label}</span>
+                </div>
+                <input
+                  type="number"
+                  step={0.1}
+                  value={localProfile[key]}
+                  onChange={async e => {
+                    const v = parseFloat(e.target.value);
+                    if (isNaN(v)) return;
+                    const updated = { ...localProfile, [key]: v };
+                    setLocalProfile(updated);
+                    await supabase.from("profiles").upsert({ id: userId, ...updated, updated_at: new Date().toISOString() });
+                    onProfileSaved(updated);
+                  }}
+                  style={{ width: 72, padding: "5px 9px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", textAlign: "right" }}
+                />
+              </div>
+            ))}
+            <div style={{ marginTop: 10, fontSize: 10, color: "#94a3b8", lineHeight: 1.5 }}>
+              Defaults: Green +1.0, Yellow +0.5, Red −1.0. A green box adds its full weight, yellow adds half, red subtracts a full weight.
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1944,9 +2035,10 @@ const NAV = [
   { icon: "⚙", label: "Settings", page: "settings" as Page },
 ];
 
-function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName }: {
+function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, health }: {
   active: Page; onNav: (p: Page) => void; onClose: () => void;
   isMobile: boolean; avatarUrl?: string; firstName?: string;
+  health: HealthResult;
 }) {
   return (
     <aside style={{ width: 240, flexShrink: 0, background: "#fff", display: "flex", flexDirection: "column", boxShadow: "2px 0 12px rgba(0,0,0,0.06)", height: "100%", minHeight: "100vh", overflowY: "auto", scrollbarWidth: "none" } as React.CSSProperties}>
@@ -1971,6 +2063,28 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName }: {
           </div>
         ))}
       </nav>
+      {health.hasData && (() => {
+  const barColors = { green: "#4CAF7D", yellow: "#F5A623", red: "#E85D75" };
+  return (
+    <div style={{ padding: "0 18px 14px" }}>
+      <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 6, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span>Health</span>
+        <span style={{ color: "#1a2332", fontWeight: 700 }}>{health.score}%</span>
+      </div>
+      <div style={{ width: "100%", height: 8, background: "#f1f5f9", borderRadius: 99, overflow: "hidden" }}>
+        <div style={{
+          width: `${health.score}%`, height: "100%",
+          background: barColors[health.barColor], borderRadius: 99,
+          transition: "width 400ms ease, background 300ms ease"
+        }} />
+      </div>
+      <div style={{ fontSize: 9, color: "#94a3b8", marginTop: 4, textAlign: "center" }}>
+        {health.counts.green}G · {health.counts.yellow}Y · {health.counts.red}R
+        {health.counts.gray > 0 ? ` · ${health.counts.gray} unmatched` : ""}
+      </div>
+    </div>
+  );
+})()}
       <div style={{ padding: "14px 18px", borderTop: "1px solid #f1f5f9", display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
         <img src="https://dashello.co/wp-content/uploads/2023/08/Logo.png" alt="Dashello" style={{ height: 26, objectFit: "contain", maxWidth: "80%" }} />
         <button onClick={() => supabase.auth.signOut()} style={{ width: "100%", padding: "7px 0", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "transparent", color: "#94a3b8", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Sign Out</button>
@@ -2125,7 +2239,13 @@ export default function DashelloDashboard() {
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState("");
   const [dbReady, setDbReady] = useState(false);
-  const [profile, setProfile] = useState({ full_name: "", company: "", street: "", city: "", state: "", zip: "", country: "", avatar_url: "", five_account_enabled: false });
+  const [profile, setProfile] = useState({
+  full_name: "", company: "", street: "", city: "", state: "", zip: "", country: "",
+  avatar_url: "", five_account_enabled: false,
+  health_green_multiplier: 1.0,
+  health_yellow_multiplier: 0.5,
+  health_red_multiplier: -1.0,
+});
 
   const [tasksData, setTasksData] = useState([
     { id: "1", text: "Review Q3 financials", done: false, assignee: "AJ", due: "Mar 15" },
@@ -2163,7 +2283,16 @@ export default function DashelloDashboard() {
       if (savedTasks) setTasksData(savedTasks);
       if (savedGoals) setGoalsData(savedGoals);
       const { data: prof } = await supabase.from("profiles").select("*").eq("id", userId!).maybeSingle();
-      if (prof) setProfile({ full_name: prof.full_name ?? "", company: prof.company ?? "", street: prof.street ?? "", city: prof.city ?? "", state: prof.state ?? "", zip: prof.zip ?? "", country: prof.country ?? "", avatar_url: prof.avatar_url ?? "", five_account_enabled: prof.five_account_enabled ?? false });
+      if (prof) setProfile({
+  full_name: prof.full_name ?? "", company: prof.company ?? "",
+  street: prof.street ?? "", city: prof.city ?? "", state: prof.state ?? "",
+  zip: prof.zip ?? "", country: prof.country ?? "",
+  avatar_url: prof.avatar_url ?? "",
+  five_account_enabled: prof.five_account_enabled ?? false,
+  health_green_multiplier: prof.health_green_multiplier ?? 1.0,
+  health_yellow_multiplier: prof.health_yellow_multiplier ?? 0.5,
+  health_red_multiplier: prof.health_red_multiplier ?? -1.0,
+});
       setDbReady(true);
     }
     load();
@@ -2216,10 +2345,19 @@ export default function DashelloDashboard() {
 
   const handleNav = (p: Page) => { setPage(p); setSelectedApp(null); if (isMobile) setSidebarOpen(false); };
 
-  const sidebarEl = (
-    <Sidebar active={page} onNav={handleNav} onClose={() => setSidebarOpen(false)}
-      isMobile={isMobile} avatarUrl={profile.avatar_url} firstName={profile.full_name?.split(" ")[0] ?? ""} />
-  );
+ const health = calculateHealth(
+  sections,
+  profile.health_green_multiplier,
+  profile.health_yellow_multiplier,
+  profile.health_red_multiplier
+);
+
+const sidebarEl = (
+  <Sidebar active={page} onNav={handleNav} onClose={() => setSidebarOpen(false)}
+    isMobile={isMobile} avatarUrl={profile.avatar_url}
+    firstName={profile.full_name?.split(" ")[0] ?? ""}
+    health={health} />
+);
 
   if (!dbReady) return (
     <div style={{ display: "flex", height: "100vh", alignItems: "center", justifyContent: "center", background: "linear-gradient(160deg,#2196F3 0%,#00BCD4 100%)", fontSize: 18, color: "#fff", fontFamily: "Inter, sans-serif" }}>
