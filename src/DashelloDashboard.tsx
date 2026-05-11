@@ -33,12 +33,7 @@ interface ColorRule {
   value2?: number;
 }
 
-// Historical data point for charts
-interface DataPoint {
-  timestamp: number; // unix ms
-  value: number;
-}
-
+interface DataPoint { timestamp: number; value: number; }
 interface Transaction { date: string; description: string; credit?: number; debit?: number; }
 interface StatRow { label: string; value: string; synced?: boolean; }
 interface ProjRow { label: string; sub: string; value: string; }
@@ -60,11 +55,13 @@ interface Metric {
   graphType?: GraphType; metricType?: MetricType;
   colorRules?: ColorRule[];
   connectedApps?: string[];
-  history?: DataPoint[]; // persisted chart data
+  history?: DataPoint[];
+  fiveAccountParentId?: string; // set on child boxes created by five-account
+  currencySymbol?: string;
 }
 interface Section { id: string; title: string; avatars: string[]; metrics: Metric[]; }
 
-// ─── Traffic light: evaluate rules against current value ───────────────────
+// ─── Traffic light ──────────────────────────────────────────────────────────
 function resolveColor(metric: Metric): MetricColor {
   if (!metric.colorRules || metric.colorRules.length === 0) return "gray";
   const num = parseFloat(metric.value.replace(/[^0-9.\-]/g, ""));
@@ -80,8 +77,6 @@ function resolveColor(metric: Metric): MetricColor {
   }
   return "gray";
 }
-
-// Get color for a specific numeric value against rules
 function getColorForValue(val: number, rules: ColorRule[]): MetricColor {
   if (!rules || rules.length === 0) return "gray";
   for (const rule of rules) {
@@ -96,15 +91,29 @@ function getColorForValue(val: number, rules: ColorRule[]): MetricColor {
   return "gray";
 }
 
+// ─── Value formatting ──────────────────────────────────────────────────────
+function formatValue(raw: string, mt: MetricType, currency = "$"): string {
+  const stripped = raw.replace(/[^0-9.]/g, "");
+  const num = parseFloat(stripped);
+  if (isNaN(num)) return raw;
+  if (mt === "financial") {
+    return `${currency}${num.toLocaleString("en-US", { minimumFractionDigits: stripped.includes(".") ? 2 : 0, maximumFractionDigits: 2 })}`;
+  }
+  if (mt === "percentage") {
+    return `${stripped}%`;
+  }
+  return stripped; // counter — plain number
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
-// CONSTANTS / STYLES
+// CONSTANTS
 // ═══════════════════════════════════════════════════════════════════════════
 
-const MS: Record<MetricColor, { bg: string; text: string; iconBg: string; darkText: string }> = {
-  green:  { bg: "#4CAF7D", text: "#fff",     iconBg: "rgba(255,255,255,0.25)", darkText: "#fff" },
-  yellow: { bg: "#F5A623", text: "#fff",     iconBg: "rgba(255,255,255,0.25)", darkText: "#fff" },
-  red:    { bg: "#E85D75", text: "#fff",     iconBg: "rgba(255,255,255,0.25)", darkText: "#fff" },
-  gray:   { bg: "#E8EDF2", text: "#4A5568",  iconBg: "rgba(100,116,139,0.12)", darkText: "#4A5568" },
+const MS: Record<MetricColor, { bg: string; text: string }> = {
+  green:  { bg: "#4CAF7D", text: "#fff" },
+  yellow: { bg: "#F5A623", text: "#fff" },
+  red:    { bg: "#E85D75", text: "#fff" },
+  gray:   { bg: "#E8EDF2", text: "#4A5568" },
 };
 
 const FIVE_DESC: Record<string, string> = {
@@ -115,382 +124,184 @@ const FIVE_DESC: Record<string, string> = {
   owner:       "Your salary — paid from Overhead as a fixed operating expense.",
 };
 
+const FIVE_ACCOUNT_LABELS = ["Overhead", "Profit", "Tax", "Investments", "Owner"] as const;
+const FIVE_ACCOUNT_ICONS: Record<string, string> = {
+  Overhead: "CreditCard", Profit: "TrendUp", Tax: "Receipt",
+  Investments: "Wallet", Owner: "UserCircle",
+};
+
+const WORLD_CURRENCIES = [
+  { symbol: "$", name: "US Dollar" }, { symbol: "€", name: "Euro" },
+  { symbol: "£", name: "British Pound" }, { symbol: "¥", name: "Japanese Yen" },
+  { symbol: "₹", name: "Indian Rupee" }, { symbol: "C$", name: "Canadian Dollar" },
+  { symbol: "A$", name: "Australian Dollar" }, { symbol: "CHF", name: "Swiss Franc" },
+  { symbol: "₩", name: "Korean Won" }, { symbol: "R$", name: "Brazilian Real" },
+  { symbol: "MX$", name: "Mexican Peso" }, { symbol: "S$", name: "Singapore Dollar" },
+  { symbol: "HK$", name: "Hong Kong Dollar" }, { symbol: "kr", name: "Swedish Krona" },
+  { symbol: "NOK", name: "Norwegian Krone" }, { symbol: "DKK", name: "Danish Krone" },
+  { symbol: "PLN", name: "Polish Zloty" }, { symbol: "CZK", name: "Czech Koruna" },
+  { symbol: "₺", name: "Turkish Lira" }, { symbol: "₽", name: "Russian Ruble" },
+  { symbol: "R", name: "South African Rand" }, { symbol: "AED", name: "UAE Dirham" },
+  { symbol: "SAR", name: "Saudi Riyal" }, { symbol: "฿", name: "Thai Baht" },
+  { symbol: "₫", name: "Vietnamese Dong" }, { symbol: "₦", name: "Nigerian Naira" },
+  { symbol: "KES", name: "Kenyan Shilling" }, { symbol: "EGP", name: "Egyptian Pound" },
+  { symbol: "ARS", name: "Argentine Peso" }, { symbol: "CLP", name: "Chilean Peso" },
+];
+
 // ═══════════════════════════════════════════════════════════════════════════
-// ELEGANT ICON FONT — load via CDN + icon list
+// PHOSPHOR ICONS — loaded via CDN script tag
 // ═══════════════════════════════════════════════════════════════════════════
 
-// We load the Elegant Icon font from the downloaded zip hosted via jsDelivr/unpkg fallback
-// The font CSS is injected once at app load
-const ELEGANT_FONT_CSS = `
-@font-face {
-  font-family: 'ElegantIcons';
-  src: url('https://cdn.jsdelivr.net/npm/elegant-icons@0.0.1/fonts/ElegantIcons.eot');
-  src: url('https://cdn.jsdelivr.net/npm/elegant-icons@0.0.1/fonts/ElegantIcons.eot?#iefix') format('embedded-opentype'),
-       url('https://cdn.jsdelivr.net/npm/elegant-icons@0.0.1/fonts/ElegantIcons.woff') format('woff'),
-       url('https://cdn.jsdelivr.net/npm/elegant-icons@0.0.1/fonts/ElegantIcons.ttf') format('truetype'),
-       url('https://cdn.jsdelivr.net/npm/elegant-icons@0.0.1/fonts/ElegantIcons.svg#ElegantIcons') format('svg');
-  font-weight: normal;
-  font-style: normal;
-}
-[class^="icon_"],[class^="arrow_"],[class^="social_"],[class*=" icon_"],[class*=" arrow_"]{
-  font-family:'ElegantIcons' !important;
-  speak:none;
-  font-style:normal !important;
-  font-weight:normal !important;
-  font-variant:normal;
-  text-transform:none;
-  line-height:1;
-  -webkit-font-smoothing:antialiased;
-  -moz-osx-font-smoothing:grayscale;
-}
-`;
-
-// Categorized icon list — class names from Elegant Themes icon font
-const ICON_NONE = "";
-const ICON_CATEGORIES: { label: string; icons: string[] }[] = [
+// Phosphor icon categories for the picker
+const PHOSPHOR_CATEGORIES: { label: string; icons: string[] }[] = [
   {
-    label: "Arrows & Navigation",
+    label: "Finance",
     icons: [
-      "arrow_up","arrow_down","arrow_left","arrow_right",
-      "arrow_carrot-up","arrow_carrot-down","arrow_carrot-left","arrow_carrot-right",
-      "arrow_triangle-up","arrow_triangle-down","arrow_triangle-left","arrow_triangle-right",
-      "arrow_back","arrow_expand","arrow_condense","arrow_move",
-      "arrow_up-down","arrow_left-right","arrow_expand_alt2","arrow_condense_alt",
+      "CreditCard","Wallet","Money","Coins","Bank","Receipt","Invoice",
+      "CurrencyDollar","CurrencyEuro","CurrencyPound","PiggyBank","Vault",
+      "TrendUp","TrendDown","ChartLine","ChartBar","ChartPie","Percent",
+      "Calculator","Briefcase","Buildings","ShoppingCart","Tag","Barcode",
     ]
   },
   {
-    label: "Finance & Business",
+    label: "Business",
     icons: [
-      "icon_creditcard","icon_wallet","icon_currency","icon_cart",
-      "icon_bag","icon_briefcase","icon_shield","icon_percent",
-      "icon_piechart","icon_datareport","icon_flowchart","icon_balance",
-      "icon_target","icon_building","icon_calulator","icon_floppy",
-      "icon_drive","icon_id","icon_id-2",
+      "Handshake","UsersThree","UserCircle","IdentificationCard","Suitcase",
+      "Target","Trophy","Medal","Star","Crown","Rocket","Lightbulb",
+      "Clipboard","ClipboardText","Files","FolderOpen","Archive","Bookmarks",
+      "Table","Rows","Columns","SquaresFour","GridFour","ListBullets",
     ]
   },
   {
-    label: "People & Communication",
+    label: "Communication",
     icons: [
-      "icon_profile","icon_group","icon_mail","icon_phone",
-      "icon_chat","icon_comment","icon_quotations","icon_headphones",
-      "icon_mic","icon_vol-mute","icon_volume-low","icon_volume-high",
+      "Envelope","EnvelopeOpen","Phone","PhoneCall","ChatCircle","ChatText",
+      "Megaphone","Bell","BellRinging","Broadcast","Rss","Share",
+      "PaperPlane","At","Hash","Link","Globe","GlobeHemisphereWest",
     ]
   },
   {
-    label: "Tools & Settings",
+    label: "Analytics",
     icons: [
-      "icon_cog","icon_cogs","icon_tool","icon_tools",
-      "icon_toolbox","icon_pencil","icon_pencil-edit","icon_drawer",
-      "icon_folder","icon_folder-open","icon_folder-add","icon_archive",
-      "icon_document","icon_documents","icon_book","icon_clipboard",
+      "ChartLineUp","ChartLineDown","ChartDonut","ChartBarHorizontal",
+      "ArrowUp","ArrowDown","ArrowRight","ArrowLeft","ArrowUUpRight",
+      "ArrowsClockwise","ArrowsCounterClockwise","Pulse","Activity",
+      "Database","HardDrive","Cloud","CloudArrowUp","CloudArrowDown",
+      "MagnifyingGlass","Funnel","SortAscending","SortDescending",
     ]
   },
   {
-    label: "Status & Alerts",
+    label: "Status",
     icons: [
-      "icon_check","icon_close","icon_plus","icon_minus",
-      "icon_check_alt2","icon_close_alt2","icon_plus_alt2","icon_minus_alt2",
-      "icon_error-circle","icon_error-oct","icon_error-triangle","icon_info",
-      "icon_question","icon_blocked","icon_lock","icon_lock-open",
+      "CheckCircle","XCircle","WarningCircle","Info","Question",
+      "Check","X","Plus","Minus","Lock","LockOpen","Key","Shield",
+      "Fire","Snowflake","Lightning","Timer","Clock","Calendar","Alarm",
     ]
   },
   {
-    label: "Media & Time",
+    label: "People",
     icons: [
-      "icon_clock","icon_calendar","icon_hourglass","icon_refresh",
-      "icon_loading","icon_search","icon_zoom-in","icon_zoom-out",
-      "icon_camera","icon_film","icon_music","icon_upload","icon_download",
+      "User","Users","UserPlus","UserMinus","UserCheck","PersonSimple",
+      "Smiley","Heart","HandHeart","Heartbeat","First Aid","Stethoscope",
+      "Student","GraduationCap","Certificate","Scales",
     ]
   },
   {
-    label: "Misc & Nature",
+    label: "Tools",
     icons: [
-      "icon_globe","icon_globe-2","icon_map","icon_pin","icon_compass",
-      "icon_star","icon_star_alt","icon_heart","icon_like","icon_dislike",
-      "icon_gift","icon_ribbon","icon_tag","icon_tags","icon_trash","icon_key",
-      "icon_lightbulb","icon_cloud","icon_cloud-upload","icon_cloud-download",
-      "icon_house","icon_puzzle","icon_mug","icon_pens","icon_easel",
+      "Gear","Wrench","Hammer","Screwdriver","GearSix","Nut",
+      "Code","Terminal","Desktop","Laptop","DeviceMobile","Printer",
+      "Camera","Image","PencilSimple","Pen","Eraser","Trash","Copy",
     ]
   },
 ];
 
-const ALL_ICONS_FLAT = ICON_CATEGORIES.flatMap(c => c.icons);
+const ALL_PHOSPHOR_ICONS = PHOSPHOR_CATEGORIES.flatMap(c => c.icons);
+const ICON_NONE = "";
 
-// Render an Elegant Icon
-function ElegantIcon({ name, size = 20, color }: { name: string; size?: number; color?: string }) {
-  if (!name) return null;
-  return (
-    <span
-      className={name}
-      style={{
-        fontFamily: "'ElegantIcons', sans-serif",
-        fontSize: size,
-        color: color ?? "inherit",
-        lineHeight: 1,
-        display: "inline-block",
-        fontStyle: "normal",
-        fontWeight: "normal",
-        fontVariant: "normal",
-        textTransform: "none",
-        WebkitFontSmoothing: "antialiased",
-      } as React.CSSProperties}
-    />
-  );
+// Phosphor renders via the global `PhosphorIcons` object loaded by CDN script
+function PhosphorIcon({ name, size = 20, color = "currentColor", weight = "regular" }: {
+  name: string; size?: number; color?: string; weight?: string;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!name || !ref.current) return;
+    ref.current.innerHTML = "";
+    try {
+      const ph = (window as any).PhosphorIcons;
+      if (!ph) return;
+      // Phosphor exposes renderToString or icon classes
+      const iconName = name.replace(/([A-Z])/g, (m, c, i) => (i > 0 ? "-" + c.toLowerCase() : c.toLowerCase()));
+      const el = document.createElement("ph-" + iconName);
+      el.setAttribute("size", String(size));
+      el.setAttribute("color", color);
+      el.setAttribute("weight", weight);
+      ref.current.appendChild(el);
+    } catch (e) { /* silent */ }
+  }, [name, size, color, weight]);
+  return <div ref={ref} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: size, height: size }} />;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// CHART COMPONENTS
-// ═══════════════════════════════════════════════════════════════════════════
-
-function MetricChart({
-  history, rules, graphType, metricType, currentValue
-}: {
-  history: DataPoint[];
-  rules: ColorRule[];
-  graphType: GraphType;
-  metricType: MetricType;
-  currentValue: string;
-}) {
-  const [tooltip, setTooltip] = useState<{ x: number; y: number; val: number; color: MetricColor } | null>(null);
-
-  // Build display points — use history if available, else generate demo
-  const points: DataPoint[] = history && history.length > 1 ? history : (() => {
-    const base = parseFloat(currentValue.replace(/[^0-9.\-]/g, "")) || 50;
-    return Array.from({ length: 8 }, (_, i) => ({
-      timestamp: Date.now() - (7 - i) * 86400000,
-      value: Math.max(0, base * (0.7 + Math.random() * 0.6))
-    }));
-  })();
-
-  // Determine axis range from rules if available
-  const allRuleVals = rules.flatMap(r => r.op === "between" && r.value2 != null ? [r.value, r.value2] : [r.value]);
-  const vals = points.map(p => p.value);
-  const dataMin = Math.min(...vals);
-  const dataMax = Math.max(...vals);
-  const ruleMin = allRuleVals.length > 0 ? Math.min(...allRuleVals) : dataMin;
-  const ruleMax = allRuleVals.length > 0 ? Math.max(...allRuleVals) : dataMax;
-  const yMin = Math.min(dataMin, ruleMin) * 0.9;
-  const yMax = Math.max(dataMax, ruleMax) * 1.1 || 100;
-
-  const W = 320, H = 160, padL = 40, padR = 10, padT = 10, padB = 30;
-  const chartW = W - padL - padR;
-  const chartH = H - padT - padB;
-
-  const xScale = (i: number) => padL + (i / (points.length - 1)) * chartW;
-  const yScale = (v: number) => padT + chartH - ((v - yMin) / (yMax - yMin || 1)) * chartH;
-
-  const colorOf = (v: number) => MS[getColorForValue(v, rules)].bg;
-
-  // Build zone fills for line chart background
-  const buildZonePath = (minV: number, maxV: number) => {
-    const y1 = yScale(maxV);
-    const y2 = yScale(minV);
-    return `M ${padL} ${y1} L ${W - padR} ${y1} L ${W - padR} ${y2} L ${padL} ${y2} Z`;
+// Fallback SVG icon renderer — draws simple recognizable shapes for each name
+// This ensures icons always show even if Phosphor CDN fails
+function IconGlyph({ name, size = 20, color = "#3B82F6" }: { name: string; size?: number; color?: string }) {
+  const s = size;
+  const c = color;
+  const glyphs: Record<string, React.ReactElement> = {
+    CreditCard: <><rect x="2" y="5" width="20" height="14" rx="2" stroke={c} strokeWidth="1.5" fill="none"/><line x1="2" y1="10" x2="22" y2="10" stroke={c} strokeWidth="1.5"/></>,
+    Wallet: <><rect x="2" y="6" width="18" height="13" rx="2" stroke={c} strokeWidth="1.5" fill="none"/><path d="M16 13a1 1 0 1 1 2 0 1 1 0 0 1-2 0z" fill={c}/></>,
+    Money: <><rect x="2" y="6" width="20" height="12" rx="1" stroke={c} strokeWidth="1.5" fill="none"/><circle cx="12" cy="12" r="3" stroke={c} strokeWidth="1.5" fill="none"/></>,
+    Coins: <><circle cx="9" cy="14" r="5" stroke={c} strokeWidth="1.5" fill="none"/><circle cx="15" cy="10" r="5" stroke={c} strokeWidth="1.5" fill="none"/></>,
+    Bank: <><path d="M3 10h18M5 10V18M19 10V18M12 4 3 10h18L12 4zM7 18h10" stroke={c} strokeWidth="1.5" fill="none" strokeLinecap="round"/></>,
+    Receipt: <><path d="M4 3h16v18l-2-1-2 1-2-1-2 1-2-1-2 1V3z" stroke={c} strokeWidth="1.5" fill="none"/><line x1="8" y1="9" x2="16" y2="9" stroke={c} strokeWidth="1.5"/><line x1="8" y1="13" x2="14" y2="13" stroke={c} strokeWidth="1.5"/></>,
+    TrendUp: <><polyline points="2,18 8,12 13,15 22,6" stroke={c} strokeWidth="1.5" fill="none"/><polyline points="16,6 22,6 22,12" stroke={c} strokeWidth="1.5" fill="none"/></>,
+    TrendDown: <><polyline points="2,6 8,12 13,9 22,18" stroke={c} strokeWidth="1.5" fill="none"/></>,
+    ChartLine: <><polyline points="3,18 8,12 13,15 21,6" stroke={c} strokeWidth="1.5" fill="none"/><line x1="3" y1="18" x2="21" y2="18" stroke={c} strokeWidth="1.5"/></>,
+    ChartBar: <><rect x="3" y="12" width="4" height="8" fill={c} opacity="0.8"/><rect x="10" y="8" width="4" height="12" fill={c} opacity="0.8"/><rect x="17" y="5" width="4" height="15" fill={c} opacity="0.8"/></>,
+    ChartPie: <><path d="M12 2a10 10 0 0 1 10 10H12V2z" fill={c} opacity="0.6"/><circle cx="12" cy="12" r="10" stroke={c} strokeWidth="1.5" fill="none"/></>,
+    Percent: <><circle cx="7" cy="7" r="2" stroke={c} strokeWidth="1.5" fill="none"/><circle cx="17" cy="17" r="2" stroke={c} strokeWidth="1.5" fill="none"/><line x1="5" y1="19" x2="19" y2="5" stroke={c} strokeWidth="1.5"/></>,
+    Briefcase: <><rect x="2" y="8" width="20" height="13" rx="2" stroke={c} strokeWidth="1.5" fill="none"/><path d="M8 8V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke={c} strokeWidth="1.5" fill="none"/></>,
+    Target: <><circle cx="12" cy="12" r="10" stroke={c} strokeWidth="1.5" fill="none"/><circle cx="12" cy="12" r="6" stroke={c} strokeWidth="1.5" fill="none"/><circle cx="12" cy="12" r="2" fill={c}/></>,
+    Trophy: <><path d="M6 2h12v8a6 6 0 0 1-12 0V2z" stroke={c} strokeWidth="1.5" fill="none"/><path d="M9 18v2h6v-2M6 18h12" stroke={c} strokeWidth="1.5" fill="none"/><path d="M6 6H4a2 2 0 0 0 0 4h2M18 6h2a2 2 0 0 1 0 4h-2" stroke={c} strokeWidth="1.5" fill="none"/></>,
+    Star: <><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" stroke={c} strokeWidth="1.5" fill="none"/></>,
+    UserCircle: <><circle cx="12" cy="8" r="4" stroke={c} strokeWidth="1.5" fill="none"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke={c} strokeWidth="1.5" fill="none"/></>,
+    Users: <><circle cx="9" cy="8" r="3" stroke={c} strokeWidth="1.5" fill="none"/><path d="M2 20c0-3 3-5 7-5s7 2 7 5" stroke={c} strokeWidth="1.5" fill="none"/><path d="M16 8a3 3 0 1 1 0-6M22 20c0-3-2-5-6-5" stroke={c} strokeWidth="1.5" fill="none"/></>,
+    User: <><circle cx="12" cy="8" r="4" stroke={c} strokeWidth="1.5" fill="none"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke={c} strokeWidth="1.5" fill="none"/></>,
+    Envelope: <><rect x="2" y="4" width="20" height="16" rx="2" stroke={c} strokeWidth="1.5" fill="none"/><polyline points="2,4 12,13 22,4" stroke={c} strokeWidth="1.5" fill="none"/></>,
+    Phone: <><path d="M5 4h4l2 5-2.5 1.5A11 11 0 0 0 15.5 17L17 14.5l5 2v4A2 2 0 0 1 20 22 16 16 0 0 1 2 6a2 2 0 0 1 2-2h1z" stroke={c} strokeWidth="1.5" fill="none"/></>,
+    Bell: <><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" stroke={c} strokeWidth="1.5" fill="none"/><path d="M13.73 21a2 2 0 0 1-3.46 0" stroke={c} strokeWidth="1.5" fill="none"/></>,
+    Gear: <><circle cx="12" cy="12" r="3" stroke={c} strokeWidth="1.5" fill="none"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" stroke={c} strokeWidth="1.5" fill="none"/></>,
+    Globe: <><circle cx="12" cy="12" r="10" stroke={c} strokeWidth="1.5" fill="none"/><line x1="2" y1="12" x2="22" y2="12" stroke={c} strokeWidth="1.5"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" stroke={c} strokeWidth="1.5" fill="none"/></>,
+    Lock: <><rect x="3" y="11" width="18" height="11" rx="2" stroke={c} strokeWidth="1.5" fill="none"/><path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={c} strokeWidth="1.5" fill="none"/></>,
+    Shield: <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke={c} strokeWidth="1.5" fill="none"/></>,
+    CheckCircle: <><circle cx="12" cy="12" r="10" stroke={c} strokeWidth="1.5" fill="none"/><polyline points="9,12 11,14 15,10" stroke={c} strokeWidth="1.5" fill="none"/></>,
+    XCircle: <><circle cx="12" cy="12" r="10" stroke={c} strokeWidth="1.5" fill="none"/><line x1="15" y1="9" x2="9" y2="15" stroke={c} strokeWidth="1.5"/><line x1="9" y1="9" x2="15" y2="15" stroke={c} strokeWidth="1.5"/></>,
+    Clock: <><circle cx="12" cy="12" r="10" stroke={c} strokeWidth="1.5" fill="none"/><polyline points="12,6 12,12 16,14" stroke={c} strokeWidth="1.5" fill="none"/></>,
+    Calendar: <><rect x="3" y="4" width="18" height="18" rx="2" stroke={c} strokeWidth="1.5" fill="none"/><line x1="16" y1="2" x2="16" y2="6" stroke={c} strokeWidth="1.5"/><line x1="8" y1="2" x2="8" y2="6" stroke={c} strokeWidth="1.5"/><line x1="3" y1="10" x2="21" y2="10" stroke={c} strokeWidth="1.5"/></>,
+    Lightbulb: <><path d="M9 18h6M10 22h4M12 2a7 7 0 0 1 7 7c0 3-1.5 5-3.5 6.5V18H8.5V15.5C6.5 14 5 12 5 9a7 7 0 0 1 7-7z" stroke={c} strokeWidth="1.5" fill="none"/></>,
+    Rocket: <><path d="M12 2s4 4 4 10H8C8 6 12 2 12 2z" stroke={c} strokeWidth="1.5" fill="none"/><path d="M8 12v4l-3 3 1-4H8z" stroke={c} strokeWidth="1.5" fill="none"/><path d="M16 12v4l3 3-1-4H16z" stroke={c} strokeWidth="1.5" fill="none"/><circle cx="12" cy="12" r="1" fill={c}/></>,
+    ArrowUp: <><line x1="12" y1="19" x2="12" y2="5" stroke={c} strokeWidth="1.5"/><polyline points="5,12 12,5 19,12" stroke={c} strokeWidth="1.5" fill="none"/></>,
+    ArrowDown: <><line x1="12" y1="5" x2="12" y2="19" stroke={c} strokeWidth="1.5"/><polyline points="19,12 12,19 5,12" stroke={c} strokeWidth="1.5" fill="none"/></>,
+    MagnifyingGlass: <><circle cx="11" cy="11" r="8" stroke={c} strokeWidth="1.5" fill="none"/><line x1="21" y1="21" x2="16.65" y2="16.65" stroke={c} strokeWidth="1.5"/></>,
+    Clipboard: <><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" stroke={c} strokeWidth="1.5" fill="none"/><rect x="8" y="2" width="8" height="4" rx="1" stroke={c} strokeWidth="1.5" fill="none"/></>,
+    Database: <><ellipse cx="12" cy="5" rx="9" ry="3" stroke={c} strokeWidth="1.5" fill="none"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" stroke={c} strokeWidth="1.5" fill="none"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" stroke={c} strokeWidth="1.5" fill="none"/></>,
+    Cloud: <><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z" stroke={c} strokeWidth="1.5" fill="none"/></>,
+    Wrench: <><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" stroke={c} strokeWidth="1.5" fill="none"/></>,
+    ChartLineUp: <><polyline points="2,18 8,10 13,14 21,4" stroke={c} strokeWidth="1.5" fill="none"/><polyline points="15,4 21,4 21,10" stroke={c} strokeWidth="1.5" fill="none"/><line x1="2" y1="20" x2="22" y2="20" stroke={c} strokeWidth="1.5"/></>,
+    Pulse: <><polyline points="2,12 6,12 8,6 10,18 12,10 14,15 16,12 22,12" stroke={c} strokeWidth="1.5" fill="none"/></>,
+    Fire: <><path d="M12 2c0 0-5 4-5 9a5 5 0 0 0 10 0c0-2-1-4-2-5 0 2-1 3-3 3s-2-2-2-4c0-1 2-3 2-3z" stroke={c} strokeWidth="1.5" fill="none"/></>,
+    Heart: <><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" stroke={c} strokeWidth="1.5" fill="none"/></>,
+    PiggyBank: <><path d="M19 12c0-4-3.1-7-7-7S5 8 5 12c0 2.2 1 4.2 2.7 5.5L7 21h2l.5-2h5l.5 2h2l-.7-3.5C17.9 16.2 19 14.2 19 12z" stroke={c} strokeWidth="1.5" fill="none"/><circle cx="16" cy="8" r="1" fill={c}/></>,
+    Vault: <><rect x="2" y="4" width="20" height="16" rx="2" stroke={c} strokeWidth="1.5" fill="none"/><circle cx="12" cy="12" r="4" stroke={c} strokeWidth="1.5" fill="none"/><circle cx="12" cy="12" r="1" fill={c}/><line x1="16" y1="20" x2="16" y2="22" stroke={c} strokeWidth="1.5"/><line x1="8" y1="20" x2="8" y2="22" stroke={c} strokeWidth="1.5"/></>,
+    Scales: <><path d="M16 16l4-8-4 0-4-4-4 4-4 0 4 8z" stroke={c} strokeWidth="1.5" fill="none"/><line x1="12" y1="4" x2="12" y2="20" stroke={c} strokeWidth="1.5"/><line x1="8" y1="20" x2="16" y2="20" stroke={c} strokeWidth="1.5"/></>,
+    // Fallback — a simple circle with the first letter
   };
 
-  // Sort rules to determine color zones
-  const sortedRules = [...rules].sort((a, b) => a.value - b.value);
-
-  if (graphType === "pie") {
-    // For pie: show percentage breakdown of how many data points fall in each color zone
-    const counts: Record<MetricColor, number> = { red: 0, yellow: 0, green: 0, gray: 0 };
-    points.forEach(p => counts[getColorForValue(p.value, rules)]++);
-    const total = points.length;
-    const slices = (["green", "yellow", "red", "gray"] as MetricColor[])
-      .map(c => ({ color: c, count: counts[c], pct: counts[c] / total }))
-      .filter(s => s.count > 0);
-
-    const cx = 80, cy = 75, r = 60;
-    let startAngle = -Math.PI / 2;
-    const paths: React.ReactElement[] = [];
-    slices.forEach((s, i) => {
-      const angle = s.pct * 2 * Math.PI;
-      const endAngle = startAngle + angle;
-      const x1 = cx + r * Math.cos(startAngle), y1 = cy + r * Math.sin(startAngle);
-      const x2 = cx + r * Math.cos(endAngle), y2 = cy + r * Math.sin(endAngle);
-      const large = angle > Math.PI ? 1 : 0;
-      paths.push(
-        <path key={i}
-          d={`M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} Z`}
-          fill={MS[s.color].bg} stroke="#fff" strokeWidth={2} />
-      );
-      startAngle = endAngle;
-    });
-
-    return (
-      <svg viewBox="0 0 200 150" style={{ width: "100%", height: 160 }}>
-        {paths}
-        {/* Legend */}
-        {slices.map((s, i) => (
-          <g key={i}>
-            <rect x={150} y={20 + i * 22} width={12} height={12} rx={3} fill={MS[s.color].bg} />
-            <text x={167} y={31 + i * 22} fontSize={10} fill="#64748b">{s.color} {Math.round(s.pct * 100)}%</text>
-          </g>
-        ))}
-      </svg>
-    );
-  }
-
-  if (graphType === "bar-v" || graphType === "bar-h") {
-    const isH = graphType === "bar-h";
-    const barW = isH ? 0 : Math.max(4, chartW / points.length - 4);
-    const barH = isH ? Math.max(8, chartH / points.length - 4) : 0;
-
-    return (
-      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: 160 }}>
-        {/* Grid lines */}
-        {[0, 0.25, 0.5, 0.75, 1].map(t => {
-          const y = padT + chartH * (1 - t);
-          return <line key={t} x1={padL} x2={W - padR} y1={y} y2={y} stroke="#f1f5f9" strokeWidth={1} />;
-        })}
-        {points.map((p, i) => {
-          const col = colorOf(p.value);
-          if (!isH) {
-            const x = padL + (i / points.length) * chartW + 2;
-            const barTop = yScale(p.value);
-            const barHeight = yScale(yMin) - barTop;
-            return (
-              <g key={i}>
-                <rect x={x} y={barTop} width={barW} height={barHeight} fill={col} rx={3}
-                  onMouseEnter={e => setTooltip({ x: x + barW / 2, y: barTop - 6, val: p.value, color: getColorForValue(p.value, rules) })}
-                  onMouseLeave={() => setTooltip(null)} style={{ cursor: "pointer" }} />
-              </g>
-            );
-          } else {
-            const y = padT + (i / points.length) * chartH + 2;
-            const barWidth = ((p.value - yMin) / (yMax - yMin || 1)) * chartW;
-            return (
-              <g key={i}>
-                <rect x={padL} y={y} width={barWidth} height={barH} fill={col} rx={3}
-                  onMouseEnter={() => setTooltip({ x: padL + barWidth + 4, y: y + barH / 2, val: p.value, color: getColorForValue(p.value, rules) })}
-                  onMouseLeave={() => setTooltip(null)} style={{ cursor: "pointer" }} />
-              </g>
-            );
-          }
-        })}
-        {tooltip && (
-          <g>
-            <rect x={tooltip.x - 22} y={tooltip.y - 18} width={44} height={18} rx={4} fill={MS[tooltip.color].bg} />
-            <text x={tooltip.x} y={tooltip.y - 5} textAnchor="middle" fontSize={10} fill="#fff" fontWeight="600">
-              {tooltip.val.toFixed(1)}
-            </text>
-          </g>
-        )}
-      </svg>
-    );
-  }
-
-  // Linear chart (default)
-  const pathD = points.map((p, i) => {
-    const x = xScale(i), y = yScale(p.value);
-    if (i === 0) return `M ${x} ${y}`;
-    const px = xScale(i - 1), py = yScale(points[i - 1].value);
-    const cx = (px + x) / 2;
-    return ` C ${cx} ${py} ${cx} ${y} ${x} ${y}`;
-  }).join("");
-
-  // Area path to baseline
-  const areaD = pathD + ` L ${xScale(points.length - 1)} ${yScale(yMin)} L ${xScale(0)} ${yScale(yMin)} Z`;
-
+  const glyph = glyphs[name];
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: 160, overflow: "visible" }}>
-      <defs>
-        {/* Zone fills */}
-        {sortedRules.map((r, i) => {
-          const zoneMin = i === 0 ? yMin : sortedRules[i - 1].value;
-          const zoneMax = r.op === "between" && r.value2 != null ? r.value2 : r.value;
-          return (
-            <clipPath key={r.id} id={`zone-${r.id}`}>
-              <path d={buildZonePath(Math.max(yMin, zoneMin), Math.min(yMax, zoneMax))} />
-            </clipPath>
-          );
-        })}
-      </defs>
-
-      {/* Background zone shading */}
-      {rules.length > 0 && sortedRules.map((r, i) => {
-        const zMin = i === 0 ? yMin : sortedRules[i - 1].value;
-        const zMax = r.op === "between" && r.value2 != null ? r.value2 : r.value;
-        const top = yScale(Math.min(yMax, zMax));
-        const bottom = yScale(Math.max(yMin, zMin));
-        if (bottom <= top) return null;
-        return (
-          <rect key={r.id}
-            x={padL} y={top} width={chartW} height={bottom - top}
-            fill={MS[r.color].bg} opacity={0.12} rx={0} />
-        );
-      })}
-
-      {/* Y-axis labels */}
-      {[0, 0.5, 1].map(t => {
-        const v = yMin + t * (yMax - yMin);
-        return (
-          <text key={t} x={padL - 4} y={yScale(v) + 4} textAnchor="end" fontSize={9} fill="#94a3b8">
-            {v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v.toFixed(0)}
-          </text>
-        );
-      })}
-
-      {/* Grid lines */}
-      {[0, 0.25, 0.5, 0.75, 1].map(t => {
-        const y = padT + chartH * (1 - t);
-        return <line key={t} x1={padL} x2={W - padR} y1={y} y2={y} stroke="#f1f5f9" strokeWidth={1} />;
-      })}
-
-      {/* Area fill */}
-      <path d={areaD} fill="url(#areaGrad)" opacity={0.15} />
-      <defs>
-        <linearGradient id="areaGrad" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor="#3B82F6" stopOpacity={0.6} />
-          <stop offset="100%" stopColor="#3B82F6" stopOpacity={0} />
-        </linearGradient>
-      </defs>
-
-      {/* Line */}
-      <path d={pathD} fill="none" stroke="#3B82F6" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-
-      {/* Rule threshold lines */}
-      {rules.map(r => (
-        <line key={r.id}
-          x1={padL} x2={W - padR}
-          y1={yScale(r.value)} y2={yScale(r.value)}
-          stroke={MS[r.color].bg} strokeWidth={1.5} strokeDasharray="4 3" opacity={0.7} />
-      ))}
-
-      {/* Data points */}
-      {points.map((p, i) => {
-        const x = xScale(i), y = yScale(p.value);
-        const col = colorOf(p.value);
-        return (
-          <g key={i}>
-            <circle cx={x} cy={y} r={5} fill={col} stroke="#fff" strokeWidth={2}
-              onMouseEnter={() => setTooltip({ x, y: y - 10, val: p.value, color: getColorForValue(p.value, rules) })}
-              onMouseLeave={() => setTooltip(null)}
-              style={{ cursor: "pointer" }} />
-          </g>
-        );
-      })}
-
-      {/* Tooltip */}
-      {tooltip && (
-        <g>
-          <rect x={tooltip.x - 24} y={tooltip.y - 20} width={48} height={18} rx={5} fill={MS[tooltip.color].bg} />
-          <text x={tooltip.x} y={tooltip.y - 7} textAnchor="middle" fontSize={10} fill="#fff" fontWeight="700">
-            {tooltip.val.toFixed(1)}
-          </text>
-        </g>
-      )}
-
-      {/* X-axis date labels */}
-      {points.map((p, i) => {
-        if (i % Math.ceil(points.length / 4) !== 0 && i !== points.length - 1) return null;
-        const d = new Date(p.timestamp);
-        return (
-          <text key={i} x={xScale(i)} y={H - 4} textAnchor="middle" fontSize={8} fill="#94a3b8">
-            {`${d.getMonth() + 1}/${d.getDate()}`}
-          </text>
-        );
-      })}
+    <svg width={s} height={s} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"
+      style={{ display: "block", flexShrink: 0 }}>
+      {glyph ?? <circle cx="12" cy="12" r="9" stroke={c} strokeWidth="1.5" fill="none" />}
     </svg>
   );
 }
@@ -502,123 +313,26 @@ function MetricChart({
 function makeModal(label: string, value: string, color: MetricColor, extra?: Partial<MetricModalData>): MetricModalData {
   return {
     type: "generic", title: label, color, healthPct: null, mainValue: value, syncTime: "10:23AM",
-    stats: [{ label: "Balance", value }],
-    projections: [{ label: "Projected Value", sub: "Based on past data | Synced from 10:23AM", value }],
-    suggestions: [], nextActions: [{ avatar: "AJ" }, { avatar: "BK" }], ...extra
+    stats: [{ label: "Value", value }],
+    projections: [], suggestions: [], nextActions: [{ avatar: "AJ" }, { avatar: "BK" }], ...extra
   };
 }
 
-const CASHFLOW_MODALS: Record<string, MetricModalData> = {
-  overhead: makeModal("Overhead", "$79,941.08", "green", {
-    type: "cashflow", healthPct: 100,
-    stats: [{ label: "Balance", value: "$79,941.08", synced: true }, { label: "Income", value: "$52,786.45", synced: true }, { label: "Expenses", value: "$25,345.37", synced: true }],
-    transactions: [
-      { date: "March 13", description: "Web hosting", credit: 197.35 },
-      { date: "March 6", description: "Accounting Services", credit: 765.45 },
-      { date: "February 10", description: "New Invoice Payment", debit: 25987.34 },
-      { date: "January 30", description: "Electric Bill", credit: 5034.03 },
-      { date: "January 1", description: "Inventory Payment", credit: 10385.68 },
-    ],
-    projections: [
-      { label: "Projected Income", sub: "Based on goals and past income | Synced from 10:23AM", value: "$47,213.55" },
-      { label: "Projected Expenses To Meet", sub: "Based on goals and past expenses | Synced from 10:23AM", value: "$24,654.63" },
-      { label: "Need To Still Make This Month:", sub: "Based on goals, income, and past expenses | Synced from 10:23AM", value: "$35,058.92" },
-    ],
-    suggestions: ["Add $9,756 to Tax account", "Add $9,756 to Profit account"],
-    nextActions: [{ avatar: "AJ" }, { avatar: "BK" }, { avatar: "CL" }, {}],
-    fiveAccountEnabled: true, accountType: "overhead"
-  }),
-  profit: makeModal("Profit", "$235,000.00", "yellow", {
-    type: "cashflow", healthPct: 35,
-    stats: [{ label: "Balance", value: "$235,000.00", synced: true }, { label: "Goal", value: "$600,000", synced: true }],
-    transactions: [
-      { date: "January 15", description: "Transfer Received from Overhead", debit: 4950.00 },
-      { date: "October 15", description: "Transfer Received from Overhead", debit: 16250.00 },
-      { date: "September 27", description: "Transfer Received from Overhead", credit: 2550.00 },
-    ],
-    projections: [{ label: "Projected Complete Date", sub: "Based on goals and past income | Synced from 10:23AM", value: "March 17/25" }],
-    suggestions: ["Add $3,500 from Overhead"],
-    nextActions: [{ avatar: "AJ" }, { avatar: "BK" }, { avatar: "CL" }, {}],
-    fiveAccountEnabled: true, accountType: "profit"
-  }),
-  tax: makeModal("Tax", "$23,750.00", "gray", {
-    type: "cashflow", healthPct: null, title: "Taxes",
-    stats: [{ label: "Balance", value: "$23,750.00", synced: true }],
-    transactions: [
-      { date: "January 30", description: "Tax Bill", credit: 5000.00 },
-      { date: "January 15", description: "Transfer Received from Overhead", debit: 4950.00 },
-      { date: "October 30", description: "Tax Bill", credit: 5000.00 },
-      { date: "October 15", description: "Transfer from Overhead", credit: 47.69, debit: 16250.00 },
-    ],
-    projections: [
-      { label: "Next Tax Payment Estimated", sub: "Based on goals and past income | Synced from 10:23AM", value: "$0" },
-      { label: "Amount Still Needed For Next Payment", sub: "Based on goals and past expenses | Synced from 10:23AM", value: "$5,000" },
-      { label: "Next Tax Payment Date", sub: "Based on goals, income, and past expenses | Synced from 10:23AM", value: "April 30th" },
-    ],
-    suggestions: [], nextActions: [{ avatar: "AJ" }, { avatar: "BK" }, { avatar: "CL" }, {}],
-    fiveAccountEnabled: true, accountType: "tax"
-  }),
-  investments: makeModal("Investments", "$0.00", "gray", {
-    type: "cashflow", healthPct: null, title: "Invest",
-    stats: [{ label: "Balance", value: "$0.00", synced: true }, { label: "Goals", value: "Fully Fund Profit First", synced: true }, { label: "Funding Start Date", value: "March 17, 2025", synced: true }],
-    transactions: [],
-    projections: [
-      { label: "Amount Still Needed For Next Payment", sub: "Based on goals and past income | Synced from 10:23AM", value: "$0" },
-      { label: "Next Tax Payment Estimated", sub: "Based on goals and past expenses | Synced from 10:23AM", value: "$0" },
-      { label: "Next Tax Payment Date", sub: "Based on goals, income, and past expenses | Synced from 10:23AM", value: "..." },
-    ],
-    suggestions: [], nextActions: [{ avatar: "AJ" }, { avatar: "BK" }, { avatar: "CL" }, {}],
-    fiveAccountEnabled: true, accountType: "investments"
-  }),
-  owner: makeModal("Owner", "$7,500", "green", {
-    type: "cashflow", healthPct: 100,
-    stats: [{ label: "Balance", value: "$7,500", synced: true }],
+function makeFiveAccountMetric(accountType: "overhead" | "profit" | "tax" | "investments" | "owner", parentId: string): Omit<Metric, "id"> {
+  const label = accountType.charAt(0).toUpperCase() + accountType.slice(1);
+  const modal = makeModal(label, "$0.00", "gray", {
+    type: "cashflow", fiveAccountEnabled: true, accountType,
+    stats: [{ label: "Balance", value: "$0.00", synced: true }],
     transactions: [], projections: [], suggestions: [], nextActions: [],
-    fiveAccountEnabled: true, accountType: "owner"
-  }),
-};
-
-const SALES_MODALS: Record<string, MetricModalData> = {
-  leads: makeModal("Leads", "12", "red", {
-    type: "leads", healthPct: 25,
-    stats: [{ label: "Amount", value: "12" }, { label: "Leads Moved", value: "5" }, { label: "Conversions", value: "24%" }, { label: "Leads Closed", value: "13" }, { label: "Leads Opened", value: "7" }, { label: "Goal", value: "50 / Month" }],
-    projections: [
-      { label: "Projected Sales ✦", sub: "Based on goals and past income | Synced from 10:23AM", value: "$45K" },
-      { label: "Projected New Leads ✦", sub: "Based on goals and past expenses | Synced from 10:23AM", value: "569" },
-    ],
-    suggestions: [],
-    nextActions: [{ label: "Close 5 more calls", avatar: "AJ" }, { label: "Send 34 quotes", avatar: "BK" }, { avatar: "CL" }, { avatar: "DM" }]
-  }),
-  emails: makeModal("Emails Opened", "789", "green", {
-    type: "emails", healthPct: 100,
-    stats: [{ label: "Bounce Rate", value: "3%", synced: true }, { label: "Open Rate", value: "26%", synced: true }, { label: "Click-through Rate", value: "4.5%", synced: true }, { label: "Total Emails Sent", value: "3,034", synced: true }],
-    projections: [
-      { label: "Open Rate", sub: "Based on goals and past income | Synced from 10:23AM", value: "26%" },
-      { label: "Click-through Rate", sub: "Based on goals and past expenses | Synced from 10:23AM", value: "Increase" },
-      { label: "Bounce Rate", sub: "Based on goals, income, and past expenses | Synced from 10:23AM", value: "3%" },
-    ],
-    suggestions: [], nextActions: [{ avatar: "AJ" }, { avatar: "BK" }, { avatar: "CL" }, {}]
-  }),
-  invoices: makeModal("Invoices In Progress", "$10,050.76", "gray", {
-    type: "invoices", healthPct: null,
-    stats: [{ label: "Total Invoices", value: "37", synced: true }, { label: "Conversion Rate", value: "78%", synced: true }, { label: "Average Order Value", value: "$270", synced: true }],
-    projections: [
-      { label: "Projected Funds", sub: "Based on goals and past income | Synced from 10:23AM", value: "$34,000" },
-      { label: "Invoices Need Sending", sub: "Based on goals and past expenses | Synced from 10:23AM", value: "45" },
-    ],
-    suggestions: ["Send 13 invoices"], nextActions: [{ avatar: "AJ" }, { avatar: "BK" }, { avatar: "CL" }, {}]
-  }),
-  website: makeModal("Website Engagement", "67%", "green", {
-    type: "website", healthPct: 80,
-    stats: [{ label: "Site Sessions", value: "7,987", synced: true }, { label: "Ave Session Duration", value: "23 seconds", synced: true }, { label: "Unique Visitors", value: "57.6K", synced: true }, { label: "Clicks to Contact", value: "356", synced: true }, { label: "Bounce Rate", value: "37%", synced: true }],
-    projections: [
-      { label: "Clicks Next Month", sub: "Based on goals and past income | Synced from 10:23AM", value: "356" },
-      { label: "Conversion Rate Next Month", sub: "Based on goals and past expenses | Synced from 10:23AM", value: "Increase" },
-      { label: "Projected Visitors Next Month", sub: "Based on goals, income, and past expenses | Synced from 10:23AM", value: "57.6K" },
-    ],
-    suggestions: [], nextActions: [{ avatar: "AJ" }, { avatar: "BK" }, { avatar: "CL" }, {}]
-  }),
-};
+  });
+  return {
+    label, value: "$0.00",
+    icon: FIVE_ACCOUNT_ICONS[label] ?? "Wallet",
+    color: "gray", modal, metricType: "financial", graphType: "linear",
+    colorRules: [], connectedApps: [], history: [],
+    fiveAccountParentId: parentId,
+  };
+}
 
 const INIT_SECTIONS: Section[] = [];
 
@@ -640,12 +354,12 @@ function Av({ initials, size = 30 }: { initials?: string; size?: number }) {
   );
 }
 
-function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
+function Toggle({ on, onChange, disabled }: { on: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
   return (
-    <div onClick={() => onChange(!on)} style={{
-      width: 44, height: 24, borderRadius: 99, cursor: "pointer",
+    <div onClick={() => !disabled && onChange(!on)} style={{
+      width: 44, height: 24, borderRadius: 99, cursor: disabled ? "not-allowed" : "pointer",
       background: on ? "#4CAF7D" : "#e2e8f0", position: "relative",
-      transition: "background 0.2s", flexShrink: 0
+      transition: "background 0.2s", flexShrink: 0, opacity: disabled ? 0.5 : 1
     }}>
       <div style={{
         position: "absolute", top: 3, left: on ? 22 : 3,
@@ -661,6 +375,69 @@ function SectionCard({ title, children }: { title?: string; children: React.Reac
     <div style={{ background: "#F8FAFC", borderRadius: 16, padding: 20, display: "flex", flexDirection: "column" }}>
       {title && <div style={{ fontSize: 18, fontWeight: 700, color: "#1a2332", marginBottom: 16 }}>{title}</div>}
       {children}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ICON PICKER
+// ═══════════════════════════════════════════════════════════════════════════
+
+function IconPicker({ selected, onSelect }: { selected: string; onSelect: (icon: string) => void }) {
+  const [search, setSearch] = useState("");
+  const [activeCategory, setActiveCategory] = useState(0);
+
+  const displayIcons = search.trim()
+    ? ALL_PHOSPHOR_ICONS.filter(i => i.toLowerCase().includes(search.toLowerCase()))
+    : PHOSPHOR_CATEGORIES[activeCategory]?.icons ?? [];
+
+  return (
+    <div>
+      <div onClick={() => onSelect(ICON_NONE)} style={{
+        display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 12px",
+        borderRadius: 6, cursor: "pointer", marginBottom: 8,
+        background: selected === ICON_NONE ? "#EFF6FF" : "#F8FAFC",
+        border: selected === ICON_NONE ? "1.5px solid #3B82F6" : "1.5px solid #e2e8f0",
+        fontSize: 12, color: "#64748b"
+      }}>No icon</div>
+
+      <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search icons..."
+        style={{ width: "100%", padding: "6px 10px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", marginBottom: 8, boxSizing: "border-box" }} />
+
+      {!search && (
+        <div style={{ display: "flex", gap: 4, overflowX: "auto", marginBottom: 8, paddingBottom: 2 }}>
+          {PHOSPHOR_CATEGORIES.map((cat, i) => (
+            <button key={i} onClick={() => setActiveCategory(i)} style={{
+              padding: "3px 8px", borderRadius: 20, border: "none", cursor: "pointer", flexShrink: 0,
+              background: activeCategory === i ? "#3B82F6" : "#f1f5f9",
+              color: activeCategory === i ? "#fff" : "#64748b", fontSize: 10, fontWeight: 500
+            }}>{cat.label}</button>
+          ))}
+        </div>
+      )}
+
+      <div style={{ height: 160, overflowY: "auto", border: "1px solid #e2e8f0", borderRadius: 10, padding: 6 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: 4 }}>
+          {displayIcons.map(ic => (
+            <div key={ic} onClick={() => onSelect(ic)} title={ic}
+              style={{
+                height: 36, borderRadius: 6, display: "flex", flexDirection: "column",
+                alignItems: "center", justifyContent: "center", cursor: "pointer", gap: 2,
+                background: selected === ic ? "#EFF6FF" : "#f8fafc",
+                border: selected === ic ? "1.5px solid #3B82F6" : "1.5px solid #e2e8f0",
+              }}>
+              <IconGlyph name={ic} size={16} color={selected === ic ? "#3B82F6" : "#64748b"} />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {selected && selected !== ICON_NONE && (
+        <div style={{ marginTop: 6, fontSize: 12, color: "#64748b", display: "flex", alignItems: "center", gap: 6 }}>
+          Selected: <IconGlyph name={selected} size={14} color="#3B82F6" />
+          <span style={{ color: "#94a3b8" }}>{selected}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -689,7 +466,7 @@ function TxnTable({ transactions }: { transactions: Transaction[] }) {
               <td style={td}>{t.date} – {t.description}</td>
               <td style={{ ...td, textAlign: "right" }}>{fmt(t.credit)}</td>
               <td style={{ ...td, textAlign: "right" }}>{fmt(t.debit)}</td>
-              <td style={{ ...td, textAlign: "right", color: "#94a3b8" }}>$xxx,xxx.xx</td>
+              <td style={{ ...td, textAlign: "right", color: "#94a3b8" }}>—</td>
             </tr>)}
         </tbody>
       </table>
@@ -698,53 +475,176 @@ function TxnTable({ transactions }: { transactions: Transaction[] }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// BOTTOM THREE CARDS — shared across all popup types
+// BOTTOM THREE CARDS
 // ═══════════════════════════════════════════════════════════════════════════
 
 function BottomThreeCards({ data }: { data: MetricModalData }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 16 }}>
-      {/* Projections */}
       <SectionCard>
-        <div style={{ fontSize: 18, fontWeight: 700, color: "#1a2332", marginBottom: 12 }}>Projections</div>
-        <div style={{ fontSize: 12, color: "#94a3b8", fontStyle: "italic", marginBottom: 12 }}>Coming Soon</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, opacity: 0.35 }}>
-          {[1, 2, 3].map(i => (
-            <div key={i}>
-              <div style={{ height: 8, borderRadius: 99, background: "#e2e8f0", marginBottom: 4, width: "70%" }} />
-              <div style={{ height: 6, borderRadius: 99, background: "#e2e8f0", width: "50%" }} />
-            </div>
-          ))}
-        </div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#1a2332", marginBottom: 8 }}>Projections</div>
+        <div style={{ fontSize: 12, color: "#94a3b8", fontStyle: "italic", marginBottom: 10 }}>Coming Soon</div>
+        {[1, 2, 3].map(i => <div key={i} style={{ height: 8, borderRadius: 99, background: "#e2e8f0", marginBottom: 8, width: `${70 - i * 10}%`, opacity: 0.4 }} />)}
       </SectionCard>
-
-      {/* Suggestions */}
       <SectionCard>
-        <div style={{ display: "inline-block", background: "#3B82F6", color: "#fff", borderRadius: 99, padding: "6px 18px", fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Suggestions</div>
-        <div style={{ fontSize: 12, color: "#94a3b8", fontStyle: "italic", marginBottom: 12 }}>Coming Soon</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, opacity: 0.35 }}>
-          {[1, 2, 3].map(i => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div style={{ width: 22, height: 22, borderRadius: "50%", border: "1.5px solid #d1d5db", flexShrink: 0 }} />
-              <div style={{ height: 7, borderRadius: 99, background: "#e2e8f0", flex: 1 }} />
-            </div>
-          ))}
-        </div>
+        <div style={{ display: "inline-block", background: "#3B82F6", color: "#fff", borderRadius: 99, padding: "5px 14px", fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Suggestions</div>
+        <div style={{ fontSize: 12, color: "#94a3b8", fontStyle: "italic", marginBottom: 10 }}>Coming Soon</div>
+        {[1, 2, 3].map(i => <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, opacity: 0.4 }}>
+          <div style={{ width: 20, height: 20, borderRadius: "50%", border: "1.5px solid #d1d5db", flexShrink: 0 }} />
+          <div style={{ height: 7, borderRadius: 99, background: "#e2e8f0", flex: 1 }} />
+        </div>)}
       </SectionCard>
-
-      {/* Next Actions */}
       <SectionCard>
-        <div style={{ display: "inline-block", background: "#3B82F6", color: "#fff", borderRadius: 99, padding: "6px 18px", fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Next Actions</div>
+        <div style={{ display: "inline-block", background: "#3B82F6", color: "#fff", borderRadius: 99, padding: "5px 14px", fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Next Actions</div>
         {data.nextActions.map((a, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
             <div style={{ width: 20, height: 20, borderRadius: "50%", border: "1.5px solid #4CAF7D", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: "#4CAF7D" }}>✓</div>
             {a.label ? <span style={{ fontSize: 13, color: "#1a2332", flex: 1 }}>{a.label}</span> : <div style={{ flex: 1, height: 7, borderRadius: 99, background: "#e2e8f0" }} />}
             <Av initials={a.avatar} />
           </div>
         ))}
-        {data.nextActions.length === 0 && <div style={{ fontSize: 13, color: "#cbd5e1" }}>No actions yet</div>}
+        {data.nextActions.length === 0 && <div style={{ fontSize: 12, color: "#cbd5e1", fontStyle: "italic" }}>No actions yet</div>}
       </SectionCard>
     </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CHART
+// ═══════════════════════════════════════════════════════════════════════════
+
+function MetricChart({ history, rules, graphType, currentValue }: {
+  history: DataPoint[]; rules: ColorRule[]; graphType: GraphType; currentValue: string;
+}) {
+  const [tooltip, setTooltip] = useState<{ x: number; y: number; val: number; color: MetricColor } | null>(null);
+  const points: DataPoint[] = history && history.length > 1 ? history : (() => {
+    const base = parseFloat(currentValue.replace(/[^0-9.\-]/g, "")) || 50;
+    return Array.from({ length: 8 }, (_, i) => ({
+      timestamp: Date.now() - (7 - i) * 86400000,
+      value: Math.max(0, base * (0.6 + Math.random() * 0.8))
+    }));
+  })();
+
+  const vals = points.map(p => p.value);
+  const allRuleVals = rules.flatMap(r => r.op === "between" && r.value2 != null ? [r.value, r.value2] : [r.value]);
+  const yMin = Math.min(...vals, ...allRuleVals) * 0.85;
+  const yMax = Math.max(...vals, ...allRuleVals) * 1.15 || 100;
+  const W = 300, H = 150, padL = 36, padR = 8, padT = 8, padB = 24;
+  const cw = W - padL - padR, ch = H - padT - padB;
+  const xS = (i: number) => padL + (i / Math.max(points.length - 1, 1)) * cw;
+  const yS = (v: number) => padT + ch - ((v - yMin) / (yMax - yMin || 1)) * ch;
+  const colorOf = (v: number) => MS[getColorForValue(v, rules)].bg;
+
+  if (graphType === "pie") {
+    const counts: Record<MetricColor, number> = { red: 0, yellow: 0, green: 0, gray: 0 };
+    points.forEach(p => counts[getColorForValue(p.value, rules)]++);
+    const total = points.length;
+    const slices = (["green", "yellow", "red", "gray"] as MetricColor[])
+      .map(c => ({ color: c, pct: counts[c] / total })).filter(s => s.pct > 0);
+    const cx = 70, cy = 70, r = 55;
+    let angle = -Math.PI / 2;
+    return (
+      <svg viewBox="0 0 200 140" style={{ width: "100%", height: 140 }}>
+        {slices.map((s, i) => {
+          const a = s.pct * 2 * Math.PI;
+          const x1 = cx + r * Math.cos(angle), y1 = cy + r * Math.sin(angle);
+          const x2 = cx + r * Math.cos(angle + a), y2 = cy + r * Math.sin(angle + a);
+          const d = `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${a > Math.PI ? 1 : 0} 1 ${x2} ${y2} Z`;
+          angle += a;
+          return <path key={i} d={d} fill={MS[s.color].bg} stroke="#fff" strokeWidth={1.5} />;
+        })}
+        {slices.map((s, i) => (
+          <g key={i}>
+            <rect x={135} y={18 + i * 22} width={10} height={10} rx={2} fill={MS[s.color].bg} />
+            <text x={149} y={28 + i * 22} fontSize={9} fill="#64748b">{s.color} {Math.round(s.pct * 100)}%</text>
+          </g>
+        ))}
+      </svg>
+    );
+  }
+
+  if (graphType === "bar-v") {
+    const bw = Math.max(4, cw / points.length - 4);
+    return (
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: H }}>
+        {[0, .25, .5, .75, 1].map(t => <line key={t} x1={padL} x2={W - padR} y1={padT + ch * (1 - t)} y2={padT + ch * (1 - t)} stroke="#f1f5f9" strokeWidth={1} />)}
+        {points.map((p, i) => {
+          const x = padL + (i / points.length) * cw + 2;
+          const top = yS(p.value), ht = yS(yMin) - top;
+          return <rect key={i} x={x} y={top} width={bw} height={ht} fill={colorOf(p.value)} rx={3}
+            onMouseEnter={() => setTooltip({ x: x + bw / 2, y: top - 6, val: p.value, color: getColorForValue(p.value, rules) })}
+            onMouseLeave={() => setTooltip(null)} style={{ cursor: "pointer" }} />;
+        })}
+        {tooltip && <><rect x={tooltip.x - 22} y={tooltip.y - 16} width={44} height={16} rx={4} fill={MS[tooltip.color].bg} />
+          <text x={tooltip.x} y={tooltip.y - 4} textAnchor="middle" fontSize={9} fill="#fff" fontWeight="600">{tooltip.val.toFixed(1)}</text></>}
+      </svg>
+    );
+  }
+
+  if (graphType === "bar-h") {
+    const bh = Math.max(6, ch / points.length - 4);
+    return (
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: H }}>
+        {points.map((p, i) => {
+          const y = padT + (i / points.length) * ch + 2;
+          const bw2 = ((p.value - yMin) / (yMax - yMin || 1)) * cw;
+          return <rect key={i} x={padL} y={y} width={bw2} height={bh} fill={colorOf(p.value)} rx={3}
+            onMouseEnter={() => setTooltip({ x: padL + bw2 + 4, y: y + bh / 2, val: p.value, color: getColorForValue(p.value, rules) })}
+            onMouseLeave={() => setTooltip(null)} style={{ cursor: "pointer" }} />;
+        })}
+        {tooltip && <><rect x={tooltip.x} y={tooltip.y - 8} width={44} height={16} rx={4} fill={MS[tooltip.color].bg} />
+          <text x={tooltip.x + 22} y={tooltip.y + 4} textAnchor="middle" fontSize={9} fill="#fff" fontWeight="600">{tooltip.val.toFixed(1)}</text></>}
+      </svg>
+    );
+  }
+
+  // Linear
+  const pathD = points.map((p, i) => {
+    const x = xS(i), y = yS(p.value);
+    if (i === 0) return `M ${x} ${y}`;
+    const px = xS(i - 1), py = yS(points[i - 1].value), cx2 = (px + x) / 2;
+    return ` C ${cx2} ${py} ${cx2} ${y} ${x} ${y}`;
+  }).join("");
+  const areaD = pathD + ` L ${xS(points.length - 1)} ${yS(yMin)} L ${xS(0)} ${yS(yMin)} Z`;
+
+  const sortedRules = [...rules].sort((a, b) => a.value - b.value);
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: H, overflow: "visible" }}>
+      <defs>
+        <linearGradient id="ag" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor="#3B82F6" stopOpacity={0.5} />
+          <stop offset="100%" stopColor="#3B82F6" stopOpacity={0} />
+        </linearGradient>
+      </defs>
+      {[0, .25, .5, .75, 1].map(t => <line key={t} x1={padL} x2={W - padR} y1={padT + ch * (1 - t)} y2={padT + ch * (1 - t)} stroke="#f1f5f9" strokeWidth={1} />)}
+      {[0, .5, 1].map(t => {
+        const v = yMin + t * (yMax - yMin);
+        return <text key={t} x={padL - 3} y={yS(v) + 3} textAnchor="end" fontSize={8} fill="#94a3b8">{v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v.toFixed(0)}</text>;
+      })}
+      {sortedRules.map(r => {
+        const zMin = sortedRules.indexOf(r) === 0 ? yMin : sortedRules[sortedRules.indexOf(r) - 1].value;
+        const zMax = r.op === "between" && r.value2 != null ? r.value2 : r.value;
+        const top = yS(Math.min(yMax, zMax)), bot = yS(Math.max(yMin, zMin));
+        if (bot <= top) return null;
+        return <rect key={r.id} x={padL} y={top} width={cw} height={bot - top} fill={MS[r.color].bg} opacity={0.1} />;
+      })}
+      {rules.map(r => <line key={r.id} x1={padL} x2={W - padR} y1={yS(r.value)} y2={yS(r.value)} stroke={MS[r.color].bg} strokeWidth={1.5} strokeDasharray="4 3" opacity={0.6} />)}
+      <path d={areaD} fill="url(#ag)" opacity={0.3} />
+      <path d={pathD} fill="none" stroke="#3B82F6" strokeWidth={2} strokeLinecap="round" />
+      {points.map((p, i) => (
+        <circle key={i} cx={xS(i)} cy={yS(p.value)} r={4} fill={colorOf(p.value)} stroke="#fff" strokeWidth={1.5}
+          onMouseEnter={() => setTooltip({ x: xS(i), y: yS(p.value) - 10, val: p.value, color: getColorForValue(p.value, rules) })}
+          onMouseLeave={() => setTooltip(null)} style={{ cursor: "pointer" }} />
+      ))}
+      {tooltip && <><rect x={tooltip.x - 22} y={tooltip.y - 16} width={44} height={16} rx={4} fill={MS[tooltip.color].bg} />
+        <text x={tooltip.x} y={tooltip.y - 4} textAnchor="middle" fontSize={9} fill="#fff" fontWeight="600">{tooltip.val.toFixed(1)}</text></>}
+      {points.map((p, i) => {
+        if (i % Math.ceil(points.length / 4) !== 0 && i !== points.length - 1) return null;
+        const d = new Date(p.timestamp);
+        return <text key={i} x={xS(i)} y={H - 4} textAnchor="middle" fontSize={8} fill="#94a3b8">{`${d.getMonth() + 1}/${d.getDate()}`}</text>;
+      })}
+    </svg>
   );
 }
 
@@ -752,14 +652,9 @@ function BottomThreeCards({ data }: { data: MetricModalData }) {
 // METRIC DETAIL MODAL
 // ═══════════════════════════════════════════════════════════════════════════
 
-function MetricModal({
-  data, metric, onClose, onEdit, onValueChange
-}: {
-  data: MetricModalData;
-  metric?: Metric;
-  onClose: () => void;
-  onEdit?: () => void;
-  onValueChange?: (newValue: string) => void;
+function MetricModal({ data, metric, onClose, onEdit, onValueChange }: {
+  data: MetricModalData; metric?: Metric;
+  onClose: () => void; onEdit?: () => void; onValueChange?: (v: string) => void;
 }) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const [localValue, setLocalValue] = useState(data.mainValue);
@@ -767,327 +662,204 @@ function MetricModal({
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
+    window.addEventListener("keydown", h); return () => window.removeEventListener("keydown", h);
   }, [onClose]);
 
   const activeColor: MetricColor = metric ? resolveColor(metric) : data.color;
   const accent = MS[activeColor].bg;
-  const isCash = data.fiveAccountEnabled && !!data.accountType;
+  const isColored = activeColor !== "gray";
+  const isCash = !!(data.fiveAccountEnabled && data.accountType);
   const isCounter = !isCash && metric?.metricType === "counter";
   const metricType = metric?.metricType ?? "financial";
   const graphType = metric?.graphType ?? "linear";
   const colorRules = metric?.colorRules ?? [];
   const history = metric?.history ?? [];
+  const currency = metric?.currencySymbol ?? "$";
 
-  // Parse numeric value for +/- buttons
   const parseVal = (v: string) => parseFloat(v.replace(/[^0-9.\-]/g, "")) || 0;
-  const formatVal = (n: number, mt: MetricType, original: string): string => {
-    const hasPrefix = original.match(/^[$€£¥]/)?.[0] ?? "";
-    const hasSuffix = original.match(/[%]$/)?.[0] ?? "";
-    if (mt === "financial") return `${hasPrefix}${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    if (mt === "percentage") return `${n.toFixed(1)}${hasSuffix || "%"}`;
-    return `${n % 1 === 0 ? Math.round(n) : n.toFixed(1)}`;
-  };
-
   const handleIncrement = (dir: 1 | -1) => {
     const n = parseVal(localValue);
-    const step = metricType === "financial" ? 100 : metricType === "percentage" ? 1 : 1;
+    const step = metricType === "financial" ? 100 : 1;
     const next = n + dir * step;
-    const formatted = formatVal(next, metricType, localValue);
-    setLocalValue(formatted);
-    onValueChange?.(formatted);
+    const formatted = formatValue(String(next), metricType, currency);
+    setLocalValue(formatted); onValueChange?.(formatted);
   };
-
-  const handleValueSave = () => {
-    onValueChange?.(localValue);
-    setIsEditingValue(false);
-  };
-
-  const healthColor = activeColor !== "gray" ? accent : "#e5e7eb";
-  const healthPct = data.healthPct ?? 0;
+  const handleValueSave = () => { onValueChange?.(localValue); setIsEditingValue(false); };
 
   const CloseBtn = () => (
     <button onClick={onClose} style={{
       width: 34, height: 34, borderRadius: "50%", border: "1.5px solid #e2e8f0",
       background: "#f8fafc", fontSize: 20, cursor: "pointer", color: "#475569",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      flexShrink: 0, lineHeight: 1, padding: 0
+      display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, padding: 0
     }}>×</button>
   );
-
-  const EditSettingsBtn = () => (
+  const EditBtn = () => (
     <button onClick={onEdit} style={{
       background: "#9CA3AF", color: "#fff", border: "none", borderRadius: 8,
-      padding: "10px 24px", fontSize: 14, fontWeight: 600, cursor: "pointer"
+      padding: "8px 20px", fontSize: 13, fontWeight: 600, cursor: "pointer"
     }}>Edit Settings</button>
   );
 
-  // ── CASHFLOW / FIVE-ACCOUNT LAYOUT ─────────────────────────────────────
-  if (isCash) {
-    return (
-      <div ref={overlayRef} onClick={e => { if (e.target === overlayRef.current) onClose(); }} style={{
-        position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex",
-        alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 20
-      }}>
-        <div style={{
-          background: "#fff", borderRadius: 24, width: "100%", maxWidth: 900,
-          maxHeight: "92vh", overflowY: "auto", padding: "36px 36px 32px",
-          position: "relative", boxShadow: "0 32px 80px rgba(0,0,0,0.2)"
-        }}>
-          <style>{`@keyframes mIn{from{opacity:0;transform:scale(0.97)}to{opacity:1;transform:scale(1)}}`}</style>
+  const statTextColor = isColored ? "rgba(255,255,255,0.82)" : "#64748b";
+  const statValColor = isColored ? "#fff" : "#1a2332";
 
-          {/* Header row */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-            <h2 style={{ margin: 0, fontSize: 30, fontWeight: 700, color: "#1a2332" }}>{data.title}</h2>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <EditSettingsBtn />
-              <CloseBtn />
-            </div>
-          </div>
-
-          {data.accountType && (
-            <div style={{ background: "linear-gradient(135deg,#EEF9F4,#E8F4FD)", border: "1px solid #c3e6d4", borderRadius: 12, padding: "12px 16px", marginBottom: 16 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#0F6E56", marginBottom: 4 }}>Five-Account System — {data.accountType}</div>
-              <p style={{ margin: 0, fontSize: 12, color: "#1e6b4e" }}>{FIVE_DESC[data.accountType]}</p>
-            </div>
-          )}
-
-          {/* Health bar */}
-          <div style={{ marginBottom: 20 }}>
-            {data.healthPct != null ? (
-              <>
-                <div style={{ fontSize: 14, fontWeight: 600, color: "#1a2332", marginBottom: 7 }}>Health — <strong>{data.healthPct}%</strong></div>
-                <div style={{ height: 32, borderRadius: 99, background: "#e5e7eb", maxWidth: 260, overflow: "hidden" }}>
-                  <div style={{ width: `${data.healthPct}%`, height: "100%", borderRadius: 99, background: accent }} />
-                </div>
-              </>
-            ) : (
-              <>
-                <div style={{ fontSize: 14, fontWeight: 600, color: "#1a2332", marginBottom: 8 }}>Health — <strong>N/A</strong></div>
-                <button style={{ padding: "8px 22px", borderRadius: 99, border: "1.5px solid #d1d5db", background: "#fff", fontSize: 13, cursor: "pointer", fontWeight: 600 }}>Set A Goal</button>
-              </>
-            )}
-          </div>
-
-          <div style={{ marginBottom: 24 }}>
-            <div style={{ background: accent, borderRadius: "12px 12px 0 0", padding: "20px 22px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                <div style={{ flex: 1 }}>
-                  {data.stats.map((s, i) => (
-                    <div key={i} style={{ marginBottom: i < data.stats.length - 1 ? 12 : 0 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ fontSize: 13, color: "rgba(255,255,255,0.82)" }}>{s.label}</span>
-                        {s.synced && <span style={{ fontSize: 10, color: "rgba(255,255,255,0.5)" }}>Synced from {data.syncTime}</span>}
-                      </div>
-                      <div style={{ fontSize: i === 0 ? 22 : 18, fontWeight: 700, color: "#fff" }}>{s.value}</div>
-                    </div>
-                  ))}
-                </div>
-                <button style={{ background: "#fff", border: "none", borderRadius: 20, padding: "6px 18px", fontSize: 13, cursor: "pointer", fontWeight: 600, flexShrink: 0, marginLeft: 16 }}>Filter</button>
-              </div>
-            </div>
-            <TxnTable transactions={data.transactions ?? []} />
-          </div>
-          <BottomThreeCards data={data} />
+  // ── CASHFLOW ─────────────────────────────────────────────────────────────
+  if (isCash) return (
+    <div ref={overlayRef} onClick={e => { if (e.target === overlayRef.current) onClose(); }}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 20 }}>
+      <div style={{ background: "#fff", borderRadius: 24, width: "100%", maxWidth: 900, maxHeight: "92vh", overflowY: "auto", padding: "28px 32px 32px", boxShadow: "0 32px 80px rgba(0,0,0,0.2)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+          <h2 style={{ margin: 0, fontSize: 28, fontWeight: 700, color: "#1a2332" }}>{data.title}</h2>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}><EditBtn /><CloseBtn /></div>
         </div>
-      </div>
-    );
-  }
-
-  // ── COUNTER LAYOUT ──────────────────────────────────────────────────────
-  if (isCounter) {
-    return (
-      <div ref={overlayRef} onClick={e => { if (e.target === overlayRef.current) onClose(); }} style={{
-        position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex",
-        alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 20
-      }}>
-        <div style={{
-          background: "#fff", borderRadius: 24, width: "100%", maxWidth: 780,
-          maxHeight: "92vh", overflowY: "auto", padding: "36px 36px 32px",
-          position: "relative", boxShadow: "0 32px 80px rgba(0,0,0,0.2)"
-        }}>
-          <button onClick={onClose} style={{ display: "none" }} />
-
-          {/* Header: title centered, Edit Settings + close top right */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28, flexWrap: "wrap", gap: 10 }}>
-            <div style={{ flex: 1 }} />
-            <h2 style={{ margin: 0, fontSize: 28, fontWeight: 700, color: "#1a2332" }}>{data.title}</h2>
-            <div style={{ flex: 1, display: "flex", justifyContent: "flex-end", gap: 10, alignItems: "center" }}>
-              <EditSettingsBtn />
-              <CloseBtn />
-            </div>
+        {data.accountType && (
+          <div style={{ background: "linear-gradient(135deg,#EEF9F4,#E8F4FD)", border: "1px solid #c3e6d4", borderRadius: 12, padding: "10px 14px", marginBottom: 14 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#0F6E56", marginBottom: 2 }}>Five-Account System — {data.accountType}</div>
+            <p style={{ margin: 0, fontSize: 11, color: "#1e6b4e" }}>{FIVE_DESC[data.accountType]}</p>
           </div>
-
-          {/* Icon circle */}
-          {metric?.icon && metric.icon !== ICON_NONE && (
-            <div style={{ textAlign: "center", marginBottom: 16 }}>
-              <div style={{
-                width: 72, height: 72, borderRadius: "50%",
-                border: "2px solid #1a2332", display: "inline-flex",
-                alignItems: "center", justifyContent: "center"
-              }}>
-                <ElegantIcon name={metric.icon} size={30} color="#1a2332" />
-              </div>
-            </div>
-          )}
-
-          {/* Health bar */}
-          <div style={{ maxWidth: 380, margin: "0 auto 8px" }}>
-            <div style={{ height: 36, borderRadius: 99, background: "#e5e7eb", overflow: "hidden" }}>
-              <div style={{ width: `${healthPct}%`, height: "100%", borderRadius: 99, background: healthColor, transition: "width 0.4s" }} />
-            </div>
-          </div>
-          <p style={{ textAlign: "center", fontSize: 14, marginBottom: 28, color: "#1a2332" }}>
-            Health Goal — <strong>{data.healthPct ?? "N/A"}{data.healthPct != null ? "%" : ""}</strong>
-          </p>
-
-          {/* Value with +/- */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 32, marginBottom: 8 }}>
-            <button onClick={() => handleIncrement(-1)} style={{ width: 42, height: 42, borderRadius: "50%", border: "1.5px solid #d1d5db", background: "none", fontSize: 22, cursor: "pointer", color: "#6b7280" }}>−</button>
-            {isEditingValue ? (
-              <input
-                value={localValue}
-                onChange={e => setLocalValue(e.target.value)}
-                onBlur={handleValueSave}
-                onKeyDown={e => { if (e.key === "Enter") handleValueSave(); if (e.key === "Escape") setIsEditingValue(false); }}
-                autoFocus
-                style={{ fontSize: 72, fontWeight: 700, color: "#1a2332", lineHeight: 1, border: "none", borderBottom: "2px solid #3B82F6", outline: "none", width: 220, textAlign: "center", background: "transparent" }}
-              />
-            ) : (
-              <span
-                onClick={() => setIsEditingValue(true)}
-                style={{ fontSize: 72, fontWeight: 700, color: "#1a2332", lineHeight: 1, cursor: "text", borderBottom: "2px solid transparent", transition: "border-color 0.15s" }}
-                title="Click to edit"
-              >{localValue}</span>
-            )}
-            <button onClick={() => handleIncrement(1)} style={{ width: 42, height: 42, borderRadius: "50%", border: "1.5px solid #d1d5db", background: "none", fontSize: 22, cursor: "pointer", color: "#6b7280" }}>+</button>
-          </div>
-          <div style={{ textAlign: "center", marginBottom: 32 }}>
-            <div style={{ height: 2, background: "#1a2332", width: 240, margin: "0 auto 6px" }} />
-            <span style={{ fontSize: 13, fontStyle: "italic", color: "#6b7280" }}>Synced from {data.syncTime}</span>
-          </div>
-
-          {/* Details + Chart */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 24 }}>
-            <SectionCard>
-              <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 14 }}>
-                <span style={{ fontSize: 18, fontWeight: 700, color: "#1a2332" }}>Details</span>
-                <span style={{ fontSize: 11, color: "#94a3b8" }}>Synced from {data.syncTime}</span>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 14px" }}>
+        )}
+        {data.healthPct != null
+          ? <><div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332", marginBottom: 6 }}>Health — <strong>{data.healthPct}%</strong></div>
+            <div style={{ height: 28, borderRadius: 99, background: "#e5e7eb", maxWidth: 260, overflow: "hidden", marginBottom: 20 }}>
+              <div style={{ width: `${data.healthPct}%`, height: "100%", borderRadius: 99, background: accent }} /></div></>
+          : <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332", marginBottom: 6 }}>Health — N/A</div>
+            <button style={{ padding: "6px 18px", borderRadius: 99, border: "1.5px solid #d1d5db", background: "#fff", fontSize: 12, cursor: "pointer" }}>Set A Goal</button>
+          </div>}
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ background: accent, borderRadius: "12px 12px 0 0", padding: "18px 20px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <div style={{ flex: 1 }}>
                 {data.stats.map((s, i) => (
-                  <div key={i}>
-                    <div style={{ fontSize: 12, color: "#94a3b8" }}>{s.label}</div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: "#1a2332" }}>{s.value}</div>
+                  <div key={i} style={{ marginBottom: i < data.stats.length - 1 ? 10 : 0 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ fontSize: 12, color: statTextColor }}>{s.label}</span>
+                      {s.synced && <span style={{ fontSize: 10, color: isColored ? "rgba(255,255,255,0.5)" : "#94a3b8" }}>Synced {data.syncTime}</span>}
+                    </div>
+                    <div style={{ fontSize: i === 0 ? 20 : 16, fontWeight: 700, color: statValColor }}>{s.value}</div>
                   </div>
                 ))}
               </div>
-            </SectionCard>
-            <SectionCard>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332", marginBottom: 8 }}>History Chart</div>
-              <MetricChart history={history} rules={colorRules} graphType={graphType} metricType={metricType} currentValue={localValue} />
-            </SectionCard>
-          </div>
-
-          <BottomThreeCards data={data} />
-        </div>
-      </div>
-    );
-  }
-
-  // ── FINANCIAL / PERCENTAGE / GENERIC LAYOUT ─────────────────────────────
-  return (
-    <div ref={overlayRef} onClick={e => { if (e.target === overlayRef.current) onClose(); }} style={{
-      position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex",
-      alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 20
-    }}>
-      <div style={{
-        background: "#fff", borderRadius: 24, width: "100%", maxWidth: 900,
-        maxHeight: "92vh", overflowY: "auto", padding: "36px 36px 32px",
-        position: "relative", boxShadow: "0 32px 80px rgba(0,0,0,0.2)"
-      }}>
-        <button onClick={onClose} style={{ display: "none" }} />
-
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
-          <h2 style={{ margin: 0, fontSize: 30, fontWeight: 700, color: "#1a2332" }}>{data.title}</h2>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <EditSettingsBtn />
-            <CloseBtn />
-          </div>
-        </div>
-
-        {/* Health */}
-        <div style={{ marginBottom: 20 }}>
-          {data.healthPct != null ? (
-            <>
-              <div style={{ fontSize: 14, fontWeight: 600, color: "#1a2332", marginBottom: 7 }}>Health — <strong>{data.healthPct}%</strong></div>
-              <div style={{ height: 32, borderRadius: 99, background: "#e5e7eb", maxWidth: 260, overflow: "hidden" }}>
-                <div style={{ width: `${data.healthPct}%`, height: "100%", borderRadius: 99, background: accent }} />
-              </div>
-            </>
-          ) : (
-            <>
-              <div style={{ fontSize: 14, fontWeight: 600, color: "#1a2332", marginBottom: 8 }}>Health — <strong>N/A</strong></div>
-              <button style={{ padding: "8px 22px", borderRadius: 99, border: "1.5px solid #d1d5db", background: "#fff", fontSize: 13, cursor: "pointer", fontWeight: 600 }}>Set A Goal</button>
-            </>
-          )}
-        </div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 24, marginBottom: 26 }}>
-          {/* Stats card */}
-          <div style={{ background: accent, borderRadius: 16, padding: "20px 22px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
-              <div>
-                <div style={{ fontSize: 12, color: activeColor === "gray" ? "#64748b" : "rgba(255,255,255,0.8)" }}>Amount</div>
-                <div style={{ fontSize: 10, color: activeColor === "gray" ? "#94a3b8" : "rgba(255,255,255,0.55)" }}>Synced from {data.syncTime}</div>
-              </div>
-              <button style={{ background: activeColor === "gray" ? "#fff" : "rgba(255,255,255,0.9)", border: "none", borderRadius: 20, padding: "4px 14px", fontSize: 12, cursor: "pointer", fontWeight: 600, color: "#1a2332" }}>Filter</button>
+              <button style={{ background: "#fff", border: "none", borderRadius: 20, padding: "5px 14px", fontSize: 12, cursor: "pointer", fontWeight: 600, flexShrink: 0, marginLeft: 14, color: "#1a2332" }}>Filter</button>
             </div>
-            <div style={{ fontSize: 22, fontWeight: 700, color: activeColor === "gray" ? "#1a2332" : "#fff", marginBottom: 14 }}>{data.mainValue}</div>
+          </div>
+          <TxnTable transactions={data.transactions ?? []} />
+        </div>
+        <BottomThreeCards data={data} />
+      </div>
+    </div>
+  );
+
+  // ── COUNTER ───────────────────────────────────────────────────────────────
+  if (isCounter) return (
+    <div ref={overlayRef} onClick={e => { if (e.target === overlayRef.current) onClose(); }}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 20 }}>
+      <div style={{ background: "#fff", borderRadius: 24, width: "100%", maxWidth: 780, maxHeight: "92vh", overflowY: "auto", padding: "28px 32px 32px", boxShadow: "0 32px 80px rgba(0,0,0,0.2)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+          <div style={{ flex: 1 }} />
+          <h2 style={{ margin: 0, fontSize: 28, fontWeight: 700, color: "#1a2332" }}>{data.title}</h2>
+          <div style={{ flex: 1, display: "flex", justifyContent: "flex-end", gap: 10, alignItems: "center" }}><EditBtn /><CloseBtn /></div>
+        </div>
+        {metric?.icon && metric.icon !== ICON_NONE && (
+          <div style={{ textAlign: "center", marginBottom: 16 }}>
+            <div style={{ width: 68, height: 68, borderRadius: "50%", border: "2px solid #e2e8f0", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+              <IconGlyph name={metric.icon} size={28} color="#1a2332" />
+            </div>
+          </div>
+        )}
+        <div style={{ maxWidth: 360, margin: "0 auto 8px" }}>
+          <div style={{ height: 32, borderRadius: 99, background: "#e5e7eb", overflow: "hidden" }}>
+            <div style={{ width: `${data.healthPct ?? 0}%`, height: "100%", borderRadius: 99, background: activeColor !== "gray" ? accent : "#e5e7eb", transition: "width 0.4s" }} />
+          </div>
+        </div>
+        <p style={{ textAlign: "center", fontSize: 13, marginBottom: 24, color: "#64748b" }}>Health Goal — <strong style={{ color: "#1a2332" }}>{data.healthPct ?? "N/A"}{data.healthPct != null ? "%" : ""}</strong></p>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 28, marginBottom: 8 }}>
+          <button onClick={() => handleIncrement(-1)} style={{ width: 40, height: 40, borderRadius: "50%", border: "1.5px solid #d1d5db", background: "none", fontSize: 22, cursor: "pointer", color: "#6b7280" }}>−</button>
+          {isEditingValue
+            ? <input value={localValue} onChange={e => setLocalValue(e.target.value)} onBlur={handleValueSave} onKeyDown={e => { if (e.key === "Enter") handleValueSave(); }} autoFocus
+              style={{ fontSize: 64, fontWeight: 700, color: "#1a2332", border: "none", borderBottom: "2px solid #3B82F6", outline: "none", width: 200, textAlign: "center", background: "transparent" }} />
+            : <span onClick={() => setIsEditingValue(true)} style={{ fontSize: 64, fontWeight: 700, color: "#1a2332", cursor: "text" }} title="Click to edit">{localValue}</span>}
+          <button onClick={() => handleIncrement(1)} style={{ width: 40, height: 40, borderRadius: "50%", border: "1.5px solid #d1d5db", background: "none", fontSize: 22, cursor: "pointer", color: "#6b7280" }}>+</button>
+        </div>
+        <div style={{ textAlign: "center", marginBottom: 28 }}>
+          <div style={{ height: 2, background: "#1a2332", width: 220, margin: "0 auto 5px" }} />
+          <span style={{ fontSize: 12, fontStyle: "italic", color: "#94a3b8" }}>Synced from {data.syncTime}</span>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 24 }}>
+          <SectionCard>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "#1a2332", marginBottom: 10 }}>Details</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 12px" }}>
+              {data.stats.map((s, i) => <div key={i}>
+                <div style={{ fontSize: 11, color: "#94a3b8" }}>{s.label}</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#1a2332" }}>{s.value}</div>
+              </div>)}
+            </div>
+          </SectionCard>
+          <SectionCard>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332", marginBottom: 6 }}>History</div>
+            <MetricChart history={history} rules={colorRules} graphType={graphType} currentValue={localValue} />
+          </SectionCard>
+        </div>
+        <BottomThreeCards data={data} />
+      </div>
+    </div>
+  );
+
+  // ── FINANCIAL / PERCENTAGE / GENERIC ──────────────────────────────────────
+  return (
+    <div ref={overlayRef} onClick={e => { if (e.target === overlayRef.current) onClose(); }}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 20 }}>
+      <div style={{ background: "#fff", borderRadius: 24, width: "100%", maxWidth: 900, maxHeight: "92vh", overflowY: "auto", padding: "28px 32px 32px", boxShadow: "0 32px 80px rgba(0,0,0,0.2)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+          <h2 style={{ margin: 0, fontSize: 28, fontWeight: 700, color: "#1a2332" }}>{data.title}</h2>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}><EditBtn /><CloseBtn /></div>
+        </div>
+        {data.healthPct != null
+          ? <><div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332", marginBottom: 6 }}>Health — <strong>{data.healthPct}%</strong></div>
+            <div style={{ height: 28, borderRadius: 99, background: "#e5e7eb", maxWidth: 260, overflow: "hidden", marginBottom: 20 }}>
+              <div style={{ width: `${data.healthPct}%`, height: "100%", borderRadius: 99, background: accent }} /></div></>
+          : <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332", marginBottom: 6 }}>Health — N/A</div>
+            <button style={{ padding: "6px 18px", borderRadius: 99, border: "1.5px solid #d1d5db", background: "#fff", fontSize: 12, cursor: "pointer" }}>Set A Goal</button>
+          </div>}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 22, marginBottom: 26 }}>
+          <div style={{ background: accent, borderRadius: 16, padding: "18px 20px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
+              <div>
+                <div style={{ fontSize: 11, color: statTextColor }}>Amount</div>
+                <div style={{ fontSize: 9, color: isColored ? "rgba(255,255,255,0.5)" : "#94a3b8" }}>Synced from {data.syncTime}</div>
+              </div>
+              <button style={{ background: "#fff", border: "none", borderRadius: 20, padding: "3px 12px", fontSize: 11, cursor: "pointer", fontWeight: 600, color: "#1a2332" }}>Filter</button>
+            </div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: statValColor, marginBottom: 12 }}>{data.mainValue}</div>
             {data.stats.map((s, i) => (
-              <div key={i} style={{ marginBottom: 10 }}>
+              <div key={i} style={{ marginBottom: 8 }}>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ fontSize: 12, color: activeColor === "gray" ? "#64748b" : "rgba(255,255,255,0.82)" }}>{s.label}</span>
-                  {s.synced && <span style={{ fontSize: 10, color: activeColor === "gray" ? "#94a3b8" : "rgba(255,255,255,0.5)" }}>Synced from {data.syncTime}</span>}
+                  <span style={{ fontSize: 11, color: statTextColor }}>{s.label}</span>
+                  {s.synced && <span style={{ fontSize: 9, color: isColored ? "rgba(255,255,255,0.5)" : "#94a3b8" }}>Synced</span>}
                 </div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: activeColor === "gray" ? "#1a2332" : "#fff" }}>{s.value}</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: statValColor }}>{s.value}</div>
               </div>
             ))}
           </div>
-
-          {/* Manual adjust + chart */}
           <div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: "#1a2332", marginBottom: 10 }}>Manually Adjust Metric</div>
-            <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16 }}>
-              <button onClick={() => handleIncrement(-1)} style={{ width: 32, height: 32, borderRadius: "50%", border: "1.5px solid #d1d5db", background: "none", fontSize: 18, cursor: "pointer", color: "#9CA3AF" }}>−</button>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332", marginBottom: 8 }}>Manually Adjust Metric</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+              <button onClick={() => handleIncrement(-1)} style={{ width: 30, height: 30, borderRadius: "50%", border: "1.5px solid #d1d5db", background: "none", fontSize: 18, cursor: "pointer", color: "#9CA3AF" }}>−</button>
               <div>
-                {isEditingValue ? (
-                  <input
-                    value={localValue}
-                    onChange={e => setLocalValue(e.target.value)}
-                    onBlur={handleValueSave}
-                    onKeyDown={e => { if (e.key === "Enter") handleValueSave(); if (e.key === "Escape") setIsEditingValue(false); }}
-                    autoFocus
-                    style={{ fontSize: 28, fontWeight: 700, color: "#1a2332", lineHeight: 1, border: "none", borderBottom: "2px solid #3B82F6", outline: "none", width: 140, background: "transparent" }}
-                  />
-                ) : (
-                  <div
-                    onClick={() => setIsEditingValue(true)}
-                    title="Click to edit"
-                    style={{ fontSize: 28, fontWeight: 700, color: "#1a2332", lineHeight: 1, cursor: "text" }}
-                  >{localValue}</div>
-                )}
-                <div style={{ fontSize: 11, color: "#94a3b8", fontStyle: "italic" }}>Synced from {data.syncTime}</div>
+                {isEditingValue
+                  ? <input value={localValue} onChange={e => setLocalValue(e.target.value)} onBlur={handleValueSave} onKeyDown={e => { if (e.key === "Enter") handleValueSave(); }} autoFocus
+                    style={{ fontSize: 26, fontWeight: 700, color: "#1a2332", border: "none", borderBottom: "2px solid #3B82F6", outline: "none", width: 130, background: "transparent" }} />
+                  : <div onClick={() => setIsEditingValue(true)} style={{ fontSize: 26, fontWeight: 700, color: "#1a2332", cursor: "text" }} title="Click to edit">{localValue}</div>}
+                <div style={{ fontSize: 10, color: "#94a3b8", fontStyle: "italic" }}>Synced from {data.syncTime}</div>
               </div>
-              <button onClick={() => handleIncrement(1)} style={{ width: 32, height: 32, borderRadius: "50%", border: "1.5px solid #d1d5db", background: "none", fontSize: 18, cursor: "pointer", color: "#9CA3AF" }}>+</button>
+              <button onClick={() => handleIncrement(1)} style={{ width: 30, height: 30, borderRadius: "50%", border: "1.5px solid #d1d5db", background: "none", fontSize: 18, cursor: "pointer", color: "#9CA3AF" }}>+</button>
             </div>
-            <div style={{ border: "1px solid #e2e8f0", borderRadius: 12, padding: "6px 10px" }}>
-              <MetricChart history={history} rules={colorRules} graphType={graphType} metricType={metricType} currentValue={localValue} />
+            <div style={{ border: "1px solid #e2e8f0", borderRadius: 12, padding: "6px 8px" }}>
+              <MetricChart history={history} rules={colorRules} graphType={graphType} currentValue={localValue} />
             </div>
           </div>
         </div>
-
         <BottomThreeCards data={data} />
       </div>
     </div>
@@ -1120,143 +892,59 @@ function AddColorRuleModal({ onSave, onClose, existing }: {
 
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 4000, padding: 16 }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 20, padding: "28px 28px 24px", width: "100%", maxWidth: 560, boxShadow: "0 24px 64px rgba(0,0,0,0.2)" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
-          <h3 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#1a2332" }}>Add Color Rule</h3>
+      <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 20, padding: "24px", width: "100%", maxWidth: 480, boxShadow: "0 24px 64px rgba(0,0,0,0.2)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+          <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#1a2332" }}>Add Color Rule</h3>
           <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#94a3b8" }}>×</button>
         </div>
-
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "#1a2332", marginBottom: 12 }}>1. Select Condition</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontSize: 13, color: "#64748b", width: 90, flexShrink: 0 }}>If Metric is</span>
-              <select value={op} onChange={e => setOp(e.target.value as RuleOp)}
-                style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none", background: "#fff", cursor: "pointer" }}>
-                {opLabels.map(o => <option key={o} value={o}>{opDisplay[o]}</option>)}
-              </select>
-            </div>
-            {op !== "between" ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: 13, color: "#64748b", width: 90, flexShrink: 0 }}>Value</span>
-                <input value={val} onChange={e => setVal(e.target.value)} placeholder="Enter number"
-                  style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none" }} />
-              </div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontSize: 13, color: "#64748b", width: 90, flexShrink: 0 }}>Min Value</span>
-                  <input value={val} onChange={e => setVal(e.target.value)} placeholder="Min"
-                    style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none" }} />
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontSize: 13, color: "#64748b", width: 90, flexShrink: 0 }}>Max Value</span>
-                  <input value={val2} onChange={e => setVal2(e.target.value)} placeholder="Max"
-                    style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none" }} />
-                </div>
-              </div>
-            )}
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#1a2332", marginBottom: 10 }}>1. Select Condition</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <span style={{ fontSize: 12, color: "#64748b", width: 80, flexShrink: 0 }}>If Metric is</span>
+            <select value={op} onChange={e => setOp(e.target.value as RuleOp)}
+              style={{ flex: 1, padding: "7px 10px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", background: "#fff" }}>
+              {opLabels.map(o => <option key={o} value={o}>{opDisplay[o]}</option>)}
+            </select>
           </div>
+          {op !== "between"
+            ? <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 12, color: "#64748b", width: 80, flexShrink: 0 }}>Value</span>
+              <input value={val} onChange={e => setVal(e.target.value)} placeholder="Enter number"
+                style={{ flex: 1, padding: "7px 10px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none" }} />
+            </div>
+            : <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 12, color: "#64748b", width: 80, flexShrink: 0 }}>Min Value</span>
+                <input value={val} onChange={e => setVal(e.target.value)} placeholder="Min"
+                  style={{ flex: 1, padding: "7px 10px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none" }} />
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 12, color: "#64748b", width: 80, flexShrink: 0 }}>Max Value</span>
+                <input value={val2} onChange={e => setVal2(e.target.value)} placeholder="Max"
+                  style={{ flex: 1, padding: "7px 10px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none" }} />
+              </div>
+            </div>}
         </div>
-
-        <div style={{ marginBottom: 28 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "#1a2332", marginBottom: 12 }}>2. Select Color</div>
-          <div style={{ display: "flex", gap: 12 }}>
+        <div style={{ marginBottom: 22 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#1a2332", marginBottom: 10 }}>2. Select Color</div>
+          <div style={{ display: "flex", gap: 10 }}>
             {(["red", "yellow", "green"] as const).map(c => (
               <div key={c} onClick={() => setColor(c)} style={{
-                display: "flex", alignItems: "center", gap: 8, cursor: "pointer",
-                padding: "10px 14px", borderRadius: 10, flex: 1, justifyContent: "center",
+                display: "flex", alignItems: "center", gap: 6, cursor: "pointer",
+                padding: "8px 12px", borderRadius: 10, flex: 1, justifyContent: "center",
                 border: `2px solid ${color === c ? MS[c].bg : "#e2e8f0"}`,
-                background: color === c ? MS[c].bg + "18" : "#fff", transition: "all 0.15s"
+                background: color === c ? MS[c].bg + "18" : "#fff"
               }}>
-                <span style={{ width: 14, height: 14, borderRadius: "50%", background: MS[c].bg, display: "inline-block", flexShrink: 0 }} />
-                <span style={{ fontSize: 13, fontWeight: 600, color: color === c ? MS[c].bg : "#64748b", textTransform: "capitalize" }}>{c}</span>
+                <span style={{ width: 12, height: 12, borderRadius: "50%", background: MS[c].bg, display: "inline-block" }} />
+                <span style={{ fontSize: 12, fontWeight: 600, color: color === c ? MS[c].bg : "#64748b", textTransform: "capitalize" }}>{c}</span>
               </div>
             ))}
           </div>
         </div>
-
-        <button onClick={save} style={{
-          width: "100%", padding: "12px 0", borderRadius: 8, border: "none",
-          background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer"
-        }}>Save Rule</button>
+        <button onClick={save} style={{ width: "100%", padding: "11px 0", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+          Save Rule
+        </button>
       </div>
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// ICON PICKER COMPONENT
-// ═══════════════════════════════════════════════════════════════════════════
-
-function IconPicker({ selected, onSelect }: { selected: string; onSelect: (icon: string) => void }) {
-  const [search, setSearch] = useState("");
-  const [activeCategory, setActiveCategory] = useState(0);
-
-  const filtered = search.trim()
-    ? ICON_CATEGORIES.map(c => ({ ...c, icons: c.icons.filter(i => i.toLowerCase().includes(search.toLowerCase())) })).filter(c => c.icons.length > 0)
-    : ICON_CATEGORIES;
-
-  return (
-    <div>
-      {/* No icon option */}
-      <div onClick={() => onSelect(ICON_NONE)} style={{
-        display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 12px",
-        borderRadius: 6, cursor: "pointer", marginBottom: 8,
-        background: selected === ICON_NONE ? "#EFF6FF" : "#F8FAFC",
-        border: selected === ICON_NONE ? "1.5px solid #3B82F6" : "1.5px solid #e2e8f0",
-        fontSize: 12, color: "#64748b"
-      }}>No icon</div>
-
-      {/* Search */}
-      <input
-        value={search}
-        onChange={e => setSearch(e.target.value)}
-        placeholder="Search icons..."
-        style={{ width: "100%", padding: "6px 10px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", marginBottom: 8, boxSizing: "border-box" }}
-      />
-
-      {/* Category tabs */}
-      {!search && (
-        <div style={{ display: "flex", gap: 4, overflowX: "auto", marginBottom: 8, paddingBottom: 2 }}>
-          {ICON_CATEGORIES.map((c, i) => (
-            <button key={i} onClick={() => setActiveCategory(i)} style={{
-              padding: "3px 8px", borderRadius: 20, border: "none", cursor: "pointer", flexShrink: 0,
-              background: activeCategory === i ? "#3B82F6" : "#f1f5f9",
-              color: activeCategory === i ? "#fff" : "#64748b", fontSize: 10, fontWeight: 500
-            }}>{c.label.split(" ")[0]}</button>
-          ))}
-        </div>
-      )}
-
-      {/* Icon grid */}
-      <div style={{ height: 160, overflowY: "auto", border: "1px solid #e2e8f0", borderRadius: 10, padding: 6 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 4 }}>
-          {(search ? filtered.flatMap(c => c.icons) : (filtered[activeCategory]?.icons ?? [])).map(ic => (
-            <div
-              key={ic}
-              onClick={() => onSelect(ic)}
-              title={ic.replace(/^(icon_|arrow_|social_)/, "")}
-              style={{
-                width: 34, height: 34, borderRadius: 6, display: "flex", alignItems: "center",
-                justifyContent: "center", cursor: "pointer",
-                background: selected === ic ? "#EFF6FF" : "#f8fafc",
-                border: selected === ic ? "1.5px solid #3B82F6" : "1.5px solid #e2e8f0",
-                transition: "background 0.1s"
-              }}
-            >
-              <ElegantIcon name={ic} size={17} color="#3B82F6" />
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {selected && selected !== ICON_NONE && (
-        <div style={{ marginTop: 6, fontSize: 12, color: "#64748b", display: "flex", alignItems: "center", gap: 6 }}>
-          Selected: <ElegantIcon name={selected} size={16} color="#3B82F6" />
-          <span style={{ color: "#94a3b8" }}>{selected.replace(/^(icon_|arrow_|social_)/, "")}</span>
-        </div>
-      )}
     </div>
   );
 }
@@ -1269,10 +957,14 @@ function MetricBoxSettingsModal({ initial, onSave, onDelete, onClose }: {
   initial?: Metric; onSave: (m: Omit<Metric, "id">) => void; onDelete?: () => void; onClose: () => void;
 }) {
   const [label, setLabel] = useState(initial?.label ?? "");
-  const [value, setValue] = useState(initial?.value ?? "");
+  const [rawValue, setRawValue] = useState(() => {
+    // strip formatting to get raw number for editing
+    return (initial?.value ?? "").replace(/[^0-9.]/g, "");
+  });
   const [icon, setIcon] = useState(initial?.icon ?? ICON_NONE);
   const [graphType, setGraphType] = useState<GraphType>(initial?.graphType ?? "linear");
   const [metricType, setMetricType] = useState<MetricType>(initial?.metricType ?? "counter");
+  const [currency, setCurrency] = useState(initial?.currencySymbol ?? "$");
   const [fiveOn, setFiveOn] = useState(initial?.modal?.fiveAccountEnabled ?? false);
   const [rules, setRules] = useState<ColorRule[]>(initial?.colorRules ?? []);
   const [showRuleModal, setShowRuleModal] = useState(false);
@@ -1280,17 +972,20 @@ function MetricBoxSettingsModal({ initial, onSave, onDelete, onClose }: {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [saveError, setSaveError] = useState("");
 
+  // Live formatted preview of the value based on metric type
+  const previewValue = formatValue(rawValue || "0", fiveOn ? "financial" : metricType, currency);
+
   const graphTypes: [GraphType, string][] = [["linear", "Line Chart"], ["bar-v", "Bar Vertical"], ["bar-h", "Bar Horizontal"], ["pie", "Pie Chart"]];
   const metricTypes: [MetricType, string][] = [["counter", "Counter"], ["percentage", "Percentage"], ["financial", "Financial"]];
 
-  const Radio = ({ checked, onChange, label: rl }: { checked: boolean; onChange: () => void; label: string }) => (
-    <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12, color: "#1a2332", marginBottom: 6 }}>
-      <input type="radio" checked={checked} onChange={onChange} style={{ accentColor: "#3B82F6", margin: 0 }} />{rl}
-    </label>
+  const SectionLabel = ({ children }: { children: string }) => (
+    <div style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>{children}</div>
   );
 
-  const SectionLabel = ({ children }: { children: string }) => (
-    <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>{children}</div>
+  const Radio = ({ checked, onChange, label: rl, disabled }: { checked: boolean; onChange: () => void; label: string; disabled?: boolean }) => (
+    <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: disabled ? "not-allowed" : "pointer", fontSize: 12, color: disabled ? "#cbd5e1" : "#1a2332", marginBottom: 5 }}>
+      <input type="radio" checked={checked} onChange={onChange} disabled={disabled} style={{ accentColor: "#3B82F6", margin: 0 }} />{rl}
+    </label>
   );
 
   const openAddRule = () => { setEditingRule(undefined); setShowRuleModal(true); };
@@ -1299,119 +994,137 @@ function MetricBoxSettingsModal({ initial, onSave, onDelete, onClose }: {
   const removeRule = (id: string) => setRules(prev => prev.filter(r => r.id !== id));
   const ruleDesc = (r: ColorRule) => r.op === "between" ? `between ${r.value}–${r.value2}` : `${r.op} ${r.value}`;
 
+  const effectiveMetricType: MetricType = fiveOn ? "financial" : metricType;
+
   const handleSave = () => {
     if (!label.trim()) { setSaveError("Please enter a title for this metric box."); return; }
-    if (!value.trim()) { setSaveError("Please enter a current value."); return; }
+    if (!rawValue.trim()) { setSaveError("Please enter a current value."); return; }
     setSaveError("");
-    const baseColor: MetricColor = "gray";
-    const m = makeModal(label, value || "0", baseColor, {
+    const finalValue = previewValue;
+    const m = makeModal(label, finalValue, "gray", {
       fiveAccountEnabled: fiveOn,
-      type: fiveOn ? "cashflow" : metricType === "counter" ? "leads" : metricType === "percentage" ? "website" : "invoices"
+      type: fiveOn ? "cashflow" : effectiveMetricType === "counter" ? "leads" : effectiveMetricType === "percentage" ? "website" : "invoices",
+      mainValue: finalValue,
     });
     onSave({
-      label, value: value || "0", icon, color: baseColor, modal: m,
-      graphType, metricType, colorRules: rules,
+      label, value: finalValue, icon, color: "gray", modal: m,
+      graphType, metricType: effectiveMetricType, colorRules: rules,
       connectedApps: initial?.connectedApps ?? [],
       history: initial?.history ?? [],
+      fiveAccountParentId: initial?.fiveAccountParentId,
+      currencySymbol: currency,
     });
     onClose();
   };
 
-  // Enter key saves
-  const handleKeyDown = (e: React.KeyboardEvent) => { if (e.key === "Enter") handleSave(); };
+  const isSynced = !!initial?.fiveAccountParentId;
 
   return (
     <>
       <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000, padding: 16 }}>
-        <div onClick={e => e.stopPropagation()} onKeyDown={handleKeyDown} style={{
-          background: "#fff", borderRadius: 20, width: "100%", maxWidth: 700,
-          maxHeight: "92vh", overflowY: "auto", boxShadow: "0 24px 64px rgba(0,0,0,0.2)"
-        }}>
-          <style>{`@keyframes mIn{from{opacity:0;transform:scale(0.97)}to{opacity:1;transform:scale(1)}}`}</style>
+        <div onClick={e => e.stopPropagation()} onKeyDown={e => { if (e.key === "Enter") handleSave(); }}
+          style={{ background: "#fff", borderRadius: 20, width: "100%", maxWidth: 700, maxHeight: "92vh", overflowY: "auto", boxShadow: "0 24px 64px rgba(0,0,0,0.2)" }}>
 
           {/* Header */}
-          <div style={{ padding: "22px 24px 0", display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-            <input
-              value={label}
-              onChange={e => setLabel(e.target.value)}
-              placeholder="Metric Box Title"
-              style={{ fontSize: 18, fontWeight: 700, border: "none", outline: "none", color: "#1a2332", background: "transparent", flex: 1, minWidth: 0 }}
-            />
-            <button onClick={onClose} style={{
-              width: 32, height: 32, borderRadius: "50%", border: "1.5px solid #e2e8f0",
-              background: "#f8fafc", fontSize: 18, cursor: "pointer", color: "#94a3b8",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              flexShrink: 0, marginLeft: 12, lineHeight: 1
-            }}>×</button>
+          <div style={{ padding: "20px 22px 0", display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+            <input value={label} onChange={e => setLabel(e.target.value)} placeholder="Metric Box Title"
+              style={{ fontSize: 17, fontWeight: 700, border: "none", outline: "none", color: "#1a2332", background: "transparent", flex: 1, minWidth: 0 }} />
+            <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: "50%", border: "1.5px solid #e2e8f0", background: "#f8fafc", fontSize: 18, cursor: "pointer", color: "#94a3b8", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginLeft: 10 }}>×</button>
           </div>
 
-          <div style={{ padding: "8px 24px 24px" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+          {isSynced && (
+            <div style={{ margin: "0 22px 6px", background: "#F0FDF4", border: "1px solid #c3e6d4", borderRadius: 8, padding: "6px 12px", fontSize: 11, color: "#0F6E56" }}>
+              ✓ Synced from Five-Account System
+            </div>
+          )}
 
-              {/* LEFT COLUMN */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ padding: "6px 22px 22px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
 
+              {/* LEFT */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 <div>
                   <SectionLabel>Metric Type</SectionLabel>
-                  {metricTypes.map(([t, l]) => <Radio key={t} checked={metricType === t} onChange={() => setMetricType(t)} label={l} />)}
+                  {metricTypes.map(([t, l]) => (
+                    <Radio key={t} checked={effectiveMetricType === t} onChange={() => setMetricType(t)} label={l} disabled={fiveOn} />
+                  ))}
+                  {/* Currency dropdown appears when Financial is selected */}
+                  {effectiveMetricType === "financial" && (
+                    <div style={{ marginTop: 6 }}>
+                      <SectionLabel>Currency</SectionLabel>
+                      <select value={currency} onChange={e => setCurrency(e.target.value)}
+                        style={{ width: "100%", padding: "6px 10px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", background: "#fff" }}>
+                        {WORLD_CURRENCIES.map(c => <option key={c.symbol} value={c.symbol}>{c.symbol} — {c.name}</option>)}
+                      </select>
+                    </div>
+                  )}
                 </div>
 
                 <div>
                   <SectionLabel>Current Value</SectionLabel>
-                  <input value={value} onChange={e => setValue(e.target.value)} placeholder="e.g. 75 or $12,000"
-                    style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none", boxSizing: "border-box" }} />
+                  <input value={rawValue} onChange={e => setRawValue(e.target.value.replace(/[^0-9.]/g, ""))} placeholder="Enter number"
+                    style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none", boxSizing: "border-box" }} />
+                  {rawValue && (
+                    <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>
+                      Preview: <strong style={{ color: "#3B82F6" }}>{previewValue}</strong>
+                    </div>
+                  )}
                 </div>
 
                 <div>
                   <SectionLabel>Connected Apps</SectionLabel>
                   {(initial?.connectedApps ?? []).length === 0
-                    ? <div style={{ fontSize: 12, color: "#cbd5e1", fontStyle: "italic" }}>No apps connected yet</div>
+                    ? <div style={{ fontSize: 11, color: "#cbd5e1", fontStyle: "italic" }}>No apps connected yet</div>
                     : (initial?.connectedApps ?? []).map((a, i) => (
-                      <span key={i} style={{ display: "inline-block", background: "#EFF6FF", borderRadius: 8, padding: "4px 10px", fontSize: 12, color: "#3B82F6", marginRight: 6, marginBottom: 4 }}>{a}</span>
-                    ))
-                  }
+                      <span key={i} style={{ display: "inline-block", background: "#EFF6FF", borderRadius: 8, padding: "3px 8px", fontSize: 11, color: "#3B82F6", marginRight: 4, marginBottom: 3 }}>{a}</span>
+                    ))}
                 </div>
 
                 {/* Five-Account System */}
-                <div style={{ background: "#F0FDF4", border: "1px solid #c3e6d4", borderRadius: 10, padding: "10px 14px" }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: fiveOn ? 8 : 0 }}>
+                <div style={{ background: "#F0FDF4", border: "1px solid #c3e6d4", borderRadius: 10, padding: "10px 12px" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332" }}>Five-Account System</div>
-                      <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>Profit First budgeting method</div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "#1a2332" }}>Five-Account System</div>
+                      <div style={{ fontSize: 10, color: "#64748b", marginTop: 1 }}>Profit First budgeting method</div>
                     </div>
                     <Toggle on={fiveOn} onChange={setFiveOn} />
                   </div>
-                  {fiveOn && <div style={{ fontSize: 11, color: "#0F6E56", background: "#dcfce7", borderRadius: 6, padding: "6px 10px" }}>
-                    ✓ Box will display bank transactions and 5-account math.</div>}
+                  {fiveOn && (
+                    <>
+                      <div style={{ fontSize: 11, color: "#0F6E56", background: "#dcfce7", borderRadius: 6, padding: "5px 10px", marginBottom: 6 }}>
+                        ✓ Box will display bank transactions and 5-account math.
+                      </div>
+                      {!isSynced && (
+                        <div style={{ fontSize: 11, color: "#92400e", background: "#fef3c7", border: "1px solid #fde68a", borderRadius: 6, padding: "5px 10px" }}>
+                          ⚠ This will create 4 more metric boxes so all 5 checking accounts are separated out based on your bank balance.
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
 
                 {/* Color Rules */}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                  <button style={{ padding: "9px 0", borderRadius: 8, border: "none", background: "#64748b", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-                    Create Equation
-                  </button>
-                  <button onClick={openAddRule} style={{ padding: "9px 0", borderRadius: 8, border: "none", background: "#64748b", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-                    Create Color Rule
-                  </button>
+                  <button style={{ padding: "8px 0", borderRadius: 8, border: "none", background: "#64748b", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Create Equation</button>
+                  <button onClick={openAddRule} style={{ padding: "8px 0", borderRadius: 8, border: "none", background: "#64748b", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Create Color Rule</button>
                 </div>
 
-                {/* Active rules */}
                 {rules.length > 0 && (
                   <div>
                     <SectionLabel>Active Color Rules</SectionLabel>
                     {rules.map(r => (
-                      <div key={r.id} style={{ background: "#F8FAFC", borderRadius: 10, padding: "8px 12px", marginBottom: 7, border: "1px solid #e2e8f0" }}>
-                        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
-                              <span style={{ width: 10, height: 10, borderRadius: "50%", background: MS[r.color].bg, flexShrink: 0, display: "inline-block" }} />
-                              <span style={{ fontSize: 12, fontWeight: 600, color: "#1a2332", textTransform: "capitalize" }}>{r.color}</span>
+                      <div key={r.id} style={{ background: "#F8FAFC", borderRadius: 8, padding: "7px 10px", marginBottom: 6, border: "1px solid #e2e8f0" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                          <div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 1 }}>
+                              <span style={{ width: 9, height: 9, borderRadius: "50%", background: MS[r.color].bg, display: "inline-block" }} />
+                              <span style={{ fontSize: 11, fontWeight: 600, color: "#1a2332", textTransform: "capitalize" }}>{r.color}</span>
                             </div>
-                            <div style={{ fontSize: 11, color: "#64748b" }}>If metric is {ruleDesc(r)} → {r.color}</div>
+                            <div style={{ fontSize: 10, color: "#64748b" }}>If metric is {ruleDesc(r)}</div>
                           </div>
-                          <div style={{ display: "flex", gap: 6, marginLeft: 8 }}>
-                            <button onClick={() => openEditRule(r)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "#3B82F6", padding: 0 }}>Edit</button>
-                            <button onClick={() => removeRule(r.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "#E85D75", padding: 0 }}>✕</button>
+                          <div style={{ display: "flex", gap: 6 }}>
+                            <button onClick={() => openEditRule(r)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: "#3B82F6", padding: 0 }}>Edit</button>
+                            <button onClick={() => removeRule(r.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: "#E85D75", padding: 0 }}>✕</button>
                           </div>
                         </div>
                       </div>
@@ -1420,52 +1133,41 @@ function MetricBoxSettingsModal({ initial, onSave, onDelete, onClose }: {
                 )}
               </div>
 
-              {/* RIGHT COLUMN */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {/* RIGHT */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 <div>
                   <SectionLabel>Select Icon</SectionLabel>
                   <IconPicker selected={icon} onSelect={setIcon} />
                 </div>
-
                 <div>
                   <SectionLabel>Graph Type</SectionLabel>
-                  {graphTypes.map(([g, l]) => <Radio key={g} checked={graphType === g} onChange={() => setGraphType(g)} label={l} />)}
+                  {graphTypes.map(([g, l]) => (
+                    <label key={g} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12, color: "#1a2332", marginBottom: 5 }}>
+                      <input type="radio" checked={graphType === g} onChange={() => setGraphType(g)} style={{ accentColor: "#3B82F6", margin: 0 }} />{l}
+                    </label>
+                  ))}
                 </div>
               </div>
             </div>
 
-            {/* Save button */}
-            <button onClick={handleSave} style={{
-              width: "100%", padding: "13px 0", borderRadius: 8, border: "none", marginTop: 24,
-              background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer"
-            }}>Save</button>
-            {saveError && (
-              <div style={{ fontSize: 12, color: "#E85D75", marginTop: 6, textAlign: "center" }}>{saveError}</div>
-            )}
+            <button onClick={handleSave} style={{ width: "100%", padding: "12px 0", borderRadius: 8, border: "none", marginTop: 20, background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+              Save
+            </button>
+            {saveError && <div style={{ fontSize: 11, color: "#E85D75", marginTop: 5, textAlign: "center" }}>{saveError}</div>}
 
-            {/* Delete */}
             {(initial || onDelete) && !showDeleteConfirm && (
-              <div style={{ textAlign: "center", marginTop: 12 }}>
-                <button onClick={() => setShowDeleteConfirm(true)} style={{
-                  background: "none", border: "none", cursor: "pointer",
-                  color: "#E85D75", fontSize: 13, textDecoration: "underline", padding: 0
-                }}>Delete Metric Box</button>
+              <div style={{ textAlign: "center", marginTop: 10 }}>
+                <button onClick={() => setShowDeleteConfirm(true)} style={{ background: "none", border: "none", cursor: "pointer", color: "#E85D75", fontSize: 12, textDecoration: "underline" }}>
+                  Delete Metric Box
+                </button>
               </div>
             )}
             {showDeleteConfirm && (
-              <div style={{ marginTop: 12, background: "#FFF5F5", borderRadius: 10, padding: "14px 16px", border: "1px solid #fecaca", textAlign: "center" }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: "#E85D75", marginBottom: 10 }}>
-                  Are you sure you want to delete this metric box?
-                </div>
-                <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-                  <button onClick={() => setShowDeleteConfirm(false)} style={{
-                    padding: "8px 20px", borderRadius: 8, border: "1.5px solid #e2e8f0",
-                    background: "#fff", fontSize: 13, cursor: "pointer", color: "#64748b"
-                  }}>Cancel</button>
-                  <button onClick={() => { if (onDelete) { onDelete(); onClose(); } }} style={{
-                    padding: "8px 20px", borderRadius: 8, border: "none",
-                    background: "#E85D75", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer"
-                  }}>Yes, Delete</button>
+              <div style={{ marginTop: 10, background: "#FFF5F5", borderRadius: 10, padding: "12px 14px", border: "1px solid #fecaca", textAlign: "center" }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#E85D75", marginBottom: 8 }}>Are you sure you want to delete this metric box?</div>
+                <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                  <button onClick={() => setShowDeleteConfirm(false)} style={{ padding: "6px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+                  <button onClick={() => { onDelete?.(); onClose(); }} style={{ padding: "6px 16px", borderRadius: 8, border: "none", background: "#E85D75", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Yes, Delete</button>
                 </div>
               </div>
             )}
@@ -1485,18 +1187,17 @@ function EditAddRowModal({ initial, onSave, onClose }: { initial?: string; onSav
   const [name, setName] = useState(initial ?? "");
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000 }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 20, padding: "28px 28px 24px", width: "90%", maxWidth: 360, boxShadow: "0 20px 60px rgba(0,0,0,0.18)" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
-          <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#1a2332" }}>Edit/Add Row</h3>
-          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#94a3b8" }}>×</button>
+      <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 20, padding: "24px", width: "90%", maxWidth: 360, boxShadow: "0 20px 60px rgba(0,0,0,0.18)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+          <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#1a2332" }}>{initial ? "Rename Row" : "Add Row"}</h3>
+          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#94a3b8" }}>×</button>
         </div>
-        <label style={{ fontSize: 13, color: "#64748b", display: "block", marginBottom: 6 }}>Label</label>
         <input value={name} onChange={e => setName(e.target.value)}
           onKeyDown={e => { if (e.key === "Enter" && name.trim()) { onSave(name.trim()); onClose(); } }}
-          placeholder="Row Name"
-          style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none", boxSizing: "border-box", marginBottom: 24 }} />
+          placeholder="Row name" autoFocus
+          style={{ width: "100%", padding: "8px 11px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none", boxSizing: "border-box", marginBottom: 18 }} />
         <button onClick={() => { if (name.trim()) { onSave(name.trim()); onClose(); } }}
-          style={{ width: "100%", padding: "11px 0", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
+          style={{ width: "100%", padding: "10px 0", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
           Save
         </button>
       </div>
@@ -1510,91 +1211,81 @@ function EditAddRowModal({ initial, onSave, onClose }: { initial?: string; onSav
 
 function AddTeamModal({ onClose }: { onClose: () => void }) {
   const [members, setMembers] = useState([{ email: "", access: "View" }]);
-  const addRow = () => setMembers(p => [...p, { email: "", access: "View" }]);
-  const update = (i: number, field: "email" | "access", val: string) => setMembers(p => p.map((m, j) => j === i ? { ...m, [field]: val } : m));
-  const accessLevels = ["View", "Edit", "Admin"];
+  const update = (i: number, f: "email" | "access", v: string) => setMembers(p => p.map((m, j) => j === i ? { ...m, [f]: v } : m));
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000, padding: 16 }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 20, padding: "32px", width: "100%", maxWidth: 480, boxShadow: "0 24px 64px rgba(0,0,0,0.18)" }}>
-        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
-          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#94a3b8" }}>×</button>
+      <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 20, padding: "28px", width: "100%", maxWidth: 460, boxShadow: "0 24px 64px rgba(0,0,0,0.18)" }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 6 }}>
+          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#94a3b8" }}>×</button>
         </div>
-        <h2 style={{ margin: "0 0 8px", fontSize: 22, fontWeight: 700, color: "#1a2332", textAlign: "center" }}>Add your team</h2>
-        <p style={{ margin: "0 0 24px", fontSize: 13, color: "#94a3b8", textAlign: "center", lineHeight: 1.5 }}>
-          You can set permission levels for each team member, and give access to different metrics to only the people that need to see them.
-        </p>
+        <h2 style={{ margin: "0 0 6px", fontSize: 20, fontWeight: 700, color: "#1a2332", textAlign: "center" }}>Add your team</h2>
+        <p style={{ margin: "0 0 20px", fontSize: 12, color: "#94a3b8", textAlign: "center" }}>Set permission levels for each team member.</p>
         {members.map((m, i) => (
-          <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 12, marginBottom: 12, alignItems: "center" }}>
+          <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10, marginBottom: 10, alignItems: "center" }}>
             <input value={m.email} onChange={e => update(i, "email", e.target.value)} placeholder="Email"
-              style={{ padding: "9px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none" }} />
-            <div>
-              <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 2 }}>Level Access</div>
-              <select value={m.access} onChange={e => update(i, "access", e.target.value)}
-                style={{ padding: "7px 10px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none", background: "#fff", cursor: "pointer" }}>
-                {accessLevels.map(a => <option key={a}>{a}</option>)}
-              </select>
-            </div>
+              style={{ padding: "8px 11px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none" }} />
+            <select value={m.access} onChange={e => update(i, "access", e.target.value)}
+              style={{ padding: "7px 9px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", background: "#fff" }}>
+              {["View", "Edit", "Admin"].map(a => <option key={a}>{a}</option>)}
+            </select>
           </div>
         ))}
-        <button onClick={addRow} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#3B82F6", padding: "4px 0", marginBottom: 20, display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ fontSize: 18, lineHeight: 1 }}>+</span> Add more
+        <button onClick={() => setMembers(p => [...p, { email: "", access: "View" }])}
+          style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "#3B82F6", padding: "3px 0", marginBottom: 16, display: "flex", alignItems: "center", gap: 4 }}>
+          + Add more
         </button>
-        <button onClick={onClose} style={{ width: "100%", padding: "12px 0", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
-          Add
-        </button>
+        <button onClick={onClose} style={{ width: "100%", padding: "11px 0", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Add</button>
       </div>
     </div>
   );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// METRIC BLOCK (face of the card)
+// METRIC BLOCK
 // ═══════════════════════════════════════════════════════════════════════════
 
-function MetricBlock({ metric, onClick, onDragStart, onDragOver, onDrop, isDragOver }: {
+function MetricBlock({ metric, onClick, onDragStart, onDragEnter, onDrop, isDragOver }: {
   metric: Metric; onClick: () => void;
-  onDragStart: () => void; onDragOver: (e: React.DragEvent) => void; onDrop: () => void; isDragOver: boolean;
+  onDragStart: () => void;
+  onDragEnter: (e: React.DragEvent) => void;
+  onDrop: () => void;
+  isDragOver: boolean;
 }) {
   const activeColor = resolveColor(metric);
   const s = MS[activeColor];
   const [hov, setHov] = useState(false);
-  const hasIcon = metric.icon && metric.icon !== ICON_NONE;
-
-  // Gray state: dark text. Color state: white text.
-  const textColor = activeColor === "gray" ? "#4A5568" : "#fff";
-  const iconBg = activeColor === "gray" ? "rgba(100,116,139,0.12)" : "rgba(255,255,255,0.25)";
+  const hasIcon = !!(metric.icon && metric.icon !== ICON_NONE);
+  const isColored = activeColor !== "gray";
+  const textColor = isColored ? "#fff" : "#4A5568";
 
   return (
     <div
-      draggable onDragStart={onDragStart} onDragOver={onDragOver} onDrop={e => { e.preventDefault(); onDrop(); }}
-      onClick={onClick} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+      draggable
+      onDragStart={e => { e.stopPropagation(); onDragStart(); }}
+      onDragEnter={e => { e.preventDefault(); e.stopPropagation(); onDragEnter(e); }}
+      onDragOver={e => { e.preventDefault(); e.stopPropagation(); }}
+      onDrop={e => { e.preventDefault(); e.stopPropagation(); onDrop(); }}
+      onClick={onClick}
+      onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
       style={{
         width: 140, minHeight: 140, borderRadius: 16, background: s.bg,
         padding: "14px 12px", display: "flex", flexDirection: "column",
         alignItems: "center", justifyContent: hasIcon ? "space-between" : "center",
         cursor: "pointer", position: "relative", flexShrink: 0,
         transform: hov ? "translateY(-3px)" : "none",
-        transition: "transform 0.15s,box-shadow 0.15s",
+        transition: "transform 0.15s, box-shadow 0.15s, outline 0.1s",
         boxShadow: hov ? "0 10px 28px rgba(0,0,0,0.15)" : "0 2px 8px rgba(0,0,0,0.06)",
-        outline: isDragOver ? "3px dashed rgba(59,130,246,0.6)" : "3px solid transparent"
+        outline: isDragOver ? "3px dashed #3B82F6" : "3px solid transparent",
       }}
     >
-      {/* Title at top */}
       <div style={{ fontSize: 12, fontWeight: 600, color: textColor, lineHeight: 1.3, textAlign: "center", width: "100%" }}>
         {metric.label}
       </div>
-
-      {/* Icon circle in center — always white bg */}
       {hasIcon && (
-        <div style={{
-          width: 48, height: 48, borderRadius: "50%", background: "#fff",
-          display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0
-        }}>
-          <ElegantIcon name={metric.icon} size={22} color={activeColor === "gray" ? "#3B82F6" : MS[activeColor].bg} />
+        <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <IconGlyph name={metric.icon} size={22} color={isColored ? s.bg : "#3B82F6"} />
         </div>
       )}
-
-      {/* Value at bottom */}
       <div style={{ fontSize: 15, fontWeight: 700, color: textColor, textAlign: "center", width: "100%" }}>
         {metric.value}
       </div>
@@ -1610,18 +1301,13 @@ function RowMenu({ onRename, onDelete, onClose }: { onRename: () => void; onDele
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
+    document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h);
   }, [onClose]);
   return (
-    <div ref={ref} style={{
-      position: "absolute", top: 36, right: 0, background: "#fff", borderRadius: 10,
-      boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0",
-      zIndex: 100, minWidth: 150, overflow: "hidden"
-    }}>
+    <div ref={ref} style={{ position: "absolute", top: 36, right: 0, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 100, minWidth: 150, overflow: "hidden" }}>
       {[{ label: "✏️  Rename row", action: onRename }, { label: "🗑️  Delete row", action: onDelete }].map(item => (
         <div key={item.label} onClick={() => { item.action(); onClose(); }}
-          style={{ padding: "10px 16px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
+          style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
           onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
           onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>{item.label}</div>
       ))}
@@ -1630,107 +1316,128 @@ function RowMenu({ onRename, onDelete, onClose }: { onRename: () => void; onDele
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// DASHBOARD SECTION
+// DASHBOARD SECTION — with robust drag-drop
 // ═══════════════════════════════════════════════════════════════════════════
 
 function DashSection({
   section, onAddMetric, onRemoveMetric, onUpdateMetric, onRenameSection, onRemoveSection,
-  onClickMetric, onMetricDragStart, onMetricDrop, dragOverMetric,
-  onSectionDragStart, onSectionDragOver, onSectionDrop, isSectionDragOver
+  onClickMetric, dragState, onMetricDragStart, onMetricDragEnter, onMetricDrop,
+  onSectionDragStart, onSectionDragEnter, onSectionDrop, isSectionDragOver
 }: {
-  section: Section; onAddMetric: (sid: string, m: Omit<Metric, "id">) => void;
+  section: Section;
+  onAddMetric: (sid: string, m: Omit<Metric, "id">) => void;
   onRemoveMetric: (sid: string, mid: string) => void;
   onUpdateMetric: (sid: string, mid: string, m: Omit<Metric, "id">) => void;
   onRenameSection: (sid: string, name: string) => void;
   onRemoveSection: (sid: string) => void;
-  onClickMetric: (m: MetricModalData, metric: Metric) => void;
+  onClickMetric: (data: MetricModalData, metric: Metric) => void;
+  dragState: { sourceSid: string; sourceMid: string } | null;
   onMetricDragStart: (sid: string, mid: string) => void;
-  onMetricDrop: (tsid: string, tmid: string) => void;
-  dragOverMetric: string | null;
-  onSectionDragStart: () => void; onSectionDragOver: (e: React.DragEvent) => void;
-  onSectionDrop: () => void; isSectionDragOver: boolean;
+  onMetricDragEnter: (sid: string, mid: string) => void;
+  onMetricDrop: (targetSid: string, targetMid: string) => void;
+  onSectionDragStart: () => void;
+  onSectionDragEnter: (e: React.DragEvent) => void;
+  onSectionDrop: () => void;
+  isSectionDragOver: boolean;
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [editingMetric, setEditingMetric] = useState<Metric | null>(null);
   const [showRowModal, setShowRowModal] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
 
+  // Drop zone for the section itself (when dragging a metric over empty space in section)
+  const handleSectionDropZone = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (dragState && section.metrics.length === 0) {
+      onMetricDrop(section.id, "__end__");
+    }
+  };
+
+  const handleAddMetricWithFiveAccount = (m: Omit<Metric, "id">) => {
+    const newId = crypto.randomUUID();
+    onAddMetric(section.id, { ...m, id: newId } as any);
+
+    // If five-account is on and this is not a child box, create the 4 siblings
+    if (m.modal?.fiveAccountEnabled && !m.fiveAccountParentId) {
+      const parentLabel = m.label;
+      const existingLabels = section.metrics.map(x => x.label);
+      FIVE_ACCOUNT_LABELS.forEach(acctLabel => {
+        if (acctLabel !== parentLabel && !existingLabels.includes(acctLabel)) {
+          const accountType = acctLabel.toLowerCase() as any;
+          const child = makeFiveAccountMetric(accountType, newId);
+          onAddMetric(section.id, child);
+        }
+      });
+    }
+  };
+
   return (
-    <div onDragOver={onSectionDragOver} onDrop={onSectionDrop} style={{
-      marginBottom: 32, position: "relative",
-      outline: isSectionDragOver ? "2px dashed #3B82F6" : "none", borderRadius: 8,
-      padding: isSectionDragOver ? "4px" : "0"
-    }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
-        <div draggable onDragStart={onSectionDragStart} style={{ cursor: "grab", color: "#cbd5e1", fontSize: 16, padding: "0 2px", flexShrink: 0 }} title="Drag to reorder">⠿</div>
-        <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: "#1a2332" }}>{section.title}</h2>
-        <div style={{ width: 18, height: 18, borderRadius: 3, background: "#1a2332", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-          <span style={{ color: "#fff", fontSize: 10 }}>↗</span>
+    <div
+      onDragEnter={onSectionDragEnter}
+      onDragOver={e => e.preventDefault()}
+      onDrop={onSectionDrop}
+      style={{ marginBottom: 28, position: "relative", borderRadius: 8, outline: isSectionDragOver ? "2px dashed #3B82F6" : "none", padding: isSectionDragOver ? "4px" : "0" }}
+    >
+      {/* Section header */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+        <div draggable onDragStart={e => { e.stopPropagation(); onSectionDragStart(); }}
+          style={{ cursor: "grab", color: "#cbd5e1", fontSize: 15, padding: "0 2px", flexShrink: 0 }} title="Drag to reorder">⠿</div>
+        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#1a2332" }}>{section.title}</h2>
+        <div style={{ width: 16, height: 16, borderRadius: 3, background: "#1a2332", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+          <span style={{ color: "#fff", fontSize: 9 }}>↗</span>
         </div>
-        <div style={{ display: "flex", marginLeft: 4, paddingLeft: 6 }}>
+        <div style={{ display: "flex", marginLeft: 2, paddingLeft: 4 }}>
           {section.avatars.map(a => (
-            <div key={a} style={{
-              width: 32, height: 32, borderRadius: "50%", background: "#4C9FE8", color: "#fff",
-              display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 600,
-              border: "2px solid #fff", marginLeft: -6, flexShrink: 0
-            }}>{a}</div>
+            <div key={a} style={{ width: 28, height: 28, borderRadius: "50%", background: "#4C9FE8", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 600, border: "2px solid #fff", marginLeft: -5, flexShrink: 0 }}>{a}</div>
           ))}
         </div>
-        <div style={{
-          width: 32, height: 32, borderRadius: "50%", marginLeft: -6, background: "#4C9FE8",
-          border: "2px solid #fff", display: "flex", alignItems: "center", justifyContent: "center",
-          cursor: "pointer", color: "#fff", fontSize: 18
-        }}>+</div>
+        <div style={{ width: 28, height: 28, borderRadius: "50%", marginLeft: -5, background: "#4C9FE8", border: "2px solid #fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#fff", fontSize: 16 }}>+</div>
         <div style={{ position: "relative" }}>
-          <div onClick={() => setShowMenu(v => !v)} style={{
-            width: 28, height: 28, borderRadius: "50%", background: "#F1F5F9",
-            display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 14, color: "#94a3b8"
-          }}>···</div>
+          <div onClick={() => setShowMenu(v => !v)} style={{ width: 26, height: 26, borderRadius: "50%", background: "#F1F5F9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 13, color: "#94a3b8" }}>···</div>
           {showMenu && <RowMenu onRename={() => { setShowMenu(false); setShowRowModal(true); }} onDelete={() => onRemoveSection(section.id)} onClose={() => setShowMenu(false)} />}
         </div>
         <div style={{ flex: 1 }} />
       </div>
 
+      {/* Metrics row */}
       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-        <div style={{ width: 32, height: 32, borderRadius: "50%", border: "1.5px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#94a3b8", flexShrink: 0, marginRight: 8 }}>›</div>
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          {section.metrics.map(m => (
-            <MetricBlock key={m.id} metric={m}
-              onClick={() => onClickMetric(m.modal, m)}
-              onDragStart={() => onMetricDragStart(section.id, m.id)}
-              onDragOver={e => { e.preventDefault(); e.stopPropagation(); }}
-              onDrop={() => onMetricDrop(section.id, m.id)}
-              isDragOver={dragOverMetric === `${section.id}:${m.id}`} />
-          ))}
-          <div onClick={() => setShowAdd(true)} style={{
-            width: 48, height: 48, borderRadius: "50%", border: "1.5px solid #e2e8f0",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            cursor: "pointer", color: "#94a3b8", fontSize: 22, alignSelf: "center"
-          }}>+</div>
+        <div style={{ width: 28, height: 28, borderRadius: "50%", border: "1.5px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#94a3b8", flexShrink: 0, marginRight: 6 }}>›</div>
+        <div
+          style={{ display: "flex", gap: 10, flexWrap: "wrap", flex: 1, minHeight: 48 }}
+          onDragOver={e => e.preventDefault()}
+          onDrop={handleSectionDropZone}
+        >
+          {section.metrics.map(m => {
+            const isDragOver = dragState?.sourceSid !== section.id || dragState?.sourceMid !== m.id
+              ? false
+              : false; // calculated below
+            const isTarget = dragState && (dragState.sourceSid !== section.id || dragState.sourceMid !== m.id);
+            return (
+              <MetricBlock key={m.id} metric={m}
+                onClick={() => onClickMetric(m.modal, m)}
+                onDragStart={() => onMetricDragStart(section.id, m.id)}
+                onDragEnter={e => { if (dragState && (dragState.sourceSid !== section.id || dragState.sourceMid !== m.id)) onMetricDragEnter(section.id, m.id); }}
+                onDrop={() => onMetricDrop(section.id, m.id)}
+                isDragOver={false}
+              />
+            );
+          })}
+          <div onClick={() => setShowAdd(true)} style={{ width: 44, height: 44, borderRadius: "50%", border: "1.5px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#94a3b8", fontSize: 20, alignSelf: "center" }}>+</div>
         </div>
       </div>
-      <div style={{ height: 1, background: "#f1f5f9", marginTop: 24 }} />
+      <div style={{ height: 1, background: "#f1f5f9", marginTop: 20 }} />
 
-      {showAdd && (
-        <MetricBoxSettingsModal
-          onSave={m => { onAddMetric(section.id, m); setShowAdd(false); }}
-          onClose={() => setShowAdd(false)} />
-      )}
+      {showAdd && <MetricBoxSettingsModal
+        onSave={m => { handleAddMetricWithFiveAccount(m); setShowAdd(false); }}
+        onClose={() => setShowAdd(false)} />}
 
-      {editingMetric && (
-        <MetricBoxSettingsModal
-          initial={editingMetric}
-          onSave={m => { onUpdateMetric(section.id, editingMetric.id, m); setEditingMetric(null); }}
-          onDelete={() => onRemoveMetric(section.id, editingMetric.id)}
-          onClose={() => setEditingMetric(null)} />
-      )}
+      {editingMetric && <MetricBoxSettingsModal
+        initial={editingMetric}
+        onSave={m => { onUpdateMetric(section.id, editingMetric.id, m); setEditingMetric(null); }}
+        onDelete={() => onRemoveMetric(section.id, editingMetric.id)}
+        onClose={() => setEditingMetric(null)} />}
 
-      {showRowModal && (
-        <EditAddRowModal
-          initial={section.title}
-          onSave={name => onRenameSection(section.id, name)}
-          onClose={() => setShowRowModal(false)} />
-      )}
+      {showRowModal && <EditAddRowModal initial={section.title} onSave={name => onRenameSection(section.id, name)} onClose={() => setShowRowModal(false)} />}
     </div>
   );
 }
@@ -1743,71 +1450,46 @@ function GoalsPage({ goals, setGoals }: { goals: any[]; setGoals: (g: any[]) => 
   const [view, setView] = useState<"list" | "expanded">("list");
   return (
     <div style={{ padding: "clamp(16px,4vw,32px)" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 28, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24, flexWrap: "wrap" }}>
         <h1 style={{ margin: 0, fontSize: "clamp(20px,4vw,26px)", fontWeight: 700, color: "#1a2332" }}>Company Goals</h1>
-        <div style={{ display: "flex", gap: 8, marginLeft: 8 }}>
+        <div style={{ display: "flex", gap: 6, marginLeft: 6 }}>
           {(["list", "expanded"] as const).map(v => (
-            <button key={v} onClick={() => setView(v)} style={{
-              padding: "6px 16px", borderRadius: 20, border: "none", fontSize: 13, cursor: "pointer", fontWeight: 500,
-              background: view === v ? "#3B82F6" : "#e2e8f0", color: view === v ? "#fff" : "#64748b", textTransform: "capitalize"
-            }}>{v === "list" ? "List" : "Expanded"}</button>
+            <button key={v} onClick={() => setView(v)} style={{ padding: "5px 14px", borderRadius: 20, border: "none", fontSize: 12, cursor: "pointer", fontWeight: 500, background: view === v ? "#3B82F6" : "#e2e8f0", color: view === v ? "#fff" : "#64748b", textTransform: "capitalize" }}>{v === "list" ? "List" : "Expanded"}</button>
           ))}
         </div>
-        <button style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", marginLeft: "auto" }}>
-          ⊕ Add Goal
-        </button>
+        <button style={{ padding: "7px 18px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", marginLeft: "auto" }}>⊕ Add Goal</button>
       </div>
-
       {view === "list" ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {goals.map((g, i) => (
-            <div key={i} style={{ background: "#fff", borderRadius: 16, padding: "18px 20px", border: "1px solid #f1f5f9" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10, flexWrap: "wrap" }}>
-                <div style={{ width: 20, height: 20, borderRadius: "50%", border: "1.5px solid #d1d5db", flexShrink: 0 }} />
-                <div style={{ fontSize: 15, fontWeight: 600, color: "#1a2332", flex: 1 }}>{g.label}</div>
-                <button style={{ background: "none", border: "none", fontSize: 13, color: "#3B82F6", cursor: "pointer", padding: 0 }}>Edit</button>
+            <div key={i} style={{ background: "#fff", borderRadius: 14, padding: "16px 18px", border: "1px solid #f1f5f9" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                <div style={{ flex: 1, fontSize: 14, fontWeight: 600, color: "#1a2332" }}>{g.label}</div>
+                <span style={{ fontSize: 12, color: "#94a3b8" }}>Due: {g.due}</span>
+                <button style={{ background: "none", border: "none", fontSize: 12, color: "#3B82F6", cursor: "pointer" }}>Edit</button>
               </div>
-              <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 6 }}>Progress - {g.pct}%</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <div style={{ flex: 1, height: 10, borderRadius: 99, background: "#e5e7eb", overflow: "hidden" }}>
-                  <div style={{ width: `${g.pct}%`, height: "100%", borderRadius: 99, background: "#4CAF7D" }} />
-                </div>
-                <span style={{ fontSize: 12, color: "#94a3b8", flexShrink: 0 }}>Due: {g.due}</span>
+              <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 4 }}>Progress — {g.pct}%</div>
+              <div style={{ height: 8, borderRadius: 99, background: "#e5e7eb", overflow: "hidden" }}>
+                <div style={{ width: `${g.pct}%`, height: "100%", borderRadius: 99, background: "#4CAF7D" }} />
               </div>
             </div>
           ))}
         </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(320px,1fr))", gap: 20 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 18 }}>
           {goals.map((g, i) => (
-            <div key={i} style={{ background: "#fff", borderRadius: 16, padding: 24, border: "1px solid #f1f5f9" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                <div style={{ fontSize: 15, fontWeight: 700, color: "#1a2332", flex: 1 }}>{g.label}</div>
-                <button style={{ background: "none", border: "none", fontSize: 13, color: "#3B82F6", cursor: "pointer", padding: 0 }}>Edit</button>
+            <div key={i} style={{ background: "#fff", borderRadius: 14, padding: 20, border: "1px solid #f1f5f9" }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#1a2332", marginBottom: 8 }}>{g.label}</div>
+              <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 3 }}>Progress — {g.pct}%</div>
+              <div style={{ height: 8, borderRadius: 99, background: "#e5e7eb", overflow: "hidden", marginBottom: 14 }}>
+                <div style={{ width: `${g.pct}%`, height: "100%", borderRadius: 99, background: "#4CAF7D" }} />
               </div>
-              <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 4 }}>Progress - {g.pct}%</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-                <div style={{ flex: 1, height: 10, borderRadius: 99, background: "#e5e7eb", overflow: "hidden" }}>
-                  <div style={{ width: `${g.pct}%`, height: "100%", borderRadius: 99, background: "#4CAF7D" }} />
-                </div>
-                <span style={{ fontSize: 12, color: "#94a3b8", flexShrink: 0 }}>Due: {g.due}</span>
-              </div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#1a2332", marginBottom: 10 }}>Projections:</div>
-              {g.projections.map((p: any, pi: number) => (
-                <div key={pi} style={{ marginBottom: 10 }}>
-                  <div style={{ fontSize: 12, color: "#94a3b8" }}>{p.label}</div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: "#1a2332" }}>{p.value}</div>
+              {g.metrics.map((m: any, mi: number) => (
+                <div key={mi} style={{ display: "inline-block", background: MS[m.color as MetricColor].bg, borderRadius: 8, padding: "5px 10px", marginRight: 6, marginBottom: 4 }}>
+                  <div style={{ fontSize: 10, color: MS[m.color as MetricColor].text, fontWeight: 600 }}>{m.label}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: MS[m.color as MetricColor].text }}>{m.value}</div>
                 </div>
               ))}
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#1a2332", marginTop: 14, marginBottom: 10 }}>Metrics Tracking This Goal:</div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {g.metrics.map((m: any, mi: number) => (
-                  <div key={mi} style={{ background: MS[m.color as MetricColor].bg, borderRadius: 10, padding: "8px 12px", minWidth: 80 }}>
-                    <div style={{ fontSize: 11, color: MS[m.color as MetricColor].text, fontWeight: 600 }}>{m.label}</div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: MS[m.color as MetricColor].text, marginTop: 2 }}>{m.value}</div>
-                  </div>
-                ))}
-              </div>
             </div>
           ))}
         </div>
@@ -1824,67 +1506,47 @@ function TasksPage({ tasks, setTasks }: { tasks: any[]; setTasks: (t: any[]) => 
   const [filter, setFilter] = useState<"all" | "active" | "completed">("all");
   const toggle = (id: string) => setTasks(tasks.map((x: any) => x.id === id ? { ...x, done: !x.done } : x));
   const filtered = tasks.filter(t => filter === "all" ? true : filter === "active" ? !t.done : t.done);
-  const suggestedTasks = [
-    { text: "Close 5 more calls", tag: "Sales" },
-    { text: "Send 13 invoices", tag: "Finance" },
-    { text: "Add $3,500 from Overhead", tag: "Cashflow" },
-  ];
   return (
     <div style={{ padding: "clamp(16px,4vw,32px)" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 28, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24, flexWrap: "wrap" }}>
         <h1 style={{ margin: 0, fontSize: "clamp(20px,4vw,26px)", fontWeight: 700, color: "#1a2332" }}>Tasks</h1>
-        <button style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", marginLeft: "auto" }}>
-          + Add Task
-        </button>
+        <button style={{ padding: "7px 18px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", marginLeft: "auto" }}>+ Add Task</button>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0,2fr) minmax(200px,1fr)", gap: 24 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0,2fr) minmax(180px,1fr)", gap: 20 }}>
         <div>
-          <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
             {(["all", "active", "completed"] as const).map(f => (
-              <div key={f} onClick={() => setFilter(f)} style={{
-                padding: "6px 16px", borderRadius: 20, fontSize: 13, fontWeight: 500, cursor: "pointer",
-                background: filter === f ? "#3B82F6" : "#f1f5f9", color: filter === f ? "#fff" : "#64748b", textTransform: "capitalize"
-              }}>
+              <div key={f} onClick={() => setFilter(f)} style={{ padding: "5px 14px", borderRadius: 20, fontSize: 12, fontWeight: 500, cursor: "pointer", background: filter === f ? "#3B82F6" : "#f1f5f9", color: filter === f ? "#fff" : "#64748b", textTransform: "capitalize" }}>
                 {f}{f === "all" ? ` (${tasks.length})` : ""}
               </div>
             ))}
           </div>
           {filtered.map(t => (
-            <div key={t.id} style={{
-              display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", background: "#fff",
-              borderRadius: 12, marginBottom: 8, border: "1px solid #f1f5f9", opacity: t.done ? 0.6 : 1, transition: "opacity 0.2s"
-            }}>
-              <div onClick={() => toggle(t.id)} style={{
-                width: 22, height: 22, borderRadius: "50%", flexShrink: 0, cursor: "pointer",
-                border: t.done ? "none" : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent",
-                display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 12
-              }}>{t.done ? "✓" : ""}</div>
-              <div style={{ flex: 1, fontSize: 14, color: "#1a2332", textDecoration: t.done ? "line-through" : "none" }}>{t.text}</div>
-              <div style={{ fontSize: 12, color: "#94a3b8", flexShrink: 0 }}>Due {t.due}</div>
-              <Av initials={t.assignee} size={28} />
+            <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: "#fff", borderRadius: 10, marginBottom: 6, border: "1px solid #f1f5f9", opacity: t.done ? 0.6 : 1 }}>
+              <div onClick={() => toggle(t.id)} style={{ width: 20, height: 20, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 11 }}>{t.done ? "✓" : ""}</div>
+              <div style={{ flex: 1, fontSize: 13, color: "#1a2332", textDecoration: t.done ? "line-through" : "none" }}>{t.text}</div>
+              <div style={{ fontSize: 11, color: "#94a3b8" }}>Due {t.due}</div>
+              <Av initials={t.assignee} size={26} />
             </div>
           ))}
         </div>
         <div>
           <SectionCard title="Suggested Tasks ✦">
-            <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 14 }}>Based on your dashboard metrics</div>
-            {suggestedTasks.map((t, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: "#fff", borderRadius: 10, marginBottom: 8, border: "1px solid #f1f5f9" }}>
-                <div style={{ fontSize: 18, color: "#94a3b8", cursor: "pointer" }}>⊕</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, color: "#1a2332" }}>{t.text}</div>
-                  <div style={{ fontSize: 11, color: "#94a3b8" }}>{t.tag}</div>
-                </div>
+            <div style={{ fontSize: 10, color: "#94a3b8", marginBottom: 10 }}>Based on your dashboard metrics</div>
+            {["Close 5 more calls", "Send 13 invoices", "Add $3,500 from Overhead"].map((t, i) => (
+              <div key={i} style={{ display: "flex", gap: 8, padding: "8px 10px", background: "#fff", borderRadius: 8, marginBottom: 6, border: "1px solid #f1f5f9" }}>
+                <span style={{ fontSize: 16, color: "#94a3b8", cursor: "pointer" }}>⊕</span>
+                <span style={{ fontSize: 12, color: "#1a2332" }}>{t}</span>
               </div>
             ))}
           </SectionCard>
-          <div style={{ marginTop: 16 }}>
+          <div style={{ marginTop: 12 }}>
             <SectionCard>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "#1a2332", marginBottom: 12 }}>Task Summary</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#1a2332", marginBottom: 10 }}>Task Summary</div>
               {[["Total", tasks.length], ["Completed", tasks.filter(t => t.done).length], ["Pending", tasks.filter(t => !t.done).length]].map(([l, v]) => (
-                <div key={l as string} style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                  <span style={{ fontSize: 13, color: "#64748b" }}>{l}</span>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: "#1a2332" }}>{v}</span>
+                <div key={l as string} style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                  <span style={{ fontSize: 12, color: "#64748b" }}>{l}</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "#1a2332" }}>{v}</span>
                 </div>
               ))}
             </SectionCard>
@@ -1900,138 +1562,81 @@ function TasksPage({ tasks, setTasks }: { tasks: any[]; setTasks: (t: any[]) => 
 // ═══════════════════════════════════════════════════════════════════════════
 
 const APPS = [
-  { id: "asana", name: "Asana", logo: "🟧", color: "#F06A35", connected: true, desc: "Task & project management", metrics: ["Tasks Completed", "Metric Boxes", "Workflows"] },
-  { id: "trello", name: "Trello", logo: "🟦", color: "#0052CC", connected: true, desc: "Visual project boards", metrics: ["Tasks Completed", "Metric Boxes", "Workflows"] },
-  { id: "analytics", name: "Google Analytics", logo: "📊", color: "#E37400", connected: false, desc: "Website traffic & engagement", metrics: ["Data Synced", "Metric Boxes", "Workflows"] },
-  { id: "quickbooks", name: "QuickBooks", logo: "🟩", color: "#2CA01C", connected: true, desc: "Accounting & invoicing", metrics: ["Data Synced", "Metric Boxes", "Workflows"] },
-  { id: "hubspot", name: "HubSpot", logo: "🟠", color: "#FF7A59", connected: false, desc: "CRM & marketing hub", metrics: ["Data Synced", "Metric Boxes", "Workflows"] },
-  { id: "plaid", name: "Plaid", logo: "🔗", color: "#111827", connected: false, desc: "Bank account linking", metrics: ["Data Synced", "Metric Boxes", "Workflows"] },
+  { id: "asana", name: "Asana", logo: "🟧", color: "#F06A35", connected: true, desc: "Task & project management" },
+  { id: "trello", name: "Trello", logo: "🟦", color: "#0052CC", connected: true, desc: "Visual project boards" },
+  { id: "analytics", name: "Google Analytics", logo: "📊", color: "#E37400", connected: false, desc: "Website traffic & engagement" },
+  { id: "quickbooks", name: "QuickBooks", logo: "🟩", color: "#2CA01C", connected: true, desc: "Accounting & invoicing" },
+  { id: "hubspot", name: "HubSpot", logo: "🟠", color: "#FF7A59", connected: false, desc: "CRM & marketing hub" },
+  { id: "plaid", name: "Plaid", logo: "🔗", color: "#111827", connected: false, desc: "Bank account linking" },
 ];
 
 function IntegrationsPage({ onSelectApp }: { onSelectApp: (app: typeof APPS[0]) => void }) {
   const [search, setSearch] = useState("");
-  const [showAddModal, setShowAddModal] = useState(false);
   const filtered = APPS.filter(a => a.name.toLowerCase().includes(search.toLowerCase()));
   return (
     <div style={{ padding: "clamp(16px,4vw,32px)" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20, flexWrap: "wrap" }}>
         <h1 style={{ margin: 0, fontSize: "clamp(20px,4vw,26px)", fontWeight: 700, color: "#1a2332" }}>All Apps</h1>
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search apps..."
-            style={{ padding: "8px 14px", borderRadius: 20, border: "1px solid #e2e8f0", fontSize: 13, outline: "none", width: 180 }} />
-          <button onClick={() => setShowAddModal(true)} style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-            + Add Integration
-          </button>
+            style={{ padding: "7px 13px", borderRadius: 20, border: "1px solid #e2e8f0", fontSize: 12, outline: "none", width: 160 }} />
         </div>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(240px,1fr))", gap: 16, marginBottom: 32 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))", gap: 14, marginBottom: 28 }}>
         {filtered.map(app => (
-          <div key={app.id} onClick={() => onSelectApp(app)} style={{
-            background: "#fff", borderRadius: 16, padding: 20, border: "1px solid #f1f5f9",
-            cursor: "pointer", transition: "box-shadow 0.15s", boxShadow: "0 2px 8px rgba(0,0,0,0.04)"
-          }}
-            onMouseEnter={e => (e.currentTarget.style.boxShadow = "0 8px 24px rgba(0,0,0,0.1)")}
-            onMouseLeave={e => (e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.04)")}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-              <div style={{ fontSize: 28 }}>{app.logo}</div>
+          <div key={app.id} onClick={() => onSelectApp(app)} style={{ background: "#fff", borderRadius: 14, padding: 18, border: "1px solid #f1f5f9", cursor: "pointer", transition: "box-shadow 0.15s" }}
+            onMouseEnter={e => (e.currentTarget.style.boxShadow = "0 6px 20px rgba(0,0,0,0.08)")}
+            onMouseLeave={e => (e.currentTarget.style.boxShadow = "none")}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+              <div style={{ fontSize: 24 }}>{app.logo}</div>
               <div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: "#1a2332" }}>{app.name}</div>
-                <div style={{ fontSize: 12, color: "#94a3b8" }}>{app.desc}</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#1a2332" }}>{app.name}</div>
+                <div style={{ fontSize: 11, color: "#94a3b8" }}>{app.desc}</div>
               </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontSize: 12, padding: "3px 10px", borderRadius: 99, fontWeight: 600, background: app.connected ? "#DCFCE7" : "#F1F5F9", color: app.connected ? "#15803D" : "#94a3b8" }}>
+              <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 99, fontWeight: 600, background: app.connected ? "#DCFCE7" : "#F1F5F9", color: app.connected ? "#15803D" : "#94a3b8" }}>
                 {app.connected ? "Connected" : "Not Connected"}
               </span>
-              <span style={{ fontSize: 12, color: "#3B82F6", cursor: "pointer" }}>{app.connected ? "Manage →" : "Connect →"}</span>
+              <span style={{ fontSize: 11, color: "#3B82F6", cursor: "pointer" }}>{app.connected ? "Manage →" : "Connect →"}</span>
             </div>
           </div>
         ))}
       </div>
-      <div style={{ background: "#EEF9F4", border: "1px solid #c3e6d4", borderRadius: 16, padding: 24 }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#0F6E56", marginBottom: 8 }}>🏦 Phase 3: Live Bank Integration via Plaid</div>
-        <p style={{ margin: "0 0 12px", fontSize: 13, color: "#1e6b4e", lineHeight: 1.6 }}>
-          Connect your real bank account through Plaid and Dashello will automatically calculate your Five-Account balances.
-        </p>
-        <button style={{ padding: "10px 24px", borderRadius: 8, border: "none", background: "#0F6E56", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-          Connect Bank Account →
-        </button>
+      <div style={{ background: "#EEF9F4", border: "1px solid #c3e6d4", borderRadius: 14, padding: 20 }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: "#0F6E56", marginBottom: 6 }}>🏦 Phase 3: Live Bank Integration via Plaid</div>
+        <p style={{ margin: "0 0 10px", fontSize: 12, color: "#1e6b4e", lineHeight: 1.6 }}>Connect your real bank account through Plaid and Dashello will automatically calculate your Five-Account balances.</p>
+        <button style={{ padding: "9px 20px", borderRadius: 8, border: "none", background: "#0F6E56", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Connect Bank Account →</button>
       </div>
-
-      {showAddModal && (
-        <div onClick={() => setShowAddModal(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 16 }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 24, padding: "36px 32px", width: "100%", maxWidth: 560, boxShadow: "0 32px 80px rgba(0,0,0,0.2)" }}>
-            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4 }}>
-              <button onClick={() => setShowAddModal(false)} style={{ background: "none", border: "none", fontSize: 26, cursor: "pointer", color: "#1a2332" }}>×</button>
-            </div>
-            <h2 style={{ margin: "0 0 8px", fontSize: 24, fontWeight: 700, color: "#1a2332", textAlign: "center" }}>Add your metrics</h2>
-            <p style={{ margin: "0 0 24px", fontSize: 13, color: "#94a3b8", textAlign: "center", lineHeight: 1.6 }}>
-              Select the apps you use or search for your favourite apps.
-            </p>
-            <input placeholder='Search "Salesforce"....' style={{ width: "100%", padding: "10px 16px", borderRadius: 20, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none", boxSizing: "border-box", marginBottom: 20 }} />
-            {APPS.map(app => (
-              <div key={app.id} style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
-                <div style={{ fontSize: 22 }}>{app.logo}</div>
-                <div style={{ flex: 1, fontSize: 15, fontWeight: 600, color: "#1a2332" }}>{app.name}</div>
-                <button style={{ padding: "10px 28px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer", color: "#1a2332" }}>
-                  {app.connected ? "Connected" : "Connect"}
-                </button>
-              </div>
-            ))}
-            <button onClick={() => setShowAddModal(false)} style={{ width: "100%", padding: "13px 0", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
-              Save
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
 function AppDetailPage({ app, onBack }: { app: typeof APPS[0]; onBack: () => void }) {
-  const sampleMetrics = [
-    { label: "Tasks Completed", value: "127", change: "+12%", color: "green" as MetricColor },
-    { label: "Active Projects", value: "8", change: "+2", color: "yellow" as MetricColor },
-    { label: "Overdue Items", value: "3", change: "-5", color: "red" as MetricColor },
-  ];
   return (
     <div style={{ padding: "clamp(16px,4vw,32px)" }}>
-      <button onClick={onBack} style={{ background: "none", border: "none", cursor: "pointer", color: "#3B82F6", fontSize: 14, marginBottom: 20, display: "flex", alignItems: "center", gap: 4 }}>
-        ← Back to All Apps
-      </button>
-      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24, flexWrap: "wrap" }}>
-        <div style={{ fontSize: 36 }}>{app.logo}</div>
+      <button onClick={onBack} style={{ background: "none", border: "none", cursor: "pointer", color: "#3B82F6", fontSize: 13, marginBottom: 16, display: "flex", alignItems: "center", gap: 4 }}>← Back to All Apps</button>
+      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20, flexWrap: "wrap" }}>
+        <div style={{ fontSize: 32 }}>{app.logo}</div>
         <div>
-          <h1 style={{ margin: 0, fontSize: "clamp(20px,4vw,26px)", fontWeight: 700, color: "#1a2332" }}>{app.name}</h1>
-          <div style={{ fontSize: 13, color: "#94a3b8" }}>{app.desc}</div>
+          <h1 style={{ margin: 0, fontSize: "clamp(18px,4vw,24px)", fontWeight: 700, color: "#1a2332" }}>{app.name}</h1>
+          <div style={{ fontSize: 12, color: "#94a3b8" }}>{app.desc}</div>
         </div>
-        <div style={{ marginLeft: "auto", display: "flex", gap: 10 }}>
+        <div style={{ marginLeft: "auto" }}>
           {app.connected
-            ? <button style={{ padding: "8px 20px", borderRadius: 8, border: "1px solid #e2e8f0", background: "#fff", fontSize: 13, cursor: "pointer", color: "#E85D75" }}>Disconnect</button>
-            : <button style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Connect {app.name}</button>
-          }
+            ? <button style={{ padding: "7px 18px", borderRadius: 8, border: "1px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#E85D75" }}>Disconnect</button>
+            : <button style={{ padding: "7px 18px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Connect {app.name}</button>}
         </div>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 16, marginBottom: 28 }}>
-        {sampleMetrics.map((m, i) => (
-          <div key={i} style={{ background: MS[m.color].bg, borderRadius: 16, padding: 20 }}>
-            <div style={{ fontSize: 13, color: "rgba(255,255,255,0.8)", marginBottom: 6 }}>{m.label}</div>
-            <div style={{ fontSize: 28, fontWeight: 700, color: "#fff" }}>{m.value}</div>
-            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.7)", marginTop: 4 }}>{m.change} this month</div>
+      <SectionCard title="Workflows">
+        {["Auto-create tasks from overdue invoices", "Notify team on lead stage change", "Weekly summary to Slack"].map((w, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderBottom: i < 2 ? "1px solid #f1f5f9" : "none" }}>
+            <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#4CAF7D", flexShrink: 0 }} />
+            <span style={{ fontSize: 13, color: "#1a2332", flex: 1 }}>{w}</span>
+            <Toggle on={i < 2} onChange={() => { }} />
           </div>
         ))}
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 20 }}>
-        <SectionCard title="Workflows">
-          {["Auto-create tasks from overdue invoices", "Notify team on lead stage change", "Weekly summary to Slack"].map((w, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: i < 2 ? "1px solid #f1f5f9" : "none" }}>
-              <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#4CAF7D", flexShrink: 0 }} />
-              <span style={{ fontSize: 13, color: "#1a2332", flex: 1 }}>{w}</span>
-              <Toggle on={i < 2} onChange={() => { }} />
-            </div>
-          ))}
-        </SectionCard>
-      </div>
+      </SectionCard>
     </div>
   );
 }
@@ -2052,29 +1657,27 @@ function TeamPage() {
   ];
   return (
     <div style={{ padding: "clamp(16px,4vw,32px)" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 28, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24, flexWrap: "wrap" }}>
         <h1 style={{ margin: 0, fontSize: "clamp(20px,4vw,26px)", fontWeight: 700, color: "#1a2332" }}>Team</h1>
-        <button onClick={() => setShowInvite(true)} style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", marginLeft: "auto" }}>
-          + Invite Member
-        </button>
+        <button onClick={() => setShowInvite(true)} style={{ padding: "7px 18px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", marginLeft: "auto" }}>+ Invite Member</button>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))", gap: 16, marginBottom: 28 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(200px,1fr))", gap: 14, marginBottom: 24 }}>
         {members.map((m, i) => (
-          <div key={i} style={{ background: "#fff", borderRadius: 16, padding: 20, border: "1px solid #f1f5f9", textAlign: "center" }}>
-            <div style={{ width: 56, height: 56, borderRadius: "50%", background: m.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, fontWeight: 700, color: "#fff", margin: "0 auto 12px" }}>{m.initials}</div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "#1a2332" }}>{m.name}</div>
-            <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 8 }}>{m.role}</div>
-            <div style={{ fontSize: 12, color: "#3B82F6", marginBottom: 12 }}>{m.email}</div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: "#1a2332" }}>{m.tasks}</div>
-            <div style={{ fontSize: 11, color: "#94a3b8" }}>Tasks</div>
+          <div key={i} style={{ background: "#fff", borderRadius: 14, padding: 18, border: "1px solid #f1f5f9", textAlign: "center" }}>
+            <div style={{ width: 52, height: 52, borderRadius: "50%", background: m.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 700, color: "#fff", margin: "0 auto 10px" }}>{m.initials}</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#1a2332" }}>{m.name}</div>
+            <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 6 }}>{m.role}</div>
+            <div style={{ fontSize: 11, color: "#3B82F6", marginBottom: 8 }}>{m.email}</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#1a2332" }}>{m.tasks}</div>
+            <div style={{ fontSize: 10, color: "#94a3b8" }}>Tasks</div>
           </div>
         ))}
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 12 }}>
         {[{ color: "green" as MetricColor, label: "Team", value: "6 members" }, { color: "yellow" as MetricColor, label: "Open Tasks", value: "60" }, { color: "gray" as MetricColor, label: "Completed", value: "2 this week" }].map((b, i) => (
-          <div key={i} style={{ background: MS[b.color].bg, borderRadius: 16, padding: 20 }}>
-            <div style={{ fontSize: 13, color: MS[b.color].text, opacity: 0.8 }}>{b.label}</div>
-            <div style={{ fontSize: 22, fontWeight: 700, color: MS[b.color].text, marginTop: 4 }}>{b.value}</div>
+          <div key={i} style={{ background: MS[b.color].bg, borderRadius: 14, padding: 18 }}>
+            <div style={{ fontSize: 12, color: MS[b.color].text, opacity: 0.8 }}>{b.label}</div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: MS[b.color].text, marginTop: 3 }}>{b.value}</div>
           </div>
         ))}
       </div>
@@ -2087,36 +1690,28 @@ function TeamPage() {
 // PAGE: SETTINGS
 // ═══════════════════════════════════════════════════════════════════════════
 
-function ProfileField({ label, value, onChange, disabled }: {
-  label: string; value: string; onChange?: (v: string) => void; disabled?: boolean
-}) {
+function ProfileField({ label, value, onChange, disabled }: { label: string; value: string; onChange?: (v: string) => void; disabled?: boolean }) {
   return (
-    <div style={{ marginBottom: 16 }}>
-      <label style={{ fontSize: 13, color: "#64748b", display: "block", marginBottom: 4 }}>{label}</label>
+    <div style={{ marginBottom: 13 }}>
+      <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 3 }}>{label}</label>
       <input value={value} onChange={e => onChange?.(e.target.value)} disabled={disabled}
-        style={{
-          width: "100%", padding: "9px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0",
-          fontSize: 14, outline: "none", boxSizing: "border-box" as const,
-          background: disabled ? "#f8fafc" : "#fff", color: disabled ? "#94a3b8" : "#1a2332"
-        }} />
+        style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none", boxSizing: "border-box" as const, background: disabled ? "#f8fafc" : "#fff", color: disabled ? "#94a3b8" : "#1a2332" }} />
     </div>
   );
 }
 
-function SettingsPage({ userId, userEmail, onProfileSaved }: {
+function SettingsPage({ userId, userEmail, onProfileSaved, onFiveAccountCreated }: {
   userId: string; userEmail: string; onProfileSaved: (p: any) => void;
+  onFiveAccountCreated: () => void;
 }) {
   const [localProfile, setLocalProfile] = useState({
-    full_name: "", company: "", street: "", city: "",
-    state: "", zip: "", country: "", avatar_url: "",
-    five_account_enabled: false,
+    full_name: "", company: "", street: "", city: "", state: "", zip: "", country: "",
+    avatar_url: "", five_account_enabled: false,
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [plan, setPlan] = useState("Pro");
-  const [notif, setNotif] = useState(true);
-  const [darkMode, setDarkMode] = useState(false);
+  const [fiveAccountConfirm, setFiveAccountConfirm] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -2133,16 +1728,26 @@ function SettingsPage({ userId, userEmail, onProfileSaved }: {
 
   const handleSave = async () => {
     setSaving(true);
-    const { error } = await supabase.from("profiles").upsert({
-      id: userId, ...localProfile, updated_at: new Date().toISOString(),
-    });
+    const { error } = await supabase.from("profiles").upsert({ id: userId, ...localProfile, updated_at: new Date().toISOString() });
     if (!error) { onProfileSaved({ ...localProfile }); setSaved(true); setTimeout(() => setSaved(false), 3000); }
     setSaving(false);
   };
 
+  const handleFiveAccountToggle = async (v: boolean) => {
+    const updated = { ...localProfile, five_account_enabled: v };
+    setLocalProfile(updated);
+    // Auto-save immediately
+    await supabase.from("profiles").upsert({ id: userId, ...updated, updated_at: new Date().toISOString() });
+    onProfileSaved(updated);
+    if (v) {
+      onFiveAccountCreated();
+      setFiveAccountConfirm(true);
+      setTimeout(() => setFiveAccountConfirm(false), 4000);
+    }
+  };
+
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !userId) return;
+    const file = e.target.files?.[0]; if (!file || !userId) return;
     setUploading(true);
     const ext = file.name.split(".").pop();
     const path = `${userId}/avatar.${ext}`;
@@ -2157,94 +1762,86 @@ function SettingsPage({ userId, userEmail, onProfileSaved }: {
     setUploading(false);
   };
 
-  return (
-    <div style={{ padding: "clamp(16px,4vw,32px)", maxWidth: 900 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 28, flexWrap: "wrap" }}>
-        <h1 style={{ margin: 0, fontSize: "clamp(20px,4vw,26px)", fontWeight: 700, color: "#1a2332" }}>Profile</h1>
-        <div style={{ marginLeft: "auto", padding: "6px 16px", borderRadius: 20, background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600 }}>
-          {plan} Plan
-        </div>
+  const GrayPref = ({ label, sub }: { label: string; sub: string }) => (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid #f1f5f9", opacity: 0.45 }}>
+      <div>
+        <div style={{ fontSize: 13, color: "#1a2332" }}>{label} <span style={{ fontSize: 10, color: "#94a3b8", fontStyle: "italic" }}>(coming soon)</span></div>
+        <div style={{ fontSize: 11, color: "#94a3b8" }}>{sub}</div>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 24 }}>
-        <div style={{ background: "#fff", borderRadius: 16, padding: 24, border: "1px solid #f1f5f9" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
-            <div onClick={() => fileRef.current?.click()} style={{
-              width: 64, height: 64, borderRadius: "50%", background: "#4C9FE8", cursor: "pointer",
-              overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 24, fontWeight: 700, color: "#fff", flexShrink: 0, position: "relative"
-            }}>
-              {localProfile.avatar_url
-                ? <img src={localProfile.avatar_url} alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                : (localProfile.full_name?.[0]?.toUpperCase() ?? "👤")}
+      <Toggle on={false} onChange={() => { }} disabled />
+    </div>
+  );
+
+  return (
+    <div style={{ padding: "clamp(16px,4vw,32px)", maxWidth: 860 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24, flexWrap: "wrap" }}>
+        <h1 style={{ margin: 0, fontSize: "clamp(20px,4vw,26px)", fontWeight: 700, color: "#1a2332" }}>Profile</h1>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 20 }}>
+        {/* Profile card */}
+        <div style={{ background: "#fff", borderRadius: 14, padding: 22, border: "1px solid #f1f5f9" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20 }}>
+            <div onClick={() => fileRef.current?.click()} style={{ width: 58, height: 58, borderRadius: "50%", background: "#4C9FE8", cursor: "pointer", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
+              {localProfile.avatar_url ? <img src={localProfile.avatar_url} alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : (localProfile.full_name?.[0]?.toUpperCase() ?? "👤")}
             </div>
             <input ref={fileRef} type="file" accept="image/*" onChange={handlePhotoUpload} style={{ display: "none" }} />
             <div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: "#1a2332" }}>{localProfile.full_name || "Your Name"}</div>
-              <button onClick={() => fileRef.current?.click()} style={{ fontSize: 12, color: "#3B82F6", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
-                {uploading ? "Uploading..." : "Change photo"}
-              </button>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#1a2332" }}>{localProfile.full_name || "Your Name"}</div>
+              <button onClick={() => fileRef.current?.click()} style={{ fontSize: 11, color: "#3B82F6", background: "none", border: "none", cursor: "pointer", padding: 0 }}>{uploading ? "Uploading..." : "Change photo"}</button>
             </div>
           </div>
-          <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 600, color: "#1a2332" }}>Account</h3>
+          <h3 style={{ margin: "0 0 12px", fontSize: 14, fontWeight: 600, color: "#1a2332" }}>Account</h3>
           <ProfileField label="Full Name" value={localProfile.full_name} onChange={v => setLocalProfile(p => ({ ...p, full_name: v }))} />
           <ProfileField label="Email" value={userEmail} disabled />
           <ProfileField label="Company" value={localProfile.company} onChange={v => setLocalProfile(p => ({ ...p, company: v }))} />
-          <h3 style={{ margin: "20px 0 16px", fontSize: 15, fontWeight: 600, color: "#1a2332" }}>Address</h3>
-          <ProfileField label="Street Address" value={localProfile.street} onChange={v => setLocalProfile(p => ({ ...p, street: v }))} />
+          <h3 style={{ margin: "16px 0 12px", fontSize: 14, fontWeight: 600, color: "#1a2332" }}>Address</h3>
+          <ProfileField label="Street" value={localProfile.street} onChange={v => setLocalProfile(p => ({ ...p, street: v }))} />
           <ProfileField label="City" value={localProfile.city} onChange={v => setLocalProfile(p => ({ ...p, city: v }))} />
           <ProfileField label="State" value={localProfile.state} onChange={v => setLocalProfile(p => ({ ...p, state: v }))} />
-          <ProfileField label="ZIP Code" value={localProfile.zip} onChange={v => setLocalProfile(p => ({ ...p, zip: v }))} />
+          <ProfileField label="ZIP" value={localProfile.zip} onChange={v => setLocalProfile(p => ({ ...p, zip: v }))} />
           <ProfileField label="Country" value={localProfile.country} onChange={v => setLocalProfile(p => ({ ...p, country: v }))} />
-          <button onClick={handleSave} disabled={saving} style={{
-            width: "100%", padding: "10px", borderRadius: 8, border: "none",
-            background: saved ? "#4CAF7D" : "linear-gradient(135deg,#3B82F6,#06B6D4)",
-            color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer", marginTop: 8
-          }}>
+          <button onClick={handleSave} disabled={saving} style={{ width: "100%", padding: "9px", borderRadius: 8, border: "none", background: saved ? "#4CAF7D" : "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", marginTop: 6 }}>
             {saving ? "Saving..." : saved ? "✓ Saved!" : "Save Changes"}
           </button>
         </div>
 
+        {/* Plan + Preferences */}
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <div style={{ background: "#fff", borderRadius: 16, padding: 24, border: "1px solid #f1f5f9" }}>
-            <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 600, color: "#1a2332" }}>Plan</h3>
-            {[{ name: "Free", price: "$0/mo", features: "3 rows, 10 metrics" }, { name: "Pro", price: "$29/mo", features: "Unlimited rows, integrations" }, { name: "Business", price: "$79/mo", features: "Team access, all apps" }].map(p => (
-              <div key={p.name} onClick={() => setPlan(p.name)} style={{
-                display: "flex", alignItems: "center", gap: 12, padding: "12px 14px",
-                borderRadius: 10, marginBottom: 8, cursor: "pointer",
-                background: plan === p.name ? "#EFF6FF" : "#F8FAFC",
-                border: plan === p.name ? "1.5px solid #3B82F6" : "1.5px solid transparent"
-              }}>
-                <div style={{ width: 16, height: 16, borderRadius: "50%", border: "2px solid", borderColor: plan === p.name ? "#3B82F6" : "#d1d5db", background: plan === p.name ? "#3B82F6" : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  {plan === p.name && <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#fff" }} />}
+          {/* Plans — grayed out */}
+          <div style={{ background: "#fff", borderRadius: 14, padding: 20, border: "1px solid #f1f5f9", opacity: 0.55, pointerEvents: "none" as const }}>
+            <h3 style={{ margin: "0 0 14px", fontSize: 14, fontWeight: 600, color: "#94a3b8" }}>Plan</h3>
+            {[{ name: "Free", features: "3 rows, 10 metrics" }, { name: "Pro", features: "Unlimited rows, integrations" }, { name: "Business", features: "Team access, all apps" }].map(p => (
+              <div key={p.name} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8, marginBottom: 6, background: p.name === "Pro" ? "#EFF6FF" : "#F8FAFC", border: p.name === "Pro" ? "1.5px solid #3B82F6" : "1.5px solid transparent" }}>
+                <div style={{ width: 14, height: 14, borderRadius: "50%", border: "2px solid", borderColor: p.name === "Pro" ? "#3B82F6" : "#d1d5db", background: p.name === "Pro" ? "#3B82F6" : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  {p.name === "Pro" && <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#fff" }} />}
                 </div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: "#1a2332" }}>{p.name}</div>
-                  <div style={{ fontSize: 12, color: "#94a3b8" }}>{p.features}</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332" }}>{p.name}</div>
+                  <div style={{ fontSize: 11, color: "#94a3b8" }}>{p.features}</div>
                 </div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "#3B82F6" }}>{p.price}</div>
               </div>
             ))}
           </div>
-          <div style={{ background: "#fff", borderRadius: 16, padding: 24, border: "1px solid #f1f5f9" }}>
-            <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 600, color: "#1a2332" }}>Preferences</h3>
-            {[
-              { label: "Email notifications", sub: "Daily digest of key metrics", on: notif, set: setNotif },
-              { label: "Dark mode", sub: "Switch to dark theme", on: darkMode, set: setDarkMode },
-              { label: "Two-factor auth (coming soon)", sub: "Require 2FA on login", on: false, set: () => { } },
-              {
-                label: "Five-Account System", sub: "Enable Profit First method globally",
-                on: localProfile.five_account_enabled,
-                set: (v: boolean) => setLocalProfile(p => ({ ...p, five_account_enabled: v }))
-              },
-            ].map((item, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: i < 3 ? "1px solid #f1f5f9" : "none" }}>
-                <div>
-                  <div style={{ fontSize: 14, color: i === 2 ? "#94a3b8" : "#1a2332" }}>{item.label}</div>
-                  <div style={{ fontSize: 12, color: "#94a3b8" }}>{item.sub}</div>
-                </div>
-                <Toggle on={item.on} onChange={item.set} />
+
+          {/* Preferences */}
+          <div style={{ background: "#fff", borderRadius: 14, padding: 20, border: "1px solid #f1f5f9" }}>
+            <h3 style={{ margin: "0 0 14px", fontSize: 14, fontWeight: 600, color: "#1a2332" }}>Preferences</h3>
+            <GrayPref label="Email notifications" sub="Daily digest of key metrics" />
+            <GrayPref label="Dark mode" sub="Switch to dark theme" />
+            <GrayPref label="Two-factor auth" sub="Require 2FA on login" />
+            {/* Five-Account System — functional */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 0" }}>
+              <div>
+                <div style={{ fontSize: 13, color: "#1a2332" }}>Five-Account System</div>
+                <div style={{ fontSize: 11, color: "#94a3b8" }}>Enable Profit First method globally</div>
               </div>
-            ))}
+              <Toggle on={localProfile.five_account_enabled} onChange={handleFiveAccountToggle} />
+            </div>
+            {fiveAccountConfirm && (
+              <div style={{ marginTop: 8, background: "#F0FDF4", border: "1px solid #c3e6d4", borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "#0F6E56", display: "flex", alignItems: "center", gap: 6 }}>
+                ✓ Five-Account System created — Finances row added to your dashboard.
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -2259,46 +1856,34 @@ function SettingsPage({ userId, userEmail, onProfileSaved }: {
 function ChatPanel({ sections, onClose }: { sections: Section[]; onClose: () => void }) {
   const channels = ["General", ...sections.map(s => s.title)];
   const [active, setActive] = useState("General");
-  const sampleMsgs: Record<string, { name: string; time: string; text: string }[]> = {
+  const msgs: Record<string, { name: string; time: string; text: string }[]> = {
     General: [{ name: "Julia", time: "14:27", text: "Sounds good @Bryan." }, { name: "Bryan", time: "14:23", text: "Thanks @Julia. When can you have it transferred over by?" }],
-    Cashflow: [{ name: "Julia", time: "14:27", text: "Sounds good @Bryan." }, { name: "Bryan", time: "14:23", text: "Thanks @Julia. When can you have it transferred over by?" }],
-    Sales: [{ name: "Julia", time: "15:53", text: "@Bryan, that's right. our sales are up by 20%, let's celebrate!" }, { name: "Bryan", time: "15:56", text: "@Julia, I'll go get the ice-cream cake!" }],
-    Marketing: [{ name: "Julia", time: "14:20", text: "@Bryan. How come?" }, { name: "Bryan", time: "14:39", text: "@Julia, A couple of the Marketing Team members are sick so things are behind..." }],
   };
-  const msgs = sampleMsgs[active] ?? sampleMsgs["General"];
+  const display = msgs[active] ?? msgs["General"];
   return (
-    <div style={{
-      position: "fixed", right: 0, top: 0, bottom: 0, width: "clamp(280px,30vw,360px)",
-      background: "#fff", boxShadow: "-4px 0 32px rgba(0,0,0,0.12)", zIndex: 1500,
-      display: "flex", flexDirection: "column"
-    }}>
-      <div style={{ padding: "16px 20px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#1a2332" }}>Chat</div>
-        <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#94a3b8" }}>×</button>
+    <div style={{ position: "fixed", right: 0, top: 0, bottom: 0, width: "clamp(260px,28vw,340px)", background: "#fff", boxShadow: "-4px 0 32px rgba(0,0,0,0.1)", zIndex: 1500, display: "flex", flexDirection: "column" }}>
+      <div style={{ padding: "14px 18px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: "#1a2332" }}>Chat</div>
+        <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#94a3b8" }}>×</button>
       </div>
-      <div style={{ display: "flex", gap: 4, padding: "8px 12px", borderBottom: "1px solid #f1f5f9", overflowX: "auto" }}>
+      <div style={{ display: "flex", gap: 4, padding: "6px 10px", borderBottom: "1px solid #f1f5f9", overflowX: "auto" }}>
         {channels.map(ch => (
-          <button key={ch} onClick={() => setActive(ch)} style={{
-            padding: "4px 10px", borderRadius: 20, fontSize: 12, fontWeight: 500, border: "none", cursor: "pointer", flexShrink: 0,
-            background: active === ch ? "#3B82F6" : "#f1f5f9", color: active === ch ? "#fff" : "#64748b"
-          }}>{ch}</button>
+          <button key={ch} onClick={() => setActive(ch)} style={{ padding: "3px 9px", borderRadius: 20, fontSize: 11, fontWeight: 500, border: "none", cursor: "pointer", flexShrink: 0, background: active === ch ? "#3B82F6" : "#f1f5f9", color: active === ch ? "#fff" : "#64748b" }}>{ch}</button>
         ))}
       </div>
-      <div style={{ flex: 1, overflowY: "auto", padding: "16px" }}>
-        {msgs.map((m, i) => (
-          <div key={i} style={{ display: "flex", gap: 10, marginBottom: 14, alignItems: "flex-start" }}>
-            <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#4C9FE8", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 600, color: "#fff" }}>
-              {m.name[0]}
-            </div>
+      <div style={{ flex: 1, overflowY: "auto", padding: "14px" }}>
+        {display.map((m, i) => (
+          <div key={i} style={{ display: "flex", gap: 8, marginBottom: 12, alignItems: "flex-start" }}>
+            <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#4C9FE8", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 600, color: "#fff" }}>{m.name[0]}</div>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#1a2332", marginBottom: 2 }}>{m.name} <span style={{ color: "#94a3b8", fontWeight: 400 }}>{m.time}</span></div>
-              <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.5 }}>{m.text}</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "#1a2332", marginBottom: 1 }}>{m.name} <span style={{ color: "#94a3b8", fontWeight: 400 }}>{m.time}</span></div>
+              <div style={{ fontSize: 12, color: "#475569", lineHeight: 1.5 }}>{m.text}</div>
             </div>
           </div>
         ))}
       </div>
-      <div style={{ padding: "12px 16px", borderTop: "1px solid #f1f5f9" }}>
-        <input placeholder="Type Response..." style={{ width: "100%", padding: "10px 16px", borderRadius: 99, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none", boxSizing: "border-box", background: "#f8fafc" }} />
+      <div style={{ padding: "10px 14px", borderTop: "1px solid #f1f5f9" }}>
+        <input placeholder="Type Response..." style={{ width: "100%", padding: "8px 14px", borderRadius: 99, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", boxSizing: "border-box", background: "#f8fafc" }} />
       </div>
     </div>
   );
@@ -2322,80 +1907,50 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName }: {
   isMobile: boolean; avatarUrl?: string; firstName?: string;
 }) {
   return (
-    <aside style={{
-      width: 260, flexShrink: 0, background: "#fff",
-      display: "flex", flexDirection: "column",
-      boxShadow: "2px 0 12px rgba(0,0,0,0.08)",
-      height: "100%", minHeight: "100vh",
-      overflowY: "auto", overflowX: "hidden",
-      scrollbarWidth: "none",
-    } as React.CSSProperties}>
-      <style>{`aside::-webkit-scrollbar{display:none} .nav-item:hover{background:#f1f5f9 !important}`}</style>
-
-      <div style={{ padding: "28px 20px 20px", borderBottom: "1px solid #f1f5f9", display: "flex", flexDirection: "column", alignItems: "center", position: "relative" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", position: "relative", marginBottom: 12 }}>
-          <div style={{ width: 60, height: 60, borderRadius: "50%", background: "#e2e8f0", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>
+    <aside style={{ width: 240, flexShrink: 0, background: "#fff", display: "flex", flexDirection: "column", boxShadow: "2px 0 12px rgba(0,0,0,0.06)", height: "100%", minHeight: "100vh", overflowY: "auto", scrollbarWidth: "none" } as React.CSSProperties}>
+      <style>{`.nav-item:hover{background:#f1f5f9 !important}`}</style>
+      <div style={{ padding: "24px 18px 18px", borderBottom: "1px solid #f1f5f9", display: "flex", flexDirection: "column", alignItems: "center" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", position: "relative", marginBottom: 10 }}>
+          <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#e2e8f0", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>
             {avatarUrl ? <img src={avatarUrl} alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ color: "#94a3b8" }}>👤</span>}
           </div>
-          {!isMobile && (
-            <div onClick={onClose} style={{
-              position: "absolute", right: 0, width: 28, height: 28, borderRadius: "50%",
-              border: "1.5px solid #e2e8f0", background: "#fff",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              cursor: "pointer", color: "#94a3b8", fontSize: 16
-            }}>‹</div>
-          )}
+          {!isMobile && <div onClick={onClose} style={{ position: "absolute", right: 0, width: 26, height: 26, borderRadius: "50%", border: "1.5px solid #e2e8f0", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#94a3b8", fontSize: 14 }}>‹</div>}
         </div>
         <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332", lineHeight: 1.3 }}>
-            {firstName ? `Welcome ${firstName}` : "Welcome"}
-          </div>
-          <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>to your dashboard</div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: "#1a2332" }}>{firstName ? `Welcome ${firstName}` : "Welcome"}</div>
+          <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 1 }}>to your dashboard</div>
         </div>
       </div>
-
-      <nav style={{ flex: 1, padding: "12px 12px" }}>
+      <nav style={{ flex: 1, padding: "10px 10px" }}>
         {NAV.map(item => (
-          <div key={item.label} className="nav-item" onClick={() => onNav(item.page)} style={{
-            display: "flex", alignItems: "center", gap: 10, padding: "10px 12px",
-            borderRadius: 10, marginBottom: 2, cursor: "pointer",
-            background: active === item.page ? "#EFF6FF" : "transparent",
-            color: active === item.page ? "#3B82F6" : "#475569",
-            fontSize: 13, fontWeight: active === item.page ? 600 : 400, transition: "background 0.15s"
-          }}>
-            <span style={{ fontSize: 15, flexShrink: 0 }}>{item.icon}</span>
+          <div key={item.label} className="nav-item" onClick={() => onNav(item.page)} style={{ display: "flex", alignItems: "center", gap: 9, padding: "9px 11px", borderRadius: 9, marginBottom: 2, cursor: "pointer", background: active === item.page ? "#EFF6FF" : "transparent", color: active === item.page ? "#3B82F6" : "#475569", fontSize: 13, fontWeight: active === item.page ? 600 : 400, transition: "background 0.15s" }}>
+            <span style={{ fontSize: 14, flexShrink: 0 }}>{item.icon}</span>
             <span style={{ whiteSpace: "nowrap" }}>{item.label}</span>
           </div>
         ))}
       </nav>
-
-      <div style={{ padding: "16px 20px", borderTop: "1px solid #f1f5f9", display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
-        <img src="https://dashello.co/wp-content/uploads/2023/08/Logo.png" alt="Dashello" style={{ height: 28, objectFit: "contain", maxWidth: "80%" }} />
-        <button onClick={() => supabase.auth.signOut()} style={{
-          width: "100%", padding: "8px 0", borderRadius: 8,
-          border: "1.5px solid #e2e8f0", background: "transparent",
-          color: "#94a3b8", fontSize: 12, fontWeight: 600, cursor: "pointer"
-        }}>Sign Out</button>
+      <div style={{ padding: "14px 18px", borderTop: "1px solid #f1f5f9", display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+        <img src="https://dashello.co/wp-content/uploads/2023/08/Logo.png" alt="Dashello" style={{ height: 26, objectFit: "contain", maxWidth: "80%" }} />
+        <button onClick={() => supabase.auth.signOut()} style={{ width: "100%", padding: "7px 0", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "transparent", color: "#94a3b8", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Sign Out</button>
       </div>
     </aside>
   );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// HOME PAGE
+// HOME PAGE — robust drag-drop
 // ═══════════════════════════════════════════════════════════════════════════
 
-function HomePage({
-  sections, setSections, onClickMetric
-}: {
+function HomePage({ sections, setSections, onClickMetric }: {
   sections: Section[];
   setSections: React.Dispatch<React.SetStateAction<Section[]>>;
-  onClickMetric: (m: MetricModalData, metric: Metric) => void;
+  onClickMetric: (data: MetricModalData, metric: Metric) => void;
 }) {
-  const dragMetric = useRef<{ sid: string; mid: string } | null>(null);
-  const dragSection = useRef<string | null>(null);
-  const [dragOverMetric, setDragOverMetric] = useState<string | null>(null);
-  const [dragOverSection, setDragOverSection] = useState<string | null>(null);
+  // Drag state stored in ref so it's always current in event handlers
+  const dragMetricRef = useRef<{ sourceSid: string; sourceMid: string } | null>(null);
+  const dragSectionRef = useRef<string | null>(null);
+  const [dragMetricState, setDragMetricState] = useState<{ sourceSid: string; sourceMid: string } | null>(null);
+  const [dragOverSid, setDragOverSid] = useState<string | null>(null);
   const [showAddRow, setShowAddRow] = useState(false);
 
   const addSection = (name: string) => setSections(p => [...p, { id: crypto.randomUUID(), title: name, avatars: [], metrics: [] }]);
@@ -2405,41 +1960,106 @@ function HomePage({
   const removeMetric = (sid: string, mid: string) => setSections(p => p.map(s => s.id === sid ? { ...s, metrics: s.metrics.filter(m => m.id !== mid) } : s));
   const updateMetric = (sid: string, mid: string, updated: Omit<Metric, "id">) => setSections(p => p.map(s => s.id === sid ? { ...s, metrics: s.metrics.map(m => m.id === mid ? { ...updated, id: mid } : m) } : s));
 
-  const handleMetricDrop = useCallback((tSid: string, tMid: string) => {
-    if (!dragMetric.current) return;
-    const { sid: fSid, mid: fMid } = dragMetric.current;
-    if (fSid === tSid && fMid === tMid) { dragMetric.current = null; return; }
+  // Metric drag start
+  const handleMetricDragStart = useCallback((sid: string, mid: string) => {
+    dragMetricRef.current = { sourceSid: sid, sourceMid: mid };
+    dragSectionRef.current = null;
+    setDragMetricState({ sourceSid: sid, sourceMid: mid });
+  }, []);
+
+  // Metric drag enter on a target metric
+  const handleMetricDragEnter = useCallback((targetSid: string, targetMid: string) => {
+    if (!dragMetricRef.current) return;
+    const { sourceSid, sourceMid } = dragMetricRef.current;
+    if (sourceSid === targetSid && sourceMid === targetMid) return;
+
     setSections(prev => {
-      const moving = prev.find(s => s.id === fSid)!.metrics.find(m => m.id === fMid)!;
-      const without = prev.map(s => s.id === fSid ? { ...s, metrics: s.metrics.filter(m => m.id !== fMid) } : s);
-      return without.map(s => { if (s.id !== tSid) return s; const idx = s.metrics.findIndex(m => m.id === tMid); const ms = [...s.metrics]; ms.splice(idx, 0, moving); return { ...s, metrics: ms }; });
+      // Find the moving metric
+      const sourceSec = prev.find(s => s.id === sourceSid);
+      if (!sourceSec) return prev;
+      const movingMetric = sourceSec.metrics.find(m => m.id === sourceMid);
+      if (!movingMetric) return prev;
+
+      // Remove from source
+      const withoutSource = prev.map(s =>
+        s.id === sourceSid ? { ...s, metrics: s.metrics.filter(m => m.id !== sourceMid) } : s
+      );
+
+      // Insert before target
+      return withoutSource.map(s => {
+        if (s.id !== targetSid) return s;
+        const targetIdx = s.metrics.findIndex(m => m.id === targetMid);
+        if (targetIdx === -1) return { ...s, metrics: [...s.metrics, movingMetric] };
+        const newMetrics = [...s.metrics];
+        newMetrics.splice(targetIdx, 0, movingMetric);
+        return { ...s, metrics: newMetrics };
+      });
     });
-    dragMetric.current = null; setDragOverMetric(null);
+
+    // Update drag source to new position
+    dragMetricRef.current = { sourceSid: targetSid, sourceMid };
+    setDragMetricState({ sourceSid: targetSid, sourceMid });
   }, [setSections]);
 
-  const handleSectionDrop = useCallback((tSid: string) => {
-    if (!dragSection.current || dragSection.current === tSid) return;
-    const fSid = dragSection.current;
-    setSections(prev => { const a = [...prev]; const fi = a.findIndex(s => s.id === fSid); const ti = a.findIndex(s => s.id === tSid); const [m] = a.splice(fi, 1); a.splice(ti, 0, m); return a; });
-    dragSection.current = null; setDragOverSection(null);
+  // Metric drop — just clear state (position already set by dragEnter)
+  const handleMetricDrop = useCallback((targetSid: string, targetMid: string) => {
+    dragMetricRef.current = null;
+    setDragMetricState(null);
+    setDragOverSid(null);
+  }, []);
+
+  // Section drag
+  const handleSectionDragStart = useCallback((sid: string) => {
+    dragSectionRef.current = sid;
+    dragMetricRef.current = null;
+    setDragMetricState(null);
+  }, []);
+
+  const handleSectionDragEnter = useCallback((e: React.DragEvent, targetSid: string) => {
+    e.preventDefault();
+    if (!dragSectionRef.current || dragSectionRef.current === targetSid) return;
+    setDragOverSid(targetSid);
+  }, []);
+
+  const handleSectionDrop = useCallback((targetSid: string) => {
+    if (!dragSectionRef.current || dragSectionRef.current === targetSid) { dragSectionRef.current = null; setDragOverSid(null); return; }
+    const fromSid = dragSectionRef.current;
+    setSections(prev => {
+      const arr = [...prev];
+      const fi = arr.findIndex(s => s.id === fromSid);
+      const ti = arr.findIndex(s => s.id === targetSid);
+      const [moved] = arr.splice(fi, 1);
+      arr.splice(ti, 0, moved);
+      return arr;
+    });
+    dragSectionRef.current = null; setDragOverSid(null);
   }, [setSections]);
+
+  const handleDragEnd = useCallback(() => {
+    dragMetricRef.current = null; dragSectionRef.current = null;
+    setDragMetricState(null); setDragOverSid(null);
+  }, []);
 
   return (
-    <div style={{ flex: 1, overflowY: "auto", padding: "clamp(16px,4vw,28px) clamp(16px,4vw,32px)" }}>
+    <div style={{ flex: 1, overflowY: "auto", padding: "clamp(16px,4vw,28px) clamp(16px,4vw,32px)" }}
+      onDragEnd={handleDragEnd}>
       {sections.map(s => (
         <DashSection key={s.id} section={s}
           onAddMetric={addMetric} onRemoveMetric={removeMetric} onUpdateMetric={updateMetric}
           onRenameSection={renameSection} onRemoveSection={removeSection}
           onClickMetric={onClickMetric}
-          onMetricDragStart={(sid, mid) => { dragMetric.current = { sid, mid }; dragSection.current = null; }}
-          onMetricDrop={handleMetricDrop} dragOverMetric={dragOverMetric}
-          onSectionDragStart={() => { dragSection.current = s.id; dragMetric.current = null; }}
-          onSectionDragOver={e => { e.preventDefault(); setDragOverSection(s.id); }}
+          dragState={dragMetricState}
+          onMetricDragStart={handleMetricDragStart}
+          onMetricDragEnter={handleMetricDragEnter}
+          onMetricDrop={handleMetricDrop}
+          onSectionDragStart={() => handleSectionDragStart(s.id)}
+          onSectionDragEnter={e => handleSectionDragEnter(e, s.id)}
           onSectionDrop={() => handleSectionDrop(s.id)}
-          isSectionDragOver={dragOverSection === s.id} />
+          isSectionDragOver={dragOverSid === s.id}
+        />
       ))}
-      <div onClick={() => setShowAddRow(true)} style={{ display: "flex", alignItems: "center", gap: 10, color: "#94a3b8", fontSize: 14, cursor: "pointer", padding: "8px 0" }}>
-        <div style={{ width: 28, height: 28, borderRadius: "50%", border: "1.5px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "#94a3b8" }}>+</div>
+      <div onClick={() => setShowAddRow(true)} style={{ display: "flex", alignItems: "center", gap: 8, color: "#94a3b8", fontSize: 13, cursor: "pointer", padding: "6px 0" }}>
+        <div style={{ width: 26, height: 26, borderRadius: "50%", border: "1.5px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, color: "#94a3b8" }}>+</div>
         New Row
       </div>
       {showAddRow && <EditAddRowModal onSave={addSection} onClose={() => setShowAddRow(false)} />}
@@ -2460,15 +2080,10 @@ export default function DashelloDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showChat, setShowChat] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-
   const [userId, setUserId] = useState<string | null>(null);
-  const [userEmail, setUserEmail] = useState<string>("");
+  const [userEmail, setUserEmail] = useState("");
   const [dbReady, setDbReady] = useState(false);
-  const [profile, setProfile] = useState({
-    full_name: "", company: "", street: "", city: "",
-    state: "", zip: "", country: "", avatar_url: "",
-    five_account_enabled: false,
-  });
+  const [profile, setProfile] = useState({ full_name: "", company: "", street: "", city: "", state: "", zip: "", country: "", avatar_url: "", five_account_enabled: false });
 
   const [tasksData, setTasksData] = useState([
     { id: "1", text: "Review Q3 financials", done: false, assignee: "AJ", due: "Mar 15" },
@@ -2481,30 +2096,10 @@ export default function DashelloDashboard() {
   ]);
 
   const [goalsData, setGoalsData] = useState([
-    {
-      label: "Increase Sales by 25%", current: "$235,000", target: "$1,200,000", pct: 20, due: "May 26th",
-      projections: [{ label: "Projected Sales This Month", value: "<27" }, { label: "Projected Income From Sales", value: "<$10,000" }, { label: "Projected New Customers", value: "<250" }],
-      metrics: [{ label: "Leads", value: "12", color: "red" }, { label: "Emails Opened", value: "789", color: "green" }, { label: "Invoices In Progress", value: "$10,050.76", color: "gray" }]
-    },
-    {
-      label: "Fully Fund Business Emergency - $200k", current: "$70,000", target: "$200,000", pct: 35, due: "Dec 17th",
-      projections: [{ label: "Projected Funded Date", value: "Mar. 17/25" }, { label: "Projected Monthly Save", value: "$20,000" }],
-      metrics: [{ label: "Overhead", value: "$79,941", color: "green" }, { label: "Profit", value: "$235K", color: "yellow" }, { label: "Tax", value: "$23,750", color: "gray" }]
-    },
-    {
-      label: "500 New Sign Ups Per Month", current: "125", target: "500", pct: 25, due: "30th",
-      projections: [{ label: "Projected New Sign Ups", value: "350" }, { label: "Projected Click Conversion", value: "4.2%" }],
-      metrics: [{ label: "Website", value: "67%", color: "green" }]
-    },
+    { label: "Increase Sales by 25%", current: "$235,000", target: "$1,200,000", pct: 20, due: "May 26th", projections: [{ label: "Projected Sales", value: "<27" }], metrics: [{ label: "Leads", value: "12", color: "red" }, { label: "Emails", value: "789", color: "green" }] },
+    { label: "Fully Fund Business Emergency - $200k", current: "$70,000", target: "$200,000", pct: 35, due: "Dec 17th", projections: [{ label: "Projected Date", value: "Mar. 17/25" }], metrics: [{ label: "Overhead", value: "$79,941", color: "green" }, { label: "Profit", value: "$235K", color: "yellow" }] },
+    { label: "500 New Sign Ups Per Month", current: "125", target: "500", pct: 25, due: "30th", projections: [{ label: "Projected Sign Ups", value: "350" }], metrics: [{ label: "Website", value: "67%", color: "green" }] },
   ]);
-
-  // Inject Elegant Icon Font CSS
-  useEffect(() => {
-    const style = document.createElement("style");
-    style.textContent = ELEGANT_FONT_CSS;
-    document.head.appendChild(style);
-    return () => { document.head.removeChild(style); };
-  }, []);
 
   // Auth
   useEffect(() => {
@@ -2513,7 +2108,7 @@ export default function DashelloDashboard() {
     });
   }, []);
 
-  // Load data
+  // Load
   useEffect(() => {
     if (!userId) return;
     async function load() {
@@ -2525,14 +2120,8 @@ export default function DashelloDashboard() {
       if (savedSections) setSections(savedSections);
       if (savedTasks) setTasksData(savedTasks);
       if (savedGoals) setGoalsData(savedGoals);
-
       const { data: prof } = await supabase.from("profiles").select("*").eq("id", userId!).maybeSingle();
-      if (prof) setProfile({
-        full_name: prof.full_name ?? "", company: prof.company ?? "",
-        street: prof.street ?? "", city: prof.city ?? "", state: prof.state ?? "",
-        zip: prof.zip ?? "", country: prof.country ?? "", avatar_url: prof.avatar_url ?? "",
-        five_account_enabled: prof.five_account_enabled ?? false,
-      });
+      if (prof) setProfile({ full_name: prof.full_name ?? "", company: prof.company ?? "", street: prof.street ?? "", city: prof.city ?? "", state: prof.state ?? "", zip: prof.zip ?? "", country: prof.country ?? "", avatar_url: prof.avatar_url ?? "", five_account_enabled: prof.five_account_enabled ?? false });
       setDbReady(true);
     }
     load();
@@ -2543,49 +2132,45 @@ export default function DashelloDashboard() {
   useEffect(() => { if (userId && dbReady) saveUserData("tasks", userId, tasksData); }, [tasksData, userId, dbReady]);
   useEffect(() => { if (userId && dbReady) saveUserData("goals", userId, goalsData); }, [goalsData, userId, dbReady]);
 
-  // Mobile detection
+  // Mobile
   useEffect(() => {
     const check = () => { const m = window.innerWidth < 768; setIsMobile(m); if (!m) setSidebarOpen(true); };
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
+    check(); window.addEventListener("resize", check); return () => window.removeEventListener("resize", check);
   }, []);
 
-  // When a metric value is changed in the detail modal, update sections
+  // When value changed in modal, update sections + history
   const handleValueChange = (newValue: string) => {
     if (!activeModal) return;
     const metricId = activeModal.metric.id;
-    const timestamp = Date.now();
     const numericVal = parseFloat(newValue.replace(/[^0-9.\-]/g, ""));
-
     setSections(prev => prev.map(s => ({
-      ...s,
-      metrics: s.metrics.map(m => {
+      ...s, metrics: s.metrics.map(m => {
         if (m.id !== metricId) return m;
-        const newPoint: DataPoint = { timestamp, value: isNaN(numericVal) ? 0 : numericVal };
-        const history = [...(m.history ?? []), newPoint].slice(-50); // keep last 50
-        return { ...m, value: newValue, history };
+        const newPoint: DataPoint = { timestamp: Date.now(), value: isNaN(numericVal) ? 0 : numericVal };
+        return { ...m, value: newValue, history: [...(m.history ?? []), newPoint].slice(-50) };
       })
     })));
-
-    // Also update the active modal's data
-    setActiveModal(prev => prev ? {
-      ...prev,
-      metric: { ...prev.metric, value: newValue },
-      data: { ...prev.data, mainValue: newValue }
-    } : null);
+    setActiveModal(prev => prev ? { ...prev, metric: { ...prev.metric, value: newValue }, data: { ...prev.data, mainValue: newValue } } : null);
   };
 
-  const handleClickMetric = (data: MetricModalData, metric: Metric) => {
-    setActiveModal({ data, metric });
-  };
+  const handleClickMetric = (data: MetricModalData, metric: Metric) => setActiveModal({ data, metric });
+  const handleEditFromModal = () => { if (activeModal) { setEditingMetricFromModal(activeModal.metric); setActiveModal(null); } };
 
-  const handleEditFromModal = () => {
-    if (activeModal) {
-      setEditingMetricFromModal(activeModal.metric);
-      setActiveModal(null);
-    }
-  };
+  // Five-Account created from Settings — adds "Finances" row with all 5 boxes
+  const handleFiveAccountCreated = useCallback(() => {
+    setSections(prev => {
+      // Don't duplicate if row already exists
+      if (prev.find(s => s.title === "Finances")) return prev;
+      const parentId = crypto.randomUUID();
+      const childMetrics = FIVE_ACCOUNT_LABELS.map(label => {
+        const accountType = label.toLowerCase() as any;
+        const child = makeFiveAccountMetric(accountType, parentId);
+        return { ...child, id: crypto.randomUUID() };
+      });
+      const newSection: Section = { id: crypto.randomUUID(), title: "Finances", avatars: [], metrics: childMetrics };
+      return [...prev, newSection];
+    });
+  }, [setSections]);
 
   const handleNav = (p: Page) => { setPage(p); setSelectedApp(null); if (isMobile) setSidebarOpen(false); };
 
@@ -2595,59 +2180,46 @@ export default function DashelloDashboard() {
   );
 
   if (!dbReady) return (
-    <div style={{
-      display: "flex", height: "100vh", alignItems: "center", justifyContent: "center",
-      background: "linear-gradient(160deg,#2196F3 0%,#00BCD4 100%)", fontSize: 18, color: "#fff",
-      fontFamily: "Inter, sans-serif"
-    }}>
+    <div style={{ display: "flex", height: "100vh", alignItems: "center", justifyContent: "center", background: "linear-gradient(160deg,#2196F3 0%,#00BCD4 100%)", fontSize: 18, color: "#fff", fontFamily: "Inter, sans-serif" }}>
       Loading your dashboard...
     </div>
   );
 
   return (
     <div style={{ display: "flex", height: "100vh", fontFamily: "'Inter',system-ui,sans-serif", background: "#F8FAFC", position: "relative" }}>
-
-      {isMobile && sidebarOpen && (
-        <div onClick={() => setSidebarOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 900 }} />
-      )}
-
+      {isMobile && sidebarOpen && <div onClick={() => setSidebarOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 900 }} />}
       {sidebarOpen && (
-        isMobile ? (
-          <div style={{ position: "fixed", left: 0, top: 0, bottom: 0, width: 260, zIndex: 1000 }}>
+        isMobile
+          ? <div style={{ position: "fixed", left: 0, top: 0, bottom: 0, width: 240, zIndex: 1000 }}>
             {sidebarEl}
-            <div onClick={() => setSidebarOpen(false)} style={{
-              position: "absolute", top: 16, right: -48, width: 36, height: 36, borderRadius: "50%",
-              background: "#fff", boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              cursor: "pointer", fontSize: 20, color: "#475569", zIndex: 1001
-            }}>×</div>
+            <div onClick={() => setSidebarOpen(false)} style={{ position: "absolute", top: 14, right: -44, width: 34, height: 34, borderRadius: "50%", background: "#fff", boxShadow: "0 2px 8px rgba(0,0,0,0.15)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 18, color: "#475569", zIndex: 1001 }}>×</div>
           </div>
-        ) : sidebarEl
+          : sidebarEl
       )}
 
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
         {/* Top bar */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px clamp(12px,3vw,28px)", borderBottom: "1px solid #E8EDF2", background: "#fff", flexShrink: 0, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "11px clamp(10px,3vw,26px)", borderBottom: "1px solid #E8EDF2", background: "#fff", flexShrink: 0, flexWrap: "wrap" }}>
           {!sidebarOpen && (
-            <div onClick={() => setSidebarOpen(true)} style={{ width: 36, height: 36, borderRadius: "50%", background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", marginRight: 4, flexShrink: 0 }}>
+            <div onClick={() => setSidebarOpen(true)} style={{ width: 34, height: 34, borderRadius: "50%", background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", marginRight: 4, flexShrink: 0 }}>
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                {[0, 1, 2].map(i => <div key={i} style={{ width: 16, height: 2, background: "#475569", borderRadius: 2 }} />)}
+                {[0, 1, 2].map(i => <div key={i} style={{ width: 14, height: 2, background: "#475569", borderRadius: 2 }} />)}
               </div>
             </div>
           )}
           {page === "home" && (
             <div style={{ display: "flex", borderRadius: 8, border: "1px solid #e2e8f0", overflow: "hidden" }}>
               {["Row", "Column"].map((lbl, i) => (
-                <div key={lbl} style={{ padding: "6px 14px", fontSize: 13, fontWeight: 500, cursor: "pointer", background: i === 0 ? "#3B82F6" : "#fff", color: i === 0 ? "#fff" : "#94a3b8" }}>{lbl}</div>
+                <div key={lbl} style={{ padding: "5px 13px", fontSize: 12, fontWeight: 500, cursor: "pointer", background: i === 0 ? "#3B82F6" : "#fff", color: i === 0 ? "#fff" : "#94a3b8" }}>{lbl}</div>
               ))}
             </div>
           )}
           <div style={{ flex: 1 }} />
-          <div onClick={() => setShowChat(v => !v)} style={{ padding: "7px 18px", borderRadius: 20, border: "1px solid #e2e8f0", fontSize: 13, color: "#64748b", cursor: "pointer", background: showChat ? "#EFF6FF" : "#fff" }}>Chat</div>
-          <div style={{ padding: "8px clamp(12px,2vw,22px)", borderRadius: 8, background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Customize</div>
+          <div onClick={() => setShowChat(v => !v)} style={{ padding: "6px 16px", borderRadius: 20, border: "1px solid #e2e8f0", fontSize: 12, color: "#64748b", cursor: "pointer", background: showChat ? "#EFF6FF" : "#fff" }}>Chat</div>
+          <div style={{ padding: "7px clamp(10px,2vw,20px)", borderRadius: 8, background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Customize</div>
         </div>
 
-        {/* Page content */}
+        {/* Pages */}
         <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
           {page === "home" && <HomePage sections={sections} setSections={setSections} onClickMetric={handleClickMetric} />}
           {page === "goals" && <div style={{ flex: 1, overflowY: "auto" }}><GoalsPage goals={goalsData} setGoals={setGoalsData} /></div>}
@@ -2655,46 +2227,31 @@ export default function DashelloDashboard() {
           {page === "integrations" && <div style={{ flex: 1, overflowY: "auto" }}><IntegrationsPage onSelectApp={a => { setSelectedApp(a); setPage("app-detail"); }} /></div>}
           {page === "app-detail" && selectedApp && <div style={{ flex: 1, overflowY: "auto" }}><AppDetailPage app={selectedApp} onBack={() => setPage("integrations")} /></div>}
           {page === "team" && <div style={{ flex: 1, overflowY: "auto" }}><TeamPage /></div>}
-          {page === "settings" && <div style={{ flex: 1, overflowY: "auto" }}><SettingsPage userId={userId!} userEmail={userEmail} onProfileSaved={p => setProfile(p)} /></div>}
+          {page === "settings" && <div style={{ flex: 1, overflowY: "auto" }}><SettingsPage userId={userId!} userEmail={userEmail} onProfileSaved={p => setProfile(p)} onFiveAccountCreated={handleFiveAccountCreated} /></div>}
         </div>
       </div>
 
       {showChat && <ChatPanel sections={sections} onClose={() => setShowChat(false)} />}
 
-      {/* Metric detail modal */}
       {activeModal && (
-        <MetricModal
-          data={activeModal.data}
-          metric={activeModal.metric}
-          onClose={() => setActiveModal(null)}
-          onEdit={handleEditFromModal}
-          onValueChange={handleValueChange}
-        />
+        <MetricModal data={activeModal.data} metric={activeModal.metric}
+          onClose={() => setActiveModal(null)} onEdit={handleEditFromModal} onValueChange={handleValueChange} />
       )}
 
-      {/* Edit settings from modal — find the actual metric in sections to pass as initial */}
       {editingMetricFromModal && (() => {
-        let foundSection: string | undefined;
-        for (const s of sections) {
-          if (s.metrics.find(m => m.id === editingMetricFromModal.id)) { foundSection = s.id; break; }
-        }
+        let foundSid: string | undefined;
+        for (const s of sections) { if (s.metrics.find(m => m.id === editingMetricFromModal.id)) { foundSid = s.id; break; } }
         return (
-          <MetricBoxSettingsModal
-            initial={editingMetricFromModal}
+          <MetricBoxSettingsModal initial={editingMetricFromModal}
             onSave={updated => {
-              if (foundSection) {
-                setSections(prev => prev.map(s => s.id === foundSection
-                  ? { ...s, metrics: s.metrics.map(m => m.id === editingMetricFromModal.id ? { ...updated, id: m.id, history: m.history ?? [] } : m) }
-                  : s));
-              }
+              if (foundSid) setSections(prev => prev.map(s => s.id === foundSid ? { ...s, metrics: s.metrics.map(m => m.id === editingMetricFromModal.id ? { ...updated, id: m.id, history: m.history ?? [] } : m) } : s));
               setEditingMetricFromModal(null);
             }}
             onDelete={() => {
-              if (foundSection) setSections(prev => prev.map(s => s.id === foundSection ? { ...s, metrics: s.metrics.filter(m => m.id !== editingMetricFromModal.id) } : s));
+              if (foundSid) setSections(prev => prev.map(s => s.id === foundSid ? { ...s, metrics: s.metrics.filter(m => m.id !== editingMetricFromModal.id) } : s));
               setEditingMetricFromModal(null);
             }}
-            onClose={() => setEditingMetricFromModal(null)}
-          />
+            onClose={() => setEditingMetricFromModal(null)} />
         );
       })()}
     </div>
