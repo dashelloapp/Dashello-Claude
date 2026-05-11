@@ -124,21 +124,22 @@ const FIVE_DESC: Record<string, string> = {
 const ELEGANT_FONT_CSS = `
 @font-face {
   font-family: 'ElegantIcons';
-  src: url('https://cdn.jsdelivr.net/gh/sachinchoolur/lightslider@master/dist/fonts/ElegantIcons.eot');
-  src: url('https://cdn.jsdelivr.net/gh/sachinchoolur/lightslider@master/dist/fonts/ElegantIcons.eot?#iefix') format('embedded-opentype'),
-       url('https://cdn.jsdelivr.net/gh/sachinchoolur/lightslider@master/dist/fonts/ElegantIcons.woff') format('woff'),
-       url('https://cdn.jsdelivr.net/gh/sachinchoolur/lightslider@master/dist/fonts/ElegantIcons.ttf') format('truetype'),
-       url('https://cdn.jsdelivr.net/gh/sachinchoolur/lightslider@master/dist/fonts/ElegantIcons.svg#ElegantIcons') format('svg');
+  src: url('https://cdn.jsdelivr.net/npm/elegant-icons@0.0.1/fonts/ElegantIcons.eot');
+  src: url('https://cdn.jsdelivr.net/npm/elegant-icons@0.0.1/fonts/ElegantIcons.eot?#iefix') format('embedded-opentype'),
+       url('https://cdn.jsdelivr.net/npm/elegant-icons@0.0.1/fonts/ElegantIcons.woff') format('woff'),
+       url('https://cdn.jsdelivr.net/npm/elegant-icons@0.0.1/fonts/ElegantIcons.ttf') format('truetype'),
+       url('https://cdn.jsdelivr.net/npm/elegant-icons@0.0.1/fonts/ElegantIcons.svg#ElegantIcons') format('svg');
   font-weight: normal;
   font-style: normal;
 }
-[class^="icon_"],[class^="arrow_"],[class^="social_"]{
-  font-family:'ElegantIcons';
+[class^="icon_"],[class^="arrow_"],[class^="social_"],[class*=" icon_"],[class*=" arrow_"]{
+  font-family:'ElegantIcons' !important;
   speak:none;
-  font-style:normal;
-  font-weight:normal;
+  font-style:normal !important;
+  font-weight:normal !important;
   font-variant:normal;
   text-transform:none;
+  line-height:1;
   -webkit-font-smoothing:antialiased;
   -moz-osx-font-smoothing:grayscale;
 }
@@ -222,14 +223,17 @@ function ElegantIcon({ name, size = 20, color }: { name: string; size?: number; 
     <span
       className={name}
       style={{
-        fontFamily: "'ElegantIcons'",
+        fontFamily: "'ElegantIcons', sans-serif",
         fontSize: size,
         color: color ?? "inherit",
         lineHeight: 1,
         display: "inline-block",
         fontStyle: "normal",
         fontWeight: "normal",
-      }}
+        fontVariant: "normal",
+        textTransform: "none",
+        WebkitFontSmoothing: "antialiased",
+      } as React.CSSProperties}
     />
   );
 }
@@ -298,7 +302,7 @@ function MetricChart({
 
     const cx = 80, cy = 75, r = 60;
     let startAngle = -Math.PI / 2;
-    const paths: React.ReactElement[] = [];
+    const paths: JSX.Element[] = [];
     slices.forEach((s, i) => {
       const angle = s.pct * 2 * Math.PI;
       const endAngle = startAngle + angle;
@@ -803,6 +807,15 @@ function MetricModal({
   const healthColor = activeColor !== "gray" ? accent : "#e5e7eb";
   const healthPct = data.healthPct ?? 0;
 
+  const CloseBtn = () => (
+    <button onClick={onClose} style={{
+      width: 34, height: 34, borderRadius: "50%", border: "1.5px solid #e2e8f0",
+      background: "#f8fafc", fontSize: 20, cursor: "pointer", color: "#475569",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      flexShrink: 0, lineHeight: 1, padding: 0
+    }}>×</button>
+  );
+
   const EditSettingsBtn = () => (
     <button onClick={onEdit} style={{
       background: "#9CA3AF", color: "#fff", border: "none", borderRadius: 8,
@@ -823,11 +836,14 @@ function MetricModal({
           position: "relative", boxShadow: "0 32px 80px rgba(0,0,0,0.2)"
         }}>
           <style>{`@keyframes mIn{from{opacity:0;transform:scale(0.97)}to{opacity:1;transform:scale(1)}}`}</style>
-          <button onClick={onClose} style={{ position: "absolute", top: 18, right: 22, background: "none", border: "none", fontSize: 28, cursor: "pointer", color: "#1a2332" }}>×</button>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 6, flexWrap: "wrap" }}>
+          {/* Header row */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
             <h2 style={{ margin: 0, fontSize: 30, fontWeight: 700, color: "#1a2332" }}>{data.title}</h2>
-            <EditSettingsBtn />
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <EditSettingsBtn />
+              <CloseBtn />
+            </div>
           </div>
 
           {data.accountType && (
@@ -891,14 +907,15 @@ function MetricModal({
           maxHeight: "92vh", overflowY: "auto", padding: "36px 36px 32px",
           position: "relative", boxShadow: "0 32px 80px rgba(0,0,0,0.2)"
         }}>
-          <button onClick={onClose} style={{ position: "absolute", top: 18, right: 22, background: "none", border: "none", fontSize: 28, cursor: "pointer", color: "#1a2332" }}>×</button>
+          <button onClick={onClose} style={{ display: "none" }} />
 
-          {/* Header: title centered, Edit Settings top right */}
+          {/* Header: title centered, Edit Settings + close top right */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28, flexWrap: "wrap", gap: 10 }}>
             <div style={{ flex: 1 }} />
             <h2 style={{ margin: 0, fontSize: 28, fontWeight: 700, color: "#1a2332" }}>{data.title}</h2>
-            <div style={{ flex: 1, display: "flex", justifyContent: "flex-end" }}>
+            <div style={{ flex: 1, display: "flex", justifyContent: "flex-end", gap: 10, alignItems: "center" }}>
               <EditSettingsBtn />
+              <CloseBtn />
             </div>
           </div>
 
@@ -990,11 +1007,14 @@ function MetricModal({
         maxHeight: "92vh", overflowY: "auto", padding: "36px 36px 32px",
         position: "relative", boxShadow: "0 32px 80px rgba(0,0,0,0.2)"
       }}>
-        <button onClick={onClose} style={{ position: "absolute", top: 18, right: 22, background: "none", border: "none", fontSize: 28, cursor: "pointer", color: "#1a2332" }}>×</button>
+        <button onClick={onClose} style={{ display: "none" }} />
 
-        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 6, flexWrap: "wrap", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
           <h2 style={{ margin: 0, fontSize: 30, fontWeight: 700, color: "#1a2332" }}>{data.title}</h2>
-          <EditSettingsBtn />
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <EditSettingsBtn />
+            <CloseBtn />
+          </div>
         </div>
 
         {/* Health */}
@@ -1019,19 +1039,19 @@ function MetricModal({
           <div style={{ background: accent, borderRadius: 16, padding: "20px 22px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
               <div>
-                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.8)" }}>Amount</div>
-                <div style={{ fontSize: 10, color: "rgba(255,255,255,0.55)" }}>Synced from {data.syncTime}</div>
+                <div style={{ fontSize: 12, color: activeColor === "gray" ? "#64748b" : "rgba(255,255,255,0.8)" }}>Amount</div>
+                <div style={{ fontSize: 10, color: activeColor === "gray" ? "#94a3b8" : "rgba(255,255,255,0.55)" }}>Synced from {data.syncTime}</div>
               </div>
-              <button style={{ background: "#fff", border: "none", borderRadius: 20, padding: "4px 14px", fontSize: 12, cursor: "pointer", fontWeight: 600 }}>Filter</button>
+              <button style={{ background: activeColor === "gray" ? "#fff" : "rgba(255,255,255,0.9)", border: "none", borderRadius: 20, padding: "4px 14px", fontSize: 12, cursor: "pointer", fontWeight: 600, color: "#1a2332" }}>Filter</button>
             </div>
-            <div style={{ fontSize: 22, fontWeight: 700, color: "#fff", marginBottom: 14 }}>{data.mainValue}</div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: activeColor === "gray" ? "#1a2332" : "#fff", marginBottom: 14 }}>{data.mainValue}</div>
             {data.stats.map((s, i) => (
               <div key={i} style={{ marginBottom: 10 }}>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ fontSize: 12, color: "rgba(255,255,255,0.82)" }}>{s.label}</span>
-                  {s.synced && <span style={{ fontSize: 10, color: "rgba(255,255,255,0.5)" }}>Synced from {data.syncTime}</span>}
+                  <span style={{ fontSize: 12, color: activeColor === "gray" ? "#64748b" : "rgba(255,255,255,0.82)" }}>{s.label}</span>
+                  {s.synced && <span style={{ fontSize: 10, color: activeColor === "gray" ? "#94a3b8" : "rgba(255,255,255,0.5)" }}>Synced from {data.syncTime}</span>}
                 </div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>{s.value}</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: activeColor === "gray" ? "#1a2332" : "#fff" }}>{s.value}</div>
               </div>
             ))}
           </div>
@@ -1100,7 +1120,7 @@ function AddColorRuleModal({ onSave, onClose, existing }: {
 
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 4000, padding: 16 }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 20, padding: "28px 28px 24px", width: "100%", maxWidth: 480, boxShadow: "0 24px 64px rgba(0,0,0,0.2)" }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 20, padding: "28px 28px 24px", width: "100%", maxWidth: 560, boxShadow: "0 24px 64px rgba(0,0,0,0.2)" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
           <h3 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#1a2332" }}>Add Color Rule</h3>
           <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#94a3b8" }}>×</button>
@@ -1116,16 +1136,26 @@ function AddColorRuleModal({ onSave, onClose, existing }: {
                 {opLabels.map(o => <option key={o} value={o}>{opDisplay[o]}</option>)}
               </select>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontSize: 13, color: "#64748b", width: 90, flexShrink: 0 }}>Value</span>
-              <input value={val} onChange={e => setVal(e.target.value)} placeholder="Enter number"
-                style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none" }} />
-              {op === "between" && <>
-                <span style={{ fontSize: 13, color: "#94a3b8", flexShrink: 0 }}>and</span>
-                <input value={val2} onChange={e => setVal2(e.target.value)} placeholder="Max"
+            {op !== "between" ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 13, color: "#64748b", width: 90, flexShrink: 0 }}>Value</span>
+                <input value={val} onChange={e => setVal(e.target.value)} placeholder="Enter number"
                   style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none" }} />
-              </>}
-            </div>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 13, color: "#64748b", width: 90, flexShrink: 0 }}>Min Value</span>
+                  <input value={val} onChange={e => setVal(e.target.value)} placeholder="Min"
+                    style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none" }} />
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 13, color: "#64748b", width: 90, flexShrink: 0 }}>Max Value</span>
+                  <input value={val2} onChange={e => setVal2(e.target.value)} placeholder="Max"
+                    style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none" }} />
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -1200,7 +1230,7 @@ function IconPicker({ selected, onSelect }: { selected: string; onSelect: (icon:
       )}
 
       {/* Icon grid */}
-      <div style={{ height: 130, overflowY: "auto", border: "1px solid #e2e8f0", borderRadius: 10, padding: 6 }}>
+      <div style={{ height: 160, overflowY: "auto", border: "1px solid #e2e8f0", borderRadius: 10, padding: 6 }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 4 }}>
           {(search ? filtered.flatMap(c => c.icons) : (filtered[activeCategory]?.icons ?? [])).map(ic => (
             <div
@@ -1208,14 +1238,14 @@ function IconPicker({ selected, onSelect }: { selected: string; onSelect: (icon:
               onClick={() => onSelect(ic)}
               title={ic.replace(/^(icon_|arrow_|social_)/, "")}
               style={{
-                width: 32, height: 32, borderRadius: 6, display: "flex", alignItems: "center",
-                justifyContent: "center", cursor: "pointer", fontSize: 16,
-                background: selected === ic ? "#EFF6FF" : "transparent",
-                border: selected === ic ? "1.5px solid #3B82F6" : "1.5px solid transparent",
+                width: 34, height: 34, borderRadius: 6, display: "flex", alignItems: "center",
+                justifyContent: "center", cursor: "pointer",
+                background: selected === ic ? "#EFF6FF" : "#f8fafc",
+                border: selected === ic ? "1.5px solid #3B82F6" : "1.5px solid #e2e8f0",
                 transition: "background 0.1s"
               }}
             >
-              <ElegantIcon name={ic} size={16} color={selected === ic ? "#3B82F6" : "#475569"} />
+              <ElegantIcon name={ic} size={17} color="#3B82F6" />
             </div>
           ))}
         </div>
@@ -1248,6 +1278,7 @@ function MetricBoxSettingsModal({ initial, onSave, onDelete, onClose }: {
   const [showRuleModal, setShowRuleModal] = useState(false);
   const [editingRule, setEditingRule] = useState<ColorRule | undefined>();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   const graphTypes: [GraphType, string][] = [["linear", "Line Chart"], ["bar-v", "Bar Vertical"], ["bar-h", "Bar Horizontal"], ["pie", "Pie Chart"]];
   const metricTypes: [MetricType, string][] = [["counter", "Counter"], ["percentage", "Percentage"], ["financial", "Financial"]];
@@ -1269,7 +1300,9 @@ function MetricBoxSettingsModal({ initial, onSave, onDelete, onClose }: {
   const ruleDesc = (r: ColorRule) => r.op === "between" ? `between ${r.value}–${r.value2}` : `${r.op} ${r.value}`;
 
   const handleSave = () => {
-    if (!label.trim()) return;
+    if (!label.trim()) { setSaveError("Please enter a title for this metric box."); return; }
+    if (!value.trim()) { setSaveError("Please enter a current value."); return; }
+    setSaveError("");
     const baseColor: MetricColor = "gray";
     const m = makeModal(label, value || "0", baseColor, {
       fiveAccountEnabled: fiveOn,
@@ -1304,7 +1337,12 @@ function MetricBoxSettingsModal({ initial, onSave, onDelete, onClose }: {
               placeholder="Metric Box Title"
               style={{ fontSize: 18, fontWeight: 700, border: "none", outline: "none", color: "#1a2332", background: "transparent", flex: 1, minWidth: 0 }}
             />
-            <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 24, cursor: "pointer", color: "#94a3b8", padding: "0 0 0 12px", flexShrink: 0 }}>×</button>
+            <button onClick={onClose} style={{
+              width: 32, height: 32, borderRadius: "50%", border: "1.5px solid #e2e8f0",
+              background: "#f8fafc", fontSize: 18, cursor: "pointer", color: "#94a3b8",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              flexShrink: 0, marginLeft: 12, lineHeight: 1
+            }}>×</button>
           </div>
 
           <div style={{ padding: "8px 24px 24px" }}>
@@ -1401,6 +1439,9 @@ function MetricBoxSettingsModal({ initial, onSave, onDelete, onClose }: {
               width: "100%", padding: "13px 0", borderRadius: 8, border: "none", marginTop: 24,
               background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer"
             }}>Save</button>
+            {saveError && (
+              <div style={{ fontSize: 12, color: "#E85D75", marginTop: 6, textAlign: "center" }}>{saveError}</div>
+            )}
 
             {/* Delete */}
             {(initial || onDelete) && !showDeleteConfirm && (
@@ -1543,13 +1584,13 @@ function MetricBlock({ metric, onClick, onDragStart, onDragOver, onDrop, isDragO
         {metric.label}
       </div>
 
-      {/* Icon circle in center */}
+      {/* Icon circle in center — always white bg */}
       {hasIcon && (
         <div style={{
-          width: 48, height: 48, borderRadius: "50%", background: iconBg,
+          width: 48, height: 48, borderRadius: "50%", background: "#fff",
           display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0
         }}>
-          <ElegantIcon name={metric.icon} size={22} color={activeColor === "gray" ? "#64748b" : "#fff"} />
+          <ElegantIcon name={metric.icon} size={22} color={activeColor === "gray" ? "#3B82F6" : MS[activeColor].bg} />
         </div>
       )}
 
