@@ -153,164 +153,6 @@ const WORLD_CURRENCIES = [
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
-// PHOSPHOR ICONS — loaded via CDN script tag
-// ═══════════════════════════════════════════════════════════════════════════
-
-// Phosphor icon categories for the picker
-const PHOSPHOR_CATEGORIES: { label: string; icons: string[] }[] = [
-  {
-    label: "Finance",
-    icons: [
-      "CreditCard","Wallet","Money","Coins","Bank","Receipt","Invoice",
-      "CurrencyDollar","CurrencyEuro","CurrencyPound","PiggyBank","Vault",
-      "TrendUp","TrendDown","ChartLine","ChartBar","ChartPie","Percent",
-      "Calculator","Briefcase","Buildings","ShoppingCart","Tag","Barcode",
-    ]
-  },
-  {
-    label: "Business",
-    icons: [
-      "Handshake","UsersThree","UserCircle","IdentificationCard","Suitcase",
-      "Target","Trophy","Medal","Star","Crown","Rocket","Lightbulb",
-      "Clipboard","ClipboardText","Files","FolderOpen","Archive","Bookmarks",
-      "Table","Rows","Columns","SquaresFour","GridFour","ListBullets",
-    ]
-  },
-  {
-    label: "Communication",
-    icons: [
-      "Envelope","EnvelopeOpen","Phone","PhoneCall","ChatCircle","ChatText",
-      "Megaphone","Bell","BellRinging","Broadcast","Rss","Share",
-      "PaperPlane","At","Hash","Link","Globe","GlobeHemisphereWest",
-    ]
-  },
-  {
-    label: "Analytics",
-    icons: [
-      "ChartLineUp","ChartLineDown","ChartDonut","ChartBarHorizontal",
-      "ArrowUp","ArrowDown","ArrowRight","ArrowLeft","ArrowUUpRight",
-      "ArrowsClockwise","ArrowsCounterClockwise","Pulse","Activity",
-      "Database","HardDrive","Cloud","CloudArrowUp","CloudArrowDown",
-      "MagnifyingGlass","Funnel","SortAscending","SortDescending",
-    ]
-  },
-  {
-    label: "Status",
-    icons: [
-      "CheckCircle","XCircle","WarningCircle","Info","Question",
-      "Check","X","Plus","Minus","Lock","LockOpen","Key","Shield",
-      "Fire","Snowflake","Lightning","Timer","Clock","Calendar","Alarm",
-    ]
-  },
-  {
-    label: "People",
-    icons: [
-      "User","Users","UserPlus","UserMinus","UserCheck","PersonSimple",
-      "Smiley","Heart","HandHeart","Heartbeat","First Aid","Stethoscope",
-      "Student","GraduationCap","Certificate","Scales",
-    ]
-  },
-  {
-    label: "Tools",
-    icons: [
-      "Gear","Wrench","Hammer","Screwdriver","GearSix","Nut",
-      "Code","Terminal","Desktop","Laptop","DeviceMobile","Printer",
-      "Camera","Image","PencilSimple","Pen","Eraser","Trash","Copy",
-    ]
-  },
-];
-
-const ALL_PHOSPHOR_ICONS = PHOSPHOR_CATEGORIES.flatMap(c => c.icons);
-const ICON_NONE = "";
-
-// Phosphor renders via the global `PhosphorIcons` object loaded by CDN script
-function PhosphorIcon({ name, size = 20, color = "currentColor", weight = "regular" }: {
-  name: string; size?: number; color?: string; weight?: string;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!name || !ref.current) return;
-    ref.current.innerHTML = "";
-    try {
-      const ph = (window as any).PhosphorIcons;
-      if (!ph) return;
-      // Phosphor exposes renderToString or icon classes
-      const iconName = name.replace(/([A-Z])/g, (m, c, i) => (i > 0 ? "-" + c.toLowerCase() : c.toLowerCase()));
-      const el = document.createElement("ph-" + iconName);
-      el.setAttribute("size", String(size));
-      el.setAttribute("color", color);
-      el.setAttribute("weight", weight);
-      ref.current.appendChild(el);
-    } catch (e) { /* silent */ }
-  }, [name, size, color, weight]);
-  return <div ref={ref} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: size, height: size }} />;
-}
-
-// Fallback SVG icon renderer — draws simple recognizable shapes for each name
-// This ensures icons always show even if Phosphor CDN fails
-function IconGlyph({ name, size = 20, color = "#3B82F6" }: { name: string; size?: number; color?: string }) {
-  const s = size;
-  const c = color;
-  const glyphs: Record<string, React.ReactElement> = {
-    CreditCard: <><rect x="2" y="5" width="20" height="14" rx="2" stroke={c} strokeWidth="1.5" fill="none"/><line x1="2" y1="10" x2="22" y2="10" stroke={c} strokeWidth="1.5"/></>,
-    Wallet: <><rect x="2" y="6" width="18" height="13" rx="2" stroke={c} strokeWidth="1.5" fill="none"/><path d="M16 13a1 1 0 1 1 2 0 1 1 0 0 1-2 0z" fill={c}/></>,
-    Money: <><rect x="2" y="6" width="20" height="12" rx="1" stroke={c} strokeWidth="1.5" fill="none"/><circle cx="12" cy="12" r="3" stroke={c} strokeWidth="1.5" fill="none"/></>,
-    Coins: <><circle cx="9" cy="14" r="5" stroke={c} strokeWidth="1.5" fill="none"/><circle cx="15" cy="10" r="5" stroke={c} strokeWidth="1.5" fill="none"/></>,
-    Bank: <><path d="M3 10h18M5 10V18M19 10V18M12 4 3 10h18L12 4zM7 18h10" stroke={c} strokeWidth="1.5" fill="none" strokeLinecap="round"/></>,
-    Receipt: <><path d="M4 3h16v18l-2-1-2 1-2-1-2 1-2-1-2 1V3z" stroke={c} strokeWidth="1.5" fill="none"/><line x1="8" y1="9" x2="16" y2="9" stroke={c} strokeWidth="1.5"/><line x1="8" y1="13" x2="14" y2="13" stroke={c} strokeWidth="1.5"/></>,
-    TrendUp: <><polyline points="2,18 8,12 13,15 22,6" stroke={c} strokeWidth="1.5" fill="none"/><polyline points="16,6 22,6 22,12" stroke={c} strokeWidth="1.5" fill="none"/></>,
-    TrendDown: <><polyline points="2,6 8,12 13,9 22,18" stroke={c} strokeWidth="1.5" fill="none"/></>,
-    ChartLine: <><polyline points="3,18 8,12 13,15 21,6" stroke={c} strokeWidth="1.5" fill="none"/><line x1="3" y1="18" x2="21" y2="18" stroke={c} strokeWidth="1.5"/></>,
-    ChartBar: <><rect x="3" y="12" width="4" height="8" fill={c} opacity="0.8"/><rect x="10" y="8" width="4" height="12" fill={c} opacity="0.8"/><rect x="17" y="5" width="4" height="15" fill={c} opacity="0.8"/></>,
-    ChartPie: <><path d="M12 2a10 10 0 0 1 10 10H12V2z" fill={c} opacity="0.6"/><circle cx="12" cy="12" r="10" stroke={c} strokeWidth="1.5" fill="none"/></>,
-    Percent: <><circle cx="7" cy="7" r="2" stroke={c} strokeWidth="1.5" fill="none"/><circle cx="17" cy="17" r="2" stroke={c} strokeWidth="1.5" fill="none"/><line x1="5" y1="19" x2="19" y2="5" stroke={c} strokeWidth="1.5"/></>,
-    Briefcase: <><rect x="2" y="8" width="20" height="13" rx="2" stroke={c} strokeWidth="1.5" fill="none"/><path d="M8 8V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke={c} strokeWidth="1.5" fill="none"/></>,
-    Target: <><circle cx="12" cy="12" r="10" stroke={c} strokeWidth="1.5" fill="none"/><circle cx="12" cy="12" r="6" stroke={c} strokeWidth="1.5" fill="none"/><circle cx="12" cy="12" r="2" fill={c}/></>,
-    Trophy: <><path d="M6 2h12v8a6 6 0 0 1-12 0V2z" stroke={c} strokeWidth="1.5" fill="none"/><path d="M9 18v2h6v-2M6 18h12" stroke={c} strokeWidth="1.5" fill="none"/><path d="M6 6H4a2 2 0 0 0 0 4h2M18 6h2a2 2 0 0 1 0 4h-2" stroke={c} strokeWidth="1.5" fill="none"/></>,
-    Star: <><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" stroke={c} strokeWidth="1.5" fill="none"/></>,
-    UserCircle: <><circle cx="12" cy="8" r="4" stroke={c} strokeWidth="1.5" fill="none"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke={c} strokeWidth="1.5" fill="none"/></>,
-    Users: <><circle cx="9" cy="8" r="3" stroke={c} strokeWidth="1.5" fill="none"/><path d="M2 20c0-3 3-5 7-5s7 2 7 5" stroke={c} strokeWidth="1.5" fill="none"/><path d="M16 8a3 3 0 1 1 0-6M22 20c0-3-2-5-6-5" stroke={c} strokeWidth="1.5" fill="none"/></>,
-    User: <><circle cx="12" cy="8" r="4" stroke={c} strokeWidth="1.5" fill="none"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke={c} strokeWidth="1.5" fill="none"/></>,
-    Envelope: <><rect x="2" y="4" width="20" height="16" rx="2" stroke={c} strokeWidth="1.5" fill="none"/><polyline points="2,4 12,13 22,4" stroke={c} strokeWidth="1.5" fill="none"/></>,
-    Phone: <><path d="M5 4h4l2 5-2.5 1.5A11 11 0 0 0 15.5 17L17 14.5l5 2v4A2 2 0 0 1 20 22 16 16 0 0 1 2 6a2 2 0 0 1 2-2h1z" stroke={c} strokeWidth="1.5" fill="none"/></>,
-    Bell: <><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" stroke={c} strokeWidth="1.5" fill="none"/><path d="M13.73 21a2 2 0 0 1-3.46 0" stroke={c} strokeWidth="1.5" fill="none"/></>,
-    Gear: <><circle cx="12" cy="12" r="3" stroke={c} strokeWidth="1.5" fill="none"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" stroke={c} strokeWidth="1.5" fill="none"/></>,
-    Globe: <><circle cx="12" cy="12" r="10" stroke={c} strokeWidth="1.5" fill="none"/><line x1="2" y1="12" x2="22" y2="12" stroke={c} strokeWidth="1.5"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" stroke={c} strokeWidth="1.5" fill="none"/></>,
-    Lock: <><rect x="3" y="11" width="18" height="11" rx="2" stroke={c} strokeWidth="1.5" fill="none"/><path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={c} strokeWidth="1.5" fill="none"/></>,
-    Shield: <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke={c} strokeWidth="1.5" fill="none"/></>,
-    CheckCircle: <><circle cx="12" cy="12" r="10" stroke={c} strokeWidth="1.5" fill="none"/><polyline points="9,12 11,14 15,10" stroke={c} strokeWidth="1.5" fill="none"/></>,
-    XCircle: <><circle cx="12" cy="12" r="10" stroke={c} strokeWidth="1.5" fill="none"/><line x1="15" y1="9" x2="9" y2="15" stroke={c} strokeWidth="1.5"/><line x1="9" y1="9" x2="15" y2="15" stroke={c} strokeWidth="1.5"/></>,
-    Clock: <><circle cx="12" cy="12" r="10" stroke={c} strokeWidth="1.5" fill="none"/><polyline points="12,6 12,12 16,14" stroke={c} strokeWidth="1.5" fill="none"/></>,
-    Calendar: <><rect x="3" y="4" width="18" height="18" rx="2" stroke={c} strokeWidth="1.5" fill="none"/><line x1="16" y1="2" x2="16" y2="6" stroke={c} strokeWidth="1.5"/><line x1="8" y1="2" x2="8" y2="6" stroke={c} strokeWidth="1.5"/><line x1="3" y1="10" x2="21" y2="10" stroke={c} strokeWidth="1.5"/></>,
-    Lightbulb: <><path d="M9 18h6M10 22h4M12 2a7 7 0 0 1 7 7c0 3-1.5 5-3.5 6.5V18H8.5V15.5C6.5 14 5 12 5 9a7 7 0 0 1 7-7z" stroke={c} strokeWidth="1.5" fill="none"/></>,
-    Rocket: <><path d="M12 2s4 4 4 10H8C8 6 12 2 12 2z" stroke={c} strokeWidth="1.5" fill="none"/><path d="M8 12v4l-3 3 1-4H8z" stroke={c} strokeWidth="1.5" fill="none"/><path d="M16 12v4l3 3-1-4H16z" stroke={c} strokeWidth="1.5" fill="none"/><circle cx="12" cy="12" r="1" fill={c}/></>,
-    ArrowUp: <><line x1="12" y1="19" x2="12" y2="5" stroke={c} strokeWidth="1.5"/><polyline points="5,12 12,5 19,12" stroke={c} strokeWidth="1.5" fill="none"/></>,
-    ArrowDown: <><line x1="12" y1="5" x2="12" y2="19" stroke={c} strokeWidth="1.5"/><polyline points="19,12 12,19 5,12" stroke={c} strokeWidth="1.5" fill="none"/></>,
-    MagnifyingGlass: <><circle cx="11" cy="11" r="8" stroke={c} strokeWidth="1.5" fill="none"/><line x1="21" y1="21" x2="16.65" y2="16.65" stroke={c} strokeWidth="1.5"/></>,
-    Clipboard: <><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" stroke={c} strokeWidth="1.5" fill="none"/><rect x="8" y="2" width="8" height="4" rx="1" stroke={c} strokeWidth="1.5" fill="none"/></>,
-    Database: <><ellipse cx="12" cy="5" rx="9" ry="3" stroke={c} strokeWidth="1.5" fill="none"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" stroke={c} strokeWidth="1.5" fill="none"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" stroke={c} strokeWidth="1.5" fill="none"/></>,
-    Cloud: <><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z" stroke={c} strokeWidth="1.5" fill="none"/></>,
-    Wrench: <><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" stroke={c} strokeWidth="1.5" fill="none"/></>,
-    ChartLineUp: <><polyline points="2,18 8,10 13,14 21,4" stroke={c} strokeWidth="1.5" fill="none"/><polyline points="15,4 21,4 21,10" stroke={c} strokeWidth="1.5" fill="none"/><line x1="2" y1="20" x2="22" y2="20" stroke={c} strokeWidth="1.5"/></>,
-    Pulse: <><polyline points="2,12 6,12 8,6 10,18 12,10 14,15 16,12 22,12" stroke={c} strokeWidth="1.5" fill="none"/></>,
-    Fire: <><path d="M12 2c0 0-5 4-5 9a5 5 0 0 0 10 0c0-2-1-4-2-5 0 2-1 3-3 3s-2-2-2-4c0-1 2-3 2-3z" stroke={c} strokeWidth="1.5" fill="none"/></>,
-    Heart: <><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" stroke={c} strokeWidth="1.5" fill="none"/></>,
-    PiggyBank: <><path d="M19 12c0-4-3.1-7-7-7S5 8 5 12c0 2.2 1 4.2 2.7 5.5L7 21h2l.5-2h5l.5 2h2l-.7-3.5C17.9 16.2 19 14.2 19 12z" stroke={c} strokeWidth="1.5" fill="none"/><circle cx="16" cy="8" r="1" fill={c}/></>,
-    Vault: <><rect x="2" y="4" width="20" height="16" rx="2" stroke={c} strokeWidth="1.5" fill="none"/><circle cx="12" cy="12" r="4" stroke={c} strokeWidth="1.5" fill="none"/><circle cx="12" cy="12" r="1" fill={c}/><line x1="16" y1="20" x2="16" y2="22" stroke={c} strokeWidth="1.5"/><line x1="8" y1="20" x2="8" y2="22" stroke={c} strokeWidth="1.5"/></>,
-    Scales: <><path d="M16 16l4-8-4 0-4-4-4 4-4 0 4 8z" stroke={c} strokeWidth="1.5" fill="none"/><line x1="12" y1="4" x2="12" y2="20" stroke={c} strokeWidth="1.5"/><line x1="8" y1="20" x2="16" y2="20" stroke={c} strokeWidth="1.5"/></>,
-    // Fallback — a simple circle with the first letter
-  };
-
-  const glyph = glyphs[name];
-  return (
-    <svg width={s} height={s} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"
-      style={{ display: "block", flexShrink: 0 }}>
-      {glyph ?? <circle cx="12" cy="12" r="9" stroke={c} strokeWidth="1.5" fill="none" />}
-    </svg>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
 // MODAL DATA
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -540,6 +382,15 @@ function MetricChart({ history, rules, graphType, currentValue }: {
   }
 
   const points: DataPoint[] = history;
+  const vals = points.map(p => p.value);
+  const allRuleVals = rules.flatMap(r => r.op === "between" && r.value2 != null ? [r.value, r.value2] : [r.value]);
+  const yMin = Math.min(...vals, ...allRuleVals) * 0.85;
+  const yMax = Math.max(...vals, ...allRuleVals) * 1.15 || 100;
+  const W = 300, H = 150, padL = 36, padR = 8, padT = 8, padB = 24;
+  const cw = W - padL - padR, ch = H - padT - padB;
+  const xS = (i: number) => padL + (i / Math.max(points.length - 1, 1)) * cw;
+  const yS = (v: number) => padT + ch - ((v - yMin) / (yMax - yMin || 1)) * ch;
+  const colorOf = (v: number) => MS[getColorForValue(v, rules)].bg;
 
   if (graphType === "pie") {
     const counts: Record<MetricColor, number> = { red: 0, yellow: 0, green: 0, gray: 0 };
