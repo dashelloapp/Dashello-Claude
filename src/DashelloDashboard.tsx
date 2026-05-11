@@ -153,6 +153,116 @@ const WORLD_CURRENCIES = [
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
+// PHOSPHOR ICONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+const ICON_NONE = "";
+
+const PHOSPHOR_CATEGORIES: { label: string; icons: string[] }[] = [
+  {
+    label: "Finance",
+    icons: [
+      "CreditCard","Wallet","Money","Coins","Bank","Receipt","Invoice","Cardholder",
+      "CurrencyDollar","CurrencyEur","CurrencyGbp","CurrencyJpy","CurrencyKrw","CurrencyInr","CurrencyBtc",
+      "PiggyBank","Vault","HandCoins","HandDeposit","HandWithdraw",
+      "TrendUp","TrendDown","ChartLine","ChartBar","ChartPie","ChartDonut","Percent",
+      "Calculator","Briefcase","Buildings","ShoppingCart","ShoppingBag","Storefront","Tag","Barcode",
+    ]
+  },
+  {
+    label: "Business",
+    icons: [
+      "Handshake","UsersThree","UserCircle","IdentificationCard","Suitcase","SuitcaseRolling",
+      "Target","Trophy","Medal","MedalMilitary","Star","StarFour","Crown","CrownSimple","Rocket","Lightbulb",
+      "Clipboard","ClipboardText","Files","FolderOpen","Folder","Archive","Bookmarks","BookmarkSimple",
+      "Table","Rows","Columns","SquaresFour","GridFour","ListBullets","ListChecks","ListNumbers",
+      "Notebook","Notepad","FileText","FilePdf","FileDoc","FileXls",
+    ]
+  },
+  {
+    label: "Communication",
+    icons: [
+      "Envelope","EnvelopeOpen","EnvelopeSimple","Phone","PhoneCall","PhoneIncoming","PhoneOutgoing",
+      "ChatCircle","ChatCircleDots","ChatText","ChatTeardrop","Chats","ChatsCircle",
+      "Megaphone","MegaphoneSimple","Bell","BellRinging","BellSimple","Broadcast","Rss","Share","ShareNetwork",
+      "PaperPlaneTilt","At","Hash","Link","LinkSimple","Globe","GlobeHemisphereWest","GlobeHemisphereEast",
+    ]
+  },
+  {
+    label: "Analytics",
+    icons: [
+      "ChartLineUp","ChartLineDown","ChartDonut","ChartBarHorizontal","ChartScatter","ChartPolar",
+      "ArrowUp","ArrowDown","ArrowRight","ArrowLeft","ArrowUUpRight","ArrowUUpLeft","ArrowsOut","ArrowsIn",
+      "ArrowsClockwise","ArrowsCounterClockwise","ArrowsLeftRight","ArrowsDownUp","Pulse","Activity",
+      "Database","HardDrive","HardDrives","Cloud","CloudArrowUp","CloudArrowDown","CloudCheck","CloudX",
+      "MagnifyingGlass","MagnifyingGlassPlus","MagnifyingGlassMinus","Funnel","FunnelSimple","SortAscending","SortDescending",
+    ]
+  },
+  {
+    label: "Status",
+    icons: [
+      "CheckCircle","XCircle","WarningCircle","Warning","Info","Question",
+      "Check","CheckFat","CheckSquare","X","XSquare","Plus","PlusCircle","Minus","MinusCircle",
+      "Lock","LockOpen","LockKey","Key","KeyReturn","Shield","ShieldCheck","ShieldWarning",
+      "Fire","FireSimple","Snowflake","Lightning","LightningSlash","Timer","Clock","ClockCountdown","Calendar","CalendarBlank","CalendarCheck","Alarm",
+    ]
+  },
+  {
+    label: "People",
+    icons: [
+      "User","UserPlus","UserMinus","UserCheck","UserCircle","UserCirclePlus","UserCircleMinus","UserList","UserFocus",
+      "Users","UsersFour","UsersThree","PersonSimple","PersonSimpleRun","PersonSimpleWalk","PersonArmsSpread",
+      "Smiley","SmileyMeh","SmileySad","SmileyWink","SmileyAngry","SmileyNervous","SmileyXEyes",
+      "Heart","HeartStraight","HandHeart","Heartbeat","FirstAid","FirstAidKit","Stethoscope","Pill",
+      "Student","GraduationCap","Certificate","Scales","Gavel",
+    ]
+  },
+  {
+    label: "Tools",
+    icons: [
+      "Gear","GearSix","GearFine","Wrench","Hammer","Screwdriver","Nut","Toolbox",
+      "Code","CodeSimple","CodeBlock","Terminal","TerminalWindow","Desktop","Laptop","DeviceMobile","DeviceTablet","Monitor","Printer",
+      "Camera","CameraPlus","Image","ImageSquare","ImagesSquare","PencilSimple","PencilLine","Pen","PenNib","Eraser","Trash","TrashSimple","Copy","CopySimple",
+      "MagicWand","PaintBrush","PaintBrushBroad","PaintBucket","Palette","Eyedropper",
+    ]
+  },
+  {
+    label: "Nature",
+    icons: [
+      "Sun","SunDim","SunHorizon","Moon","MoonStars","CloudSun","CloudMoon","CloudRain","CloudSnow","CloudLightning","CloudFog","Rainbow","RainbowCloud",
+      "Tree","TreePalm","TreeEvergreen","Plant","Flower","FlowerLotus","FlowerTulip","Leaf","Cactus","Mountains","Waves","Drop","DropHalf","Fish","Bird","Butterfly","Dog","Cat","Cow","Horse","Rabbit",
+    ]
+  },
+  {
+    label: "Transit",
+    icons: [
+      "Car","CarSimple","CarProfile","Taxi","Truck","Van","Motorcycle","Bicycle","Scooter",
+      "Bus","Train","TrainSimple","TrainRegional","Tram","Airplane","AirplaneTakeoff","AirplaneLanding","Helicopter","Boat","Sailboat","RocketLaunch",
+      "MapPin","MapTrifold","Navigation","NavigationArrow","Compass","Path","Road","RoadHorizon","TrafficCone","TrafficSign","TrafficSignal",
+    ]
+  },
+];
+
+const ALL_PHOSPHOR_ICONS = PHOSPHOR_CATEGORIES.flatMap(c => c.icons);
+
+// Renders any Phosphor icon by name from the official @phosphor-icons/react package.
+// Falls back to a circle if the name doesn't match a known icon.
+function IconGlyph({ name, size = 20, color = "#3B82F6", weight = "regular" }: {
+  name: string; size?: number; color?: string; weight?: "thin" | "light" | "regular" | "bold" | "fill" | "duotone";
+}) {
+  if (!name) return null;
+  const IconComponent = (PhosphorReact as any)[name];
+  if (!IconComponent) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" style={{ display: "block", flexShrink: 0 }}>
+        <circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.5" fill="none" />
+      </svg>
+    );
+  }
+  return <IconComponent size={size} color={color} weight={weight} style={{ display: "block", flexShrink: 0 }} />;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // MODAL DATA
 // ═══════════════════════════════════════════════════════════════════════════
 
