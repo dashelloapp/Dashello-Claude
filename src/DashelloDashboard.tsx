@@ -298,7 +298,7 @@ function MetricChart({
 
     const cx = 80, cy = 75, r = 60;
     let startAngle = -Math.PI / 2;
-    const paths: JSX.Element[] = [];
+    const paths: React.ReactElement[] = [];
     slices.forEach((s, i) => {
       const angle = s.pct * 2 * Math.PI;
       const endAngle = startAngle + angle;
