@@ -23,7 +23,7 @@ type MetricColor = "green" | "yellow" | "red" | "gray";
 type Page = "home" | "goals" | "tasks" | "integrations" | "team" | "settings" | "app-detail";
 type GraphType = "bar-h" | "linear" | "pie" | "bar-v";
 type MetricType = "counter" | "percentage" | "financial";
-type RuleOp = ">=" | "<=" | ">" | "<" | "between";
+type RuleOp = ">=" | "<=" | ">" | "<" | "between" | "==" | "!=";
 
 interface ColorRule {
   id: string;
@@ -72,6 +72,8 @@ function resolveColor(metric: Metric): MetricColor {
     if (rule.op === "<=" && num <= rule.value) match = true;
     if (rule.op === ">" && num > rule.value) match = true;
     if (rule.op === "<" && num < rule.value) match = true;
+    if (rule.op === "==" && num === rule.value) match = true;
+    if (rule.op === "!=" && num !== rule.value) match = true;
     if (rule.op === "between" && rule.value2 != null && num >= rule.value && num <= rule.value2) match = true;
     if (match) return rule.color;
   }
@@ -85,6 +87,8 @@ function getColorForValue(val: number, rules: ColorRule[]): MetricColor {
     if (rule.op === "<=" && val <= rule.value) match = true;
     if (rule.op === ">" && val > rule.value) match = true;
     if (rule.op === "<" && val < rule.value) match = true;
+    if (rule.op === "==" && num === rule.value) match = true;
+    if (rule.op === "!=" && num !== rule.value) match = true;
     if (rule.op === "between" && rule.value2 != null && val >= rule.value && val <= rule.value2) match = true;
     if (match) return rule.color;
   }
@@ -517,23 +521,25 @@ function MetricChart({ history, rules, graphType, currentValue }: {
   history: DataPoint[]; rules: ColorRule[]; graphType: GraphType; currentValue: string;
 }) {
   const [tooltip, setTooltip] = useState<{ x: number; y: number; val: number; color: MetricColor } | null>(null);
-  const points: DataPoint[] = history && history.length > 1 ? history : (() => {
-    const base = parseFloat(currentValue.replace(/[^0-9.\-]/g, "")) || 50;
-    return Array.from({ length: 8 }, (_, i) => ({
-      timestamp: Date.now() - (7 - i) * 86400000,
-      value: Math.max(0, base * (0.6 + Math.random() * 0.8))
-    }));
-  })();
 
-  const vals = points.map(p => p.value);
-  const allRuleVals = rules.flatMap(r => r.op === "between" && r.value2 != null ? [r.value, r.value2] : [r.value]);
-  const yMin = Math.min(...vals, ...allRuleVals) * 0.85;
-  const yMax = Math.max(...vals, ...allRuleVals) * 1.15 || 100;
-  const W = 300, H = 150, padL = 36, padR = 8, padT = 8, padB = 24;
-  const cw = W - padL - padR, ch = H - padT - padB;
-  const xS = (i: number) => padL + (i / Math.max(points.length - 1, 1)) * cw;
-  const yS = (v: number) => padT + ch - ((v - yMin) / (yMax - yMin || 1)) * ch;
-  const colorOf = (v: number) => MS[getColorForValue(v, rules)].bg;
+  // Insufficient data state — need at least 5 historic data points
+  if (!history || history.length < 5) {
+    const needed = 5 - (history?.length ?? 0);
+    return (
+      <div style={{
+        height: 150, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+        background: "#F8FAFC", border: "1.5px dashed #e2e8f0", borderRadius: 10, padding: 12, gap: 6
+      }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: "#94a3b8" }}>Insufficient Data</div>
+        <div style={{ fontSize: 11, color: "#cbd5e1", textAlign: "center", lineHeight: 1.4 }}>
+          {needed} more data point{needed === 1 ? "" : "s"} needed<br/>
+          <span style={{ fontSize: 10 }}>({history?.length ?? 0} of 5 recorded)</span>
+        </div>
+      </div>
+    );
+  }
+
+  const points: DataPoint[] = history;
 
   if (graphType === "pie") {
     const counts: Record<MetricColor, number> = { red: 0, yellow: 0, green: 0, gray: 0 };
@@ -551,14 +557,18 @@ function MetricChart({ history, rules, graphType, currentValue }: {
           const x2 = cx + r * Math.cos(angle + a), y2 = cy + r * Math.sin(angle + a);
           const d = `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${a > Math.PI ? 1 : 0} 1 ${x2} ${y2} Z`;
           angle += a;
-          return <path key={i} d={d} fill={MS[s.color].bg} stroke="#fff" strokeWidth={1.5} />;
+          const sliceFill = s.color === "gray" ? "#64748B" : MS[s.color].bg;
+          return <path key={i} d={d} fill={sliceFill} stroke="#fff" strokeWidth={1.5} />;
         })}
-        {slices.map((s, i) => (
-          <g key={i}>
-            <rect x={135} y={18 + i * 22} width={10} height={10} rx={2} fill={MS[s.color].bg} />
-            <text x={149} y={28 + i * 22} fontSize={9} fill="#64748b">{s.color} {Math.round(s.pct * 100)}%</text>
-          </g>
-        ))}
+        {slices.map((s, i) => {
+          const legendFill = s.color === "gray" ? "#64748B" : MS[s.color].bg;
+          return (
+            <g key={i}>
+              <rect x={135} y={18 + i * 22} width={10} height={10} rx={2} fill={legendFill} />
+              <text x={149} y={28 + i * 22} fontSize={9} fill="#64748b">{s.color} {Math.round(s.pct * 100)}%</text>
+            </g>
+          );
+        })}
       </svg>
     );
   }
@@ -878,10 +888,12 @@ function AddColorRuleModal({ onSave, onClose, existing }: {
   const [val, setVal] = useState(existing?.value?.toString() ?? "");
   const [val2, setVal2] = useState(existing?.value2?.toString() ?? "");
 
-  const opLabels: RuleOp[] = [">=", "<=", ">", "<", "between"];
+const opLabels: RuleOp[] = [">=", "<=", ">", "<", "==", "!=", "between"];
   const opDisplay: Record<RuleOp, string> = {
     ">=": "≥ (greater than or equal)", "<=": "≤ (less than or equal)",
-    ">": "> (greater than)", "<": "< (less than)", "between": "between (range)"
+    ">": "> (greater than)", "<": "< (less than)",
+    "==": "= (equals)", "!=": "≠ (does not equal)",
+    "between": "between (range)"
   };
 
   const save = () => {
@@ -992,7 +1004,12 @@ function MetricBoxSettingsModal({ initial, onSave, onDelete, onClose }: {
   const openEditRule = (r: ColorRule) => { setEditingRule(r); setShowRuleModal(true); };
   const saveRule = (r: ColorRule) => setRules(prev => { const i = prev.findIndex(x => x.id === r.id); if (i >= 0) { const a = [...prev]; a[i] = r; return a; } return [...prev, r]; });
   const removeRule = (id: string) => setRules(prev => prev.filter(r => r.id !== id));
-  const ruleDesc = (r: ColorRule) => r.op === "between" ? `between ${r.value}–${r.value2}` : `${r.op} ${r.value}`;
+  const ruleDesc = (r: ColorRule) => {
+    if (r.op === "between") return `between ${r.value}–${r.value2}`;
+    if (r.op === "==") return `equals ${r.value}`;
+    if (r.op === "!=") return `does not equal ${r.value}`;
+    return `${r.op} ${r.value}`;
+  };
 
   const effectiveMetricType: MetricType = fiveOn ? "financial" : metricType;
 
@@ -1305,7 +1322,7 @@ function RowMenu({ onRename, onDelete, onClose }: { onRename: () => void; onDele
   }, [onClose]);
   return (
     <div ref={ref} style={{ position: "absolute", top: 36, right: 0, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 100, minWidth: 150, overflow: "hidden" }}>
-      {[{ label: "✏️  Rename row", action: onRename }, { label: "🗑️  Delete row", action: onDelete }].map(item => (
+      {[{ label: "Rename row", action: onRename }, { label: "Delete row", action: onDelete }].map(item => (
         <div key={item.label} onClick={() => { item.action(); onClose(); }}
           style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
           onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
@@ -1382,16 +1399,12 @@ function DashSection({
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
         <div draggable onDragStart={e => { e.stopPropagation(); onSectionDragStart(); }}
           style={{ cursor: "grab", color: "#cbd5e1", fontSize: 15, padding: "0 2px", flexShrink: 0 }} title="Drag to reorder">⠿</div>
-        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#1a2332" }}>{section.title}</h2>
-        <div style={{ width: 16, height: 16, borderRadius: 3, background: "#1a2332", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-          <span style={{ color: "#fff", fontSize: 9 }}>↗</span>
-        </div>
+       <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#1a2332" }}>{section.title}</h2>
         <div style={{ display: "flex", marginLeft: 2, paddingLeft: 4 }}>
           {section.avatars.map(a => (
             <div key={a} style={{ width: 28, height: 28, borderRadius: "50%", background: "#4C9FE8", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 600, border: "2px solid #fff", marginLeft: -5, flexShrink: 0 }}>{a}</div>
           ))}
         </div>
-        <div style={{ width: 28, height: 28, borderRadius: "50%", marginLeft: -5, background: "#4C9FE8", border: "2px solid #fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#fff", fontSize: 16 }}>+</div>
         <div style={{ position: "relative" }}>
           <div onClick={() => setShowMenu(v => !v)} style={{ width: 26, height: 26, borderRadius: "50%", background: "#F1F5F9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 13, color: "#94a3b8" }}>···</div>
           {showMenu && <RowMenu onRename={() => { setShowMenu(false); setShowRowModal(true); }} onDelete={() => onRemoveSection(section.id)} onClose={() => setShowMenu(false)} />}
@@ -1930,7 +1943,7 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName }: {
         ))}
       </nav>
       <div style={{ padding: "14px 18px", borderTop: "1px solid #f1f5f9", display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-        <img src="https://dashello.co/wp-content/uploads/2023/08/Logo.png" alt="Dashello" style={{ height: 26, objectFit: "contain", maxWidth: "80%" }} />
+        <img src="https://app.dashello.co/favicon.ico" alt="Dashello" style={{ height: 26, width: 26, objectFit: "contain" }} />
         <button onClick={() => supabase.auth.signOut()} style={{ width: "100%", padding: "7px 0", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "transparent", color: "#94a3b8", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Sign Out</button>
       </div>
     </aside>
