@@ -927,8 +927,8 @@ const opLabels: RuleOp[] = [">=", "<=", ">", "<", "==", "!=", "between"];
 // METRIC BOX SETTINGS MODAL
 // ═══════════════════════════════════════════════════════════════════════════
 
-function MetricBoxSettingsModal({ initial, onSave, onDelete, onClose }: {
-  initial?: Metric; onSave: (m: Omit<Metric, "id">) => void; onDelete?: () => void; onClose: () => void;
+function MetricBoxSettingsModal({ initial, onSave, onDelete, onDuplicate, onClose }: {
+  initial?: Metric; onSave: (m: Omit<Metric, "id">) => void; onDelete?: () => void; onDuplicate?: () => void; onClose: () => void;
 }) {
   const [label, setLabel] = useState(initial?.label ?? "");
   const [rawValue, setRawValue] = useState(() => {
@@ -1129,13 +1129,21 @@ function MetricBoxSettingsModal({ initial, onSave, onDelete, onClose }: {
               </div>
             </div>
 
-            <button onClick={handleSave} style={{ width: "100%", padding: "12px 0", borderRadius: 8, border: "none", marginTop: 20, background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+          <button onClick={handleSave} style={{ width: "100%", padding: "12px 0", borderRadius: 8, border: "none", marginTop: 20, background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
               Save
             </button>
             {saveError && <div style={{ fontSize: 11, color: "#E85D75", marginTop: 5, textAlign: "center" }}>{saveError}</div>}
 
-            {(initial || onDelete) && !showDeleteConfirm && (
+            {initial && onDuplicate && (
               <div style={{ textAlign: "center", marginTop: 10 }}>
+                <button onClick={() => { onDuplicate(); onClose(); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#3B82F6", fontSize: 12, textDecoration: "underline" }}>
+                  Duplicate Metric Box
+                </button>
+              </div>
+            )}
+
+            {(initial || onDelete) && !showDeleteConfirm && (
+              <div style={{ textAlign: "center", marginTop: 8 }}>
                 <button onClick={() => setShowDeleteConfirm(true)} style={{ background: "none", border: "none", cursor: "pointer", color: "#E85D75", fontSize: 12, textDecoration: "underline" }}>
                   Delete Metric Box
                 </button>
@@ -1410,6 +1418,10 @@ function DashSection({
         initial={editingMetric}
         onSave={m => { onUpdateMetric(section.id, editingMetric.id, m); setEditingMetric(null); }}
         onDelete={() => onRemoveMetric(section.id, editingMetric.id)}
+        onDuplicate={() => {
+          const { id, fiveAccountParentId, ...rest } = editingMetric;
+          onAddMetric(section.id, { ...rest, label: `${editingMetric.label} (copy)`, history: [] });
+        }}
         onClose={() => setEditingMetric(null)} />}
 
       {showRowModal && <EditAddRowModal initial={section.title} onSave={name => onRenameSection(section.id, name)} onClose={() => setShowRowModal(false)} />}
@@ -2213,7 +2225,7 @@ export default function DashelloDashboard() {
           onClose={() => setActiveModal(null)} onEdit={handleEditFromModal} onValueChange={handleValueChange} />
       )}
 
-      {editingMetricFromModal && (() => {
+     {editingMetricFromModal && (() => {
         let foundSid: string | undefined;
         for (const s of sections) { if (s.metrics.find(m => m.id === editingMetricFromModal.id)) { foundSid = s.id; break; } }
         return (
@@ -2224,6 +2236,13 @@ export default function DashelloDashboard() {
             }}
             onDelete={() => {
               if (foundSid) setSections(prev => prev.map(s => s.id === foundSid ? { ...s, metrics: s.metrics.filter(m => m.id !== editingMetricFromModal.id) } : s));
+              setEditingMetricFromModal(null);
+            }}
+            onDuplicate={() => {
+              if (foundSid) {
+                const { id, fiveAccountParentId, ...rest } = editingMetricFromModal;
+                setSections(prev => prev.map(s => s.id === foundSid ? { ...s, metrics: [...s.metrics, { ...rest, label: `${editingMetricFromModal.label} (copy)`, history: [], id: crypto.randomUUID() }] } : s));
+              }
               setEditingMetricFromModal(null);
             }}
             onClose={() => setEditingMetricFromModal(null)} />
