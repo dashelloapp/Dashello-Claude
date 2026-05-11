@@ -1905,7 +1905,7 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName }: {
         ))}
       </nav>
       <div style={{ padding: "14px 18px", borderTop: "1px solid #f1f5f9", display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-        <img src="https://app.dashello.co/favicon.ico" alt="Dashello" style={{ height: 26, width: 26, objectFit: "contain" }} />
+        <img src="https://dashello.co/wp-content/uploads/2023/08/Logo.png" alt="Dashello" style={{ height: 26, objectFit: "contain", maxWidth: "80%" }} />
         <button onClick={() => supabase.auth.signOut()} style={{ width: "100%", padding: "7px 0", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "transparent", color: "#94a3b8", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Sign Out</button>
       </div>
     </aside>
