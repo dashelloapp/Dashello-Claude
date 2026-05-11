@@ -1002,7 +1002,7 @@ function MetricBoxSettingsModal({ initial, onSave, onDelete, onClose }: {
     <>
       <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000, padding: 16 }}>
         <div onClick={e => e.stopPropagation()} onKeyDown={e => { if (e.key === "Enter") handleSave(); }}
-          style={{ background: "#fff", borderRadius: 20, width: "100%", maxWidth: 700, maxHeight: "92vh", overflowY: "auto", boxShadow: "0 24px 64px rgba(0,0,0,0.2)" }}>
+          style={{ background: "#fff", borderRadius: 20, width: "100%", maxWidth: 820, maxHeight: "92vh", overflowY: "auto", boxShadow: "0 24px 64px rgba(0,0,0,0.2)" }}>
 
           {/* Header */}
           <div style={{ padding: "20px 22px 0", display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
@@ -1018,7 +1018,7 @@ function MetricBoxSettingsModal({ initial, onSave, onDelete, onClose }: {
           )}
 
           <div style={{ padding: "6px 22px 22px" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(260px, 1fr) minmax(280px, 1fr)", gap: 24 }}>
 
               {/* LEFT */}
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
