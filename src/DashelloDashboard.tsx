@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { supabase } from "./lib/supabase";
+import * as PhosphorReact from "@phosphor-icons/react";
 
 // ── DB helpers ────────────────────────────────────────────────────────────
 async function loadUserData(table: string, userId: string) {
@@ -87,8 +88,8 @@ function getColorForValue(val: number, rules: ColorRule[]): MetricColor {
     if (rule.op === "<=" && val <= rule.value) match = true;
     if (rule.op === ">" && val > rule.value) match = true;
     if (rule.op === "<" && val < rule.value) match = true;
-    if (rule.op === "==" && num === rule.value) match = true;
-    if (rule.op === "!=" && num !== rule.value) match = true;
+    if (rule.op === "==" && val === rule.value) match = true;
+    if (rule.op === "!=" && val !== rule.value) match = true;
     if (rule.op === "between" && rule.value2 != null && val >= rule.value && val <= rule.value2) match = true;
     if (match) return rule.color;
   }
