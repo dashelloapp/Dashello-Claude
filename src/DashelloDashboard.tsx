@@ -927,8 +927,14 @@ const opLabels: RuleOp[] = [">=", "<=", ">", "<", "==", "!=", "between"];
 // METRIC BOX SETTINGS MODAL
 // ═══════════════════════════════════════════════════════════════════════════
 
-function MetricBoxSettingsModal({ initial, onSave, onDelete, onDuplicate, onClose }: {
-  initial?: Metric; onSave: (m: Omit<Metric, "id">) => void; onDelete?: () => void; onDuplicate?: () => void; onClose: () => void;
+function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplicate, onRecreateMissing, onClose }: {
+  initial?: Metric;
+  siblings?: Metric[];
+  onSave: (m: Omit<Metric, "id">) => void;
+  onDelete?: () => void;
+  onDuplicate?: () => void;
+  onRecreateMissing?: (missingAccounts: string[]) => void;
+  onClose: () => void;
 }) {
   const [label, setLabel] = useState(initial?.label ?? "");
   const [rawValue, setRawValue] = useState(() => {
@@ -1060,27 +1066,68 @@ function MetricBoxSettingsModal({ initial, onSave, onDelete, onDuplicate, onClos
                 </div>
 
                 {/* Five-Account System */}
-                <div style={{ background: "#F0FDF4", border: "1px solid #c3e6d4", borderRadius: 10, padding: "10px 12px" }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                    <div>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: "#1a2332" }}>Five-Account System</div>
-                      <div style={{ fontSize: 10, color: "#64748b", marginTop: 1 }}>Profit First budgeting method</div>
-                    </div>
-                    <Toggle on={fiveOn} onChange={setFiveOn} />
-                  </div>
-                  {fiveOn && (
-                    <>
-                      <div style={{ fontSize: 11, color: "#0F6E56", background: "#dcfce7", borderRadius: 6, padding: "5px 10px", marginBottom: 6 }}>
-                        ✓ Box will display bank transactions and 5-account math.
-                      </div>
-                      {!isSynced && (
-                        <div style={{ fontSize: 11, color: "#92400e", background: "#fef3c7", border: "1px solid #fde68a", borderRadius: 6, padding: "5px 10px" }}>
-                          ⚠ This will create 4 more metric boxes so all 5 checking accounts are separated out based on your bank balance.
+                {(() => {
+                  // Compute which siblings are missing from the Five-Account group, if any.
+                  // Uses strict fiveAccountParentId matching.
+                  let missingAccounts: string[] = [];
+                  let groupAlreadyExists = false;
+                  if (initial && fiveOn) {
+                    // Determine the group's parent ID — either the parent's own id, or the child's parent reference.
+                    const groupId = initial.fiveAccountParentId ?? initial.id;
+                    // Collect all metrics in this group: the parent itself, plus any boxes whose parentId matches.
+                    const groupMembers = (siblings ?? []).filter(s =>
+                      s.id === groupId || s.fiveAccountParentId === groupId
+                    );
+                    // Always include the current metric being edited (it may not be in siblings).
+                    if (!groupMembers.find(m => m.id === initial.id)) groupMembers.push(initial);
+                    const presentLabels = new Set(groupMembers.map(m => m.label));
+                    missingAccounts = FIVE_ACCOUNT_LABELS.filter(l => !presentLabels.has(l));
+                    groupAlreadyExists = groupMembers.length > 1; // more than just the current box
+                  }
+                  return (
+                    <div style={{ background: "#F0FDF4", border: "1px solid #c3e6d4", borderRadius: 10, padding: "10px 12px" }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: "#1a2332" }}>Five-Account System</div>
+                          <div style={{ fontSize: 10, color: "#64748b", marginTop: 1 }}>Profit First budgeting method</div>
                         </div>
+                        <Toggle on={fiveOn} onChange={setFiveOn} />
+                      </div>
+                      {fiveOn && (
+                        <>
+                          <div style={{ fontSize: 11, color: "#0F6E56", background: "#dcfce7", borderRadius: 6, padding: "5px 10px", marginBottom: 6 }}>
+                            ✓ Box will display bank transactions and 5-account math.
+                          </div>
+
+                          {/* Case 1: brand-new (no group exists yet) → show "this will create 4 more" warning */}
+                          {!initial && (
+                            <div style={{ fontSize: 11, color: "#92400e", background: "#fef3c7", border: "1px solid #fde68a", borderRadius: 6, padding: "5px 10px" }}>
+                              ⚠ This will create 4 more metric boxes so all 5 checking accounts are separated out based on your bank balance.
+                            </div>
+                          )}
+
+                          {/* Case 2: editing existing, group is complete → no warning */}
+
+                          {/* Case 3: editing existing, group has missing siblings → show recreate warning */}
+                          {initial && missingAccounts.length > 0 && groupAlreadyExists && (
+                            <div style={{ fontSize: 11, color: "#92400e", background: "#fef3c7", border: "1px solid #fde68a", borderRadius: 6, padding: "8px 10px" }}>
+                              <div style={{ marginBottom: 6 }}>
+                                ⚠ You're missing the <strong>{missingAccounts.join(", ").replace(/, ([^,]*)$/, " and $1")}</strong> metric box{missingAccounts.length > 1 ? "es" : ""}. Would you like to recreate {missingAccounts.length > 1 ? "them" : "it"}?
+                              </div>
+                              {onRecreateMissing && (
+                                <button
+                                  onClick={() => { onRecreateMissing(missingAccounts); onClose(); }}
+                                  style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#92400e", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+                                  Recreate {missingAccounts.length > 1 ? "Them" : "It"}
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </>
                       )}
-                    </>
-                  )}
-                </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Color Rules */}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
@@ -1416,11 +1463,19 @@ function DashSection({
 
       {editingMetric && <MetricBoxSettingsModal
         initial={editingMetric}
+        siblings={section.metrics}
         onSave={m => { onUpdateMetric(section.id, editingMetric.id, m); setEditingMetric(null); }}
         onDelete={() => onRemoveMetric(section.id, editingMetric.id)}
         onDuplicate={() => {
           const { id, fiveAccountParentId, ...rest } = editingMetric;
           onAddMetric(section.id, { ...rest, label: `${editingMetric.label} (copy)`, history: [] });
+        }}
+        onRecreateMissing={(missing) => {
+          const groupId = editingMetric.fiveAccountParentId ?? editingMetric.id;
+          missing.forEach(label => {
+            const accountType = label.toLowerCase() as any;
+            onAddMetric(section.id, makeFiveAccountMetric(accountType, groupId));
+          });
         }}
         onClose={() => setEditingMetric(null)} />}
 
@@ -2228,8 +2283,10 @@ export default function DashelloDashboard() {
      {editingMetricFromModal && (() => {
         let foundSid: string | undefined;
         for (const s of sections) { if (s.metrics.find(m => m.id === editingMetricFromModal.id)) { foundSid = s.id; break; } }
+        const foundSection = sections.find(s => s.id === foundSid);
         return (
           <MetricBoxSettingsModal initial={editingMetricFromModal}
+            siblings={foundSection?.metrics ?? []}
             onSave={updated => {
               if (foundSid) setSections(prev => prev.map(s => s.id === foundSid ? { ...s, metrics: s.metrics.map(m => m.id === editingMetricFromModal.id ? { ...updated, id: m.id, history: m.history ?? [] } : m) } : s));
               setEditingMetricFromModal(null);
@@ -2242,6 +2299,20 @@ export default function DashelloDashboard() {
               if (foundSid) {
                 const { id, fiveAccountParentId, ...rest } = editingMetricFromModal;
                 setSections(prev => prev.map(s => s.id === foundSid ? { ...s, metrics: [...s.metrics, { ...rest, label: `${editingMetricFromModal.label} (copy)`, history: [], id: crypto.randomUUID() }] } : s));
+              }
+              setEditingMetricFromModal(null);
+            }}
+            onRecreateMissing={(missing) => {
+              if (foundSid) {
+                const groupId = editingMetricFromModal.fiveAccountParentId ?? editingMetricFromModal.id;
+                setSections(prev => prev.map(s => {
+                  if (s.id !== foundSid) return s;
+                  const newMetrics = missing.map(label => {
+                    const accountType = label.toLowerCase() as any;
+                    return { ...makeFiveAccountMetric(accountType, groupId), id: crypto.randomUUID() };
+                  });
+                  return { ...s, metrics: [...s.metrics, ...newMetrics] };
+                }));
               }
               setEditingMetricFromModal(null);
             }}
