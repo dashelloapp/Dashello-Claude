@@ -2219,7 +2219,7 @@ function SettingsPage({ userId, userEmail, onProfileSaved, onFiveAccountCreated,
                 {/* Owner salary */}
                 <div style={{ marginBottom: 8 }}>
                   <label style={{ fontSize: 11, fontWeight: 600, color: "#1a2332", display: "block", marginBottom: 3 }}>Total Owner's Salary (monthly)</label>
-                  <input type="number" value={fiveAccountSettings.ownerSalary || ""}
+                 <input type="number" value={fiveAccountSettings.ownerSalary ?? ""}
                     onChange={e => onFiveAccountSettingsChange({ ...fiveAccountSettings, ownerSalary: parseFloat(e.target.value) || 0 })}
                     placeholder="e.g. 8000"
                     style={{ width: "100%", padding: "6px 10px", borderRadius: 7, border: "1.5px solid #c3e6d4", fontSize: 12, outline: "none", boxSizing: "border-box" }} />
