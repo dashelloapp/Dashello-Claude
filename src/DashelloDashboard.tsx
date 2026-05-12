@@ -182,17 +182,19 @@ function runFiveAccountEquation(
       const lbl = m.label.toLowerCase();
       let inflow = 0;
       
-      // Determine if profit is full to divert to investments
-      const isProfitReallyFull = currentProfit >= profitTarget && profitTarget > 0;
+      // Check if Profit has reached its Green Rule goal
+      const pTarget = profitAcc?.greenRuleValue || 0;
+      const pCurrent = profitAcc?.value || 0;
+      const isProfitFull = pTarget > 0 && pCurrent >= pTarget;
 
       if (lbl === "tax") {
         inflow = taxInflow;
       } else if (lbl === "profit") {
-        // Only take inflow if profit isn't full
-        inflow = isProfitReallyFull ? 0 : remaining;
+        // If profit is full, it gets $0. Otherwise it gets the 50% share.
+        inflow = isProfitFull ? 0 : profitInflow;
       } else if (lbl === "investments") {
-        // Take inflow if profit IS full
-        inflow = isProfitReallyFull ? remaining : 0;
+        // Investments gets its own share PLUS profit's share if profit is full.
+        inflow = isProfitFull ? (investmentsInflow + profitInflow) : investmentsInflow;
       }
 
       if (inflow > 0) {
@@ -3047,12 +3049,15 @@ export default function DashelloDashboard() {
   const [fiveAccountSettings, setFiveAccountSettings] = useState<FiveAccountSettings>(DEFAULT_FIVE_ACCOUNT_SETTINGS);
   // --- SETTINGS UPDATE LOGIC ---
   const handleUpdateSettings = (newSettings: FiveAccountSettings) => {
-    // 1. Update local settings state
     setFiveAccountSettings(newSettings);
-    
-    // 2. Force "Green Rules" to match the new monthly expenses
     const updatedSections = syncSettingsToMetrics(sections, newSettings);
     setSections(updatedSections);
+    
+    if (userId) {
+      saveUserData("sections", userId, updatedSections);
+      saveUserData("settings", userId, newSettings);
+    }
+  };
     
     // 3. Save updates to Supabase
     if (userId) {
