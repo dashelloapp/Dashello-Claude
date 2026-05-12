@@ -135,97 +135,90 @@ function runFiveAccountEquation(
   const getBox = (label: string) =>
     metrics.find(m => m.fiveAccountParentId === parentId && m.label.toLowerCase() === label);
 
-  const overheadBox = getBox("overhead") ?? metrics.find(m => m.id === parentId);
   const profitBox = getBox("profit");
   const taxBox = getBox("tax");
   const investmentsBox = getBox("investments");
   const ownerBox = getBox("owner");
 
-  // Current accumulated balances (keep them — they accumulate over time)
-  const currentOverhead = parseFloat(overheadBox?.value.replace(/[^0-9.\-]/g, "") || "0");
   const currentProfit = parseFloat(profitBox?.value.replace(/[^0-9.\-]/g, "") || "0");
   const currentTax = parseFloat(taxBox?.value.replace(/[^0-9.\-]/g, "") || "0");
   const currentInvestments = parseFloat(investmentsBox?.value.replace(/[^0-9.\-]/g, "") || "0");
-  const ownerSalary = settings.ownerSalary;
 
-  // Step 1: Fund overhead up to target. Anything above target is surplus.
-  const overheadNew = Math.min(bankBalance, overheadTarget);
+  // Only cascade if bank balance exceeds overhead target
   const surplus = Math.max(0, bankBalance - overheadTarget);
+  const overheadNew = surplus > 0 ? overheadTarget : bankBalance;
 
-  // Step 2: 50% of surplus always → Tax (accumulates)
+  // No surplus — overhead not fully funded yet, no cascade
+  if (surplus === 0) return metrics;
+
+  // 50% of surplus → Tax always
   const taxInflow = surplus * 0.5;
   const remaining = surplus * 0.5;
 
-  // Step 3: Pre vs post emergency fund for the remaining 50%
+  // Pre vs post emergency fund
   const profitAlreadyFunded = currentProfit >= profitTarget;
   const profitInflow = profitAlreadyFunded ? 0 : remaining;
   const investmentsInflow = profitAlreadyFunded ? remaining : 0;
 
-  const newOverhead = overheadNew;
   const newProfit = currentProfit + profitInflow;
   const newTax = currentTax + taxInflow;
   const newInvestments = currentInvestments + investmentsInflow;
-  const newOwner = settings.mode === "one-business" ? ownerSalary : (parseFloat(ownerBox?.value.replace(/[^0-9.\-]/g, "") || "0"));
+  const newOwner = settings.mode === "one-business"
+    ? settings.ownerSalary
+    : parseFloat(ownerBox?.value.replace(/[^0-9.\-]/g, "") || "0");
 
-  const makeTransfer = (box: Metric | undefined, inflow: number, label: string): Transaction | null => {
-    if (!box || inflow === 0) return null;
-    return {
-      date: new Date(now).toLocaleDateString(),
-      description: `Transfer from ${parentMetric.label} — ${label}`,
-      credit: inflow,
-    };
-  };
-
-  const appendTxn = (box: Metric | undefined, txn: Transaction | null): Transaction[] => {
-    if (!txn || !box) return box?.modal?.transactions ?? [];
-    return [...(box.modal?.transactions ?? []), txn];
-  };
-
-  const overheadTxn = makeTransfer(overheadBox, Math.abs(newOverhead - currentOverhead), "overhead allocation");
-  const profitTxn = makeTransfer(profitBox, profitInflow, "profit allocation");
-  const taxTxn = makeTransfer(taxBox, taxInflow, "tax allocation");
-  const investmentsTxn = makeTransfer(investmentsBox, investmentsInflow, "investments allocation");
+  const makeTxn = (inflow: number, fromLabel: string): Transaction => ({
+    date: new Date(now).toLocaleDateString(),
+    description: `Transfer from ${fromLabel}`,
+    credit: inflow,
+  });
 
   const makeHistory = (box: Metric | undefined, newVal: number): DataPoint[] =>
     [...(box?.history ?? []), { timestamp: now, value: newVal }].slice(-50);
 
   return metrics.map(m => {
-    // Overhead / parent box
-    if (m.id === parentId || (m.fiveAccountParentId === parentId && m.label.toLowerCase() === "overhead")) {
+    // Parent / Overhead box — capped at target, surplus moved out
+    if (m.id === parentId) {
       return {
-        ...m, value: fmt(newOverhead), lastSyncedAt: now, outOfSync: false,
-        history: makeHistory(m, newOverhead),
-        modal: { ...m.modal, transactions: appendTxn(m, overheadTxn), mainValue: fmt(newOverhead) },
+        ...m, value: fmt(overheadNew), lastSyncedAt: now, outOfSync: false,
+        history: makeHistory(m, overheadNew),
+        modal: { ...m.modal, mainValue: fmt(overheadNew) },
       };
     }
     if (m.fiveAccountParentId === parentId) {
       const lbl = m.label.toLowerCase();
-      if (lbl === "profit" && profitBox) {
+      if (lbl === "profit" && profitInflow > 0) {
         return {
           ...m, value: fmt(newProfit), lastSyncedAt: now, outOfSync: false,
           history: makeHistory(m, newProfit),
-          modal: { ...m.modal, transactions: appendTxn(m, profitTxn), mainValue: fmt(newProfit) },
+          modal: {
+            ...m.modal, mainValue: fmt(newProfit),
+            transactions: [...(m.modal.transactions ?? []), makeTxn(profitInflow, parentMetric.label)],
+          },
         };
       }
-      if (lbl === "tax" && taxBox) {
+      if (lbl === "tax" && taxInflow > 0) {
         return {
           ...m, value: fmt(newTax), lastSyncedAt: now, outOfSync: false,
           history: makeHistory(m, newTax),
-          modal: { ...m.modal, transactions: appendTxn(m, taxTxn), mainValue: fmt(newTax) },
+          modal: {
+            ...m.modal, mainValue: fmt(newTax),
+            transactions: [...(m.modal.transactions ?? []), makeTxn(taxInflow, parentMetric.label)],
+          },
         };
       }
-      if (lbl === "investments" && investmentsBox) {
+      if (lbl === "investments" && investmentsInflow > 0) {
         return {
           ...m, value: fmt(newInvestments), lastSyncedAt: now, outOfSync: false,
           history: makeHistory(m, newInvestments),
-          modal: { ...m.modal, transactions: appendTxn(m, investmentsTxn), mainValue: fmt(newInvestments) },
+          modal: {
+            ...m.modal, mainValue: fmt(newInvestments),
+            transactions: [...(m.modal.transactions ?? []), makeTxn(investmentsInflow, parentMetric.label)],
+          },
         };
       }
-      if (lbl === "owner") {
-        return {
-          ...m, value: fmt(newOwner), lastSyncedAt: now, outOfSync: false,
-          history: makeHistory(m, newOwner),
-        };
+      if (lbl === "owner" && settings.mode === "one-business") {
+        return { ...m, value: fmt(newOwner), lastSyncedAt: now, outOfSync: false };
       }
     }
     return m;
@@ -1381,9 +1374,9 @@ function FiveAccountColorRule({ rules, onChange }: {
   const ymi = useRef(yellowRule?.value?.toString() ?? "");
   const yma = useRef(yellowRule?.value2?.toString() ?? "");
   const gv = useRef(greenRule?.value?.toString() ?? "");
-  const [greenOp, setGreenOp] = useState<">=" | "==">(greenRule?.op === "==" ? "==" : ">=");
+  const [greenOp, setGreenOp] = useState<"<=" | "==">(greenRule?.op === "<=" ? "<=" : "==");
 
-  const commit = (gop: ">=" | "==" = greenOp) => {
+  const commit = (gop: "<=" | "==" = greenOp) => {
     const built: ColorRule[] = [];
     const rn = parseFloat(rv.current), ymn = parseFloat(ymi.current), ymax = parseFloat(yma.current), gn = parseFloat(gv.current);
     if (!isNaN(rn)) built.push({ id: "5a-red", color: "red", op: "<", value: rn });
@@ -1391,7 +1384,6 @@ function FiveAccountColorRule({ rules, onChange }: {
     if (!isNaN(gn)) built.push({ id: "5a-green", color: "green", op: gop, value: gn });
     onChange(built);
   };
-
   const inputStyle: React.CSSProperties = { padding: "6px 9px", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", boxSizing: "border-box", width: "100%", background: "#fff" };
 
   const Row = ({ label, color, children }: { label: string; color: string; children: React.ReactNode }) => (
@@ -1414,10 +1406,10 @@ function FiveAccountColorRule({ rules, onChange }: {
         <input defaultValue={yma.current} onChange={e => { yma.current = e.target.value; }} onBlur={() => commit()} placeholder="To" style={{ ...inputStyle, width: "48%" }} />
       </Row>
       <Row label="Green — target" color="#4CAF7D">
-        <select value={greenOp} onChange={e => { const v = e.target.value as ">=" | "=="; setGreenOp(v); commit(v); }}
+       <select value={greenOp} onChange={e => { const v = e.target.value as "<=" | "=="; setGreenOp(v); commit(v); }}
           style={{ padding: "6px 7px", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: 11, outline: "none", background: "#fff", flexShrink: 0 }}>
-          <option value=">=">&ge; at or above target (surplus cascades)</option>
-          <option value="==">= exactly at target</option>
+          <option value="==">Equals target</option>
+          <option value="<=">At or below target</option>
         </select>
         <input defaultValue={gv.current} onChange={e => { gv.current = e.target.value; }} onBlur={() => commit()} placeholder="Target" style={inputStyle} />
       </Row>
@@ -3004,13 +2996,17 @@ export default function DashelloDashboard() {
           };
         });
 
-       // Run equation only when the PARENT (bank balance) box is updated
-        if (fiveAccountSettings.mode !== "five-separate" && profile.five_account_enabled) {
+       if (fiveAccountSettings.mode !== "five-separate" && profile.five_account_enabled) {
           const changedMetric = updatedMetrics.find(m => m.id === metricId);
-          // Only cascade if the changed box is the parent (has fiveAccountEnabled and no fiveAccountParentId)
-          const isParent = changedMetric?.modal?.fiveAccountEnabled && !changedMetric?.fiveAccountParentId;
-          if (isParent) {
-            return { ...s, metrics: runFiveAccountEquation(updatedMetrics, metricId, fiveAccountSettings) };
+          // Run if changed box is the Five-Account parent
+          const isParent = !!(changedMetric?.modal?.fiveAccountEnabled && !changedMetric?.fiveAccountParentId);
+          // Also run if it's a child — find its parent and cascade from there
+          const parentFromChild = changedMetric?.fiveAccountParentId
+            ? updatedMetrics.find(m => m.id === changedMetric.fiveAccountParentId)
+            : null;
+          const equationParentId = isParent ? metricId : parentFromChild?.id;
+          if (equationParentId) {
+            return { ...s, metrics: runFiveAccountEquation(updatedMetrics, equationParentId, fiveAccountSettings) };
           }
         }
         return { ...s, metrics: updatedMetrics };
