@@ -163,9 +163,9 @@ function runFiveAccountEquation(
   const profitInflow = profitAlreadyFunded ? 0 : remaining;
   const investmentsInflow = profitAlreadyFunded ? remaining : 0;
 
-  const makeTxn = (inflow: number, fromLabel: string): Transaction => ({
+  const makeTxn = (inflow: number, fromLabel: string, isProfitFull: boolean = false): Transaction => ({
     date: new Date(now).toLocaleDateString(),
-    description: `Transfer from ${fromLabel}`,
+    description: isProfitFull ? `Transfer from ${fromLabel} (Profit Full)` : `Transfer from ${fromLabel}`,
     credit: inflow,
   });
 
@@ -188,11 +188,13 @@ function runFiveAccountEquation(
       if (inflow > 0) {
         const currentVal = parseFloat(m.value.replace(/[^0-9.\-]/g, "")) || 0;
         const newVal = currentVal + inflow;
+        const isOverflow = (lbl === "investments" && profitAlreadyFunded);
+
         return {
           ...m, value: fmt(newVal), lastSyncedAt: now,
           modal: {
             ...m.modal, mainValue: fmt(newVal),
-            transactions: [...(m.modal.transactions ?? []), makeTxn(inflow, parentMetric.label)],
+            transactions: [...(m.modal.transactions ?? []), makeTxn(inflow, parentMetric.label, isOverflow)],
           },
         };
       }
