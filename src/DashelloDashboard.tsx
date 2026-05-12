@@ -2898,25 +2898,24 @@ export default function DashelloDashboard() {
     health_red_multiplier: -1.0,
   });
   const [fiveAccountSettings, setFiveAccountSettings] = useState<FiveAccountSettings>(DEFAULT_FIVE_ACCOUNT_SETTINGS);
-  const [postTransactionPrompt, setPostTransactionPrompt] = useState<PostTransactionPrompt | null>(null);
-  const pendingValueChangeRef = useRef<((description?: string) => void) | null>(null);
-  const [lastDashboardSync, setLastDashboardSync] = useState<number | null>(null);
-  const [fiveAccountForceOff, setFiveAccountForceOff] = useState(false);
-  
   // --- SETTINGS UPDATE LOGIC ---
   const handleUpdateSettings = (newSettings: FiveAccountSettings) => {
-    // 1. Update local settings
-    setSettings(newSettings); 
+    // 1. Update local settings state
+    setFiveAccountSettings(newSettings); 
     
-    // 2. Sync green rules for Overhead and Profit boxes
+    // 2. Force "Green Rules" to match the new monthly expenses
     setSections((prevSections: Section[]) => syncSettingsToMetrics(prevSections, newSettings));
     
-    // 3. Save to Supabase
+    // 3. Save updates to Supabase
     if (userId) {
       saveUserData("sections", userId, syncSettingsToMetrics(sections, newSettings));
       saveUserData("settings", userId, newSettings);
     }
   };
+  const [postTransactionPrompt, setPostTransactionPrompt] = useState<PostTransactionPrompt | null>(null);
+  const pendingValueChangeRef = useRef<((description?: string) => void) | null>(null);
+  const [lastDashboardSync, setLastDashboardSync] = useState<number | null>(null);
+  const [fiveAccountForceOff, setFiveAccountForceOff] = useState(false);
   
   const [tasksData, setTasksData] = useState([
     { id: "1", text: "Review Q3 financials", done: false, assignee: "AJ", due: "Mar 15" },
