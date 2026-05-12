@@ -178,16 +178,18 @@ function runFiveAccountEquation(
       };
     }
     // Update Downstream Boxes
-    if (m.fiveAccountParentId === parentId) {
-      const lbl = m.label.toLowerCase();
-      let inflow = 0;
-      
-      // Check if Profit has reached its Green Rule goal
-      const pTarget = profitAcc?.greenRuleValue || 0;
-      const pCurrent = profitAcc?.value || 0;
-      const isProfitFull = (profitAcc?.value || 0) >= (profitAcc?.greenRuleValue || 0) && (profitAcc?.greenRuleValue || 0) > 0;
+    const updatedMetrics = section.metrics.map((m) => {
+      if (m.fiveAccountParentId === parentId) {
+        const lbl = m.label.toLowerCase();
+        let inflow = 0;
+        
+        // Find the profit metric in this group to check the goal
+        const groupProfit = section.metrics.find(mm => mm.fiveAccountParentId === parentId && mm.fiveAccountType === 'profit');
+        const pTarget = groupProfit?.greenRuleValue || 0;
+        const pCurrent = groupProfit?.value || 0;
+        const isProfitFull = pTarget > 0 && pCurrent >= pTarget;
 
-      if (lbl === "tax") {
+        if (lbl === "tax") {
         inflow = taxInflow;
       } else if (lbl === "profit") {
         inflow = isProfitFull ? 0 : profitInflow;
@@ -3526,5 +3528,3 @@ const sidebarEl = (
     </div>
   );
 }
-
-export default DashelloDashboard;
