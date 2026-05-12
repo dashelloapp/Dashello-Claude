@@ -868,25 +868,15 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange }: {
                       <span style={{ fontSize: 12, color: statTextColor }}>{s.label}</span>
                       {s.synced && <span style={{ fontSize: 10, color: isColored ? "rgba(255,255,255,0.5)" : "#94a3b8" }}>Synced {data.syncTime}</span>}
                     </div>
-                    {i === 0 ? (
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>
-                        <input
-                          defaultValue={s.value.replace(/[^0-9.]/g, "")}
-                          onBlur={e => {
-                            const raw = e.target.value.replace(/[^0-9.]/g, "");
-                            const num = parseFloat(raw);
-                            if (!isNaN(num)) {
-                              const formatted = `${metric?.currencySymbol ?? "$"}${num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-                              onValueChange?.(formatted);
-                            }
-                          }}
-                          onKeyDown={e => {
-                            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-                          }}
-                          style={{ fontSize: 20, fontWeight: 700, color: statValColor, background: "transparent", border: "none", borderBottom: `1.5px solid ${isColored ? "rgba(255,255,255,0.4)" : "#e2e8f0"}`, outline: "none", width: 140 }}
-                        />
-                        <span style={{ fontSize: 10, color: statTextColor, opacity: 0.7 }}>click to edit</span>
-                      </div>
+                 {i === 0 ? (
+                      <CashBalanceInput
+                        value={metric?.value ?? s.value}
+                        currencySymbol={metric?.currencySymbol ?? "$"}
+                        statValColor={statValColor}
+                        statTextColor={statTextColor}
+                        isColored={isColored}
+                        onValueChange={onValueChange}
+                      />
                     ) : (
                       <div style={{ fontSize: 16, fontWeight: 700, color: statValColor }}>{s.value}</div>
                     )}
@@ -896,7 +886,7 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange }: {
               <button style={{ background: "#fff", border: "none", borderRadius: 20, padding: "5px 14px", fontSize: 12, cursor: "pointer", fontWeight: 600, flexShrink: 0, marginLeft: 14, color: "#1a2332" }}>Filter</button>
             </div>
           </div>
-          <TxnTable transactions={data.transactions ?? []} />
+          <TxnTable transactions={metric?.modal?.transactions ?? data.transactions ?? []} />
         </div>
         <BottomThreeCards data={data} />
       </div>
@@ -2705,6 +2695,37 @@ export default function DashelloDashboard() {
     }
   };
 
+  function CashBalanceInput({ value, currencySymbol, statValColor, statTextColor, isColored, onValueChange }: {
+  value: string; currencySymbol: string; statValColor: string; statTextColor: string;
+  isColored: boolean; onValueChange?: (v: string) => void;
+}) {
+  const raw = value.replace(/[^0-9.]/g, "");
+  const [editVal, setEditVal] = useState(raw);
+
+  useEffect(() => {
+    setEditVal(value.replace(/[^0-9.]/g, ""));
+  }, [value]);
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>
+      <input
+        value={editVal}
+        onChange={e => setEditVal(e.target.value.replace(/[^0-9.]/g, ""))}
+        onBlur={() => {
+          const num = parseFloat(editVal);
+          if (!isNaN(num)) {
+            const formatted = `${currencySymbol}${num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            onValueChange?.(formatted);
+          }
+        }}
+        onKeyDown={e => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+        style={{ fontSize: 20, fontWeight: 700, color: statValColor, background: "transparent", border: "none", borderBottom: `1.5px solid ${isColored ? "rgba(255,255,255,0.4)" : "#e2e8f0"}`, outline: "none", width: 140 }}
+      />
+      <span style={{ fontSize: 10, color: statTextColor, opacity: 0.7 }}>click to edit</span>
+    </div>
+  );
+}
+  
   const handleClickMetric = (data: MetricModalData, metric: Metric) => setActiveModal({ data, metric });
   const handleEditFromModal = () => { if (activeModal) { setEditingMetricFromModal(activeModal.metric); setActiveModal(null); } };
 
@@ -2729,12 +2750,15 @@ export default function DashelloDashboard() {
     const hasFiveAccountBoxes = removedSection.metrics.some(
       m => m.modal?.fiveAccountEnabled || m.fiveAccountParentId
     );
-    if (hasFiveAccountBoxes && profile.five_account_enabled) {
-      const updated = { ...profile, five_account_enabled: false };
-      setProfile(updated);
-      supabase.from("profiles").upsert({ id: userId!, ...updated, updated_at: new Date().toISOString() });
+    if (hasFiveAccountBoxes) {
+      setProfile(prev => {
+        if (!prev.five_account_enabled) return prev;
+        const updated = { ...prev, five_account_enabled: false };
+        supabase.from("profiles").upsert({ id: userId!, ...updated, updated_at: new Date().toISOString() });
+        return updated;
+      });
     }
-  }, [profile, userId]);
+  }, [userId]);
 
   const handleNav = (p: Page) => { setPage(p); setSelectedApp(null); if (isMobile) setSidebarOpen(false); };
 
