@@ -2402,21 +2402,6 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
     if (!error) { onProfileSaved({ ...localProfile }); setSaved(true); setTimeout(() => setSaved(false), 3000); }
     setSaving(false);
   };
-
-  // --- SETTINGS UPDATE LOGIC ---
-  const handleUpdateSettings = (newSettings: FiveAccountSettings) => {
-    // 1. Update the local settings state
-    setSettings(newSettings); 
-    
-    // 2. Force the "Green Rules" in your boxes to match the new monthly expenses
-    setSections((prevSections: Section[]) => syncSettingsToMetrics(prevSections, newSettings));
-    
-    // 3. Save to Supabase
-    if (userId) {
-      saveUserData("sections", userId, syncSettingsToMetrics(sections, newSettings));
-      saveUserData("settings", userId, newSettings);
-    }
-  };
   
   const handleFiveAccountToggle = async (v: boolean) => {
     const updated = { ...localProfile, five_account_enabled: v };
@@ -2456,7 +2441,20 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
       <Toggle on={false} onChange={() => { }} disabled />
     </div>
   );
-
+// --- SETTINGS UPDATE LOGIC ---
+  const handleUpdateSettings = (newSettings: FiveAccountSettings) => {
+    // 1. Update the local settings state
+    setSettings(newSettings); 
+    
+    // 2. Force the "Green Rules" in your boxes to match the new monthly expenses
+    setSections((prevSections: Section[]) => syncSettingsToMetrics(prevSections, newSettings));
+    
+    // 3. Save to Supabase
+    if (userId) {
+      saveUserData("sections", userId, syncSettingsToMetrics(sections, newSettings));
+      saveUserData("settings", userId, newSettings);
+    }
+  };
   return (
     <div style={{ padding: "clamp(16px,4vw,32px)", maxWidth: 860 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24, flexWrap: "wrap" }}>
