@@ -868,7 +868,28 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange }: {
                       <span style={{ fontSize: 12, color: statTextColor }}>{s.label}</span>
                       {s.synced && <span style={{ fontSize: 10, color: isColored ? "rgba(255,255,255,0.5)" : "#94a3b8" }}>Synced {data.syncTime}</span>}
                     </div>
-                    <div style={{ fontSize: i === 0 ? 20 : 16, fontWeight: 700, color: statValColor }}>{s.value}</div>
+                    {i === 0 ? (
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>
+                        <input
+                          defaultValue={s.value.replace(/[^0-9.]/g, "")}
+                          onBlur={e => {
+                            const raw = e.target.value.replace(/[^0-9.]/g, "");
+                            const num = parseFloat(raw);
+                            if (!isNaN(num)) {
+                              const formatted = `${metric?.currencySymbol ?? "$"}${num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                              onValueChange?.(formatted);
+                            }
+                          }}
+                          onKeyDown={e => {
+                            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                          }}
+                          style={{ fontSize: 20, fontWeight: 700, color: statValColor, background: "transparent", border: "none", borderBottom: `1.5px solid ${isColored ? "rgba(255,255,255,0.4)" : "#e2e8f0"}`, outline: "none", width: 140 }}
+                        />
+                        <span style={{ fontSize: 10, color: statTextColor, opacity: 0.7 }}>click to edit</span>
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: 16, fontWeight: 700, color: statValColor }}>{s.value}</div>
+                    )}
                   </div>
                 ))}
               </div>
