@@ -865,7 +865,9 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange }: {
   const statTextColor = isColored ? "rgba(255,255,255,0.82)" : "#64748b";
   const statValColor = isColored ? "#fff" : "#1a2332";
 
-  // ── CASHFLOW ─────────────────────────────────────────────────────────────
+ // ── CASHFLOW ─────────────────────────────────────────────────────────────
+  const liveTxns = metric?.modal?.transactions ?? data.transactions ?? [];
+
   if (isCash) return (
     <div ref={overlayRef} onClick={e => { if (e.target === overlayRef.current) onClose(); }}
       style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 20 }}>
@@ -888,36 +890,42 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange }: {
             <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332", marginBottom: 6 }}>Health — N/A</div>
             <button style={{ padding: "6px 18px", borderRadius: 99, border: "1.5px solid #d1d5db", background: "#fff", fontSize: 12, cursor: "pointer" }}>Set A Goal</button>
           </div>}
+
+        {/* Balance + transactions */}
         <div style={{ marginBottom: 24 }}>
           <div style={{ background: accent, borderRadius: "12px 12px 0 0", padding: "18px 20px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
               <div style={{ flex: 1 }}>
-                {data.stats.map((s, i) => (
-                  <div key={i} style={{ marginBottom: i < data.stats.length - 1 ? 10 : 0 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between" }}>
-                      <span style={{ fontSize: 12, color: statTextColor }}>{s.label}</span>
-                      {s.synced && <span style={{ fontSize: 10, color: isColored ? "rgba(255,255,255,0.5)" : "#94a3b8" }}>Synced {data.syncTime}</span>}
-                    </div>
-                 {i === 0 ? (
-                      <CashBalanceInput
-                        value={metric?.value ?? s.value}
-                        currencySymbol={metric?.currencySymbol ?? "$"}
-                        statValColor={statValColor}
-                        statTextColor={statTextColor}
-                        isColored={isColored}
-                        onValueChange={onValueChange}
-                      />
-                    ) : (
-                      <div style={{ fontSize: 16, fontWeight: 700, color: statValColor }}>{s.value}</div>
-                    )}
+                <div style={{ fontSize: 12, color: statTextColor, marginBottom: 4 }}>Balance</div>
+                {metric?.outOfSync && (
+                  <div style={{ fontSize: 10, color: "#92400e", background: "#fef3c7", borderRadius: 4, padding: "2px 7px", display: "inline-flex", alignItems: "center", gap: 4, marginBottom: 6 }}>
+                    ⚠ Out of sync — <span style={{ textDecoration: "underline", cursor: "pointer" }} onClick={() => onValueChange?.(localValue)}>Resync</span>
                   </div>
-                ))}
+                )}
+                <CashBalanceInput
+                  value={metric?.value ?? data.mainValue}
+                  currencySymbol={currency}
+                  statValColor={statValColor}
+                  statTextColor={statTextColor}
+                  isColored={isColored}
+                  onValueChange={onValueChange}
+                />
+                <div style={{ fontSize: 9, color: isColored ? "rgba(255,255,255,0.5)" : "#94a3b8", marginTop: 4 }}>
+                  {metric?.lastSyncedAt ? `Synced ${new Date(metric.lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : `Synced ${data.syncTime}`}
+                </div>
               </div>
               <button style={{ background: "#fff", border: "none", borderRadius: 20, padding: "5px 14px", fontSize: 12, cursor: "pointer", fontWeight: 600, flexShrink: 0, marginLeft: 14, color: "#1a2332" }}>Filter</button>
             </div>
           </div>
-          <TxnTable transactions={metric?.modal?.transactions ?? data.transactions ?? []} />
+          <TxnTable transactions={liveTxns} />
         </div>
+
+        {/* Chart */}
+        <div style={{ border: "1px solid #e2e8f0", borderRadius: 12, padding: "12px 14px", marginBottom: 24 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332", marginBottom: 8 }}>History</div>
+          <MetricChart history={history} rules={colorRules} graphType={graphType} currentValue={metric?.value ?? data.mainValue} />
+        </div>
+
         <BottomThreeCards data={data} />
       </div>
     </div>
@@ -1104,25 +1112,16 @@ function FiveAccountColorRule({ rules, onChange }: {
   const [greenVal, setGreenVal] = useState(greenRule?.value?.toString() ?? "");
   const [greenOp, setGreenOp] = useState<">=" | "==">(greenRule?.op === "==" ? "==" : ">=");
 
-  const build = (rv: string, ymi: string, yma: string, gv: string, gop: ">=" | "==") => {
-    const rules: ColorRule[] = [];
+  const commit = (rv: string, ymi: string, yma: string, gv: string, gop: ">=" | "==") => {
+    const built: ColorRule[] = [];
     const rn = parseFloat(rv), ymn = parseFloat(ymi), ymax = parseFloat(yma), gn = parseFloat(gv);
-    if (!isNaN(rn)) rules.push({ id: "5a-red", color: "red", op: "<", value: rn });
-    if (!isNaN(ymn) && !isNaN(ymax)) rules.push({ id: "5a-yellow", color: "yellow", op: "between", value: ymn, value2: ymax });
-    if (!isNaN(gn)) rules.push({ id: "5a-green", color: "green", op: gop, value: gn });
-    onChange(rules);
+    if (!isNaN(rn)) built.push({ id: "5a-red", color: "red", op: "<", value: rn });
+    if (!isNaN(ymn) && !isNaN(ymax)) built.push({ id: "5a-yellow", color: "yellow", op: "between", value: ymn, value2: ymax });
+    if (!isNaN(gn)) built.push({ id: "5a-green", color: "green", op: gop, value: gn });
+    onChange(built);
   };
 
-  const update = (field: string, val: string) => {
-    const updates = { rv: redVal, ymi: yellowMin, yma: yellowMax, gv: greenVal, gop: greenOp };
-    if (field === "rv") { setRedVal(val); build(val, updates.ymi, updates.yma, updates.gv, updates.gop); }
-    if (field === "ymi") { setYellowMin(val); build(updates.rv, val, updates.yma, updates.gv, updates.gop); }
-    if (field === "yma") { setYellowMax(val); build(updates.rv, updates.ymi, val, updates.gv, updates.gop); }
-    if (field === "gv") { setGreenVal(val); build(updates.rv, updates.ymi, updates.yma, val, updates.gop); }
-    if (field === "gop") { const v = val as ">=" | "=="; setGreenOp(v); build(updates.rv, updates.ymi, updates.yma, updates.gv, v); }
-  };
-
-  const inputStyle: React.CSSProperties = { width: "100%", padding: "6px 9px", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", boxSizing: "border-box" };
+  const inputStyle: React.CSSProperties = { padding: "6px 9px", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", boxSizing: "border-box", width: "100%" };
   const Row = ({ label, color, children }: { label: string; color: string; children: React.ReactNode }) => (
     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
       <span style={{ width: 9, height: 9, borderRadius: "50%", background: color, flexShrink: 0, display: "inline-block" }} />
@@ -1135,20 +1134,29 @@ function FiveAccountColorRule({ rules, onChange }: {
     <div style={{ background: "#F8FAFC", borderRadius: 10, padding: "10px 12px", border: "1px solid #e2e8f0" }}>
       <div style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Color Thresholds</div>
       <Row label="Red — below" color="#E85D75">
-        <input value={redVal} onChange={e => update("rv", e.target.value)} placeholder="Min threshold" style={inputStyle} />
+        <input value={redVal} onChange={e => setRedVal(e.target.value)}
+          onBlur={() => commit(redVal, yellowMin, yellowMax, greenVal, greenOp)}
+          placeholder="Min threshold" style={inputStyle} />
       </Row>
       <Row label="Yellow — range" color="#F5A623">
-        <input value={yellowMin} onChange={e => update("ymi", e.target.value)} placeholder="From" style={{ ...inputStyle, width: "48%" }} />
+        <input value={yellowMin} onChange={e => setYellowMin(e.target.value)}
+          onBlur={() => commit(redVal, yellowMin, yellowMax, greenVal, greenOp)}
+          placeholder="From" style={{ ...inputStyle, width: "48%" }} />
         <span style={{ fontSize: 11, color: "#94a3b8" }}>–</span>
-        <input value={yellowMax} onChange={e => update("yma", e.target.value)} placeholder="To" style={{ ...inputStyle, width: "48%" }} />
+        <input value={yellowMax} onChange={e => setYellowMax(e.target.value)}
+          onBlur={() => commit(redVal, yellowMin, yellowMax, greenVal, greenOp)}
+          placeholder="To" style={{ ...inputStyle, width: "48%" }} />
       </Row>
       <Row label="Green — target" color="#4CAF7D">
-        <select value={greenOp} onChange={e => update("gop", e.target.value)}
+        <select value={greenOp}
+          onChange={e => { const v = e.target.value as ">=" | "=="; setGreenOp(v); commit(redVal, yellowMin, yellowMax, greenVal, v); }}
           style={{ padding: "6px 7px", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: 11, outline: "none", background: "#fff", flexShrink: 0 }}>
           <option value="==">= exactly</option>
           <option value=">=">&ge; at least</option>
         </select>
-        <input value={greenVal} onChange={e => update("gv", e.target.value)} placeholder="Target" style={inputStyle} />
+        <input value={greenVal} onChange={e => setGreenVal(e.target.value)}
+          onBlur={() => commit(redVal, yellowMin, yellowMax, greenVal, greenOp)}
+          placeholder="Target" style={inputStyle} />
       </Row>
     </div>
   );
@@ -2102,8 +2110,21 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, onProfileSa
 
   // Keep localProfile in sync when parent updates it externally (e.g. row deletion disables five-account)
   useEffect(() => {
-    setLocalProfile(prev => ({ ...prev, five_account_enabled: externalProfile.five_account_enabled }));
+    setLocalProfile(prev => ({
+      ...prev,
+      five_account_enabled: externalProfile.five_account_enabled,
+    }));
   }, [externalProfile.five_account_enabled]);
+
+  // Also persist the disable to Supabase when toggled off externally
+  useEffect(() => {
+    if (!userId || externalProfile.five_account_enabled) return;
+    supabase.from("profiles").upsert({
+      id: userId,
+      five_account_enabled: false,
+      updated_at: new Date().toISOString(),
+    });
+  }, [externalProfile.five_account_enabled, userId]);
 
   const handleSave = async () => {
     setSaving(true);
