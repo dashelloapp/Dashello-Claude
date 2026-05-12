@@ -44,6 +44,7 @@ interface PostTransactionPrompt {
   newValue: number;
 }
 
+type ResetFrequency = "none" | "daily" | "weekly" | "monthly";
 interface ColorRule {
   id: string;
   color: "red" | "yellow" | "green";
@@ -79,6 +80,10 @@ interface Metric {
   currencySymbol?: string;
   lastSyncedAt?: number;
   outOfSync?: boolean;
+  outOfSyncReason?: string;
+  resetFrequency?: ResetFrequency;
+  resetKeepHistory?: boolean;
+  lastResetAt?: number;
 }
 interface Section { id: string; title: string; avatars: string[]; metrics: Metric[]; }
 
@@ -126,11 +131,17 @@ function runFiveAccountEquation(
   if (!parentMetric) return metrics;
 
   const bankBalance = parseFloat(parentMetric.value.replace(/[^0-9.\-]/g, "")) || 0;
-  
-  // Find the Overhead Target from the Green Rule
-  const overheadRule = parentMetric.colorRules?.find(r => r.color === "green");
-  const overheadTarget = overheadRule ? overheadRule.value : (settings.monthlyExpenses * 2);
 
+  // Find the Overhead Target from the Green Rule.
+  // Fall back to settings.monthlyExpenses * 2 ONLY if it's > 0; otherwise no cascade.
+  const overheadRule = parentMetric.colorRules?.find(r => r.color === "green");
+  const fallbackTarget = settings.monthlyExpenses > 0 ? settings.monthlyExpenses * 2 : 0;
+  const overheadTarget = overheadRule && overheadRule.value > 0 ? overheadRule.value : fallbackTarget;
+
+  // Guard: if no valid target is set, leave the balance alone — don't drain it.
+  if (overheadTarget <= 0) return metrics;
+
+  // Transfer ONLY the excess above the target.
   const surplus = Math.max(0, bankBalance - overheadTarget);
   const overheadNewValue = surplus > 0 ? overheadTarget : bankBalance;
   const currency = parentMetric.currencySymbol ?? "$";
@@ -827,7 +838,7 @@ function OutOfSyncBanner({ metric, onResyncCurrent, onResyncPrevious }: {
             Balance out of sync
           </div>
           <div style={{ fontSize: 12, color: "#92400E", lineHeight: 1.5, marginBottom: 8 }}>
-            This balance was edited in settings without posting a transaction. Choose how to resync:
+            {metric.outOfSyncReason ?? "This balance was edited in settings without posting a transaction. Choose how to resync:"}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             <button onClick={onResyncCurrent} style={{
@@ -942,20 +953,30 @@ function TopBarRefreshButton({ onRefresh, lastSyncedAt }: {
   );
 }
 
-function CashBalanceInput({ value, currencySymbol, statValColor, statTextColor, isColored, onValueChange }: {
+function CashBalanceInput({ value, currencySymbol, statValColor, statTextColor, isColored, onValueChange, siblings, currentMetricId, onTransfer }: {
   value: string; currencySymbol: string; statValColor: string; statTextColor: string;
   isColored: boolean; onValueChange?: (v: string, description?: string) => void;
+  siblings?: Metric[]; currentMetricId?: string;
+  onTransfer?: (toMetricId: string, amount: number, description: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [txnAmount, setTxnAmount] = useState("");
   const [txnType, setTxnType] = useState<"credit" | "debit">("credit");
   const [txnDesc, setTxnDesc] = useState("");
+  const [transferToId, setTransferToId] = useState<string>("");
+
+  // Other Five-Account boxes available as transfer destinations
+  const transferTargets = (siblings ?? []).filter(s =>
+    s.id !== currentMetricId &&
+    (s.modal?.fiveAccountEnabled || s.fiveAccountParentId)
+  );
 
   const handleCancel = () => {
     setOpen(false);
     setTxnAmount("");
     setTxnDesc("");
     setTxnType("credit");
+    setTransferToId("");
   };
 
   const handlePost = () => {
@@ -965,7 +986,15 @@ function CashBalanceInput({ value, currencySymbol, statValColor, statTextColor, 
     const currentNum = parseFloat(value.replace(/[^0-9.]/g, "")) || 0;
     const newNum = txnType === "credit" ? currentNum + amount : Math.max(0, currentNum - amount);
     const formatted = `${currencySymbol}${newNum.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    onValueChange?.(formatted, txnDesc.trim());
+    // If user selected a transfer destination, label the description and trigger the counter-post
+    const finalDesc = transferToId
+      ? `${txnDesc.trim()} — Transfer ${txnType === "credit" ? "from" : "to"} ${transferTargets.find(t => t.id === transferToId)?.label ?? "account"}`
+      : txnDesc.trim();
+    onValueChange?.(formatted, finalDesc);
+    if (transferToId && onTransfer) {
+      // Mirror the transaction on the destination: a debit here = credit there, and vice versa
+      onTransfer(transferToId, txnType === "credit" ? -amount : amount, `Transfer from ${transferTargets.find(t => t.id === currentMetricId)?.label ?? "account"}: ${txnDesc.trim()}`);
+    }
     handleCancel();
   };
 
@@ -1022,6 +1051,34 @@ function CashBalanceInput({ value, currencySymbol, statValColor, statTextColor, 
             placeholder="Description (e.g. monthly deposit)"
             style={{ width: "100%", padding: "7px 10px", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", boxSizing: "border-box" as const, marginBottom: 8, color: "#1a2332", background: "#f8fafc" }}
           />
+          {/* Transfer-to option (optional) — only shown if there are other Five-Account boxes */}
+          {transferTargets.length > 0 && (
+            <div style={{ marginBottom: 8, padding: "8px 10px", background: "#F0FDF4", border: "1px solid #c3e6d4", borderRadius: 7 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "#0F6E56", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
+                Transfer to (optional)
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer", fontSize: 11, color: "#64748b" }}>
+                  <input type="checkbox" checked={transferToId === ""} onChange={() => setTransferToId("")}
+                    style={{ accentColor: "#0F6E56", margin: 0 }} />
+                  None
+                </label>
+                {transferTargets.map(t => (
+                  <label key={t.id} style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer", fontSize: 11, color: "#1a2332" }}>
+                    <input type="checkbox" checked={transferToId === t.id}
+                      onChange={() => setTransferToId(transferToId === t.id ? "" : t.id)}
+                      style={{ accentColor: "#0F6E56", margin: 0 }} />
+                    {t.label}
+                  </label>
+                ))}
+              </div>
+              {transferToId && (
+                <div style={{ fontSize: 10, color: "#0F6E56", marginTop: 6, fontStyle: "italic" }}>
+                  ✓ Will post a matching {txnType === "credit" ? "debit" : "credit"} on {transferTargets.find(t => t.id === transferToId)?.label}
+                </div>
+              )}
+            </div>
+          )}
           {/* Preview */}
           {txnAmount && parseFloat(txnAmount) > 0 && (() => {
             const cur = parseFloat(value.replace(/[^0-9.]/g, "")) || 0;
@@ -1049,10 +1106,12 @@ function CashBalanceInput({ value, currencySymbol, statValColor, statTextColor, 
     </div>
   );
 }
-function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onRefreshSections }: {
+function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onRefreshSections, siblings, onTransfer }: {
   data: MetricModalData; metric?: Metric;
   onClose: () => void; onEdit?: () => void; onValueChange?: (v: string, description?: string) => void;
   userId?: string; onRefreshSections?: () => Promise<void>;
+  siblings?: Metric[];
+  onTransfer?: (toMetricId: string, amount: number, description: string) => void;
 }) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const [localValue, setLocalValue] = useState(data.mainValue);
@@ -1168,8 +1227,26 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
                   statTextColor={statTextColor}
                   isColored={isColored}
                   onValueChange={(v, desc) => onValueChange?.(v, desc)}
+                  siblings={siblings}
+                  currentMetricId={metric?.id}
+                  onTransfer={onTransfer}
                 />
-                <div style={{ fontSize: 9, color: isColored ? "rgba(255,255,255,0.5)" : "#94a3b8", marginTop: 4 }}>
+                {/* Actual bank account balance — sum of all Five-Account boxes when displayed on overhead/parent */}
+                {data.accountType === "overhead" && siblings && siblings.length > 0 && (() => {
+                  const total = siblings.reduce((sum, s) => {
+                    if (s.id === metric?.id || s.fiveAccountParentId === metric?.id || s.modal?.fiveAccountEnabled) {
+                      return sum + (parseFloat(s.value.replace(/[^0-9.\-]/g, "")) || 0);
+                    }
+                    return sum;
+                  }, 0);
+                  const formatted = `${currency}${total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                  return (
+                    <div style={{ fontSize: 11, color: isColored ? "rgba(255,255,255,0.85)" : "#475569", marginTop: 6, fontWeight: 500 }}>
+                      Actual bank account balance: <strong>{formatted}</strong>
+                    </div>
+                  );
+                })()}
+                <div style={{ fontSize: 9, color: isColored ? "#fff" : "#94a3b8", marginTop: 4, fontWeight: isColored ? 500 : 400 }}>
                   {metric?.lastSyncedAt ? `Synced ${new Date(metric.lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
                 </div>
               </div>
@@ -1501,7 +1578,7 @@ const opLabels: RuleOp[] = [">=", "<=", ">", "<", "==", "!=", "between"];
 // METRIC BOX SETTINGS MODAL
 // ═══════════════════════════════════════════════════════════════════════════
 
-function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplicate, onRecreateMissing, onClose }: {
+function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplicate, onRecreateMissing, onClose, onFiveAccountToggledOn, onFiveAccountToggledOff }: {
   initial?: Metric;
   siblings?: Metric[];
   onSave: (m: Omit<Metric, "id">) => void;
@@ -1509,6 +1586,8 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
   onDuplicate?: () => void;
   onRecreateMissing?: (missingAccounts: string[]) => void;
   onClose: () => void;
+  onFiveAccountToggledOn?: () => void;
+  onFiveAccountToggledOff?: (disabledMetricLabel: string) => void;
 }) {
   const [label, setLabel] = useState(initial?.label ?? "");
   const [rawValue, setRawValue] = useState(() => {
@@ -1521,6 +1600,8 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
   const [currency, setCurrency] = useState(initial?.currencySymbol ?? "$");
   const [fiveOn, setFiveOn] = useState(initial?.modal?.fiveAccountEnabled ?? false);
   const [rules, setRules] = useState<ColorRule[]>(initial?.colorRules ?? []);
+  const [resetFreq, setResetFreq] = useState<ResetFrequency>(initial?.resetFrequency ?? "none");
+  const [resetKeepHistory, setResetKeepHistory] = useState<boolean>(initial?.resetKeepHistory ?? true);
   const [showRuleModal, setShowRuleModal] = useState(false);
   const [editingRule, setEditingRule] = useState<ColorRule | undefined>();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -1570,6 +1651,12 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
     });
    const valueChanged = initial && initial.value !== finalValue;
     const isFiveAccountBox = fiveOn || !!initial?.fiveAccountParentId;
+
+    // Detect Five-Account toggle changes and notify parent
+    const wasFiveOn = initial?.modal?.fiveAccountEnabled ?? false;
+    if (!wasFiveOn && fiveOn) onFiveAccountToggledOn?.();
+    if (wasFiveOn && !fiveOn && initial) onFiveAccountToggledOff?.(initial.label);
+
     onSave({
       label, value: finalValue, icon, color: "gray", modal: m,
       graphType, metricType: effectiveMetricType, colorRules: rules,
@@ -1579,6 +1666,10 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
       currencySymbol: currency,
       lastSyncedAt: initial?.lastSyncedAt,
       outOfSync: isFiveAccountBox && valueChanged ? true : (initial?.outOfSync ?? false),
+      outOfSyncReason: initial?.outOfSyncReason,
+      resetFrequency: resetFreq,
+      resetKeepHistory,
+      lastResetAt: initial?.lastResetAt,
     });
     onClose();
   };
@@ -1762,9 +1853,40 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
                     </label>
                   ))}
                 </div>
+
+                {/* Auto-reset (Section 7) */}
+                <div>
+                  <SectionLabel>Auto-Reset Metric</SectionLabel>
+                  <div style={{ fontSize: 10, color: "#94a3b8", marginBottom: 6 }}>Automatically reset this metric to zero on a schedule.</div>
+                  {([
+                    ["none", "Never (manual only)"],
+                    ["daily", "Daily"],
+                    ["weekly", "Weekly"],
+                    ["monthly", "Monthly"],
+                  ] as [ResetFrequency, string][]).map(([f, l]) => (
+                    <label key={f} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12, color: "#1a2332", marginBottom: 5 }}>
+                      <input type="radio" checked={resetFreq === f} onChange={() => setResetFreq(f)} style={{ accentColor: "#3B82F6", margin: 0 }} />{l}
+                    </label>
+                  ))}
+                  {resetFreq !== "none" && (
+                    <div style={{ background: "#F8FAFC", borderRadius: 8, padding: "8px 10px", border: "1px solid #e2e8f0", marginTop: 6 }}>
+                      <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", fontSize: 11, color: "#1a2332" }}>
+                        <div>
+                          <div style={{ fontWeight: 600 }}>Record reset in history</div>
+                          <div style={{ fontSize: 10, color: "#64748b" }}>Keep the pre-reset value in the chart history</div>
+                        </div>
+                        <Toggle on={resetKeepHistory} onChange={setResetKeepHistory} />
+                      </label>
+                      {initial?.lastResetAt && (
+                        <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 6, fontStyle: "italic" }}>
+                          Last reset: {new Date(initial.lastResetAt).toLocaleString()}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-
           <button onClick={handleSave} style={{ width: "100%", padding: "12px 0", borderRadius: 8, border: "none", marginTop: 20, background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
               Save
             </button>
@@ -1961,7 +2083,8 @@ function RowMenu({ onRename, onDelete, onClose }: { onRename: () => void; onDele
 function DashSection({
   section, onAddMetric, onRemoveMetric, onUpdateMetric, onRenameSection, onRemoveSection,
   onClickMetric, dragState, onMetricDragStart, onMetricDragEnter, onMetricDrop,
-  onSectionDragStart, onSectionDragEnter, onSectionDrop, isSectionDragOver
+  onSectionDragStart, onSectionDragEnter, onSectionDrop, isSectionDragOver,
+  onFiveAccountEnabledFromBox, onFiveAccountDisabledFromBox
 }: {
   section: Section;
   onAddMetric: (sid: string, m: Omit<Metric, "id">) => void;
@@ -1978,6 +2101,8 @@ function DashSection({
   onSectionDragEnter: (e: React.DragEvent) => void;
   onSectionDrop: () => void;
   isSectionDragOver: boolean;
+  onFiveAccountEnabledFromBox?: () => void;
+  onFiveAccountDisabledFromBox?: (sectionId: string, disabledMetricId: string, disabledLabel: string) => void;
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [editingMetric, setEditingMetric] = useState<Metric | null>(null);
@@ -2066,6 +2191,7 @@ function DashSection({
 
       {showAdd && <MetricBoxSettingsModal
         onSave={m => { handleAddMetricWithFiveAccount(m); setShowAdd(false); }}
+        onFiveAccountToggledOn={() => { /* propagated by parent via onAddMetric → cascade handler */ }}
         onClose={() => setShowAdd(false)} />}
 
       {editingMetric && <MetricBoxSettingsModal
@@ -2084,6 +2210,8 @@ function DashSection({
             onAddMetric(section.id, makeFiveAccountMetric(accountType, groupId));
           });
         }}
+        onFiveAccountToggledOn={() => onFiveAccountEnabledFromBox?.()}
+        onFiveAccountToggledOff={(label) => onFiveAccountDisabledFromBox?.(section.id, editingMetric.id, label)}
         onClose={() => setEditingMetric(null)} />}
 
       {showRowModal && <EditAddRowModal initial={section.title} onSave={name => onRenameSection(section.id, name)} onClose={() => setShowRowModal(false)} />}
@@ -2349,12 +2477,13 @@ function ProfileField({ label, value, onChange, disabled }: { label: string; val
   );
 }
 
-function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisableFiveAccount, onForceDisableAcknowledged, onProfileSaved, onFiveAccountCreated, fiveAccountSettings, onFiveAccountSettingsChange }: {
+function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisableFiveAccount, onForceDisableAcknowledged, onProfileSaved, onFiveAccountCreated, onFiveAccountDisabled, fiveAccountSettings, onFiveAccountSettingsChange }: {
   userId: string; userEmail: string; profile: any;
   forceDisableFiveAccount?: boolean;
   onForceDisableAcknowledged?: () => void;
   onProfileSaved: (p: any) => void;
   onFiveAccountCreated: () => void;
+  onFiveAccountDisabled?: () => void;
   fiveAccountSettings: FiveAccountSettings;
   onFiveAccountSettingsChange: (s: FiveAccountSettings) => void;
 }) {
@@ -2413,9 +2542,11 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
       onFiveAccountCreated();
       setFiveAccountConfirm(true);
       setTimeout(() => setFiveAccountConfirm(false), 4000);
+    } else {
+      // Cascade: disable Five-Account flag on every metric box
+      onFiveAccountDisabled?.();
     }
   };
-
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file || !userId) return;
     setUploading(true);
@@ -2743,11 +2874,13 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
 // HOME PAGE — robust drag-drop
 // ═══════════════════════════════════════════════════════════════════════════
 
-function HomePage({ sections, setSections, onClickMetric, onSectionRemoved }: {
+function HomePage({ sections, setSections, onClickMetric, onSectionRemoved, onFiveAccountEnabledFromBox, onFiveAccountDisabledFromBox }: {
   sections: Section[];
   setSections: React.Dispatch<React.SetStateAction<Section[]>>;
   onClickMetric: (data: MetricModalData, metric: Metric) => void;
   onSectionRemoved?: (section: Section) => void;
+  onFiveAccountEnabledFromBox?: () => void;
+  onFiveAccountDisabledFromBox?: (sectionId: string, disabledMetricId: string, disabledLabel: string) => void;
 }) {
   // Drag state stored in ref so it's always current in event handlers
   const dragMetricRef = useRef<{ sourceSid: string; sourceMid: string } | null>(null);
@@ -2863,6 +2996,8 @@ function HomePage({ sections, setSections, onClickMetric, onSectionRemoved }: {
           onSectionDragEnter={e => handleSectionDragEnter(e, s.id)}
           onSectionDrop={() => handleSectionDrop(s.id)}
           isSectionDragOver={dragOverSid === s.id}
+          onFiveAccountEnabledFromBox={onFiveAccountEnabledFromBox}
+          onFiveAccountDisabledFromBox={onFiveAccountDisabledFromBox}
         />
       ))}
       <div onClick={() => setShowAddRow(true)} style={{ display: "flex", alignItems: "center", gap: 8, color: "#94a3b8", fontSize: 13, cursor: "pointer", padding: "6px 0" }}>
@@ -3077,6 +3212,42 @@ export default function DashelloDashboard() {
   const handleClickMetric = (data: MetricModalData, metric: Metric) => setActiveModal({ data, metric });
   const handleEditFromModal = () => { if (activeModal) { setEditingMetricFromModal(activeModal.metric); setActiveModal(null); } };
 
+  // Section 1: Mirror a transaction onto another Five-Account box when "Transfer to" is checked
+  const handleTransfer = useCallback((toMetricId: string, amount: number, description: string) => {
+    setSections(prev => prev.map(s => ({
+      ...s,
+      metrics: s.metrics.map(m => {
+        if (m.id !== toMetricId) return m;
+        const cur = parseFloat(m.value.replace(/[^0-9.\-]/g, "")) || 0;
+        const next = Math.max(0, cur + amount);
+        const currency = m.currencySymbol ?? "$";
+        const formatted = `${currency}${next.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        const now = Date.now();
+        const txn: Transaction = {
+          date: new Date(now).toLocaleDateString(),
+          description,
+          ...(amount > 0 ? { credit: amount } : { debit: -amount }),
+        };
+        return {
+          ...m,
+          value: formatted,
+          history: [...(m.history ?? []), { timestamp: now, value: next }].slice(-50),
+          lastSyncedAt: now,
+          modal: {
+            ...m.modal,
+            mainValue: formatted,
+            transactions: [...(m.modal.transactions ?? []), txn],
+          },
+        };
+      }),
+    })));
+  }, []);
+
+  // Compute siblings for whichever metric is currently in the modal
+  const activeModalSiblings: Metric[] = activeModal
+    ? (sections.find(s => s.metrics.some(m => m.id === activeModal.metric.id))?.metrics ?? [])
+    : [];
+
   // Five-Account created from Settings — adds "Finances" row with all 5 boxes
   const handleFiveAccountCreated = useCallback(() => {
     setSections(prev => {
@@ -3101,6 +3272,101 @@ export default function DashelloDashboard() {
     });
   }, [setSections]);
 
+// ── Section 2: Box-level toggle ON → flip global profile flag ON ─────────
+  const handleFiveAccountEnabledFromBox = useCallback(() => {
+    if (!userId) return;
+    setProfile(prev => {
+      if (prev.five_account_enabled) return prev;
+      const updated = { ...prev, five_account_enabled: true };
+      supabase.from("profiles").upsert({ id: userId, five_account_enabled: true, updated_at: new Date().toISOString() });
+      return updated;
+    });
+  }, [userId]);
+
+  // ── Section 3: Global toggle OFF → cascade to every metric box ───────────
+  const handleGlobalFiveAccountDisabled = useCallback(() => {
+    setSections(prev => prev.map(s => ({
+      ...s,
+      metrics: s.metrics.map(m => {
+        if (!m.modal?.fiveAccountEnabled && !m.fiveAccountParentId) return m;
+        return {
+          ...m,
+          fiveAccountParentId: undefined,
+          modal: { ...m.modal, fiveAccountEnabled: false, accountType: undefined },
+        };
+      }),
+    })));
+  }, []);
+
+  // ── Section 4: Box-level toggle OFF → mark Five-Account siblings out-of-sync ─
+  const handleFiveAccountDisabledFromBox = useCallback((sectionId: string, disabledMetricId: string, disabledLabel: string) => {
+    setSections(prev => prev.map(s => {
+      if (s.id !== sectionId) return s;
+      return {
+        ...s,
+        metrics: s.metrics.map(m => {
+          // Skip the box being disabled itself
+          if (m.id === disabledMetricId) return m;
+          // Only mark OTHER Five-Account boxes in this group
+          if (m.modal?.fiveAccountEnabled || m.fiveAccountParentId) {
+            return {
+              ...m,
+              outOfSync: true,
+              outOfSyncReason: `Your ${disabledLabel} balance is turned off and out of sync. The Five-Account equation can no longer cascade through ${disabledLabel}.`,
+            };
+          }
+          return m;
+        }),
+      };
+    }));
+  }, []);
+
+  // ── Section 7: Auto-reset scheduler ──────────────────────────────────────
+  useEffect(() => {
+    if (!dbReady) return;
+    const check = () => {
+      const now = Date.now();
+      const DAY = 24 * 60 * 60 * 1000;
+      const WEEK = 7 * DAY;
+      // Approximate month as 30 days for scheduling
+      const MONTH = 30 * DAY;
+      let changed = false;
+      const next = sections.map(s => ({
+        ...s,
+        metrics: s.metrics.map(m => {
+          if (!m.resetFrequency || m.resetFrequency === "none") return m;
+          const last = m.lastResetAt ?? 0;
+          let interval = 0;
+          if (m.resetFrequency === "daily") interval = DAY;
+          else if (m.resetFrequency === "weekly") interval = WEEK;
+          else if (m.resetFrequency === "monthly") interval = MONTH;
+          if (interval === 0 || now - last < interval) return m;
+          // Time to reset
+          changed = true;
+          const isFinancial = m.metricType === "financial";
+          const currency = m.currencySymbol ?? "$";
+          const newValue = isFinancial
+            ? `${currency}0.00`
+            : (m.metricType === "percentage" ? "0%" : "0");
+          const newHistory = m.resetKeepHistory
+            ? [...(m.history ?? []), { timestamp: now, value: 0 }].slice(-50)
+            : [];
+          return {
+            ...m,
+            value: newValue,
+            history: newHistory,
+            lastResetAt: now,
+            modal: { ...m.modal, mainValue: newValue },
+          };
+        }),
+      }));
+      if (changed) setSections(next);
+    };
+    check(); // Run once on mount
+    const id = setInterval(check, 60 * 1000); // Check every minute
+    return () => clearInterval(id);
+  }, [dbReady, sections]);
+  
   // Auto-disable five-account if the section containing the group is fully deleted
   const handleRemoveSectionWithFiveAccountCheck = useCallback((removedSection: Section) => {
     const hasFiveAccountBoxes = removedSection.metrics.some(
@@ -3178,13 +3444,15 @@ const sidebarEl = (
 
         {/* Pages */}
         <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-          {page === "home" && <HomePage sections={sections} setSections={setSections} onClickMetric={handleClickMetric} onSectionRemoved={handleRemoveSectionWithFiveAccountCheck} />}
+          {page === "home" && <HomePage sections={sections} setSections={setSections} onClickMetric={handleClickMetric} onSectionRemoved={handleRemoveSectionWithFiveAccountCheck}
+            onFiveAccountEnabledFromBox={handleFiveAccountEnabledFromBox}
+            onFiveAccountDisabledFromBox={handleFiveAccountDisabledFromBox} />}
           {page === "goals" && <div style={{ flex: 1, overflowY: "auto" }}><GoalsPage goals={goalsData} setGoals={setGoalsData} /></div>}
           {page === "tasks" && <div style={{ flex: 1, overflowY: "auto" }}><TasksPage tasks={tasksData} setTasks={setTasksData} /></div>}
           {page === "integrations" && <div style={{ flex: 1, overflowY: "auto" }}><IntegrationsPage onSelectApp={a => { setSelectedApp(a); setPage("app-detail"); }} /></div>}
           {page === "app-detail" && selectedApp && <div style={{ flex: 1, overflowY: "auto" }}><AppDetailPage app={selectedApp} onBack={() => setPage("integrations")} /></div>}
           {page === "team" && <div style={{ flex: 1, overflowY: "auto" }}><TeamPage /></div>}
-          {page === "settings" && <div style={{ flex: 1, overflowY: "auto" }}><SettingsPage userId={userId!} userEmail={userEmail} profile={profile} forceDisableFiveAccount={fiveAccountForceOff} onForceDisableAcknowledged={() => setFiveAccountForceOff(false)} onProfileSaved={p => setProfile(p)} onFiveAccountCreated={handleFiveAccountCreated} fiveAccountSettings={fiveAccountSettings} onFiveAccountSettingsChange={setFiveAccountSettings} /></div>}
+          {page === "settings" && <div style={{ flex: 1, overflowY: "auto" }}><SettingsPage userId={userId!} userEmail={userEmail} profile={profile} forceDisableFiveAccount={fiveAccountForceOff} onForceDisableAcknowledged={() => setFiveAccountForceOff(false)} onProfileSaved={p => setProfile(p)} onFiveAccountCreated={handleFiveAccountCreated} onFiveAccountDisabled={handleGlobalFiveAccountDisabled} fiveAccountSettings={fiveAccountSettings} onFiveAccountSettingsChange={setFiveAccountSettings} /></div>}
         </div>
       </div>
 
@@ -3193,7 +3461,8 @@ const sidebarEl = (
       {activeModal && (
         <MetricModal data={activeModal.data} metric={activeModal.metric}
           onClose={() => setActiveModal(null)} onEdit={handleEditFromModal} onValueChange={handleValueChange}
-          userId={userId ?? undefined} onRefreshSections={handleRefreshMetric} />
+          userId={userId ?? undefined} onRefreshSections={handleRefreshMetric}
+          siblings={activeModalSiblings} onTransfer={handleTransfer} />
       )}
 
      {editingMetricFromModal && (() => {
@@ -3231,6 +3500,10 @@ const sidebarEl = (
                 }));
               }
               setEditingMetricFromModal(null);
+            }}
+            onFiveAccountToggledOn={handleFiveAccountEnabledFromBox}
+            onFiveAccountToggledOff={(label) => {
+              if (foundSid) handleFiveAccountDisabledFromBox(foundSid, editingMetricFromModal.id, label);
             }}
             onClose={() => setEditingMetricFromModal(null)} />
         );
