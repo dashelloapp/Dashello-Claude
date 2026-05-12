@@ -2818,7 +2818,19 @@ const sidebarEl = (
               setPostTransactionPrompt(null);
             }}
             onCancel={() => {
-              pendingValueChangeRef.current?.();
+              // Revert the value back to what it was before the edit
+              if (postTransactionPrompt) {
+                const { metricId, oldValue } = postTransactionPrompt;
+                const metric = sections.flatMap(s => s.metrics).find(m => m.id === metricId);
+                if (metric) {
+                  const currency = metric.currencySymbol ?? "$";
+                  const reverted = `${currency}${oldValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                  setSections(prev => prev.map(s => ({
+                    ...s, metrics: s.metrics.map(m => m.id === metricId ? { ...m, value: reverted } : m)
+                  })));
+                  setActiveModal(prev => prev ? { ...prev, metric: { ...prev.metric, value: reverted }, data: { ...prev.data, mainValue: reverted } } : null);
+                }
+              }
               pendingValueChangeRef.current = null;
               setPostTransactionPrompt(null);
             }}
