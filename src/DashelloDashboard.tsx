@@ -189,10 +189,8 @@ function runFiveAccountEquation(
           history: makeHistory(m, ownerSalary) };
       }
     }
-    return m;
+   return m;
   });
-}
-  return "gray";
 }
 // ─── Health score calculation ──────────────────────────────────────────────
 type HealthResult = {
