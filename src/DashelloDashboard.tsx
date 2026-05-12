@@ -784,6 +784,36 @@ function MetricChart({ history, rules, graphType, currentValue }: {
 // METRIC DETAIL MODAL
 // ═══════════════════════════════════════════════════════════════════════════
 
+function CashBalanceInput({ value, currencySymbol, statValColor, statTextColor, isColored, onValueChange }: {
+  value: string; currencySymbol: string; statValColor: string; statTextColor: string;
+  isColored: boolean; onValueChange?: (v: string) => void;
+}) {
+  const [editVal, setEditVal] = useState(value.replace(/[^0-9.]/g, ""));
+
+  useEffect(() => {
+    setEditVal(value.replace(/[^0-9.]/g, ""));
+  }, [value]);
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>
+      <input
+        value={editVal}
+        onChange={e => setEditVal(e.target.value.replace(/[^0-9.]/g, ""))}
+        onBlur={() => {
+          const num = parseFloat(editVal);
+          if (!isNaN(num)) {
+            const formatted = `${currencySymbol}${num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            onValueChange?.(formatted);
+          }
+        }}
+        onKeyDown={e => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+        style={{ fontSize: 20, fontWeight: 700, color: statValColor, background: "transparent", border: "none", borderBottom: `1.5px solid ${isColored ? "rgba(255,255,255,0.4)" : "#e2e8f0"}`, outline: "none", width: 140 }}
+      />
+      <span style={{ fontSize: 10, color: statTextColor, opacity: 0.7 }}>click to edit</span>
+    </div>
+  );
+}
+
 function MetricModal({ data, metric, onClose, onEdit, onValueChange }: {
   data: MetricModalData; metric?: Metric;
   onClose: () => void; onEdit?: () => void; onValueChange?: (v: string) => void;
@@ -2694,37 +2724,6 @@ export default function DashelloDashboard() {
       applyChange();
     }
   };
-
-  function CashBalanceInput({ value, currencySymbol, statValColor, statTextColor, isColored, onValueChange }: {
-  value: string; currencySymbol: string; statValColor: string; statTextColor: string;
-  isColored: boolean; onValueChange?: (v: string) => void;
-}) {
-  const raw = value.replace(/[^0-9.]/g, "");
-  const [editVal, setEditVal] = useState(raw);
-
-  useEffect(() => {
-    setEditVal(value.replace(/[^0-9.]/g, ""));
-  }, [value]);
-
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>
-      <input
-        value={editVal}
-        onChange={e => setEditVal(e.target.value.replace(/[^0-9.]/g, ""))}
-        onBlur={() => {
-          const num = parseFloat(editVal);
-          if (!isNaN(num)) {
-            const formatted = `${currencySymbol}${num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-            onValueChange?.(formatted);
-          }
-        }}
-        onKeyDown={e => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-        style={{ fontSize: 20, fontWeight: 700, color: statValColor, background: "transparent", border: "none", borderBottom: `1.5px solid ${isColored ? "rgba(255,255,255,0.4)" : "#e2e8f0"}`, outline: "none", width: 140 }}
-      />
-      <span style={{ fontSize: 10, color: statTextColor, opacity: 0.7 }}>click to edit</span>
-    </div>
-  );
-}
   
   const handleClickMetric = (data: MetricModalData, metric: Metric) => setActiveModal({ data, metric });
   const handleEditFromModal = () => { if (activeModal) { setEditingMetricFromModal(activeModal.metric); setActiveModal(null); } };
