@@ -445,21 +445,6 @@ function IconGlyph({ name, size = 20, color = "#3B82F6", weight = "regular" }: {
   return <IconComponent size={size} color={color} weight={weight} style={{ display: "block", flexShrink: 0 }} />;
 }
 
-// --- SETTINGS UPDATE LOGIC ---
-// This tells the app: "When I save my expenses, update the Green Rules immediately"
-const handleUpdateSettings = (newSettings: FiveAccountSettings) => {
-  // 1. Update the settings state
-  setSettings(newSettings); 
-  
-  // 2. Force the "Green Rules" in your boxes to match the new monthly expenses
-  setSections(prevSections => syncSettingsToMetrics(prevSections, newSettings));
-  
-  // 3. Save to Supabase (Database)
-  if (userId) {
-    saveUserData("settings", userId, newSettings);
-  }
-};
-
 // ═══════════════════════════════════════════════════════════════════════════
 // MODAL DATA
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2418,6 +2403,21 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
     setSaving(false);
   };
 
+  // --- SETTINGS UPDATE LOGIC ---
+  const handleUpdateSettings = (newSettings: FiveAccountSettings) => {
+    // 1. Update the local settings state
+    setSettings(newSettings); 
+    
+    // 2. Force the "Green Rules" in your boxes to match the new monthly expenses
+    setSections((prevSections: Section[]) => syncSettingsToMetrics(prevSections, newSettings));
+    
+    // 3. Save to Supabase
+    if (userId) {
+      saveUserData("sections", userId, syncSettingsToMetrics(sections, newSettings));
+      saveUserData("settings", userId, newSettings);
+    }
+  };
+  
   const handleFiveAccountToggle = async (v: boolean) => {
     const updated = { ...localProfile, five_account_enabled: v };
     setLocalProfile(updated);
