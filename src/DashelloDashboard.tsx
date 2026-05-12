@@ -788,83 +788,101 @@ function CashBalanceInput({ value, currencySymbol, statValColor, statTextColor, 
   value: string; currencySymbol: string; statValColor: string; statTextColor: string;
   isColored: boolean; onValueChange?: (v: string, description?: string) => void;
 }) {
-  const [editing, setEditing] = useState(false);
-  const [editVal, setEditVal] = useState("");
+  const [open, setOpen] = useState(false);
+  const [txnAmount, setTxnAmount] = useState("");
+  const [txnType, setTxnType] = useState<"credit" | "debit">("credit");
   const [txnDesc, setTxnDesc] = useState("");
 
-  const startEdit = () => {
-    setEditVal(value.replace(/[^0-9.]/g, ""));
-    setTxnDesc("");
-    setEditing(true);
-  };
-
   const handleCancel = () => {
-    setEditing(false);
-    setEditVal("");
+    setOpen(false);
+    setTxnAmount("");
     setTxnDesc("");
+    setTxnType("credit");
   };
 
   const handlePost = () => {
-    if (!txnDesc.trim()) return;
-    const num = parseFloat(editVal);
-    if (isNaN(num)) return;
-    const formatted = `${currencySymbol}${num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    if (!txnDesc.trim() || !txnAmount) return;
+    const amount = parseFloat(txnAmount);
+    if (isNaN(amount) || amount <= 0) return;
+    const currentNum = parseFloat(value.replace(/[^0-9.]/g, "")) || 0;
+    const newNum = txnType === "credit" ? currentNum + amount : Math.max(0, currentNum - amount);
+    const formatted = `${currencySymbol}${newNum.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     onValueChange?.(formatted, txnDesc.trim());
-    setEditing(false);
-    setEditVal("");
-    setTxnDesc("");
+    handleCancel();
   };
-
-  const oldNum = parseFloat(value.replace(/[^0-9.]/g, "")) || 0;
-  const newNum = parseFloat(editVal) || 0;
-  const delta = newNum - oldNum;
-  const isCredit = delta > 0;
-  const fmtDelta = `${currencySymbol}${Math.abs(delta).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  const hasChange = editVal !== "" && delta !== 0;
 
   return (
     <div>
-      {/* Balance row */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 2, marginBottom: editing ? 12 : 0 }}>
-        {editing ? (
-          <input
-            value={editVal}
-            onChange={e => setEditVal(e.target.value.replace(/[^0-9.]/g, ""))}
-            onKeyDown={e => { if (e.key === "Escape") handleCancel(); }}
-            autoFocus
-            style={{ fontSize: 20, fontWeight: 700, color: "#1a2332", background: "#fff", border: "1.5px solid #3B82F6", borderRadius: 8, outline: "none", padding: "4px 10px", width: 150 }}
-          />
-        ) : (
-          <span style={{ fontSize: 20, fontWeight: 700, color: statValColor }}>{value}</span>
-        )}
-        {!editing && (
-          <button onClick={startEdit} style={{ padding: "4px 10px", borderRadius: 20, border: "1.5px solid", borderColor: isColored ? "rgba(255,255,255,0.4)" : "#e2e8f0", background: isColored ? "rgba(255,255,255,0.15)" : "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer", color: isColored ? "#fff" : "#3B82F6", flexShrink: 0 }}>
-            Update Balance
+      {/* Balance display + Post Transaction button */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 2, marginBottom: open ? 12 : 0 }}>
+        <span style={{ fontSize: 20, fontWeight: 700, color: statValColor }}>{value}</span>
+        {!open && (
+          <button onClick={() => setOpen(true)} style={{
+            padding: "4px 10px", borderRadius: 20, border: "1.5px solid",
+            borderColor: isColored ? "rgba(255,255,255,0.4)" : "#e2e8f0",
+            background: isColored ? "rgba(255,255,255,0.15)" : "#fff",
+            fontSize: 11, fontWeight: 600, cursor: "pointer",
+            color: isColored ? "#fff" : "#3B82F6", flexShrink: 0
+          }}>
+            Post Transaction
           </button>
         )}
       </div>
 
-      {/* Inline post transaction form */}
-      {editing && (
+      {/* Inline form */}
+      {open && (
         <div style={{ background: "#fff", borderRadius: 10, padding: "12px 14px", border: "1.5px solid #e2e8f0", marginBottom: 4 }}>
-          {hasChange && (
-            <div style={{ fontSize: 11, color: "#64748b", marginBottom: 8 }}>
-              Recording a <strong style={{ color: isCredit ? "#4CAF7D" : "#E85D75" }}>{isCredit ? `+${fmtDelta} credit` : `-${fmtDelta} debit`}</strong>
-            </div>
-          )}
+          {/* Credit / Debit toggle */}
+          <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+            {(["credit", "debit"] as const).map(t => (
+              <button key={t} onClick={() => setTxnType(t)} style={{
+                flex: 1, padding: "5px 0", borderRadius: 7, border: "1.5px solid",
+                borderColor: txnType === t ? (t === "credit" ? "#4CAF7D" : "#E85D75") : "#e2e8f0",
+                background: txnType === t ? (t === "credit" ? "#F0FDF4" : "#FFF5F5") : "#fff",
+                color: txnType === t ? (t === "credit" ? "#4CAF7D" : "#E85D75") : "#94a3b8",
+                fontSize: 12, fontWeight: 600, cursor: "pointer", textTransform: "capitalize"
+              }}>{t === "credit" ? "＋ Credit" : "－ Debit"}</button>
+            ))}
+          </div>
+          {/* Amount */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+            <span style={{ fontSize: 13, color: "#64748b", flexShrink: 0 }}>{currencySymbol}</span>
+            <input
+              value={txnAmount}
+              onChange={e => setTxnAmount(e.target.value.replace(/[^0-9.]/g, ""))}
+              onKeyDown={e => { if (e.key === "Enter") handlePost(); }}
+              placeholder="Amount"
+              autoFocus
+              style={{ flex: 1, padding: "7px 10px", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none", boxSizing: "border-box" as const, color: "#1a2332", background: "#f8fafc" }}
+            />
+          </div>
+          {/* Description */}
           <input
             value={txnDesc}
             onChange={e => setTxnDesc(e.target.value)}
             onKeyDown={e => { if (e.key === "Enter") handlePost(); }}
-            placeholder="Transaction description (e.g. monthly deposit)"
-            style={{ width: "100%", padding: "7px 10px", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", boxSizing: "border-box", marginBottom: 8, color: "#1a2332", background: "#f8fafc" }}
+            placeholder="Description (e.g. monthly deposit)"
+            style={{ width: "100%", padding: "7px 10px", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", boxSizing: "border-box" as const, marginBottom: 8, color: "#1a2332", background: "#f8fafc" }}
           />
+          {/* Preview */}
+          {txnAmount && parseFloat(txnAmount) > 0 && (() => {
+            const cur = parseFloat(value.replace(/[^0-9.]/g, "")) || 0;
+            const amt = parseFloat(txnAmount) || 0;
+            const next = txnType === "credit" ? cur + amt : Math.max(0, cur - amt);
+            const fmt = (n: number) => `${currencySymbol}${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            return (
+              <div style={{ fontSize: 11, color: "#64748b", marginBottom: 8, padding: "5px 8px", background: "#f1f5f9", borderRadius: 6 }}>
+                {fmt(cur)} → <strong style={{ color: txnType === "credit" ? "#4CAF7D" : "#E85D75" }}>{fmt(next)}</strong>
+              </div>
+            );
+          })()}
+          {/* Buttons */}
           <div style={{ display: "flex", gap: 6 }}>
             <button onClick={handleCancel} style={{ flex: 1, padding: "7px 0", borderRadius: 7, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b" }}>
               Cancel
             </button>
-            <button onClick={handlePost} disabled={!txnDesc.trim() || !hasChange}
-              style={{ flex: 2, padding: "7px 0", borderRadius: 7, border: "none", background: txnDesc.trim() && hasChange ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0", color: txnDesc.trim() && hasChange ? "#fff" : "#94a3b8", fontSize: 12, fontWeight: 600, cursor: txnDesc.trim() && hasChange ? "pointer" : "not-allowed" }}>
+            <button onClick={handlePost} disabled={!txnDesc.trim() || !txnAmount || parseFloat(txnAmount) <= 0}
+              style={{ flex: 2, padding: "7px 0", borderRadius: 7, border: "none", fontSize: 12, fontWeight: 600, cursor: txnDesc.trim() && txnAmount ? "pointer" : "not-allowed", background: txnDesc.trim() && txnAmount && parseFloat(txnAmount) > 0 ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0", color: txnDesc.trim() && txnAmount && parseFloat(txnAmount) > 0 ? "#fff" : "#94a3b8" }}>
               Post Transaction
             </button>
           </div>
@@ -873,7 +891,6 @@ function CashBalanceInput({ value, currencySymbol, statValColor, statTextColor, 
     </div>
   );
 }
-
 function MetricModal({ data, metric, onClose, onEdit, onValueChange }: {
   data: MetricModalData; metric?: Metric;
   onClose: () => void; onEdit?: () => void; onValueChange?: (v: string, description?: string) => void;
