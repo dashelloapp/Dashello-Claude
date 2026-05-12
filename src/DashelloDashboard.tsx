@@ -2441,20 +2441,7 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
       <Toggle on={false} onChange={() => { }} disabled />
     </div>
   );
-// --- SETTINGS UPDATE LOGIC ---
-  const handleUpdateSettings = (newSettings: FiveAccountSettings) => {
-    // 1. Update the local settings state
-    setSettings(newSettings); 
-    
-    // 2. Force the "Green Rules" in your boxes to match the new monthly expenses
-    setSections((prevSections: Section[]) => syncSettingsToMetrics(prevSections, newSettings));
-    
-    // 3. Save to Supabase
-    if (userId) {
-      saveUserData("sections", userId, syncSettingsToMetrics(sections, newSettings));
-      saveUserData("settings", userId, newSettings);
-    }
-  };
+
   return (
     <div style={{ padding: "clamp(16px,4vw,32px)", maxWidth: 860 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24, flexWrap: "wrap" }}>
@@ -2915,6 +2902,21 @@ export default function DashelloDashboard() {
   const pendingValueChangeRef = useRef<((description?: string) => void) | null>(null);
   const [lastDashboardSync, setLastDashboardSync] = useState<number | null>(null);
   const [fiveAccountForceOff, setFiveAccountForceOff] = useState(false);
+  
+  // --- SETTINGS UPDATE LOGIC ---
+  const handleUpdateSettings = (newSettings: FiveAccountSettings) => {
+    // 1. Update local settings
+    setSettings(newSettings); 
+    
+    // 2. Sync green rules for Overhead and Profit boxes
+    setSections((prevSections: Section[]) => syncSettingsToMetrics(prevSections, newSettings));
+    
+    // 3. Save to Supabase
+    if (userId) {
+      saveUserData("sections", userId, syncSettingsToMetrics(sections, newSettings));
+      saveUserData("settings", userId, newSettings);
+    }
+  };
   
   const [tasksData, setTasksData] = useState([
     { id: "1", text: "Review Q3 financials", done: false, assignee: "AJ", due: "Mar 15" },
