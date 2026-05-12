@@ -788,28 +788,86 @@ function CashBalanceInput({ value, currencySymbol, statValColor, statTextColor, 
   value: string; currencySymbol: string; statValColor: string; statTextColor: string;
   isColored: boolean; onValueChange?: (v: string) => void;
 }) {
-  const [editVal, setEditVal] = useState(value.replace(/[^0-9.]/g, ""));
+  const raw = value.replace(/[^0-9.]/g, "");
+  const [editVal, setEditVal] = useState(raw);
+  const [pendingVal, setPendingVal] = useState<string | null>(null);
+  const [txnDesc, setTxnDesc] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     setEditVal(value.replace(/[^0-9.]/g, ""));
+    setPendingVal(null);
+    setTxnDesc("");
+    setSubmitting(false);
   }, [value]);
 
+  const handleBlur = () => {
+    const num = parseFloat(editVal);
+    const oldNum = parseFloat(value.replace(/[^0-9.]/g, ""));
+    if (!isNaN(num) && num !== oldNum) {
+      setPendingVal(editVal);
+    } else {
+      setEditVal(value.replace(/[^0-9.]/g, ""));
+    }
+  };
+
+  const handlePost = () => {
+    if (!txnDesc.trim() || pendingVal === null) return;
+    const num = parseFloat(pendingVal);
+    if (isNaN(num)) return;
+    const formatted = `${currencySymbol}${num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    setSubmitting(true);
+    onValueChange?.(formatted);
+  };
+
+  const handleCancel = () => {
+    setEditVal(value.replace(/[^0-9.]/g, ""));
+    setPendingVal(null);
+    setTxnDesc("");
+    setSubmitting(false);
+  };
+
+  const oldNum = parseFloat(value.replace(/[^0-9.]/g, "")) || 0;
+  const newNum = parseFloat(pendingVal ?? "0") || 0;
+  const delta = newNum - oldNum;
+  const isCredit = delta > 0;
+  const fmtDelta = `${currencySymbol}${Math.abs(delta).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>
-      <input
-        value={editVal}
-        onChange={e => setEditVal(e.target.value.replace(/[^0-9.]/g, ""))}
-        onBlur={() => {
-          const num = parseFloat(editVal);
-          if (!isNaN(num)) {
-            const formatted = `${currencySymbol}${num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-            onValueChange?.(formatted);
-          }
-        }}
-        onKeyDown={e => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-        style={{ fontSize: 20, fontWeight: 700, color: statValColor, background: "transparent", border: "none", borderBottom: `1.5px solid ${isColored ? "rgba(255,255,255,0.4)" : "#e2e8f0"}`, outline: "none", width: 140 }}
-      />
-      <span style={{ fontSize: 10, color: statTextColor, opacity: 0.7 }}>click to edit</span>
+    <div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2, marginBottom: pendingVal !== null ? 10 : 0 }}>
+        <input
+          value={editVal}
+          onChange={e => setEditVal(e.target.value.replace(/[^0-9.]/g, ""))}
+          onBlur={handleBlur}
+          onKeyDown={e => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+          style={{ fontSize: 20, fontWeight: 700, color: statValColor, background: "transparent", border: "none", borderBottom: `1.5px solid ${isColored ? "rgba(255,255,255,0.4)" : "#e2e8f0"}`, outline: "none", width: 140 }}
+        />
+        <span style={{ fontSize: 10, color: statTextColor, opacity: 0.7 }}>click to edit</span>
+      </div>
+      {pendingVal !== null && (
+        <div style={{ background: isColored ? "rgba(255,255,255,0.15)" : "#F8FAFC", borderRadius: 10, padding: "10px 12px", border: `1px solid ${isColored ? "rgba(255,255,255,0.25)" : "#e2e8f0"}`, marginTop: 6 }}>
+          <div style={{ fontSize: 11, color: isColored ? "rgba(255,255,255,0.8)" : "#64748b", marginBottom: 6 }}>
+            Recording a <strong style={{ color: isCredit ? "#4CAF7D" : "#E85D75" }}>{isCredit ? `+${fmtDelta} credit` : `-${fmtDelta} debit`}</strong> — add a description to post:
+          </div>
+          <input
+            value={txnDesc}
+            onChange={e => setTxnDesc(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") handlePost(); }}
+            autoFocus
+            placeholder="Transaction description (e.g. Q1 tax payment)"
+            style={{ width: "100%", padding: "6px 10px", borderRadius: 7, border: `1px solid ${isColored ? "rgba(255,255,255,0.3)" : "#e2e8f0"}`, fontSize: 12, outline: "none", boxSizing: "border-box", marginBottom: 8, background: isColored ? "rgba(255,255,255,0.15)" : "#fff", color: isColored ? "#fff" : "#1a2332" }}
+          />
+          <div style={{ display: "flex", gap: 6 }}>
+            <button onClick={handleCancel} style={{ flex: 1, padding: "6px 0", borderRadius: 6, border: `1px solid ${isColored ? "rgba(255,255,255,0.3)" : "#e2e8f0"}`, background: "transparent", fontSize: 11, cursor: "pointer", color: isColored ? "rgba(255,255,255,0.8)" : "#64748b" }}>
+              Cancel
+            </button>
+            <button onClick={handlePost} disabled={!txnDesc.trim() || submitting} style={{ flex: 2, padding: "6px 0", borderRadius: 6, border: "none", background: txnDesc.trim() ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0", color: txnDesc.trim() ? "#fff" : "#94a3b8", fontSize: 11, fontWeight: 600, cursor: txnDesc.trim() ? "pointer" : "not-allowed" }}>
+              Post Transaction
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1106,22 +1164,23 @@ function FiveAccountColorRule({ rules, onChange }: {
   const yellowRule = rules.find(r => r.color === "yellow");
   const greenRule = rules.find(r => r.color === "green");
 
-  const [redVal, setRedVal] = useState(redRule?.value?.toString() ?? "");
-  const [yellowMin, setYellowMin] = useState(yellowRule?.value?.toString() ?? "");
-  const [yellowMax, setYellowMax] = useState(yellowRule?.value2?.toString() ?? "");
-  const [greenVal, setGreenVal] = useState(greenRule?.value?.toString() ?? "");
+  const rv = useRef(redRule?.value?.toString() ?? "");
+  const ymi = useRef(yellowRule?.value?.toString() ?? "");
+  const yma = useRef(yellowRule?.value2?.toString() ?? "");
+  const gv = useRef(greenRule?.value?.toString() ?? "");
   const [greenOp, setGreenOp] = useState<">=" | "==">(greenRule?.op === "==" ? "==" : ">=");
 
-  const commit = (rv: string, ymi: string, yma: string, gv: string, gop: ">=" | "==") => {
+  const commit = (gop: ">=" | "==" = greenOp) => {
     const built: ColorRule[] = [];
-    const rn = parseFloat(rv), ymn = parseFloat(ymi), ymax = parseFloat(yma), gn = parseFloat(gv);
+    const rn = parseFloat(rv.current), ymn = parseFloat(ymi.current), ymax = parseFloat(yma.current), gn = parseFloat(gv.current);
     if (!isNaN(rn)) built.push({ id: "5a-red", color: "red", op: "<", value: rn });
     if (!isNaN(ymn) && !isNaN(ymax)) built.push({ id: "5a-yellow", color: "yellow", op: "between", value: ymn, value2: ymax });
     if (!isNaN(gn)) built.push({ id: "5a-green", color: "green", op: gop, value: gn });
     onChange(built);
   };
 
-  const inputStyle: React.CSSProperties = { padding: "6px 9px", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", boxSizing: "border-box", width: "100%" };
+  const inputStyle: React.CSSProperties = { padding: "6px 9px", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", boxSizing: "border-box", width: "100%", background: "#fff" };
+
   const Row = ({ label, color, children }: { label: string; color: string; children: React.ReactNode }) => (
     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
       <span style={{ width: 9, height: 9, borderRadius: "50%", background: color, flexShrink: 0, display: "inline-block" }} />
@@ -1134,29 +1193,20 @@ function FiveAccountColorRule({ rules, onChange }: {
     <div style={{ background: "#F8FAFC", borderRadius: 10, padding: "10px 12px", border: "1px solid #e2e8f0" }}>
       <div style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Color Thresholds</div>
       <Row label="Red — below" color="#E85D75">
-        <input value={redVal} onChange={e => setRedVal(e.target.value)}
-          onBlur={() => commit(redVal, yellowMin, yellowMax, greenVal, greenOp)}
-          placeholder="Min threshold" style={inputStyle} />
+        <input defaultValue={rv.current} onChange={e => { rv.current = e.target.value; }} onBlur={() => commit()} placeholder="Min threshold" style={inputStyle} />
       </Row>
       <Row label="Yellow — range" color="#F5A623">
-        <input value={yellowMin} onChange={e => setYellowMin(e.target.value)}
-          onBlur={() => commit(redVal, yellowMin, yellowMax, greenVal, greenOp)}
-          placeholder="From" style={{ ...inputStyle, width: "48%" }} />
+        <input defaultValue={ymi.current} onChange={e => { ymi.current = e.target.value; }} onBlur={() => commit()} placeholder="From" style={{ ...inputStyle, width: "48%" }} />
         <span style={{ fontSize: 11, color: "#94a3b8" }}>–</span>
-        <input value={yellowMax} onChange={e => setYellowMax(e.target.value)}
-          onBlur={() => commit(redVal, yellowMin, yellowMax, greenVal, greenOp)}
-          placeholder="To" style={{ ...inputStyle, width: "48%" }} />
+        <input defaultValue={yma.current} onChange={e => { yma.current = e.target.value; }} onBlur={() => commit()} placeholder="To" style={{ ...inputStyle, width: "48%" }} />
       </Row>
       <Row label="Green — target" color="#4CAF7D">
-        <select value={greenOp}
-          onChange={e => { const v = e.target.value as ">=" | "=="; setGreenOp(v); commit(redVal, yellowMin, yellowMax, greenVal, v); }}
+        <select value={greenOp} onChange={e => { const v = e.target.value as ">=" | "=="; setGreenOp(v); commit(v); }}
           style={{ padding: "6px 7px", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: 11, outline: "none", background: "#fff", flexShrink: 0 }}>
           <option value="==">= exactly</option>
           <option value=">=">&ge; at least</option>
         </select>
-        <input value={greenVal} onChange={e => setGreenVal(e.target.value)}
-          onBlur={() => commit(redVal, yellowMin, yellowMax, greenVal, greenOp)}
-          placeholder="Target" style={inputStyle} />
+        <input defaultValue={gv.current} onChange={e => { gv.current = e.target.value; }} onBlur={() => commit()} placeholder="Target" style={inputStyle} />
       </Row>
     </div>
   );
@@ -1312,8 +1362,10 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
     const finalValue = previewValue;
     const m = makeModal(label, finalValue, "gray", {
       fiveAccountEnabled: fiveOn,
-      type: fiveOn ? "cashflow" : effectiveMetricType === "counter" ? "leads" : effectiveMetricType === "percentage" ? "website" : "invoices",
+      type: fiveOn ? "cashflow" : initial?.modal?.type ?? (effectiveMetricType === "counter" ? "leads" : effectiveMetricType === "percentage" ? "website" : "invoices"),
       mainValue: finalValue,
+      accountType: initial?.modal?.accountType,
+      transactions: initial?.modal?.transactions ?? [],
     });
     onSave({
       label, value: finalValue, icon, color: "gray", modal: m,
@@ -2745,13 +2797,7 @@ export default function DashelloDashboard() {
       setActiveModal(prev => prev ? { ...prev, metric: { ...prev.metric, value: newValue, lastSyncedAt: now }, data: { ...prev.data, mainValue: newValue } } : null);
     };
 
-    if (isFiveAccount && fiveAccountSettings.postTransactionEnabled && !isNaN(numericVal) && numericVal !== oldVal) {
-      setPostTransactionPrompt({ metricId, oldValue: oldVal, newValue: numericVal });
-      // Store applyChange via ref so the modal can call it
-      pendingValueChangeRef.current = applyChange;
-    } else {
-      applyChange();
-    }
+   applyChange();
   };
   
   const handleClickMetric = (data: MetricModalData, metric: Metric) => setActiveModal({ data, metric });
@@ -2858,38 +2904,6 @@ const sidebarEl = (
       </div>
 
       {showChat && <ChatPanel sections={sections} onClose={() => setShowChat(false)} />}
-
-      {postTransactionPrompt && (() => {
-        const metric = sections.flatMap(s => s.metrics).find(m => m.id === postTransactionPrompt.metricId);
-        return (
-          <PostTransactionModal
-            prompt={postTransactionPrompt}
-            currency={metric?.currencySymbol ?? "$"}
-            onConfirm={(desc) => {
-              pendingValueChangeRef.current?.(desc);
-              pendingValueChangeRef.current = null;
-              setPostTransactionPrompt(null);
-            }}
-            onCancel={() => {
-              // Revert the value back to what it was before the edit
-              if (postTransactionPrompt) {
-                const { metricId, oldValue } = postTransactionPrompt;
-                const metric = sections.flatMap(s => s.metrics).find(m => m.id === metricId);
-                if (metric) {
-                  const currency = metric.currencySymbol ?? "$";
-                  const reverted = `${currency}${oldValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-                  setSections(prev => prev.map(s => ({
-                    ...s, metrics: s.metrics.map(m => m.id === metricId ? { ...m, value: reverted, outOfSync: false } : m)
-                  })));
-                  setActiveModal(prev => prev ? { ...prev, metric: { ...prev.metric, value: reverted, outOfSync: false }, data: { ...prev.data, mainValue: reverted } } : null);
-                }
-              }
-              pendingValueChangeRef.current = null;
-              setPostTransactionPrompt(null);
-            }}
-          />
-        );
-      })()}
 
       {activeModal && (
         <MetricModal data={activeModal.data} metric={activeModal.metric}
