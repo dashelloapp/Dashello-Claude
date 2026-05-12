@@ -24,7 +24,21 @@ type MetricColor = "green" | "yellow" | "red" | "gray";
 type Page = "home" | "goals" | "tasks" | "integrations" | "team" | "settings" | "app-detail";
 type GraphType = "bar-h" | "linear" | "pie" | "bar-v";
 type MetricType = "counter" | "percentage" | "financial";
-type RuleOp = ">=" | "<=" | ">" | "<" | "between" | "==" | "!=";
+type RuleOp = ">=" | "<=" | ">" | "<" | "between" | "==" | "!=" ;
+type FiveAccountMode = "one-business" | "business-and-personal" | "five-separate";
+
+interface FiveAccountSettings {
+  mode: FiveAccountMode;
+  monthlyExpenses: number;
+  ownerSalary: number;
+  postTransactionEnabled: boolean;
+}
+
+interface PostTransactionPrompt {
+  metricId: string;
+  oldValue: number;
+  newValue: number;
+}
 
 interface ColorRule {
   id: string;
@@ -57,8 +71,10 @@ interface Metric {
   colorRules?: ColorRule[];
   connectedApps?: string[];
   history?: DataPoint[];
-  fiveAccountParentId?: string; // set on child boxes created by five-account
+  fiveAccountParentId?: string;
   currencySymbol?: string;
+  lastSyncedAt?: number;
+  outOfSync?: boolean;
 }
 interface Section { id: string; title: string; avatars: string[]; metrics: Metric[]; }
 
@@ -93,6 +109,86 @@ function getColorForValue(val: number, rules: ColorRule[]): MetricColor {
     if (rule.op === "between" && rule.value2 != null && val >= rule.value && val <= rule.value2) match = true;
     if (match) return rule.color;
   }
+  // ─── Five-Account equation ─────────────────────────────────────────────────
+function runFiveAccountEquation(
+  metrics: Metric[],
+  parentId: string,
+  settings: FiveAccountSettings
+): Metric[] {
+  const parentMetric = metrics.find(m => m.id === parentId);
+  if (!parentMetric) return metrics;
+
+  const bankBalance = parseFloat(parentMetric.value.replace(/[^0-9.\-]/g, "")) || 0;
+  const overheadTarget = settings.monthlyExpenses * 2;
+  const profitTarget = settings.monthlyExpenses * 6;
+
+  // Find each account box by fiveAccountParentId
+  const getBox = (label: string) =>
+    metrics.find(m => (m.fiveAccountParentId === parentId || m.id === parentId) && m.label.toLowerCase() === label);
+
+  const overheadBox = getBox("overhead");
+  const profitBox = getBox("profit");
+  const taxBox = getBox("tax");
+  const investmentsBox = getBox("investments");
+  const ownerBox = getBox("owner");
+
+  const currentProfitBalance = parseFloat(profitBox?.value.replace(/[^0-9.\-]/g, "") || "0");
+  const currentTaxBalance = parseFloat(taxBox?.value.replace(/[^0-9.\-]/g, "") || "0");
+  const currentInvestmentsBalance = parseFloat(investmentsBox?.value.replace(/[^0-9.\-]/g, "") || "0");
+  const ownerSalary = settings.ownerSalary;
+  const currency = parentMetric.currencySymbol ?? "$";
+  const fmt = (n: number) => `${currency}${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const now = Date.now();
+
+  // Step 1: Overhead funded first (includes owner salary in the target)
+  const overheadFunded = Math.min(bankBalance, overheadTarget);
+  const surplusAfterOverhead = Math.max(0, bankBalance - overheadTarget);
+
+  // Step 2: 50% of surplus always goes to tax
+  const taxInflow = surplusAfterOverhead * 0.5;
+  const remaining = surplusAfterOverhead * 0.5;
+
+  // Step 3: Pre vs post emergency fund
+  const profitAlreadyFunded = currentProfitBalance >= profitTarget;
+  const profitInflow = profitAlreadyFunded ? 0 : remaining;
+  const investmentsInflow = profitAlreadyFunded ? remaining : 0;
+
+  const newTax = currentTaxBalance + taxInflow;
+  const newProfit = profitAlreadyFunded ? currentProfitBalance : currentProfitBalance + profitInflow;
+  const newInvestments = currentInvestmentsBalance + investmentsInflow;
+
+  const makeHistory = (box: Metric | undefined, newVal: number): DataPoint[] => {
+    const existing = box?.history ?? [];
+    return [...existing, { timestamp: now, value: newVal }].slice(-50);
+  };
+
+  return metrics.map(m => {
+    if (m.id === parentId || m.fiveAccountParentId === parentId) {
+      const lbl = m.label.toLowerCase();
+      if (lbl === "overhead" || m.id === parentId) {
+        return { ...m, value: fmt(overheadFunded), lastSyncedAt: now, outOfSync: false,
+          history: makeHistory(m, overheadFunded) };
+      }
+      if (lbl === "profit") {
+        return { ...m, value: fmt(newProfit), lastSyncedAt: now, outOfSync: false,
+          history: makeHistory(m, newProfit) };
+      }
+      if (lbl === "tax") {
+        return { ...m, value: fmt(newTax), lastSyncedAt: now, outOfSync: false,
+          history: makeHistory(m, newTax) };
+      }
+      if (lbl === "investments") {
+        return { ...m, value: fmt(newInvestments), lastSyncedAt: now, outOfSync: false,
+          history: makeHistory(m, newInvestments) };
+      }
+      if (lbl === "owner") {
+        return { ...m, value: fmt(ownerSalary), lastSyncedAt: now, outOfSync: false,
+          history: makeHistory(m, ownerSalary) };
+      }
+    }
+    return m;
+  });
+}
   return "gray";
 }
 // ─── Health score calculation ──────────────────────────────────────────────
@@ -170,17 +266,32 @@ const MS: Record<MetricColor, { bg: string; text: string }> = {
 };
 
 const FIVE_DESC: Record<string, string> = {
-  overhead:    "2 months of operating expenses. Everything above this flows to Profit.",
-  profit:      "Builds to a 6-month emergency fund. Surplus splits 50/50 to Tax & Investments.",
-  tax:         "50% of surplus Profit allocation. Set aside for taxes.",
-  investments: "50% of surplus Profit allocation. Long-term growth fund.",
-  owner:       "Your salary — paid from Overhead as a fixed operating expense.",
+  overhead:    "2 months of operating expenses (incl. owner salary). Surplus flows downstream.",
+  profit:      "Builds to a 6-month emergency fund. Once reached, surplus shifts to Investments.",
+  tax:         "50% of every surplus inflow — always. Accumulates until a tax bill is paid.",
+  investments: "Receives 50% of surplus once Profit emergency fund is fully funded.",
+  owner:       "Monthly salary baked into Overhead target. Auto-set from Five-Account settings.",
 };
+
+const FIVE_EQUATION_POINTS = [
+  "1. Overhead funded first (2 mo. expenses incl. owner salary). Surplus flows down.",
+  "2. 50% of every surplus → Tax, always. Accumulates until paid.",
+  "3. Pre-emergency fund: remaining 50% → Profit.",
+  "4. Post-emergency fund (6 mo. reached): remaining 50% → Investments.",
+  "5. Owner = monthly salary baked into Overhead. Auto-updated from settings.",
+  "6. Any surplus after a tax bill is paid → Profit (if <6mo) or Investments.",
+];
 
 const FIVE_ACCOUNT_LABELS = ["Overhead", "Profit", "Tax", "Investments", "Owner"] as const;
 const FIVE_ACCOUNT_ICONS: Record<string, string> = {
   Overhead: "CreditCard", Profit: "TrendUp", Tax: "Receipt",
   Investments: "Wallet", Owner: "UserCircle",
+};
+const DEFAULT_FIVE_ACCOUNT_SETTINGS: FiveAccountSettings = {
+  mode: "business-and-personal",
+  monthlyExpenses: 0,
+  ownerSalary: 0,
+  postTransactionEnabled: true,
 };
 
 const WORLD_CURRENCIES = [
@@ -803,7 +914,9 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange }: {
         </div>
         <div style={{ textAlign: "center", marginBottom: 28 }}>
           <div style={{ height: 2, background: "#1a2332", width: 220, margin: "0 auto 5px" }} />
-          <span style={{ fontSize: 12, fontStyle: "italic", color: "#94a3b8" }}>Synced from {data.syncTime}</span>
+          <span style={{ fontSize: 12, fontStyle: "italic", color: "#94a3b8" }}>
+            {metric?.lastSyncedAt ? `Synced ${new Date(metric.lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : `Synced ${data.syncTime}`}
+          </span>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 24 }}>
           <SectionCard>
@@ -871,7 +984,16 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange }: {
                   ? <input value={localValue} onChange={e => setLocalValue(e.target.value)} onBlur={handleValueSave} onKeyDown={e => { if (e.key === "Enter") handleValueSave(); }} autoFocus
                     style={{ fontSize: 26, fontWeight: 700, color: "#1a2332", border: "none", borderBottom: "2px solid #3B82F6", outline: "none", width: 130, background: "transparent" }} />
                   : <div onClick={() => setIsEditingValue(true)} style={{ fontSize: 26, fontWeight: 700, color: "#1a2332", cursor: "text" }} title="Click to edit">{localValue}</div>}
-                <div style={{ fontSize: 10, color: "#94a3b8", fontStyle: "italic" }}>Synced from {data.syncTime}</div>
+                {metric?.outOfSync ? (
+                  <div style={{ fontSize: 10, color: "#92400e", background: "#fef3c7", borderRadius: 4, padding: "2px 7px", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                    ⚠ Out of sync —
+                    <span style={{ textDecoration: "underline", cursor: "pointer" }} onClick={() => onValueChange?.(localValue)}>Resync</span>
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 10, color: "#94a3b8", fontStyle: "italic" }}>
+                    {metric?.lastSyncedAt ? `Synced ${new Date(metric.lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : `Synced ${data.syncTime}`}
+                  </div>
+                )}
               </div>
               <button onClick={() => handleIncrement(1)} style={{ width: 30, height: 30, borderRadius: "50%", border: "1.5px solid #d1d5db", background: "none", fontSize: 18, cursor: "pointer", color: "#9CA3AF" }}>+</button>
             </div>
@@ -882,6 +1004,110 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange }: {
         </div>
         <BottomThreeCards data={data} />
       </div>
+    </div>
+  );
+}
+// ═══════════════════════════════════════════════════════════════════════════
+// POST TRANSACTION MODAL
+// ═══════════════════════════════════════════════════════════════════════════
+
+function PostTransactionModal({ prompt, currency, onConfirm, onCancel }: {
+  prompt: PostTransactionPrompt;
+  currency: string;
+  onConfirm: (description: string) => void;
+  onCancel: () => void;
+}) {
+  const [desc, setDesc] = useState("");
+  const delta = prompt.newValue - prompt.oldValue;
+  const isCredit = delta > 0;
+  const fmt = (n: number) => `${currency}${Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  return (
+    <div onClick={onCancel} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 5000, padding: 16 }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 16, padding: 24, width: "100%", maxWidth: 380, boxShadow: "0 24px 64px rgba(0,0,0,0.2)" }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: "#1a2332", marginBottom: 4 }}>Post Transaction</div>
+        <div style={{ fontSize: 12, color: "#64748b", marginBottom: 16 }}>
+          Recording a <strong style={{ color: isCredit ? "#4CAF7D" : "#E85D75" }}>{isCredit ? `+${fmt(delta)} credit` : `${fmt(delta)} debit`}</strong> to this account.
+        </div>
+        <input
+          value={desc} onChange={e => setDesc(e.target.value)} autoFocus
+          onKeyDown={e => { if (e.key === "Enter" && desc.trim()) onConfirm(desc.trim()); }}
+          placeholder="Transaction description (e.g. Q1 tax payment)"
+          style={{ width: "100%", padding: "8px 11px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none", boxSizing: "border-box", marginBottom: 14 }}
+        />
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={onCancel} style={{ flex: 1, padding: "9px 0", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+          <button onClick={() => { if (desc.trim()) onConfirm(desc.trim()); }} style={{ flex: 1, padding: "9px 0", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Post</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FIVE-ACCOUNT SIMPLIFIED COLOR RULE
+// ═══════════════════════════════════════════════════════════════════════════
+
+function FiveAccountColorRule({ rules, onChange }: {
+  rules: ColorRule[];
+  onChange: (rules: ColorRule[]) => void;
+}) {
+  const redRule = rules.find(r => r.color === "red");
+  const yellowRule = rules.find(r => r.color === "yellow");
+  const greenRule = rules.find(r => r.color === "green");
+
+  const [redVal, setRedVal] = useState(redRule?.value?.toString() ?? "");
+  const [yellowMin, setYellowMin] = useState(yellowRule?.value?.toString() ?? "");
+  const [yellowMax, setYellowMax] = useState(yellowRule?.value2?.toString() ?? "");
+  const [greenVal, setGreenVal] = useState(greenRule?.value?.toString() ?? "");
+  const [greenOp, setGreenOp] = useState<">=" | "==">(greenRule?.op === "==" ? "==" : ">=");
+
+  const build = (rv: string, ymi: string, yma: string, gv: string, gop: ">=" | "==") => {
+    const rules: ColorRule[] = [];
+    const rn = parseFloat(rv), ymn = parseFloat(ymi), ymax = parseFloat(yma), gn = parseFloat(gv);
+    if (!isNaN(rn)) rules.push({ id: "5a-red", color: "red", op: "<", value: rn });
+    if (!isNaN(ymn) && !isNaN(ymax)) rules.push({ id: "5a-yellow", color: "yellow", op: "between", value: ymn, value2: ymax });
+    if (!isNaN(gn)) rules.push({ id: "5a-green", color: "green", op: gop, value: gn });
+    onChange(rules);
+  };
+
+  const update = (field: string, val: string) => {
+    const updates = { rv: redVal, ymi: yellowMin, yma: yellowMax, gv: greenVal, gop: greenOp };
+    if (field === "rv") { setRedVal(val); build(val, updates.ymi, updates.yma, updates.gv, updates.gop); }
+    if (field === "ymi") { setYellowMin(val); build(updates.rv, val, updates.yma, updates.gv, updates.gop); }
+    if (field === "yma") { setYellowMax(val); build(updates.rv, updates.ymi, val, updates.gv, updates.gop); }
+    if (field === "gv") { setGreenVal(val); build(updates.rv, updates.ymi, updates.yma, val, updates.gop); }
+    if (field === "gop") { const v = val as ">=" | "=="; setGreenOp(v); build(updates.rv, updates.ymi, updates.yma, updates.gv, v); }
+  };
+
+  const inputStyle: React.CSSProperties = { width: "100%", padding: "6px 9px", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", boxSizing: "border-box" };
+  const Row = ({ label, color, children }: { label: string; color: string; children: React.ReactNode }) => (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+      <span style={{ width: 9, height: 9, borderRadius: "50%", background: color, flexShrink: 0, display: "inline-block" }} />
+      <span style={{ fontSize: 11, color: "#64748b", width: 54, flexShrink: 0 }}>{label}</span>
+      {children}
+    </div>
+  );
+
+  return (
+    <div style={{ background: "#F8FAFC", borderRadius: 10, padding: "10px 12px", border: "1px solid #e2e8f0" }}>
+      <div style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Color Thresholds</div>
+      <Row label="Red — below" color="#E85D75">
+        <input value={redVal} onChange={e => update("rv", e.target.value)} placeholder="Min threshold" style={inputStyle} />
+      </Row>
+      <Row label="Yellow — range" color="#F5A623">
+        <input value={yellowMin} onChange={e => update("ymi", e.target.value)} placeholder="From" style={{ ...inputStyle, width: "48%" }} />
+        <span style={{ fontSize: 11, color: "#94a3b8" }}>–</span>
+        <input value={yellowMax} onChange={e => update("yma", e.target.value)} placeholder="To" style={{ ...inputStyle, width: "48%" }} />
+      </Row>
+      <Row label="Green — target" color="#4CAF7D">
+        <select value={greenOp} onChange={e => update("gop", e.target.value)}
+          style={{ padding: "6px 7px", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: 11, outline: "none", background: "#fff", flexShrink: 0 }}>
+          <option value="==">= exactly</option>
+          <option value=">=">&ge; at least</option>
+        </select>
+        <input value={greenVal} onChange={e => update("gv", e.target.value)} placeholder="Target" style={inputStyle} />
+      </Row>
     </div>
   );
 }
@@ -1143,8 +1369,11 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
                       </div>
                       {fiveOn && (
                         <>
-                          <div style={{ fontSize: 11, color: "#0F6E56", background: "#dcfce7", borderRadius: 6, padding: "5px 10px", marginBottom: 6 }}>
-                            ✓ Box will display bank transactions and 5-account math.
+                          <div style={{ fontSize: 11, color: "#0F6E56", background: "#dcfce7", borderRadius: 6, padding: "8px 10px", marginBottom: 6 }}>
+                            <div style={{ fontWeight: 700, marginBottom: 4 }}>✓ Five-Account Math Active</div>
+                            {FIVE_EQUATION_POINTS.map((pt, i) => (
+                              <div key={i} style={{ marginBottom: 2, lineHeight: 1.4 }}>{pt}</div>
+                            ))}
                           </div>
 
                           {/* Case 1: brand-new (no group exists yet) → show "this will create 4 more" warning */}
@@ -1178,32 +1407,37 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
                 })()}
 
                 {/* Color Rules */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                  <button style={{ padding: "8px 0", borderRadius: 8, border: "none", background: "#64748b", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Create Equation</button>
-                  <button onClick={openAddRule} style={{ padding: "8px 0", borderRadius: 8, border: "none", background: "#64748b", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Create Color Rule</button>
-                </div>
-
-                {rules.length > 0 && (
-                  <div>
-                    <SectionLabel>Active Color Rules</SectionLabel>
-                    {rules.map(r => (
-                      <div key={r.id} style={{ background: "#F8FAFC", borderRadius: 8, padding: "7px 10px", marginBottom: 6, border: "1px solid #e2e8f0" }}>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                          <div>
-                            <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 1 }}>
-                              <span style={{ width: 9, height: 9, borderRadius: "50%", background: MS[r.color].bg, display: "inline-block" }} />
-                              <span style={{ fontSize: 11, fontWeight: 600, color: "#1a2332", textTransform: "capitalize" }}>{r.color}</span>
+                {fiveOn ? (
+                  <FiveAccountColorRule rules={rules} onChange={setRules} />
+                ) : (
+                  <>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                      <button style={{ padding: "8px 0", borderRadius: 8, border: "none", background: "#64748b", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Create Equation</button>
+                      <button onClick={openAddRule} style={{ padding: "8px 0", borderRadius: 8, border: "none", background: "#64748b", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Create Color Rule</button>
+                    </div>
+                    {rules.length > 0 && (
+                      <div>
+                        <SectionLabel>Active Color Rules</SectionLabel>
+                        {rules.map(r => (
+                          <div key={r.id} style={{ background: "#F8FAFC", borderRadius: 8, padding: "7px 10px", marginBottom: 6, border: "1px solid #e2e8f0" }}>
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                              <div>
+                                <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 1 }}>
+                                  <span style={{ width: 9, height: 9, borderRadius: "50%", background: MS[r.color].bg, display: "inline-block" }} />
+                                  <span style={{ fontSize: 11, fontWeight: 600, color: "#1a2332", textTransform: "capitalize" }}>{r.color}</span>
+                                </div>
+                                <div style={{ fontSize: 10, color: "#64748b" }}>If metric is {ruleDesc(r)}</div>
+                              </div>
+                              <div style={{ display: "flex", gap: 6 }}>
+                                <button onClick={() => openEditRule(r)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: "#3B82F6", padding: 0 }}>Edit</button>
+                                <button onClick={() => removeRule(r.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: "#E85D75", padding: 0 }}>✕</button>
+                              </div>
                             </div>
-                            <div style={{ fontSize: 10, color: "#64748b" }}>If metric is {ruleDesc(r)}</div>
                           </div>
-                          <div style={{ display: "flex", gap: 6 }}>
-                            <button onClick={() => openEditRule(r)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: "#3B82F6", padding: 0 }}>Edit</button>
-                            <button onClick={() => removeRule(r.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: "#E85D75", padding: 0 }}>✕</button>
-                          </div>
-                        </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
+                    )}
+                  </>
                 )}
               </div>
 
@@ -1790,9 +2024,11 @@ function ProfileField({ label, value, onChange, disabled }: { label: string; val
   );
 }
 
-function SettingsPage({ userId, userEmail, onProfileSaved, onFiveAccountCreated }: {
+function SettingsPage({ userId, userEmail, onProfileSaved, onFiveAccountCreated, fiveAccountSettings, onFiveAccountSettingsChange }: {
   userId: string; userEmail: string; onProfileSaved: (p: any) => void;
   onFiveAccountCreated: () => void;
+  fiveAccountSettings: FiveAccountSettings;
+  onFiveAccountSettingsChange: (s: FiveAccountSettings) => void;
 }) {
   const [localProfile, setLocalProfile] = useState({
   full_name: "", company: "", street: "", city: "", state: "", zip: "", country: "",
@@ -1936,6 +2172,78 @@ function SettingsPage({ userId, userEmail, onProfileSaved, onFiveAccountCreated 
             {fiveAccountConfirm && (
               <div style={{ marginTop: 8, background: "#F0FDF4", border: "1px solid #c3e6d4", borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "#0F6E56", display: "flex", alignItems: "center", gap: 6 }}>
                 ✓ Five-Account System created — Finances row added to your dashboard.
+              </div>
+            )}
+
+            {/* Five-Account Configuration — shown when enabled */}
+            {localProfile.five_account_enabled && (
+              <div style={{ background: "#F0FDF4", border: "1px solid #c3e6d4", borderRadius: 10, padding: "12px 14px", marginTop: 8 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#0F6E56", marginBottom: 10 }}>Five-Account Configuration</div>
+
+                {/* Bank account mode */}
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "#1a2332", marginBottom: 6 }}>Bank Account Mode</div>
+                  {([
+                    ["one-business", "One business checking account", "Equation runs automatically across all 5 boxes."],
+                    ["business-and-personal", "Business + personal checking (default)", "Equation runs for Overhead, Profit, Tax, Investments. Owner is manual."],
+                    ["five-separate", "Five separate bank accounts", "Equation disabled. Each box updated manually or via integration."],
+                  ] as [FiveAccountMode, string, string][]).map(([val, label, sub]) => (
+                    <label key={val} style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer", marginBottom: 6 }}>
+                      <input type="radio" checked={fiveAccountSettings.mode === val}
+                        onChange={() => onFiveAccountSettingsChange({ ...fiveAccountSettings, mode: val })}
+                        style={{ accentColor: "#0F6E56", marginTop: 2, flexShrink: 0 }} />
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: "#1a2332" }}>{label}</div>
+                        <div style={{ fontSize: 10, color: "#64748b" }}>{sub}</div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+
+                {/* Monthly expenses */}
+                <div style={{ marginBottom: 8 }}>
+                  <label style={{ fontSize: 11, fontWeight: 600, color: "#1a2332", display: "block", marginBottom: 3 }}>Monthly Operating Expenses (incl. owner salary)</label>
+                  <input type="number" value={fiveAccountSettings.monthlyExpenses || ""}
+                    onChange={e => onFiveAccountSettingsChange({ ...fiveAccountSettings, monthlyExpenses: parseFloat(e.target.value) || 0 })}
+                    placeholder="e.g. 25000"
+                    style={{ width: "100%", padding: "6px 10px", borderRadius: 7, border: "1.5px solid #c3e6d4", fontSize: 12, outline: "none", boxSizing: "border-box" }} />
+                  {fiveAccountSettings.monthlyExpenses > 0 && (
+                    <div style={{ fontSize: 10, color: "#64748b", marginTop: 3 }}>
+                      Overhead target: <strong>${(fiveAccountSettings.monthlyExpenses * 2).toLocaleString()}</strong> &nbsp;·&nbsp;
+                      Profit target: <strong>${(fiveAccountSettings.monthlyExpenses * 6).toLocaleString()}</strong>
+                    </div>
+                  )}
+                </div>
+
+                {/* Owner salary */}
+                <div style={{ marginBottom: 8 }}>
+                  <label style={{ fontSize: 11, fontWeight: 600, color: "#1a2332", display: "block", marginBottom: 3 }}>Total Owner's Salary (monthly)</label>
+                  <input type="number" value={fiveAccountSettings.ownerSalary || ""}
+                    onChange={e => onFiveAccountSettingsChange({ ...fiveAccountSettings, ownerSalary: parseFloat(e.target.value) || 0 })}
+                    placeholder="e.g. 8000"
+                    style={{ width: "100%", padding: "6px 10px", borderRadius: 7, border: "1.5px solid #c3e6d4", fontSize: 12, outline: "none", boxSizing: "border-box" }} />
+                  {fiveAccountSettings.ownerSalary > 0 && (
+                    <div style={{ fontSize: 10, color: "#64748b", marginTop: 3 }}>
+                      Annual: <strong>${(fiveAccountSettings.ownerSalary * 12).toLocaleString()}</strong>
+                    </div>
+                  )}
+                </div>
+
+                {/* Post transaction toggle */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 0", borderTop: "1px solid #c3e6d4", marginTop: 6 }}>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: "#1a2332" }}>Post Transaction on Edit</div>
+                    <div style={{ fontSize: 10, color: "#64748b" }}>Prompt to log a transaction when a Five-Account value changes</div>
+                  </div>
+                  <Toggle on={fiveAccountSettings.postTransactionEnabled}
+                    onChange={v => onFiveAccountSettingsChange({ ...fiveAccountSettings, postTransactionEnabled: v })} />
+                </div>
+
+                {/* Reset button */}
+                <button onClick={() => onFiveAccountSettingsChange(DEFAULT_FIVE_ACCOUNT_SETTINGS)}
+                  style={{ marginTop: 10, width: "100%", padding: "6px 0", borderRadius: 7, border: "1px solid #c3e6d4", background: "transparent", fontSize: 11, color: "#0F6E56", cursor: "pointer", fontWeight: 600 }}>
+                  Reset to Profit First Defaults
+                </button>
               </div>
             )}
           </div>
@@ -2097,10 +2405,11 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
 // HOME PAGE — robust drag-drop
 // ═══════════════════════════════════════════════════════════════════════════
 
-function HomePage({ sections, setSections, onClickMetric }: {
+function HomePage({ sections, setSections, onClickMetric, onSectionRemoved }: {
   sections: Section[];
   setSections: React.Dispatch<React.SetStateAction<Section[]>>;
   onClickMetric: (data: MetricModalData, metric: Metric) => void;
+  onSectionRemoved?: (section: Section) => void;
 }) {
   // Drag state stored in ref so it's always current in event handlers
   const dragMetricRef = useRef<{ sourceSid: string; sourceMid: string } | null>(null);
@@ -2111,7 +2420,11 @@ function HomePage({ sections, setSections, onClickMetric }: {
 
   const addSection = (name: string) => setSections(p => [...p, { id: crypto.randomUUID(), title: name, avatars: [], metrics: [] }]);
   const renameSection = (sid: string, name: string) => setSections(p => p.map(s => s.id === sid ? { ...s, title: name } : s));
-  const removeSection = (sid: string) => setSections(p => p.filter(s => s.id !== sid));
+  const removeSection = (sid: string) => {
+    const removed = sections.find(s => s.id === sid);
+    if (removed) onSectionRemoved?.(removed);
+    setSections(p => p.filter(s => s.id !== sid));
+  };
   const addMetric = (sid: string, m: Omit<Metric, "id">) => setSections(p => p.map(s => s.id === sid ? { ...s, metrics: [...s.metrics, { ...m, id: crypto.randomUUID() }] } : s));
   const removeMetric = (sid: string, mid: string) => setSections(p => p.map(s => s.id === sid ? { ...s, metrics: s.metrics.filter(m => m.id !== mid) } : s));
   const updateMetric = (sid: string, mid: string, updated: Omit<Metric, "id">) => setSections(p => p.map(s => s.id === sid ? { ...s, metrics: s.metrics.map(m => m.id === mid ? { ...updated, id: mid } : m) } : s));
@@ -2240,13 +2553,16 @@ export default function DashelloDashboard() {
   const [userEmail, setUserEmail] = useState("");
   const [dbReady, setDbReady] = useState(false);
   const [profile, setProfile] = useState({
-  full_name: "", company: "", street: "", city: "", state: "", zip: "", country: "",
-  avatar_url: "", five_account_enabled: false,
-  health_green_multiplier: 1.0,
-  health_yellow_multiplier: 0.5,
-  health_red_multiplier: -1.0,
-});
-
+    full_name: "", company: "", street: "", city: "", state: "", zip: "", country: "",
+    avatar_url: "", five_account_enabled: false,
+    health_green_multiplier: 1.0,
+    health_yellow_multiplier: 0.5,
+    health_red_multiplier: -1.0,
+  });
+  const [fiveAccountSettings, setFiveAccountSettings] = useState<FiveAccountSettings>(DEFAULT_FIVE_ACCOUNT_SETTINGS);
+  const [postTransactionPrompt, setPostTransactionPrompt] = useState<PostTransactionPrompt | null>(null);
+  const pendingValueChangeRef = useRef<((description?: string) => void) | null>(null);
+  
   const [tasksData, setTasksData] = useState([
     { id: "1", text: "Review Q3 financials", done: false, assignee: "AJ", due: "Mar 15" },
     { id: "2", text: "Follow up with 5 leads", done: true, assignee: "BK", due: "Mar 12" },
@@ -2314,14 +2630,57 @@ export default function DashelloDashboard() {
     if (!activeModal) return;
     const metricId = activeModal.metric.id;
     const numericVal = parseFloat(newValue.replace(/[^0-9.\-]/g, ""));
-    setSections(prev => prev.map(s => ({
-      ...s, metrics: s.metrics.map(m => {
-        if (m.id !== metricId) return m;
-        const newPoint: DataPoint = { timestamp: Date.now(), value: isNaN(numericVal) ? 0 : numericVal };
-        return { ...m, value: newValue, history: [...(m.history ?? []), newPoint].slice(-50) };
-      })
-    })));
-    setActiveModal(prev => prev ? { ...prev, metric: { ...prev.metric, value: newValue }, data: { ...prev.data, mainValue: newValue } } : null);
+    const oldVal = parseFloat(activeModal.metric.value.replace(/[^0-9.\-]/g, "")) || 0;
+    const isFiveAccount = !!(activeModal.metric.modal?.fiveAccountEnabled || activeModal.metric.fiveAccountParentId);
+    const now = Date.now();
+
+    const applyChange = (description?: string) => {
+      setSections(prev => prev.map(s => {
+        const updatedMetrics = s.metrics.map(m => {
+          if (m.id !== metricId) return m;
+          const newPoint: DataPoint = { timestamp: now, value: isNaN(numericVal) ? 0 : numericVal };
+          const newTxn: Transaction | null = description ? {
+            date: new Date(now).toLocaleDateString(),
+            description,
+            ...(numericVal > oldVal ? { credit: numericVal - oldVal } : { debit: oldVal - numericVal }),
+          } : null;
+          const updatedModal = newTxn ? {
+            ...m.modal,
+            transactions: [...(m.modal.transactions ?? []), newTxn],
+          } : m.modal;
+          return {
+            ...m, value: newValue, history: [...(m.history ?? []), newPoint].slice(-50),
+            lastSyncedAt: now, outOfSync: false, modal: updatedModal,
+          };
+        });
+
+        // If this is the parent of a Five-Account group, run the equation
+        const parentId = s.metrics.find(m => m.id === metricId && !m.fiveAccountParentId)?.id;
+        if (parentId && fiveAccountSettings.mode !== "five-separate" && profile.five_account_enabled) {
+          return { ...s, metrics: runFiveAccountEquation(updatedMetrics, parentId, fiveAccountSettings) };
+        }
+        return { ...s, metrics: updatedMetrics };
+      }));
+
+      // Mark non-parent five-account boxes as out-of-sync
+      if (isFiveAccount && activeModal.metric.fiveAccountParentId) {
+        setSections(prev => prev.map(s => ({
+          ...s, metrics: s.metrics.map(m =>
+            m.id === metricId ? { ...m, outOfSync: true } : m
+          )
+        })));
+      }
+
+      setActiveModal(prev => prev ? { ...prev, metric: { ...prev.metric, value: newValue, lastSyncedAt: now }, data: { ...prev.data, mainValue: newValue } } : null);
+    };
+
+    if (isFiveAccount && fiveAccountSettings.postTransactionEnabled && !isNaN(numericVal) && numericVal !== oldVal) {
+      setPostTransactionPrompt({ metricId, oldValue: oldVal, newValue: numericVal });
+      // Store applyChange via ref so the modal can call it
+      pendingValueChangeRef.current = applyChange;
+    } else {
+      applyChange();
+    }
   };
 
   const handleClickMetric = (data: MetricModalData, metric: Metric) => setActiveModal({ data, metric });
@@ -2342,6 +2701,18 @@ export default function DashelloDashboard() {
       return [...prev, newSection];
     });
   }, [setSections]);
+
+  // Auto-disable five-account if the section containing the group is fully deleted
+  const handleRemoveSectionWithFiveAccountCheck = useCallback((removedSection: Section) => {
+    const hasFiveAccountBoxes = removedSection.metrics.some(
+      m => m.modal?.fiveAccountEnabled || m.fiveAccountParentId
+    );
+    if (hasFiveAccountBoxes && profile.five_account_enabled) {
+      const updated = { ...profile, five_account_enabled: false };
+      setProfile(updated);
+      supabase.from("profiles").upsert({ id: userId!, ...updated, updated_at: new Date().toISOString() });
+    }
+  }, [profile, userId]);
 
   const handleNav = (p: Page) => { setPage(p); setSelectedApp(null); if (isMobile) setSidebarOpen(false); };
 
@@ -2401,17 +2772,37 @@ const sidebarEl = (
 
         {/* Pages */}
         <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-          {page === "home" && <HomePage sections={sections} setSections={setSections} onClickMetric={handleClickMetric} />}
+          {page === "home" && <HomePage sections={sections} setSections={setSections} onClickMetric={handleClickMetric} onSectionRemoved={handleRemoveSectionWithFiveAccountCheck} />}
           {page === "goals" && <div style={{ flex: 1, overflowY: "auto" }}><GoalsPage goals={goalsData} setGoals={setGoalsData} /></div>}
           {page === "tasks" && <div style={{ flex: 1, overflowY: "auto" }}><TasksPage tasks={tasksData} setTasks={setTasksData} /></div>}
           {page === "integrations" && <div style={{ flex: 1, overflowY: "auto" }}><IntegrationsPage onSelectApp={a => { setSelectedApp(a); setPage("app-detail"); }} /></div>}
           {page === "app-detail" && selectedApp && <div style={{ flex: 1, overflowY: "auto" }}><AppDetailPage app={selectedApp} onBack={() => setPage("integrations")} /></div>}
           {page === "team" && <div style={{ flex: 1, overflowY: "auto" }}><TeamPage /></div>}
-          {page === "settings" && <div style={{ flex: 1, overflowY: "auto" }}><SettingsPage userId={userId!} userEmail={userEmail} onProfileSaved={p => setProfile(p)} onFiveAccountCreated={handleFiveAccountCreated} /></div>}
+          {page === "settings" && <div style={{ flex: 1, overflowY: "auto" }}><SettingsPage userId={userId!} userEmail={userEmail} onProfileSaved={p => setProfile(p)} onFiveAccountCreated={handleFiveAccountCreated} fiveAccountSettings={fiveAccountSettings} onFiveAccountSettingsChange={setFiveAccountSettings} /></div>}
         </div>
       </div>
 
       {showChat && <ChatPanel sections={sections} onClose={() => setShowChat(false)} />}
+
+      {postTransactionPrompt && (() => {
+        const metric = sections.flatMap(s => s.metrics).find(m => m.id === postTransactionPrompt.metricId);
+        return (
+          <PostTransactionModal
+            prompt={postTransactionPrompt}
+            currency={metric?.currencySymbol ?? "$"}
+            onConfirm={(desc) => {
+              pendingValueChangeRef.current?.(desc);
+              pendingValueChangeRef.current = null;
+              setPostTransactionPrompt(null);
+            }}
+            onCancel={() => {
+              pendingValueChangeRef.current?.();
+              pendingValueChangeRef.current = null;
+              setPostTransactionPrompt(null);
+            }}
+          />
+        );
+      })()}
 
       {activeModal && (
         <MetricModal data={activeModal.data} metric={activeModal.metric}
