@@ -109,7 +109,8 @@ function getColorForValue(val: number, rules: ColorRule[]): MetricColor {
     if (rule.op === "between" && rule.value2 != null && val >= rule.value && val <= rule.value2) match = true;
     if (match) return rule.color;
   }
-  // ─── Five-Account equation ─────────────────────────────────────────────────
+  
+// ─── Five-Account equation ─────────────────────────────────────────────────
 function runFiveAccountEquation(
   metrics: Metric[],
   parentId: string,
