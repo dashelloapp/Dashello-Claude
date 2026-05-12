@@ -835,52 +835,58 @@ function MetricChart({ history, rules, graphType, currentValue }: {
 // ═══════════════════════════════════════════════════════════════════════════
 // METRIC DETAIL MODAL
 // ═══════════════════════════════════════════════════════════════════════════
-function OutOfSyncBanner({ metric, onResyncCurrent, onResyncPrevious }: {
-  metric: Metric;
-  onResyncCurrent: () => void;
-  onResyncPrevious: () => void;
+
+function FiveAccountOverflowBanner({ overflowAmount, currencySymbol, metric, siblings, onMove }: {
+  overflowAmount: number; currencySymbol: string; metric: Metric;
+  siblings?: Metric[]; onMove: (destId: string, destName: string) => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
-  const lastSynced = metric.history && metric.history.length > 1
-    ? metric.history[metric.history.length - 2]
-    : null;
-  const currency = metric.currencySymbol ?? "$";
-  const fmtVal = (n: number) => `${currency}${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  // Determine default destination
+  const isProfit = metric.label.toLowerCase() === "profit" || metric.modal?.accountType === "profit";
+  const invAccount = siblings?.find(s => s.label.toLowerCase() === "investments" || s.modal?.accountType === "investments");
+  
+  const [selectedDestId, setSelectedDestId] = useState(isProfit && invAccount ? invAccount.id : "");
+  const fmtVal = (n: number) => `${currencySymbol}${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   return (
-    <div style={{ background: "#FEF3C7", border: "1.5px solid #F59E0B", borderRadius: 10, padding: "12px 14px", marginBottom: 10 }}>
+    <div style={{ background: "#F0FDF4", border: "1.5px solid #4CAF7D", borderRadius: 10, padding: "12px 14px", marginBottom: 15 }}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-        <span style={{ fontSize: 18, flexShrink: 0 }}>⚠️</span>
+        <span style={{ fontSize: 18 }}>🌊</span>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "#92400E", marginBottom: 3 }}>
-            Balance out of sync
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#0F6E56", marginBottom: 3 }}>
+            Five-Account Overflow
           </div>
-          <div style={{ fontSize: 12, color: "#92400E", lineHeight: 1.5, marginBottom: 8 }}>
-            {metric.outOfSyncReason ?? "This balance was edited in settings without posting a transaction. Choose how to resync:"}
+          <div style={{ fontSize: 12, color: "#0F6E56", lineHeight: 1.5, marginBottom: 10 }}>
+            This account is <strong>{fmtVal(overflowAmount)}</strong> over your target. Move the excess to stay balanced?
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <button onClick={onResyncCurrent} style={{
-              padding: "8px 12px", borderRadius: 8, border: "1.5px solid #F59E0B",
-              background: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer",
-              color: "#92400E", textAlign: "left" as const
-            }}>
-              <div style={{ fontWeight: 700, marginBottom: 2 }}>Keep current balance ({metric.value})</div>
-              <div style={{ fontSize: 11, fontWeight: 400, color: "#B45309" }}>
-                Posts an "Owner adjustment" transaction to reconcile the ledger
-              </div>
-            </button>
-            {lastSynced && (
-              <button onClick={onResyncPrevious} style={{
-                padding: "8px 12px", borderRadius: 8, border: "1.5px solid #F59E0B",
-                background: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer",
-                color: "#92400E", textAlign: "left" as const
-              }}>
-                <div style={{ fontWeight: 700, marginBottom: 2 }}>Revert to last synced balance ({fmtVal(lastSynced.value)})</div>
-                <div style={{ fontSize: 11, fontWeight: 400, color: "#B45309" }}>
-                  Discards the settings edit and restores the previous posted balance
-                </div>
-              </button>
+          
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            {!isProfit && (
+              <select 
+                value={selectedDestId} 
+                onChange={(e) => setSelectedDestId(e.target.value)}
+                style={{ padding: "6px 8px", borderRadius: 6, border: "1px solid #4CAF7D", fontSize: 12 }}
+              >
+                <option value="">Select Account...</option>
+                {siblings?.filter(s => s.id !== metric.id).map(s => (
+                  <option key={s.id} value={s.id}>{s.label}</option>
+                ))}
+              </select>
             )}
+            
+            <button 
+              onClick={() => {
+                const dest = siblings?.find(s => s.id === selectedDestId);
+                if (dest) onMove(selectedDestId, dest.label);
+              }} 
+              disabled={!selectedDestId}
+              style={{
+                padding: "8px 12px", borderRadius: 8, border: "none",
+                background: selectedDestId ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#cbd5e1", 
+                fontSize: 11, fontWeight: 700, cursor: selectedDestId ? "pointer" : "not-allowed", color: "#fff"
+              }}
+            >
+              Move {fmtVal(overflowAmount)} {isProfit ? "to Investments" : ""}
+            </button>
           </div>
         </div>
       </div>
@@ -888,6 +894,8 @@ function OutOfSyncBanner({ metric, onResyncCurrent, onResyncPrevious }: {
   );
 }
 
+function OutOfSyncBanner({ metric, onResyncCurrent, onResyncPrevious }: {
+  
 function RefreshButton({ onRefresh, lastSyncedAt }: {
   onRefresh: () => Promise<void>;
   lastSyncedAt?: number;
@@ -1186,6 +1194,20 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
  // ── CASHFLOW ─────────────────────────────────────────────────────────────
   const liveTxns = metric?.modal?.transactions ?? data.transactions ?? [];
 
+  // System-specific Overflow Check
+  let overflowAmount = 0;
+  const isSystemAccount = !!(metric?.fiveAccountParentId || metric?.modal?.fiveAccountEnabled);
+  
+  // Only proceed if Five Account system is active for this metric
+  if (isSystemAccount) {
+    const currentVal = parseFloat((metric?.value ?? "0").replace(/[^0-9.-]+/g, "")) || 0;
+    const greenTarget = metric?.colorRules?.find(r => r.color === "green")?.value || 0;
+    
+    if (greenTarget > 0 && currentVal > greenTarget) {
+      overflowAmount = currentVal - greenTarget;
+    }
+  }
+
   if (isCash) return (
     <div ref={overlayRef} onClick={e => { if (e.target === overlayRef.current) onClose(); }}
       style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 20 }}>
@@ -1234,6 +1256,26 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
                       if (lastSynced) {
                         const formatted = `${currency}${lastSynced.value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
                         onValueChange?.(formatted, "Resynced to previous balance");
+                      }
+                    }}
+                  />
+                )}
+               {overflowAmount > 0 && (
+                  <FiveAccountOverflowBanner
+                    overflowAmount={overflowAmount}
+                    currencySymbol={currency}
+                    metric={metric}
+                    siblings={siblings}
+                    onMove={(destId, destName) => {
+                      const currentVal = parseFloat((metric?.value ?? "0").replace(/[^0-9.-]+/g, "")) || 0;
+                      const newBal = currentVal - overflowAmount;
+                      const fmtNewBal = `${currency}${newBal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                      
+                      // 1. Deduct from current
+                      onValueChange?.(fmtNewBal, `Overflow transfer to ${destName}`);
+                      // 2. Add to destination
+                      if (onTransfer) {
+                        onTransfer(destId, overflowAmount, `Overflow received from ${metric.label}`);
                       }
                     }}
                   />
