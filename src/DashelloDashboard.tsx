@@ -170,43 +170,35 @@ function runFiveAccountEquation(
   });
 
   return metrics.map(m => {
-    // Update Overhead/Bank
+    // 1. Update Overhead/Bank (Parent Box)
     if (m.id === parentId) {
       return {
         ...m, value: fmt(overheadNewValue), lastSyncedAt: now,
         modal: { ...m.modal, mainValue: fmt(overheadNewValue) },
       };
     }
-    // Update Downstream Boxes
-    const updatedMetrics = section.metrics.map((m) => {
-      if (m.fiveAccountParentId === parentId) {
-        const lbl = m.label.toLowerCase();
-        let inflow = 0;
-        
-        // Find the profit metric in this group to check the goal
-        const groupProfit = section.metrics.find(mm => mm.fiveAccountParentId === parentId && mm.fiveAccountType === 'profit');
-        const pTarget = groupProfit?.greenRuleValue || 0;
-        const pCurrent = groupProfit?.value || 0;
-        const isProfitFull = pTarget > 0 && pCurrent >= pTarget;
 
-        if (lbl === "tax") {
+    // 2. Update Downstream Boxes (Profit, Tax, Investments)
+    if (m.fiveAccountParentId === parentId) {
+      const lbl = m.label.toLowerCase();
+      let inflow = 0;
+
+      if (lbl === "tax") {
         inflow = taxInflow;
       } else if (lbl === "profit") {
-        inflow = isProfitFull ? 0 : profitInflow;
+        inflow = profitInflow;
       } else if (lbl === "investments") {
-        inflow = isProfitFull ? (investmentsInflow + profitInflow) : investmentsInflow;
+        inflow = investmentsInflow;
       }
 
       if (inflow > 0) {
         const currentVal = parseFloat(m.value.replace(/[^0-9.\-]/g, "")) || 0;
         const newVal = currentVal + inflow;
-        const isOverflow = (lbl === "investments" && profitAlreadyFunded);
-
         return {
           ...m, value: fmt(newVal), lastSyncedAt: now,
           modal: {
             ...m.modal, mainValue: fmt(newVal),
-            transactions: [...(m.modal.transactions ?? []), makeTxn(inflow, parentMetric.label, isOverflow)],
+            transactions: [...(m.modal.transactions ?? []), makeTxn(inflow, parentMetric.label, profitAlreadyFunded && lbl === "investments")],
           },
         };
       }
@@ -3053,11 +3045,6 @@ export default function DashelloDashboard() {
     const updatedSections = syncSettingsToMetrics(sections, newSettings);
     setSections(updatedSections);
     
-    if (userId) {
-      saveUserData("sections", userId, updatedSections);
-      saveUserData("settings", userId, newSettings);
-    }
-    // 3. Save updates to Supabase
     if (userId) {
       saveUserData("sections", userId, updatedSections);
       saveUserData("settings", userId, newSettings);
