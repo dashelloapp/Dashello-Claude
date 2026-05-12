@@ -131,17 +131,12 @@ function runFiveAccountEquation(
   if (!parentMetric) return metrics;
 
   const bankBalance = parseFloat(parentMetric.value.replace(/[^0-9.\-]/g, "")) || 0;
-
-  // Find the Overhead Target from the Green Rule.
-  // Fall back to settings.monthlyExpenses * 2 ONLY if it's > 0; otherwise no cascade.
   const overheadRule = parentMetric.colorRules?.find(r => r.color === "green");
   const fallbackTarget = settings.monthlyExpenses > 0 ? settings.monthlyExpenses * 2 : 0;
   const overheadTarget = overheadRule && overheadRule.value > 0 ? overheadRule.value : fallbackTarget;
 
-  // Guard: if no valid target is set, leave the balance alone — don't drain it.
   if (overheadTarget <= 0) return metrics;
 
-  // Transfer ONLY the excess above the target.
   const surplus = Math.max(0, bankBalance - overheadTarget);
   const overheadNewValue = surplus > 0 ? overheadTarget : bankBalance;
   const currency = parentMetric.currencySymbol ?? "$";
@@ -153,36 +148,27 @@ function runFiveAccountEquation(
   const taxInflow = surplus * 0.5;
   const remaining = surplus * 0.5;
 
-  // Find Profit Box and its Green Rule
+  // Find the Profit and Investment boxes within this group
   const profitBox = metrics.find(m => m.fiveAccountParentId === parentId && m.label.toLowerCase() === "profit");
-  const currentProfit = parseFloat(profitBox?.value.replace(/[^0-9.\-]/g, "") || "0");
-  const profitRule = profitBox?.colorRules?.find(r => r.color === "green");
-  const profitTarget = profitRule ? profitRule.value : (settings.monthlyExpenses * 6);
+  const investmentBox = metrics.find(m => m.fiveAccountParentId === parentId && m.label.toLowerCase() === "investments");
 
-  // Calculate exact room in profit
-  const roomInProfit = profitTarget > 0 ? Math.max(0, profitTarget - currentProfit) : Infinity;
+  const currentProfitVal = parseFloat(profitBox?.value.replace(/[^0-9.\-]/g, "") || "0");
+  const profitGreenRule = profitBox?.colorRules?.find(r => r.color === "green");
   
-  let profitInflow = 0;
-  let investmentsInflow = 0;
+  // Logic: Use Green Rule threshold if it exists, otherwise fall back to 6 months expenses
+  const profitGoal = profitGreenRule ? profitGreenRule.value : (settings.monthlyExpenses * 6);
+  const isProfitFull = currentProfitVal >= profitGoal && profitGoal > 0;
 
-  // Split the money: fill profit to the brim, overflow goes to investments
-  if (remaining > roomInProfit) {
-    profitInflow = roomInProfit;
-    investmentsInflow = remaining - roomInProfit;
-  } else {
-    profitInflow = remaining;
-  }
+  const profitInflow = isProfitFull ? 0 : remaining;
+  const investmentsInflow = isProfitFull ? remaining : 0;
 
-  const profitAlreadyFunded = currentProfit >= profitTarget;
-
-  const makeTxn = (inflow: number, fromLabel: string, isProfitFull: boolean = false): Transaction => ({
+  const makeTxn = (inflow: number, fromLabel: string, isOverflow: boolean): Transaction => ({
     date: new Date(now).toLocaleDateString(),
-    description: isProfitFull ? `Transfer from ${fromLabel} (Profit Full)` : `Transfer from ${fromLabel}`,
+    description: isOverflow ? `Overflow from Profit` : `Transfer from ${fromLabel}`,
     credit: inflow,
   });
 
   return metrics.map(m => {
-    // 1. Update Overhead/Bank (Parent Box)
     if (m.id === parentId) {
       return {
         ...m, value: fmt(overheadNewValue), lastSyncedAt: now,
@@ -190,10 +176,10 @@ function runFiveAccountEquation(
       };
     }
 
-    // 2. Update Downstream Boxes (Profit, Tax, Investments)
     if (m.fiveAccountParentId === parentId) {
       const lbl = m.label.toLowerCase();
       let inflow = 0;
+      let overflowFlag = false;
 
       if (lbl === "tax") {
         inflow = taxInflow;
@@ -201,6 +187,7 @@ function runFiveAccountEquation(
         inflow = profitInflow;
       } else if (lbl === "investments") {
         inflow = investmentsInflow;
+        overflowFlag = isProfitFull;
       }
 
       if (inflow > 0) {
@@ -210,7 +197,7 @@ function runFiveAccountEquation(
           ...m, value: fmt(newVal), lastSyncedAt: now,
           modal: {
             ...m.modal, mainValue: fmt(newVal),
-            transactions: [...(m.modal.transactions ?? []), makeTxn(inflow, parentMetric.label, profitAlreadyFunded && lbl === "investments")],
+            transactions: [...(m.modal.transactions ?? []), makeTxn(inflow, parentMetric.label, overflowFlag)],
           },
         };
       }
@@ -1218,12 +1205,48 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
             <EditBtn /><CloseBtn />
           </div>
         </div>
-        {data.accountType && (
-          <div style={{ background: "linear-gradient(135deg,#EEF9F4,#E8F4FD)", border: "1px solid #c3e6d4", borderRadius: 12, padding: "10px 14px", marginBottom: 14 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#0F6E56", marginBottom: 2 }}>Five-Account System — {data.accountType}</div>
-            <p style={{ margin: 0, fontSize: 11, color: "#1e6b4e" }}>{FIVE_DESC[data.accountType]}</p>
+        {data.accountType && profile.five_account_enabled && (
+  <div style={{ marginBottom: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+    {/* Header Banner */}
+    <div style={{ background: "linear-gradient(135deg,#EEF9F4,#E8F4FD)", border: "1px solid #c3e6d4", borderRadius: 12, padding: "10px 14px" }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: "#0F6E56", marginBottom: 2 }}>Five-Account System — {data.accountType.toUpperCase()}</div>
+      <div style={{ fontSize: 11, color: "#475569", lineHeight: 1.4 }}>{FIVE_DESC[data.accountType]}</div>
+    </div>
+
+    {/* Dynamic Overflow Banner (Shows only if a color threshold is set) */}
+    {(() => {
+      const greenRule = metric?.colorRules?.find(r => r.color === "green");
+      if (!greenRule) return null;
+      
+      const currentVal = parseVal(localValue);
+      const isFull = currentVal >= greenRule.value;
+      
+      return (
+        <div style={{
+          background: isFull ? "#ECFDF5" : "#F8FAFC",
+          border: `1px solid ${isFull ? "#10B981" : "#E2E8F0"}`,
+          borderRadius: 12,
+          padding: "12px 16px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between"
+        }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: isFull ? "#065F46" : "#64748B" }}>
+              {isFull ? "THRESHOLD REACHED" : "THRESHOLD ACTIVE"}
+            </div>
+            <div style={{ fontSize: 10, color: isFull ? "#047857" : "#94A3B8" }}>
+              {isFull 
+                ? `Limit of ${currency}${greenRule.value.toLocaleString()} reached. Funds are now diverting.` 
+                : `Fills to ${currency}${greenRule.value.toLocaleString()} before diverting surplus.`}
+            </div>
           </div>
-        )}
+          {isFull && <span style={{ fontSize: 16 }}>🌊</span>}
+        </div>
+      );
+    })()}
+  </div>
+)}
         {data.healthPct != null
           ? <><div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332", marginBottom: 6 }}>Health — <strong>{data.healthPct}%</strong></div>
             <div style={{ height: 28, borderRadius: 99, background: "#e5e7eb", maxWidth: 260, overflow: "hidden", marginBottom: 20 }}>
