@@ -783,6 +783,58 @@ function MetricChart({ history, rules, graphType, currentValue }: {
 // ═══════════════════════════════════════════════════════════════════════════
 // METRIC DETAIL MODAL
 // ═══════════════════════════════════════════════════════════════════════════
+function OutOfSyncBanner({ metric, onResyncCurrent, onResyncPrevious }: {
+  metric: Metric;
+  onResyncCurrent: () => void;
+  onResyncPrevious: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const lastSynced = metric.history && metric.history.length > 1
+    ? metric.history[metric.history.length - 2]
+    : null;
+  const currency = metric.currencySymbol ?? "$";
+  const fmtVal = (n: number) => `${currency}${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  return (
+    <div style={{ background: "#FEF3C7", border: "1.5px solid #F59E0B", borderRadius: 10, padding: "12px 14px", marginBottom: 10 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+        <span style={{ fontSize: 18, flexShrink: 0 }}>⚠️</span>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#92400E", marginBottom: 3 }}>
+            Balance out of sync
+          </div>
+          <div style={{ fontSize: 12, color: "#92400E", lineHeight: 1.5, marginBottom: 8 }}>
+            This balance was edited in settings without posting a transaction. Choose how to resync:
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <button onClick={onResyncCurrent} style={{
+              padding: "8px 12px", borderRadius: 8, border: "1.5px solid #F59E0B",
+              background: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer",
+              color: "#92400E", textAlign: "left" as const
+            }}>
+              <div style={{ fontWeight: 700, marginBottom: 2 }}>Keep current balance ({metric.value})</div>
+              <div style={{ fontSize: 11, fontWeight: 400, color: "#B45309" }}>
+                Posts an "Owner adjustment" transaction to reconcile the ledger
+              </div>
+            </button>
+            {lastSynced && (
+              <button onClick={onResyncPrevious} style={{
+                padding: "8px 12px", borderRadius: 8, border: "1.5px solid #F59E0B",
+                background: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer",
+                color: "#92400E", textAlign: "left" as const
+              }}>
+                <div style={{ fontWeight: 700, marginBottom: 2 }}>Revert to last synced balance ({fmtVal(lastSynced.value)})</div>
+                <div style={{ fontSize: 11, fontWeight: 400, color: "#B45309" }}>
+                  Discards the settings edit and restores the previous posted balance
+                </div>
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function CashBalanceInput({ value, currencySymbol, statValColor, statTextColor, isColored, onValueChange }: {
   value: string; currencySymbol: string; statValColor: string; statTextColor: string;
@@ -975,9 +1027,25 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange }: {
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 12, color: statTextColor, marginBottom: 4 }}>Balance</div>
                 {metric?.outOfSync && (
-                  <div style={{ fontSize: 10, color: "#92400e", background: "#fef3c7", borderRadius: 4, padding: "2px 7px", display: "inline-flex", alignItems: "center", gap: 4, marginBottom: 6 }}>
-                    ⚠ Out of sync — <span style={{ textDecoration: "underline", cursor: "pointer" }} onClick={() => onValueChange?.(localValue)}>Resync</span>
-                  </div>
+                  <OutOfSyncBanner
+                    metric={metric}
+                    onResyncCurrent={() => {
+                      // Accept current value as correct, post all unposted history as "Owner adjustment"
+                      const currentNum = parseFloat((metric.value ?? "0").replace(/[^0-9.]/g, "")) || 0;
+                      const formatted = `${currency}${currentNum.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                      onValueChange?.(formatted, "Owner adjustment — balance reconciled");
+                    }}
+                    onResyncPrevious={() => {
+                      // Revert to last synced value from history
+                      const lastSynced = metric.history && metric.history.length > 0
+                        ? metric.history[metric.history.length - 2]
+                        : null;
+                      if (lastSynced) {
+                        const formatted = `${currency}${lastSynced.value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                        onValueChange?.(formatted, "Resynced to previous balance");
+                      }
+                    }}
+                  />
                 )}
                 <CashBalanceInput
                   value={metric?.value ?? data.mainValue}
@@ -1111,16 +1179,10 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange }: {
                   ? <input value={localValue} onChange={e => setLocalValue(e.target.value)} onBlur={handleValueSave} onKeyDown={e => { if (e.key === "Enter") handleValueSave(); }} autoFocus
                     style={{ fontSize: 26, fontWeight: 700, color: "#1a2332", border: "none", borderBottom: "2px solid #3B82F6", outline: "none", width: 130, background: "transparent" }} />
                   : <div onClick={() => setIsEditingValue(true)} style={{ fontSize: 26, fontWeight: 700, color: "#1a2332", cursor: "text" }} title="Click to edit">{localValue}</div>}
-                {metric?.outOfSync ? (
-                  <div style={{ fontSize: 10, color: "#92400e", background: "#fef3c7", borderRadius: 4, padding: "2px 7px", display: "inline-flex", alignItems: "center", gap: 4 }}>
-                    ⚠ Out of sync —
-                    <span style={{ textDecoration: "underline", cursor: "pointer" }} onClick={() => onValueChange?.(localValue)}>Resync</span>
-                  </div>
-                ) : (
-                  <div style={{ fontSize: 10, color: "#94a3b8", fontStyle: "italic" }}>
-                    {metric?.lastSyncedAt ? `Synced ${new Date(metric.lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : `Synced ${data.syncTime}`}
-                  </div>
-                )}
+                {metric?.lastSyncedAt
+                  ? <div style={{ fontSize: 10, color: "#94a3b8", fontStyle: "italic" }}>{`Synced ${new Date(metric.lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}</div>
+                  : <div style={{ fontSize: 10, color: "#94a3b8", fontStyle: "italic" }}>{`Synced ${data.syncTime}`}</div>
+                }
               </div>
               <button onClick={() => handleIncrement(1)} style={{ width: 30, height: 30, borderRadius: "50%", border: "1.5px solid #d1d5db", background: "none", fontSize: 18, cursor: "pointer", color: "#9CA3AF" }}>+</button>
             </div>
@@ -2817,7 +2879,13 @@ export default function DashelloDashboard() {
         return { ...s, metrics: updatedMetrics };
       }));
 
-      setActiveModal(prev => prev ? { ...prev, metric: { ...prev.metric, value: newValue, lastSyncedAt: now }, data: { ...prev.data, mainValue: newValue } } : null);
+     setSections(prev2 => {
+        // After sections update, sync activeModal metric to the freshly updated metric
+        const updatedMetric = prev2.flatMap(s => s.metrics).find(m => m.id === metricId);
+        if (updatedMetric) {
+        }
+        return prev2;
+      });
     };
 
    applyChange(description);
