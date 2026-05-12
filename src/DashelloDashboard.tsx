@@ -786,83 +786,85 @@ function MetricChart({ history, rules, graphType, currentValue }: {
 
 function CashBalanceInput({ value, currencySymbol, statValColor, statTextColor, isColored, onValueChange }: {
   value: string; currencySymbol: string; statValColor: string; statTextColor: string;
-  isColored: boolean; onValueChange?: (v: string) => void;
+  isColored: boolean; onValueChange?: (v: string, description?: string) => void;
 }) {
-  const raw = value.replace(/[^0-9.]/g, "");
-  const [editVal, setEditVal] = useState(raw);
-  const [pendingVal, setPendingVal] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [editVal, setEditVal] = useState("");
   const [txnDesc, setTxnDesc] = useState("");
-  const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
+  const startEdit = () => {
     setEditVal(value.replace(/[^0-9.]/g, ""));
-    setPendingVal(null);
     setTxnDesc("");
-    setSubmitting(false);
-  }, [value]);
-
-  const handleBlur = () => {
-    const num = parseFloat(editVal);
-    const oldNum = parseFloat(value.replace(/[^0-9.]/g, ""));
-    if (!isNaN(num) && num !== oldNum) {
-      setPendingVal(editVal);
-    } else {
-      setEditVal(value.replace(/[^0-9.]/g, ""));
-    }
-  };
-
-  const handlePost = () => {
-    if (!txnDesc.trim() || pendingVal === null) return;
-    const num = parseFloat(pendingVal);
-    if (isNaN(num)) return;
-    const formatted = `${currencySymbol}${num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    setSubmitting(true);
-    onValueChange?.(formatted);
+    setEditing(true);
   };
 
   const handleCancel = () => {
-    setEditVal(value.replace(/[^0-9.]/g, ""));
-    setPendingVal(null);
+    setEditing(false);
+    setEditVal("");
     setTxnDesc("");
-    setSubmitting(false);
+  };
+
+  const handlePost = () => {
+    if (!txnDesc.trim()) return;
+    const num = parseFloat(editVal);
+    if (isNaN(num)) return;
+    const formatted = `${currencySymbol}${num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    onValueChange?.(formatted, txnDesc.trim());
+    setEditing(false);
+    setEditVal("");
+    setTxnDesc("");
   };
 
   const oldNum = parseFloat(value.replace(/[^0-9.]/g, "")) || 0;
-  const newNum = parseFloat(pendingVal ?? "0") || 0;
+  const newNum = parseFloat(editVal) || 0;
   const delta = newNum - oldNum;
   const isCredit = delta > 0;
   const fmtDelta = `${currencySymbol}${Math.abs(delta).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const hasChange = editVal !== "" && delta !== 0;
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2, marginBottom: pendingVal !== null ? 10 : 0 }}>
-        <input
-          value={editVal}
-          onChange={e => setEditVal(e.target.value.replace(/[^0-9.]/g, ""))}
-          onBlur={handleBlur}
-          onKeyDown={e => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-          style={{ fontSize: 20, fontWeight: 700, color: statValColor, background: "transparent", border: "none", borderBottom: `1.5px solid ${isColored ? "rgba(255,255,255,0.4)" : "#e2e8f0"}`, outline: "none", width: 140 }}
-        />
-        <span style={{ fontSize: 10, color: statTextColor, opacity: 0.7 }}>click to edit</span>
+      {/* Balance row */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 2, marginBottom: editing ? 12 : 0 }}>
+        {editing ? (
+          <input
+            value={editVal}
+            onChange={e => setEditVal(e.target.value.replace(/[^0-9.]/g, ""))}
+            onKeyDown={e => { if (e.key === "Escape") handleCancel(); }}
+            autoFocus
+            style={{ fontSize: 20, fontWeight: 700, color: "#1a2332", background: "#fff", border: "1.5px solid #3B82F6", borderRadius: 8, outline: "none", padding: "4px 10px", width: 150 }}
+          />
+        ) : (
+          <span style={{ fontSize: 20, fontWeight: 700, color: statValColor }}>{value}</span>
+        )}
+        {!editing && (
+          <button onClick={startEdit} style={{ padding: "4px 10px", borderRadius: 20, border: "1.5px solid", borderColor: isColored ? "rgba(255,255,255,0.4)" : "#e2e8f0", background: isColored ? "rgba(255,255,255,0.15)" : "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer", color: isColored ? "#fff" : "#3B82F6", flexShrink: 0 }}>
+            Update Balance
+          </button>
+        )}
       </div>
-      {pendingVal !== null && (
-        <div style={{ background: isColored ? "rgba(255,255,255,0.15)" : "#F8FAFC", borderRadius: 10, padding: "10px 12px", border: `1px solid ${isColored ? "rgba(255,255,255,0.25)" : "#e2e8f0"}`, marginTop: 6 }}>
-          <div style={{ fontSize: 11, color: isColored ? "rgba(255,255,255,0.8)" : "#64748b", marginBottom: 6 }}>
-            Recording a <strong style={{ color: isCredit ? "#4CAF7D" : "#E85D75" }}>{isCredit ? `+${fmtDelta} credit` : `-${fmtDelta} debit`}</strong> — add a description to post:
-          </div>
+
+      {/* Inline post transaction form */}
+      {editing && (
+        <div style={{ background: "#fff", borderRadius: 10, padding: "12px 14px", border: "1.5px solid #e2e8f0", marginBottom: 4 }}>
+          {hasChange && (
+            <div style={{ fontSize: 11, color: "#64748b", marginBottom: 8 }}>
+              Recording a <strong style={{ color: isCredit ? "#4CAF7D" : "#E85D75" }}>{isCredit ? `+${fmtDelta} credit` : `-${fmtDelta} debit`}</strong>
+            </div>
+          )}
           <input
             value={txnDesc}
             onChange={e => setTxnDesc(e.target.value)}
             onKeyDown={e => { if (e.key === "Enter") handlePost(); }}
-            autoFocus
-            placeholder="Transaction description (e.g. Q1 tax payment)"
-            style={{ width: "100%", padding: "6px 10px", borderRadius: 7, border: `1px solid ${isColored ? "rgba(255,255,255,0.3)" : "#e2e8f0"}`, fontSize: 12, outline: "none", boxSizing: "border-box", marginBottom: 8, background: isColored ? "rgba(255,255,255,0.15)" : "#fff", color: isColored ? "#fff" : "#1a2332" }}
+            placeholder="Transaction description (e.g. monthly deposit)"
+            style={{ width: "100%", padding: "7px 10px", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", boxSizing: "border-box", marginBottom: 8, color: "#1a2332", background: "#f8fafc" }}
           />
           <div style={{ display: "flex", gap: 6 }}>
-            <button onClick={handleCancel} style={{ flex: 1, padding: "6px 0", borderRadius: 6, border: `1px solid ${isColored ? "rgba(255,255,255,0.3)" : "#e2e8f0"}`, background: "transparent", fontSize: 11, cursor: "pointer", color: isColored ? "rgba(255,255,255,0.8)" : "#64748b" }}>
+            <button onClick={handleCancel} style={{ flex: 1, padding: "7px 0", borderRadius: 7, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b" }}>
               Cancel
             </button>
-            <button onClick={handlePost} disabled={!txnDesc.trim() || submitting} style={{ flex: 2, padding: "6px 0", borderRadius: 6, border: "none", background: txnDesc.trim() ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0", color: txnDesc.trim() ? "#fff" : "#94a3b8", fontSize: 11, fontWeight: 600, cursor: txnDesc.trim() ? "pointer" : "not-allowed" }}>
+            <button onClick={handlePost} disabled={!txnDesc.trim() || !hasChange}
+              style={{ flex: 2, padding: "7px 0", borderRadius: 7, border: "none", background: txnDesc.trim() && hasChange ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0", color: txnDesc.trim() && hasChange ? "#fff" : "#94a3b8", fontSize: 12, fontWeight: 600, cursor: txnDesc.trim() && hasChange ? "pointer" : "not-allowed" }}>
               Post Transaction
             </button>
           </div>
@@ -874,7 +876,7 @@ function CashBalanceInput({ value, currencySymbol, statValColor, statTextColor, 
 
 function MetricModal({ data, metric, onClose, onEdit, onValueChange }: {
   data: MetricModalData; metric?: Metric;
-  onClose: () => void; onEdit?: () => void; onValueChange?: (v: string) => void;
+  onClose: () => void; onEdit?: () => void; onValueChange?: (v: string, description?: string) => void;
 }) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const [localValue, setLocalValue] = useState(data.mainValue);
@@ -966,7 +968,7 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange }: {
                   statValColor={statValColor}
                   statTextColor={statTextColor}
                   isColored={isColored}
-                  onValueChange={onValueChange}
+                  onValueChange={(v, desc) => onValueChange?.(v, desc)}
                 />
                 <div style={{ fontSize: 9, color: isColored ? "rgba(255,255,255,0.5)" : "#94a3b8", marginTop: 4 }}>
                   {metric?.lastSyncedAt ? `Synced ${new Date(metric.lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : `Synced ${data.syncTime}`}
@@ -1367,6 +1369,8 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
       accountType: initial?.modal?.accountType,
       transactions: initial?.modal?.transactions ?? [],
     });
+   const valueChanged = initial && initial.value !== finalValue;
+    const isFiveAccountBox = fiveOn || !!initial?.fiveAccountParentId;
     onSave({
       label, value: finalValue, icon, color: "gray", modal: m,
       graphType, metricType: effectiveMetricType, colorRules: rules,
@@ -1374,6 +1378,8 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
       history: initial?.history ?? [],
       fiveAccountParentId: initial?.fiveAccountParentId,
       currencySymbol: currency,
+      lastSyncedAt: initial?.lastSyncedAt,
+      outOfSync: isFiveAccountBox && valueChanged ? true : (initial?.outOfSync ?? false),
     });
     onClose();
   };
@@ -2758,7 +2764,7 @@ export default function DashelloDashboard() {
   }, []);
 
   // When value changed in modal, update sections + history
-  const handleValueChange = (newValue: string) => {
+  const handleValueChange = (newValue: string, description?: string) => {
     if (!activeModal) return;
     const metricId = activeModal.metric.id;
     const numericVal = parseFloat(newValue.replace(/[^0-9.\-]/g, ""));
@@ -2797,7 +2803,7 @@ export default function DashelloDashboard() {
       setActiveModal(prev => prev ? { ...prev, metric: { ...prev.metric, value: newValue, lastSyncedAt: now }, data: { ...prev.data, mainValue: newValue } } : null);
     };
 
-   applyChange();
+   applyChange(description);
   };
   
   const handleClickMetric = (data: MetricModalData, metric: Metric) => setActiveModal({ data, metric });
