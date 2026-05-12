@@ -2968,10 +2968,16 @@ export default function DashelloDashboard() {
           };
         });
 
-        // If this is the parent of a Five-Account group, run the equation
-        const parentId = s.metrics.find(m => m.id === metricId && !m.fiveAccountParentId)?.id;
-        if (parentId && fiveAccountSettings.mode !== "five-separate" && profile.five_account_enabled) {
-          return { ...s, metrics: runFiveAccountEquation(updatedMetrics, parentId, fiveAccountSettings) };
+       // Run equation if any Five-Account box in this section was changed
+        if (fiveAccountSettings.mode !== "five-separate" && profile.five_account_enabled) {
+          // Find the parent: either the changed metric itself (if it's a parent), or look up via fiveAccountParentId
+          const changedMetric = s.metrics.find(m => m.id === metricId);
+          const parentId = changedMetric
+            ? (changedMetric.fiveAccountParentId ?? (changedMetric.modal?.fiveAccountEnabled ? changedMetric.id : undefined))
+            : undefined;
+          if (parentId) {
+            return { ...s, metrics: runFiveAccountEquation(updatedMetrics, parentId, fiveAccountSettings) };
+          }
         }
         return { ...s, metrics: updatedMetrics };
       }));
@@ -3006,10 +3012,20 @@ export default function DashelloDashboard() {
   const handleRefreshMetric = async () => {
     if (!userId) return;
     const saved = await loadUserData("sections", userId);
-    if (saved) setSections(saved);
-    if (activeModal) {
-      const updated = (saved as Section[])?.flatMap((s: Section) => s.metrics).find((m: Metric) => m.id === activeModal.metric.id);
-      if (updated) setActiveModal(prev => prev ? { ...prev, metric: updated, data: { ...prev.data, mainValue: updated.value, transactions: updated.modal.transactions } } : null);
+    if (saved) {
+      // Rerun Five-Account equation on all sections after refresh
+      const refreshed = profile.five_account_enabled && fiveAccountSettings.mode !== "five-separate"
+        ? (saved as Section[]).map(s => {
+            const parentMetric = s.metrics.find(m => m.modal?.fiveAccountEnabled && !m.fiveAccountParentId);
+            if (!parentMetric) return s;
+            return { ...s, metrics: runFiveAccountEquation(s.metrics, parentMetric.id, fiveAccountSettings) };
+          })
+        : saved as Section[];
+      setSections(refreshed);
+      if (activeModal) {
+        const updated = refreshed.flatMap((s: Section) => s.metrics).find((m: Metric) => m.id === activeModal.metric.id);
+        if (updated) setActiveModal(prev => prev ? { ...prev, metric: updated, data: { ...prev.data, mainValue: updated.value, transactions: updated.modal.transactions } } : null);
+      }
     }
     setLastDashboardSync(Date.now());
   };
