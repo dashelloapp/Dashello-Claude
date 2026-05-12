@@ -1198,9 +1198,19 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
   if (isCash) return (
     <div ref={overlayRef} onClick={e => { if (e.target === overlayRef.current) onClose(); }}
       style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 20 }}>
-      <div style={{ background: "#fff", borderRadius: 24, width: "100%", maxWidth: 900, maxHeight: "92vh", overflowY: "auto", overflowX: "hidden", padding: "28px 32px 32px", boxShadow: "0 32px 80px rgba(0,0,0,0.2)", 
-        scrollbarGutter: "stable" 
-      } as React.CSSProperties}>       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+      <div style={{ 
+  background: "#fff", 
+  borderRadius: 24, 
+  width: "100%", 
+  maxWidth: 900, 
+  maxHeight: "92vh", 
+  overflowY: "auto", 
+  overflowX: "hidden", 
+  padding: "28px 32px 32px", 
+  boxShadow: "0 32px 80px rgba(0,0,0,0.2)", 
+  scrollbarGutter: "stable" 
+} as React.CSSProperties}>       
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
           <h2 style={{ margin: 0, fontSize: 28, fontWeight: 700, color: "#1a2332" }}>{data.title}</h2>
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
             {onRefreshSections && <RefreshButton onRefresh={onRefreshSections} lastSyncedAt={metric?.lastSyncedAt} />}
