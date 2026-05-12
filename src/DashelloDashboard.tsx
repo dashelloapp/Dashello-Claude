@@ -185,15 +185,13 @@ function runFiveAccountEquation(
       // Check if Profit has reached its Green Rule goal
       const pTarget = profitAcc?.greenRuleValue || 0;
       const pCurrent = profitAcc?.value || 0;
-      const isProfitFull = pTarget > 0 && pCurrent >= pTarget;
+      const isProfitFull = (profitAcc?.value || 0) >= (profitAcc?.greenRuleValue || 0) && (profitAcc?.greenRuleValue || 0) > 0;
 
       if (lbl === "tax") {
         inflow = taxInflow;
       } else if (lbl === "profit") {
-        // If profit is full, it gets $0. Otherwise it gets the 50% share.
         inflow = isProfitFull ? 0 : profitInflow;
       } else if (lbl === "investments") {
-        // Investments gets its own share PLUS profit's share if profit is full.
         inflow = isProfitFull ? (investmentsInflow + profitInflow) : investmentsInflow;
       }
 
@@ -3048,7 +3046,7 @@ export default function DashelloDashboard() {
   });
   const [fiveAccountSettings, setFiveAccountSettings] = useState<FiveAccountSettings>(DEFAULT_FIVE_ACCOUNT_SETTINGS);
   // --- SETTINGS UPDATE LOGIC ---
-  const handleUpdateSettings = (newSettings: FiveAccountSettings) => {
+ const handleUpdateSettings = (newSettings: FiveAccountSettings) => {
     setFiveAccountSettings(newSettings);
     const updatedSections = syncSettingsToMetrics(sections, newSettings);
     setSections(updatedSections);
@@ -3527,6 +3525,8 @@ const sidebarEl = (
             onClose={() => setEditingMetricFromModal(null)} />
         );
       })()}
-    </div>
+   </div>
   );
 }
+
+export default DashelloDashboard;
