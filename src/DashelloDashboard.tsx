@@ -125,47 +125,43 @@ function runFiveAccountEquation(
   const parentMetric = metrics.find(m => m.id === parentId);
   if (!parentMetric) return metrics;
 
+  // 1. Parse current bank balance and target
   const bankBalance = parseFloat(parentMetric.value.replace(/[^0-9.\-]/g, "")) || 0;
   const overheadTarget = settings.monthlyExpenses * 2;
-  const profitTarget = settings.monthlyExpenses * 6;
   const currency = parentMetric.currencySymbol ?? "$";
   const fmt = (n: number) => `${currency}${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const now = Date.now();
+
+  // 2. Calculate the exact Surplus (only what exceeds the target)
+  const surplus = Math.max(0, bankBalance - overheadTarget);
+  
+  // Overhead stays at target if there's a surplus, otherwise it keeps the lower balance
+  const overheadNewValue = surplus > 0 ? overheadTarget : bankBalance;
+
+  // If there is no excess, we don't need to update downstream boxes
+  if (surplus <= 0) {
+    return metrics.map(m => m.id === parentId ? {
+      ...m, value: fmt(overheadNewValue), lastSyncedAt: now,
+      history: [...(m.history ?? []), { timestamp: now, value: overheadNewValue }].slice(-50),
+      modal: { ...m.modal, mainValue: fmt(overheadNewValue) }
+    } : m);
+  }
+
+  // 3. Split the surplus (the "1,000" in your example)
+  const taxInflow = surplus * 0.5;
+  const remaining = surplus * 0.5;
 
   const getBox = (label: string) =>
     metrics.find(m => m.fiveAccountParentId === parentId && m.label.toLowerCase() === label);
 
   const profitBox = getBox("profit");
-  const taxBox = getBox("tax");
-  const investmentsBox = getBox("investments");
-  const ownerBox = getBox("owner");
-
   const currentProfit = parseFloat(profitBox?.value.replace(/[^0-9.\-]/g, "") || "0");
-  const currentTax = parseFloat(taxBox?.value.replace(/[^0-9.\-]/g, "") || "0");
-  const currentInvestments = parseFloat(investmentsBox?.value.replace(/[^0-9.\-]/g, "") || "0");
+  const profitTarget = settings.monthlyExpenses * 6;
 
-  // Only cascade if bank balance exceeds overhead target
-  const surplus = Math.max(0, bankBalance - overheadTarget);
-  const overheadNew = surplus > 0 ? overheadTarget : bankBalance;
-
-  // No surplus — overhead not fully funded yet, no cascade
-  if (surplus === 0) return metrics;
-
-  // 50% of surplus → Tax always
-  const taxInflow = surplus * 0.5;
-  const remaining = surplus * 0.5;
-
-  // Pre vs post emergency fund
+  // 4. Determine destination for the remaining 50%
   const profitAlreadyFunded = currentProfit >= profitTarget;
   const profitInflow = profitAlreadyFunded ? 0 : remaining;
   const investmentsInflow = profitAlreadyFunded ? remaining : 0;
-
-  const newProfit = currentProfit + profitInflow;
-  const newTax = currentTax + taxInflow;
-  const newInvestments = currentInvestments + investmentsInflow;
-  const newOwner = settings.mode === "one-business"
-    ? settings.ownerSalary
-    : parseFloat(ownerBox?.value.replace(/[^0-9.\-]/g, "") || "0");
 
   const makeTxn = (inflow: number, fromLabel: string): Transaction => ({
     date: new Date(now).toLocaleDateString(),
@@ -173,54 +169,43 @@ function runFiveAccountEquation(
     credit: inflow,
   });
 
-  const makeHistory = (box: Metric | undefined, newVal: number): DataPoint[] =>
-    [...(box?.history ?? []), { timestamp: now, value: newVal }].slice(-50);
+  const updateBoxValue = (m: Metric, inflow: number): Metric => {
+    const currentVal = parseFloat(m.value.replace(/[^0-9.\-]/g, "")) || 0;
+    const newVal = currentVal + inflow;
+    return {
+      ...m, value: fmt(newVal), lastSyncedAt: now, outOfSync: false,
+      history: [...(m.history ?? []), { timestamp: now, value: newVal }].slice(-50),
+      modal: {
+        ...m.modal, mainValue: fmt(newVal),
+        transactions: [...(m.modal.transactions ?? []), makeTxn(inflow, parentMetric.label)],
+      },
+    };
+  };
 
+  // 5. Map through metrics and apply the delta
   return metrics.map(m => {
-    // Parent / Overhead box — capped at target, surplus moved out
+    // Update Overhead
     if (m.id === parentId) {
       return {
-        ...m, value: fmt(overheadNew), lastSyncedAt: now, outOfSync: false,
-        history: makeHistory(m, overheadNew),
-        modal: { ...m.modal, mainValue: fmt(overheadNew) },
+        ...m, value: fmt(overheadNewValue), lastSyncedAt: now, outOfSync: false,
+        history: [...(m.history ?? []), { timestamp: now, value: overheadNewValue }].slice(-50),
+        modal: { ...m.modal, mainValue: fmt(overheadNewValue) },
       };
     }
+
+    // Update Downstream Boxes
     if (m.fiveAccountParentId === parentId) {
       const lbl = m.label.toLowerCase();
-      if (lbl === "profit" && profitInflow > 0) {
-        return {
-          ...m, value: fmt(newProfit), lastSyncedAt: now, outOfSync: false,
-          history: makeHistory(m, newProfit),
-          modal: {
-            ...m.modal, mainValue: fmt(newProfit),
-            transactions: [...(m.modal.transactions ?? []), makeTxn(profitInflow, parentMetric.label)],
-          },
-        };
-      }
-      if (lbl === "tax" && taxInflow > 0) {
-        return {
-          ...m, value: fmt(newTax), lastSyncedAt: now, outOfSync: false,
-          history: makeHistory(m, newTax),
-          modal: {
-            ...m.modal, mainValue: fmt(newTax),
-            transactions: [...(m.modal.transactions ?? []), makeTxn(taxInflow, parentMetric.label)],
-          },
-        };
-      }
-      if (lbl === "investments" && investmentsInflow > 0) {
-        return {
-          ...m, value: fmt(newInvestments), lastSyncedAt: now, outOfSync: false,
-          history: makeHistory(m, newInvestments),
-          modal: {
-            ...m.modal, mainValue: fmt(newInvestments),
-            transactions: [...(m.modal.transactions ?? []), makeTxn(investmentsInflow, parentMetric.label)],
-          },
-        };
-      }
+      if (lbl === "tax" && taxInflow > 0) return updateBoxValue(m, taxInflow);
+      if (lbl === "profit" && profitInflow > 0) return updateBoxValue(m, profitInflow);
+      if (lbl === "investments" && investmentsInflow > 0) return updateBoxValue(m, investmentsInflow);
+      
+      // Owner box logic (usually static based on settings)
       if (lbl === "owner" && settings.mode === "one-business") {
-        return { ...m, value: fmt(newOwner), lastSyncedAt: now, outOfSync: false };
+        return { ...m, value: fmt(settings.ownerSalary), lastSyncedAt: now };
       }
     }
+
     return m;
   });
 }
