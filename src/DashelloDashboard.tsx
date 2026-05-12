@@ -2066,8 +2066,8 @@ function ProfileField({ label, value, onChange, disabled }: { label: string; val
   );
 }
 
-function SettingsPage({ userId, userEmail, onProfileSaved, onFiveAccountCreated, fiveAccountSettings, onFiveAccountSettingsChange }: {
-  userId: string; userEmail: string; onProfileSaved: (p: any) => void;
+function SettingsPage({ userId, userEmail, profile: externalProfile, onProfileSaved, onFiveAccountCreated, fiveAccountSettings, onFiveAccountSettingsChange }: {
+  userId: string; userEmail: string; profile: any; onProfileSaved: (p: any) => void;
   onFiveAccountCreated: () => void;
   fiveAccountSettings: FiveAccountSettings;
   onFiveAccountSettingsChange: (s: FiveAccountSettings) => void;
@@ -2099,6 +2099,11 @@ function SettingsPage({ userId, userEmail, onProfileSaved, onFiveAccountCreated,
     });
   });
 }, [userId]);
+
+  // Keep localProfile in sync when parent updates it externally (e.g. row deletion disables five-account)
+  useEffect(() => {
+    setLocalProfile(prev => ({ ...prev, five_account_enabled: externalProfile.five_account_enabled }));
+  }, [externalProfile.five_account_enabled]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -2823,7 +2828,7 @@ const sidebarEl = (
           {page === "integrations" && <div style={{ flex: 1, overflowY: "auto" }}><IntegrationsPage onSelectApp={a => { setSelectedApp(a); setPage("app-detail"); }} /></div>}
           {page === "app-detail" && selectedApp && <div style={{ flex: 1, overflowY: "auto" }}><AppDetailPage app={selectedApp} onBack={() => setPage("integrations")} /></div>}
           {page === "team" && <div style={{ flex: 1, overflowY: "auto" }}><TeamPage /></div>}
-          {page === "settings" && <div style={{ flex: 1, overflowY: "auto" }}><SettingsPage userId={userId!} userEmail={userEmail} onProfileSaved={p => setProfile(p)} onFiveAccountCreated={handleFiveAccountCreated} fiveAccountSettings={fiveAccountSettings} onFiveAccountSettingsChange={setFiveAccountSettings} /></div>}
+          {page === "settings" && <div style={{ flex: 1, overflowY: "auto" }}><SettingsPage userId={userId!} userEmail={userEmail} profile={profile} onProfileSaved={p => setProfile(p)} onFiveAccountCreated={handleFiveAccountCreated} fiveAccountSettings={fiveAccountSettings} onFiveAccountSettingsChange={setFiveAccountSettings} /></div>}
         </div>
       </div>
 
