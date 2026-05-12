@@ -125,40 +125,29 @@ function runFiveAccountEquation(
   const parentMetric = metrics.find(m => m.id === parentId);
   if (!parentMetric) return metrics;
 
-  // 1. Parse current bank balance and target
   const bankBalance = parseFloat(parentMetric.value.replace(/[^0-9.\-]/g, "")) || 0;
-  const overheadTarget = settings.monthlyExpenses * 2;
+  
+  // Find the Overhead Target from the Green Rule
+  const overheadRule = parentMetric.colorRules?.find(r => r.color === "green");
+  const overheadTarget = overheadRule ? overheadRule.value : (settings.monthlyExpenses * 2);
+
+  const surplus = Math.max(0, bankBalance - overheadTarget);
+  const overheadNewValue = surplus > 0 ? overheadTarget : bankBalance;
   const currency = parentMetric.currencySymbol ?? "$";
   const fmt = (n: number) => `${currency}${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const now = Date.now();
 
-  // 2. Calculate the exact Surplus (only what exceeds the target)
-  const surplus = Math.max(0, bankBalance - overheadTarget);
-  
-  // Overhead stays at target if there's a surplus, otherwise it keeps the lower balance
-  const overheadNewValue = surplus > 0 ? overheadTarget : bankBalance;
+  if (surplus <= 0) return metrics; 
 
-  // If there is no excess, we don't need to update downstream boxes
-  if (surplus <= 0) {
-    return metrics.map(m => m.id === parentId ? {
-      ...m, value: fmt(overheadNewValue), lastSyncedAt: now,
-      history: [...(m.history ?? []), { timestamp: now, value: overheadNewValue }].slice(-50),
-      modal: { ...m.modal, mainValue: fmt(overheadNewValue) }
-    } : m);
-  }
-
-  // 3. Split the surplus (the "1,000" in your example)
   const taxInflow = surplus * 0.5;
   const remaining = surplus * 0.5;
 
-  const getBox = (label: string) =>
-    metrics.find(m => m.fiveAccountParentId === parentId && m.label.toLowerCase() === label);
-
-  const profitBox = getBox("profit");
+  // Find Profit Box and its Green Rule
+  const profitBox = metrics.find(m => m.fiveAccountParentId === parentId && m.label.toLowerCase() === "profit");
   const currentProfit = parseFloat(profitBox?.value.replace(/[^0-9.\-]/g, "") || "0");
-  const profitTarget = settings.monthlyExpenses * 6;
+  const profitRule = profitBox?.colorRules?.find(r => r.color === "green");
+  const profitTarget = profitRule ? profitRule.value : (settings.monthlyExpenses * 6);
 
-  // 4. Determine destination for the remaining 50%
   const profitAlreadyFunded = currentProfit >= profitTarget;
   const profitInflow = profitAlreadyFunded ? 0 : remaining;
   const investmentsInflow = profitAlreadyFunded ? remaining : 0;
@@ -169,47 +158,62 @@ function runFiveAccountEquation(
     credit: inflow,
   });
 
-  const updateBoxValue = (m: Metric, inflow: number): Metric => {
-    const currentVal = parseFloat(m.value.replace(/[^0-9.\-]/g, "")) || 0;
-    const newVal = currentVal + inflow;
-    return {
-      ...m, value: fmt(newVal), lastSyncedAt: now, outOfSync: false,
-      history: [...(m.history ?? []), { timestamp: now, value: newVal }].slice(-50),
-      modal: {
-        ...m.modal, mainValue: fmt(newVal),
-        transactions: [...(m.modal.transactions ?? []), makeTxn(inflow, parentMetric.label)],
-      },
-    };
-  };
-
-  // 5. Map through metrics and apply the delta
   return metrics.map(m => {
-    // Update Overhead
+    // Update Overhead/Bank
     if (m.id === parentId) {
       return {
-        ...m, value: fmt(overheadNewValue), lastSyncedAt: now, outOfSync: false,
-        history: [...(m.history ?? []), { timestamp: now, value: overheadNewValue }].slice(-50),
+        ...m, value: fmt(overheadNewValue), lastSyncedAt: now,
         modal: { ...m.modal, mainValue: fmt(overheadNewValue) },
       };
     }
-
     // Update Downstream Boxes
     if (m.fiveAccountParentId === parentId) {
       const lbl = m.label.toLowerCase();
-      if (lbl === "tax" && taxInflow > 0) return updateBoxValue(m, taxInflow);
-      if (lbl === "profit" && profitInflow > 0) return updateBoxValue(m, profitInflow);
-      if (lbl === "investments" && investmentsInflow > 0) return updateBoxValue(m, investmentsInflow);
-      
-      // Owner box logic (usually static based on settings)
-      if (lbl === "owner" && settings.mode === "one-business") {
-        return { ...m, value: fmt(settings.ownerSalary), lastSyncedAt: now };
+      let inflow = 0;
+      if (lbl === "tax") inflow = taxInflow;
+      if (lbl === "profit") inflow = profitInflow;
+      if (lbl === "investments") inflow = investmentsInflow;
+
+      if (inflow > 0) {
+        const currentVal = parseFloat(m.value.replace(/[^0-9.\-]/g, "")) || 0;
+        const newVal = currentVal + inflow;
+        return {
+          ...m, value: fmt(newVal), lastSyncedAt: now,
+          modal: {
+            ...m.modal, mainValue: fmt(newVal),
+            transactions: [...(m.modal.transactions ?? []), makeTxn(inflow, parentMetric.label)],
+          },
+        };
       }
     }
-
     return m;
   });
 }
 
+// This forces the Green Rules to match your Settings menu automatically
+function syncSettingsToMetrics(sections: Section[], settings: FiveAccountSettings): Section[] {
+  const overheadTarget = settings.monthlyExpenses * 2;
+  const profitTarget = settings.monthlyExpenses * 6;
+
+  return sections.map(section => ({
+    ...section,
+    metrics: section.metrics.map(metric => {
+      let target = 0;
+      if (metric.modal.accountType === "overhead") target = overheadTarget;
+      else if (metric.modal.accountType === "profit") target = profitTarget;
+      else return metric;
+
+      const rules = metric.colorRules ?? [];
+      const hasGreen = rules.some(r => r.color === "green");
+      
+      const updatedRules = hasGreen 
+        ? rules.map(r => r.color === "green" ? { ...r, value: target, op: ">=" as const } : r)
+        : [...rules, { id: Math.random().toString(), color: "green" as const, op: ">=" as const, value: target }];
+
+      return { ...metric, colorRules: updatedRules };
+    })
+  }));
+}
 // ─── Health score calculation ──────────────────────────────────────────────
 type HealthResult = {
   score: number;
@@ -440,6 +444,21 @@ function IconGlyph({ name, size = 20, color = "#3B82F6", weight = "regular" }: {
   }
   return <IconComponent size={size} color={color} weight={weight} style={{ display: "block", flexShrink: 0 }} />;
 }
+
+// --- SETTINGS UPDATE LOGIC ---
+// This tells the app: "When I save my expenses, update the Green Rules immediately"
+const handleUpdateSettings = (newSettings: FiveAccountSettings) => {
+  // 1. Update the settings state
+  setSettings(newSettings); 
+  
+  // 2. Force the "Green Rules" in your boxes to match the new monthly expenses
+  setSections(prevSections => syncSettingsToMetrics(prevSections, newSettings));
+  
+  // 3. Save to Supabase (Database)
+  if (userId) {
+    saveUserData("settings", userId, newSettings);
+  }
+};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // MODAL DATA
