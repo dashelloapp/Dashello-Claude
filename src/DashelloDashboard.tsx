@@ -846,50 +846,6 @@ function RefreshButton({ onRefresh, lastSyncedAt }: {
 }) {
   const [state, setState] = useState<"idle" | "spinning" | "done">("idle");
 
-  function TopBarRefreshButton({ onRefresh, lastSyncedAt }: {
-  onRefresh: () => Promise<void>;
-  lastSyncedAt?: number | null;
-}) {
-  const [state, setState] = useState<"idle" | "spinning" | "done">("idle");
-
-  const handleClick = async () => {
-    if (state === "spinning") return;
-    setState("spinning");
-    await onRefresh();
-    setState("done");
-    setTimeout(() => setState("idle"), 2500);
-  };
-
-  const fmtTime = (ts: number) => new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-      <button onClick={handleClick} style={{
-        display: "flex", alignItems: "center", gap: 5,
-        padding: "4px 10px", borderRadius: 7, border: "1px solid #e2e8f0",
-        background: state === "done" ? "#F0FDF4" : "#f8fafc",
-        borderColor: state === "done" ? "#4CAF7D" : "#e2e8f0",
-        cursor: "pointer", fontSize: 11, fontWeight: 500,
-        color: state === "done" ? "#4CAF7D" : "#64748b",
-        transition: "all 0.2s"
-      }}>
-        <span style={{
-          display: "inline-block", fontSize: 13,
-          animation: state === "spinning" ? "spin 0.7s linear infinite" : "none"
-        }}>
-          {state === "done" ? "✓" : "↻"}
-        </span>
-        {state === "done" ? "Synced" : "Refresh Data"}
-      </button>
-      {lastSyncedAt && (
-        <span style={{ fontSize: 10, color: "#94a3b8", fontStyle: "italic" }}>
-          {fmtTime(lastSyncedAt)}
-        </span>
-      )}
-    </div>
-  );
-}
-  
   const handleClick = async () => {
     if (state === "spinning") return;
     setState("spinning");
@@ -918,13 +874,51 @@ function RefreshButton({ onRefresh, lastSyncedAt }: {
         {state === "done" ? (
           <span style={{ color: "#4CAF7D", fontSize: 14, fontWeight: 700 }}>✓</span>
         ) : (
-          <span style={{
-            display: "inline-block", fontSize: 14, color: "#94a3b8",
-            animation: state === "spinning" ? "spin 0.7s linear infinite" : "none"
-          }}>↻</span>
+          <span style={{ display: "inline-block", fontSize: 14, color: "#94a3b8", animation: state === "spinning" ? "spin 0.7s linear infinite" : "none" }}>↻</span>
         )}
       </button>
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+}
+
+function TopBarRefreshButton({ onRefresh, lastSyncedAt }: {
+  onRefresh: () => Promise<void>;
+  lastSyncedAt?: number | null;
+}) {
+  const [state, setState] = useState<"idle" | "spinning" | "done">("idle");
+
+  const handleClick = async () => {
+    if (state === "spinning") return;
+    setState("spinning");
+    await onRefresh();
+    setState("done");
+    setTimeout(() => setState("idle"), 2500);
+  };
+
+  const fmtTime = (ts: number) => new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <button onClick={handleClick} style={{
+        display: "flex", alignItems: "center", gap: 5,
+        padding: "4px 10px", borderRadius: 7, border: "1px solid #e2e8f0",
+        background: state === "done" ? "#F0FDF4" : "#f8fafc",
+        borderColor: state === "done" ? "#4CAF7D" : "#e2e8f0",
+        cursor: "pointer", fontSize: 11, fontWeight: 500,
+        color: state === "done" ? "#4CAF7D" : "#64748b",
+        transition: "all 0.2s"
+      }}>
+        <span style={{ display: "inline-block", fontSize: 13, animation: state === "spinning" ? "spin 0.7s linear infinite" : "none" }}>
+          {state === "done" ? "✓" : "↻"}
+        </span>
+        {state === "done" ? "Synced" : "Refresh Data"}
+      </button>
+      {lastSyncedAt && (
+        <span style={{ fontSize: 10, color: "#94a3b8", fontStyle: "italic" }}>
+          {fmtTime(lastSyncedAt)}
+        </span>
+      )}
     </div>
   );
 }
@@ -2882,6 +2876,7 @@ export default function DashelloDashboard() {
   const [postTransactionPrompt, setPostTransactionPrompt] = useState<PostTransactionPrompt | null>(null);
   const pendingValueChangeRef = useRef<((description?: string) => void) | null>(null);
   const [lastDashboardSync, setLastDashboardSync] = useState<number | null>(null);
+  const [fiveAccountForceOff, setFiveAccountForceOff] = useState(false);
   
   const [tasksData, setTasksData] = useState([
     { id: "1", text: "Review Q3 financials", done: false, assignee: "AJ", due: "Mar 15" },
