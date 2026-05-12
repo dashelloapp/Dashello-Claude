@@ -3056,7 +3056,6 @@ export default function DashelloDashboard() {
       saveUserData("settings", userId, newSettings);
     }
   };
-    
     // 3. Save updates to Supabase
     if (userId) {
       saveUserData("sections", userId, updatedSections);
