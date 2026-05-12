@@ -433,7 +433,7 @@ function IconGlyph({ name, size = 20, color = "#3B82F6", weight = "regular" }: {
 
 function makeModal(label: string, value: string, color: MetricColor, extra?: Partial<MetricModalData>): MetricModalData {
   return {
-    type: "generic", title: label, color, healthPct: null, mainValue: value, syncTime: "10:23AM",
+   type: "generic", title: label, color, healthPct: null, mainValue: value, syncTime: "",
     stats: [{ label: "Value", value }],
     projections: [], suggestions: [], nextActions: [{ avatar: "AJ" }, { avatar: "BK" }], ...extra
   };
@@ -1146,7 +1146,7 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
                   onValueChange={(v, desc) => onValueChange?.(v, desc)}
                 />
                 <div style={{ fontSize: 9, color: isColored ? "rgba(255,255,255,0.5)" : "#94a3b8", marginTop: 4 }}>
-                  {metric?.lastSyncedAt ? `Synced ${new Date(metric.lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : `Synced ${data.syncTime}`}
+                  {metric?.lastSyncedAt ? `Synced ${new Date(metric.lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
                 </div>
               </div>
               <button style={{ background: "#fff", border: "none", borderRadius: 20, padding: "5px 14px", fontSize: 12, cursor: "pointer", fontWeight: 600, flexShrink: 0, marginLeft: 14, color: "#1a2332" }}>Filter</button>
@@ -1203,7 +1203,7 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
         <div style={{ textAlign: "center", marginBottom: 28 }}>
           <div style={{ height: 2, background: "#1a2332", width: 220, margin: "0 auto 5px" }} />
           <span style={{ fontSize: 12, fontStyle: "italic", color: "#94a3b8" }}>
-            {metric?.lastSyncedAt ? `Synced ${new Date(metric.lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : `Synced ${data.syncTime}`}
+            {metric?.lastSyncedAt ? `Synced ${new Date(metric.lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
           </span>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 24 }}>
@@ -1251,7 +1251,7 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
               <div>
                 <div style={{ fontSize: 11, color: statTextColor }}>Amount</div>
-                <div style={{ fontSize: 9, color: isColored ? "rgba(255,255,255,0.5)" : "#94a3b8" }}>Synced from {data.syncTime}</div>
+                {metric?.lastSyncedAt && <div style={{ fontSize: 9, color: isColored ? "rgba(255,255,255,0.5)" : "#94a3b8" }}>Synced {new Date(metric.lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>}
               </div>
               <button style={{ background: "#fff", border: "none", borderRadius: 20, padding: "3px 12px", fontSize: 11, cursor: "pointer", fontWeight: 600, color: "#1a2332" }}>Filter</button>
             </div>
@@ -1260,7 +1260,7 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
               <div key={i} style={{ marginBottom: 8 }}>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <span style={{ fontSize: 11, color: statTextColor }}>{s.label}</span>
-                  {s.synced && <span style={{ fontSize: 9, color: isColored ? "rgba(255,255,255,0.5)" : "#94a3b8" }}>Synced</span>}
+                  {s.synced && metric?.lastSyncedAt && <span style={{ fontSize: 9, color: isColored ? "rgba(255,255,255,0.5)" : "#94a3b8" }}>Synced {new Date(metric.lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>}
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: statValColor }}>{s.value}</div>
               </div>
@@ -1277,7 +1277,7 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
                   : <div onClick={() => setIsEditingValue(true)} style={{ fontSize: 26, fontWeight: 700, color: "#1a2332", cursor: "text" }} title="Click to edit">{localValue}</div>}
                 {metric?.lastSyncedAt
                   ? <div style={{ fontSize: 10, color: "#94a3b8", fontStyle: "italic" }}>{`Synced ${new Date(metric.lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}</div>
-                  : <div style={{ fontSize: 10, color: "#94a3b8", fontStyle: "italic" }}>{`Synced ${data.syncTime}`}</div>
+                  : null
                 }
               </div>
               <button onClick={() => handleIncrement(1)} style={{ width: 30, height: 30, borderRadius: "50%", border: "1.5px solid #d1d5db", background: "none", fontSize: 18, cursor: "pointer", color: "#9CA3AF" }}>+</button>
