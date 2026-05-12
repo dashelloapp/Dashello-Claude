@@ -159,9 +159,21 @@ function runFiveAccountEquation(
   const profitRule = profitBox?.colorRules?.find(r => r.color === "green");
   const profitTarget = profitRule ? profitRule.value : (settings.monthlyExpenses * 6);
 
+  // Calculate exact room in profit
+  const roomInProfit = profitTarget > 0 ? Math.max(0, profitTarget - currentProfit) : Infinity;
+  
+  let profitInflow = 0;
+  let investmentsInflow = 0;
+
+  // Split the money: fill profit to the brim, overflow goes to investments
+  if (remaining > roomInProfit) {
+    profitInflow = roomInProfit;
+    investmentsInflow = remaining - roomInProfit;
+  } else {
+    profitInflow = remaining;
+  }
+
   const profitAlreadyFunded = currentProfit >= profitTarget;
-  const profitInflow = profitAlreadyFunded ? 0 : remaining;
-  const investmentsInflow = profitAlreadyFunded ? remaining : 0;
 
   const makeTxn = (inflow: number, fromLabel: string, isProfitFull: boolean = false): Transaction => ({
     date: new Date(now).toLocaleDateString(),
@@ -3456,8 +3468,7 @@ const sidebarEl = (
           {page === "integrations" && <div style={{ flex: 1, overflowY: "auto" }}><IntegrationsPage onSelectApp={a => { setSelectedApp(a); setPage("app-detail"); }} /></div>}
           {page === "app-detail" && selectedApp && <div style={{ flex: 1, overflowY: "auto" }}><AppDetailPage app={selectedApp} onBack={() => setPage("integrations")} /></div>}
           {page === "team" && <div style={{ flex: 1, overflowY: "auto" }}><TeamPage /></div>}
-          {page === "settings" && <div style={{ flex: 1, overflowY: "auto" }}><SettingsPage userId={userId!} userEmail={userEmail} profile={profile} forceDisableFiveAccount={fiveAccountForceOff} onForceDisableAcknowledged={() => setFiveAccountForceOff(false)} onProfileSaved={p => setProfile(p)} onFiveAccountCreated={handleFiveAccountCreated} onFiveAccountDisabled={handleGlobalFiveAccountDisabled} fiveAccountSettings={fiveAccountSettings} onFiveAccountSettingsChange={setFiveAccountSettings} /></div>}
-        </div>
+          {page === "settings" && <div style={{ flex: 1, overflowY: "auto" }}><SettingsPage userId={userId!} userEmail={userEmail} profile={profile} forceDisableFiveAccount={fiveAccountForceOff} onForceDisableAcknowledged={() => setFiveAccountForceOff(false)} onProfileSaved={p => setProfile(p)} onFiveAccountCreated={handleFiveAccountCreated} onFiveAccountDisabled={handleGlobalFiveAccountDisabled} fiveAccountSettings={fiveAccountSettings} onFiveAccountSettingsChange={handleUpdateSettings} /></div>}          </div>
       </div>
 
       {showChat && <ChatPanel sections={sections} onClose={() => setShowChat(false)} />}
