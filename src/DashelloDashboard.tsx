@@ -468,7 +468,7 @@ function makeModal(label: string, value: string, color: MetricColor, extra?: Par
   };
 }
 
-function makeFiveAccountMetric(accountType: "overhead" | "profit" | "tax" | "investments" | "owner", parentId: string): Omit<Metric, "id"> {
+function makeFiveAccountMetric(accountType: "overhead" | "profit" | "tax" | "investments" | "owner", parentId: string, isParent = false): Omit<Metric, "id"> {
   const label = accountType.charAt(0).toUpperCase() + accountType.slice(1);
   const modal = makeModal(label, "$0.00", "gray", {
     type: "cashflow", fiveAccountEnabled: true, accountType,
@@ -480,7 +480,8 @@ function makeFiveAccountMetric(accountType: "overhead" | "profit" | "tax" | "inv
     icon: FIVE_ACCOUNT_ICONS[label] ?? "Wallet",
     color: "gray", modal, metricType: "financial", graphType: "linear",
     colorRules: [], connectedApps: [], history: [],
-    fiveAccountParentId: parentId,
+    // Parent box has fiveAccountParentId pointing to itself so equation can always find it
+    fiveAccountParentId: isParent ? undefined : parentId,
   };
 }
 
@@ -1076,7 +1077,12 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
   const activeColor: MetricColor = metric ? resolveColor(metric) : data.color;
   const accent = MS[activeColor].bg;
   const isColored = activeColor !== "gray";
-  const isCash = !!(data.fiveAccountEnabled && data.accountType);
+ const isCash = !!(
+    (data.fiveAccountEnabled && data.accountType) ||
+    (metric?.modal?.fiveAccountEnabled && metric?.modal?.accountType) ||
+    metric?.fiveAccountParentId !== undefined ||
+    (metric?.modal?.fiveAccountEnabled && !metric?.fiveAccountParentId)
+  );
   const isCounter = !isCash && metric?.metricType === "counter";
   const metricType = metric?.metricType ?? "financial";
   const graphType = metric?.graphType ?? "linear";
@@ -1565,11 +1571,12 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
     if (!rawValue.trim()) { setSaveError("Please enter a current value."); return; }
     setSaveError("");
     const finalValue = previewValue;
+    const accountType = initial?.modal?.accountType ?? (fiveOn ? "overhead" : undefined);
     const m = makeModal(label, finalValue, "gray", {
       fiveAccountEnabled: fiveOn,
       type: fiveOn ? "cashflow" : initial?.modal?.type ?? (effectiveMetricType === "counter" ? "leads" : effectiveMetricType === "percentage" ? "website" : "invoices"),
       mainValue: finalValue,
-      accountType: initial?.modal?.accountType,
+      accountType,
       transactions: initial?.modal?.transactions ?? [],
     });
    const valueChanged = initial && initial.value !== finalValue;
@@ -1996,11 +2003,14 @@ function DashSection({
     }
   };
 
-  const handleAddMetricWithFiveAccount = (m: Omit<Metric, "id">) => {
+ const handleAddMetricWithFiveAccount = (m: Omit<Metric, "id">) => {
     const newId = crypto.randomUUID();
-    onAddMetric(section.id, { ...m, id: newId } as any);
+    // Ensure the parent box is marked correctly
+    const parentMetric = m.modal?.fiveAccountEnabled
+      ? { ...m, fiveAccountParentId: undefined, modal: { ...m.modal, fiveAccountEnabled: true } }
+      : m;
+    onAddMetric(section.id, { ...parentMetric, id: newId } as any);
 
-    // If five-account is on and this is not a child box, create the 4 siblings
     if (m.modal?.fiveAccountEnabled && !m.fiveAccountParentId) {
       const parentLabel = m.label;
       const existingLabels = section.metrics.map(x => x.label);
@@ -2013,7 +2023,6 @@ function DashSection({
       });
     }
   };
-
   return (
     <div
       onDragEnter={onSectionDragEnter}
@@ -2996,17 +3005,19 @@ export default function DashelloDashboard() {
           };
         });
 
-       if (fiveAccountSettings.mode !== "five-separate" && profile.five_account_enabled) {
+       if (fiveAccountSettings.mode !== "five-separate") {
           const changedMetric = updatedMetrics.find(m => m.id === metricId);
-          // Run if changed box is the Five-Account parent
-          const isParent = !!(changedMetric?.modal?.fiveAccountEnabled && !changedMetric?.fiveAccountParentId);
-          // Also run if it's a child — find its parent and cascade from there
-          const parentFromChild = changedMetric?.fiveAccountParentId
-            ? updatedMetrics.find(m => m.id === changedMetric.fiveAccountParentId)
-            : null;
-          const equationParentId = isParent ? metricId : parentFromChild?.id;
-          if (equationParentId) {
-            return { ...s, metrics: runFiveAccountEquation(updatedMetrics, equationParentId, fiveAccountSettings) };
+          // Find the equation parent: box with fiveAccountEnabled=true and no fiveAccountParentId
+          const equationParent = updatedMetrics.find(m =>
+            m.modal?.fiveAccountEnabled === true && !m.fiveAccountParentId
+          );
+          // Only cascade if the changed metric belongs to this Five-Account group
+          const belongsToGroup = changedMetric && equationParent && (
+            changedMetric.id === equationParent.id ||
+            changedMetric.fiveAccountParentId === equationParent.id
+          );
+          if (equationParent && belongsToGroup) {
+            return { ...s, metrics: runFiveAccountEquation(updatedMetrics, equationParent.id, fiveAccountSettings) };
           }
         }
         return { ...s, metrics: updatedMetrics };
@@ -3066,13 +3077,21 @@ export default function DashelloDashboard() {
   // Five-Account created from Settings — adds "Finances" row with all 5 boxes
   const handleFiveAccountCreated = useCallback(() => {
     setSections(prev => {
-      // Don't duplicate if row already exists
       if (prev.find(s => s.title === "Finances")) return prev;
       const parentId = crypto.randomUUID();
       const childMetrics = FIVE_ACCOUNT_LABELS.map(label => {
-        const accountType = label.toLowerCase() as any;
-        const child = makeFiveAccountMetric(accountType, parentId);
-        return { ...child, id: crypto.randomUUID() };
+        const accountType = label.toLowerCase() as "overhead" | "profit" | "tax" | "investments" | "owner";
+        const isParent = accountType === "overhead";
+        const metric = makeFiveAccountMetric(accountType, parentId, isParent);
+        // Parent gets fiveAccountEnabled:true and no fiveAccountParentId
+        if (isParent) {
+          return {
+            ...metric,
+            id: parentId,
+            modal: { ...metric.modal, fiveAccountEnabled: true, accountType },
+          };
+        }
+        return { ...metric, id: crypto.randomUUID() };
       });
       const newSection: Section = { id: crypto.randomUUID(), title: "Finances", avatars: [], metrics: childMetrics };
       return [...prev, newSection];
@@ -3082,7 +3101,7 @@ export default function DashelloDashboard() {
   // Auto-disable five-account if the section containing the group is fully deleted
   const handleRemoveSectionWithFiveAccountCheck = useCallback((removedSection: Section) => {
     const hasFiveAccountBoxes = removedSection.metrics.some(
-      m => m.modal?.fiveAccountEnabled || m.fiveAccountParentId
+      m => m.modal?.fiveAccountEnabled || m.fiveAccountParentId || m.modal?.type === "cashflow"
     );
     if (hasFiveAccountBoxes) {
       setProfile(prev => {
