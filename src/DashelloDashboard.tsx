@@ -2906,7 +2906,7 @@ export default function DashelloDashboard() {
   // --- SETTINGS UPDATE LOGIC ---
   const handleUpdateSettings = (newSettings: FiveAccountSettings) => {
     // 1. Update local settings
-    setSettings(newSettings); 
+    newSettings(newSettings); 
     
     // 2. Sync green rules for Overhead and Profit boxes
     setSections((prevSections: Section[]) => syncSettingsToMetrics(prevSections, newSettings));
