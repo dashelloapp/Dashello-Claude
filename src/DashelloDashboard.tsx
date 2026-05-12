@@ -15,7 +15,11 @@ async function saveUserData(table: string, userId: string, payload: any) {
     await supabase.from(table).insert({ user_id: userId, data: payload });
   }
 }
-
+async function refreshMetricFromSupabase(userId: string, metricId: string, sections: Section[]): Promise<Section[]> {
+  const { data } = await supabase.from("sections").select("data").eq("user_id", userId).maybeSingle();
+  if (!data?.data) return sections;
+  return data.data as Section[];
+}
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
 // ═══════════════════════════════════════════════════════════════════════════
@@ -836,6 +840,95 @@ function OutOfSyncBanner({ metric, onResyncCurrent, onResyncPrevious }: {
   );
 }
 
+function RefreshButton({ onRefresh, lastSyncedAt }: {
+  onRefresh: () => Promise<void>;
+  lastSyncedAt?: number;
+}) {
+  const [state, setState] = useState<"idle" | "spinning" | "done">("idle");
+
+  function TopBarRefreshButton({ onRefresh, lastSyncedAt }: {
+  onRefresh: () => Promise<void>;
+  lastSyncedAt?: number | null;
+}) {
+  const [state, setState] = useState<"idle" | "spinning" | "done">("idle");
+
+  const handleClick = async () => {
+    if (state === "spinning") return;
+    setState("spinning");
+    await onRefresh();
+    setState("done");
+    setTimeout(() => setState("idle"), 2500);
+  };
+
+  const fmtTime = (ts: number) => new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <button onClick={handleClick} style={{
+        display: "flex", alignItems: "center", gap: 5,
+        padding: "4px 10px", borderRadius: 7, border: "1px solid #e2e8f0",
+        background: state === "done" ? "#F0FDF4" : "#f8fafc",
+        borderColor: state === "done" ? "#4CAF7D" : "#e2e8f0",
+        cursor: "pointer", fontSize: 11, fontWeight: 500,
+        color: state === "done" ? "#4CAF7D" : "#64748b",
+        transition: "all 0.2s"
+      }}>
+        <span style={{
+          display: "inline-block", fontSize: 13,
+          animation: state === "spinning" ? "spin 0.7s linear infinite" : "none"
+        }}>
+          {state === "done" ? "✓" : "↻"}
+        </span>
+        {state === "done" ? "Synced" : "Refresh Data"}
+      </button>
+      {lastSyncedAt && (
+        <span style={{ fontSize: 10, color: "#94a3b8", fontStyle: "italic" }}>
+          {fmtTime(lastSyncedAt)}
+        </span>
+      )}
+    </div>
+  );
+}
+  
+  const handleClick = async () => {
+    if (state === "spinning") return;
+    setState("spinning");
+    await onRefresh();
+    setState("done");
+    setTimeout(() => setState("idle"), 2500);
+  };
+
+  const fmtTime = (ts: number) => new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      {lastSyncedAt && (
+        <span style={{ fontSize: 10, color: "#94a3b8", fontStyle: "italic" }}>
+          Synced {fmtTime(lastSyncedAt)}
+        </span>
+      )}
+      <button onClick={handleClick} title="Refresh data" style={{
+        width: 32, height: 32, borderRadius: "50%", border: "1.5px solid #e2e8f0",
+        background: state === "done" ? "#F0FDF4" : "#f8fafc",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        cursor: "pointer", flexShrink: 0, padding: 0,
+        borderColor: state === "done" ? "#4CAF7D" : "#e2e8f0",
+        transition: "all 0.2s"
+      }}>
+        {state === "done" ? (
+          <span style={{ color: "#4CAF7D", fontSize: 14, fontWeight: 700 }}>✓</span>
+        ) : (
+          <span style={{
+            display: "inline-block", fontSize: 14, color: "#94a3b8",
+            animation: state === "spinning" ? "spin 0.7s linear infinite" : "none"
+          }}>↻</span>
+        )}
+      </button>
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+}
+
 function CashBalanceInput({ value, currencySymbol, statValColor, statTextColor, isColored, onValueChange }: {
   value: string; currencySymbol: string; statValColor: string; statTextColor: string;
   isColored: boolean; onValueChange?: (v: string, description?: string) => void;
@@ -943,9 +1036,10 @@ function CashBalanceInput({ value, currencySymbol, statValColor, statTextColor, 
     </div>
   );
 }
-function MetricModal({ data, metric, onClose, onEdit, onValueChange }: {
+function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onRefreshSections }: {
   data: MetricModalData; metric?: Metric;
   onClose: () => void; onEdit?: () => void; onValueChange?: (v: string, description?: string) => void;
+  userId?: string; onRefreshSections?: () => Promise<void>;
 }) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const [localValue, setLocalValue] = useState(data.mainValue);
@@ -1001,9 +1095,12 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange }: {
     <div ref={overlayRef} onClick={e => { if (e.target === overlayRef.current) onClose(); }}
       style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 20 }}>
       <div style={{ background: "#fff", borderRadius: 24, width: "100%", maxWidth: 900, maxHeight: "92vh", overflowY: "auto", padding: "28px 32px 32px", boxShadow: "0 32px 80px rgba(0,0,0,0.2)" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
           <h2 style={{ margin: 0, fontSize: 28, fontWeight: 700, color: "#1a2332" }}>{data.title}</h2>
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}><EditBtn /><CloseBtn /></div>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            {onRefreshSections && <RefreshButton onRefresh={onRefreshSections} lastSyncedAt={metric?.lastSyncedAt} />}
+            <EditBtn /><CloseBtn />
+          </div>
         </div>
         {data.accountType && (
           <div style={{ background: "linear-gradient(135deg,#EEF9F4,#E8F4FD)", border: "1px solid #c3e6d4", borderRadius: 12, padding: "10px 14px", marginBottom: 14 }}>
@@ -1084,7 +1181,10 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange }: {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
           <div style={{ flex: 1 }} />
           <h2 style={{ margin: 0, fontSize: 28, fontWeight: 700, color: "#1a2332" }}>{data.title}</h2>
-          <div style={{ flex: 1, display: "flex", justifyContent: "flex-end", gap: 10, alignItems: "center" }}><EditBtn /><CloseBtn /></div>
+          <div style={{ flex: 1, display: "flex", justifyContent: "flex-end", gap: 10, alignItems: "center" }}>
+            {onRefreshSections && <RefreshButton onRefresh={onRefreshSections} lastSyncedAt={metric?.lastSyncedAt} />}
+            <EditBtn /><CloseBtn />
+          </div>
         </div>
         {metric?.icon && metric.icon !== ICON_NONE && (
           <div style={{ textAlign: "center", marginBottom: 16 }}>
@@ -1140,7 +1240,10 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange }: {
       <div style={{ background: "#fff", borderRadius: 24, width: "100%", maxWidth: 900, maxHeight: "92vh", overflowY: "auto", padding: "28px 32px 32px", boxShadow: "0 32px 80px rgba(0,0,0,0.2)" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
           <h2 style={{ margin: 0, fontSize: 28, fontWeight: 700, color: "#1a2332" }}>{data.title}</h2>
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}><EditBtn /><CloseBtn /></div>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            {onRefreshSections && <RefreshButton onRefresh={onRefreshSections} lastSyncedAt={metric?.lastSyncedAt} />}
+            <EditBtn /><CloseBtn />
+          </div>
         </div>
         {data.healthPct != null
           ? <><div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332", marginBottom: 6 }}>Health — <strong>{data.healthPct}%</strong></div>
@@ -2776,9 +2879,9 @@ export default function DashelloDashboard() {
     health_red_multiplier: -1.0,
   });
   const [fiveAccountSettings, setFiveAccountSettings] = useState<FiveAccountSettings>(DEFAULT_FIVE_ACCOUNT_SETTINGS);
-  const [fiveAccountForceOff, setFiveAccountForceOff] = useState(false);
   const [postTransactionPrompt, setPostTransactionPrompt] = useState<PostTransactionPrompt | null>(null);
   const pendingValueChangeRef = useRef<((description?: string) => void) | null>(null);
+  const [lastDashboardSync, setLastDashboardSync] = useState<number | null>(null);
   
   const [tasksData, setTasksData] = useState([
     { id: "1", text: "Review Q3 financials", done: false, assignee: "AJ", due: "Mar 15" },
@@ -2888,7 +2991,33 @@ export default function DashelloDashboard() {
       });
     };
 
-   applyChange(description);
+  applyChange(description);
+    // Refresh from Supabase after any value change to keep all clients in sync
+    setTimeout(() => handleRefreshMetric(), 300);
+  };
+
+  const handleRefreshAll = async () => {
+    if (!userId) return;
+    const [savedSections, savedTasks, savedGoals] = await Promise.all([
+      loadUserData("sections", userId),
+      loadUserData("tasks", userId),
+      loadUserData("goals", userId),
+    ]);
+    if (savedSections) setSections(savedSections);
+    if (savedTasks) setTasksData(savedTasks);
+    if (savedGoals) setGoalsData(savedGoals);
+    setLastDashboardSync(Date.now());
+  };
+
+  const handleRefreshMetric = async () => {
+    if (!userId) return;
+    const saved = await loadUserData("sections", userId);
+    if (saved) setSections(saved);
+    if (activeModal) {
+      const updated = (saved as Section[])?.flatMap((s: Section) => s.metrics).find((m: Metric) => m.id === activeModal.metric.id);
+      if (updated) setActiveModal(prev => prev ? { ...prev, metric: updated, data: { ...prev.data, mainValue: updated.value, transactions: updated.modal.transactions } } : null);
+    }
+    setLastDashboardSync(Date.now());
   };
   
   const handleClickMetric = (data: MetricModalData, metric: Metric) => setActiveModal({ data, metric });
@@ -2971,10 +3100,13 @@ const sidebarEl = (
             </div>
           )}
           {page === "home" && (
-            <div style={{ display: "flex", borderRadius: 8, border: "1px solid #e2e8f0", overflow: "hidden" }}>
-              {["Row", "Column"].map((lbl, i) => (
-                <div key={lbl} style={{ padding: "5px 13px", fontSize: 12, fontWeight: 500, cursor: "pointer", background: i === 0 ? "#3B82F6" : "#fff", color: i === 0 ? "#fff" : "#94a3b8" }}>{lbl}</div>
-              ))}
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ display: "flex", borderRadius: 8, border: "1px solid #e2e8f0", overflow: "hidden" }}>
+                {["Row", "Column"].map((lbl, i) => (
+                  <div key={lbl} style={{ padding: "5px 13px", fontSize: 12, fontWeight: 500, cursor: "pointer", background: i === 0 ? "#3B82F6" : "#fff", color: i === 0 ? "#fff" : "#94a3b8" }}>{lbl}</div>
+                ))}
+              </div>
+              <TopBarRefreshButton onRefresh={handleRefreshAll} lastSyncedAt={lastDashboardSync} />
             </div>
           )}
           <div style={{ flex: 1 }} />
@@ -2998,7 +3130,8 @@ const sidebarEl = (
 
       {activeModal && (
         <MetricModal data={activeModal.data} metric={activeModal.metric}
-          onClose={() => setActiveModal(null)} onEdit={handleEditFromModal} onValueChange={handleValueChange} />
+          onClose={() => setActiveModal(null)} onEdit={handleEditFromModal} onValueChange={handleValueChange}
+          userId={userId ?? undefined} onRefreshSections={handleRefreshMetric} />
       )}
 
      {editingMetricFromModal && (() => {
