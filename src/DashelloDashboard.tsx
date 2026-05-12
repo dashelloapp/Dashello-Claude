@@ -1665,18 +1665,34 @@ function MetricBlock({ metric, onClick, onDragStart, onDragEnter, onDrop, isDrag
 
 function RowMenu({ onRename, onDelete, onClose }: { onRename: () => void; onDelete: () => void; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
   useEffect(() => {
     const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
     document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h);
   }, [onClose]);
+
   return (
-    <div ref={ref} style={{ position: "absolute", top: 36, right: 0, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 100, minWidth: 150, overflow: "hidden" }}>
-      {[{ label: "Rename row", action: onRename }, { label: "Delete row", action: onDelete }].map(item => (
-        <div key={item.label} onClick={() => { item.action(); onClose(); }}
-          style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
-          onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
-          onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>{item.label}</div>
-      ))}
+    <div ref={ref} style={{ position: "absolute", top: 36, right: 0, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 100, minWidth: 170, overflow: "hidden" }}>
+      <div onClick={() => { onRename(); onClose(); }}
+        style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
+        onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
+        onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Rename row</div>
+
+      {!confirmDelete
+        ? <div onClick={() => setConfirmDelete(true)}
+            style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#E85D75" }}
+            onMouseEnter={e => (e.currentTarget.style.background = "#fff5f5")}
+            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Delete row</div>
+        : <div style={{ padding: "10px 14px", borderTop: "1px solid #f1f5f9" }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "#E85D75", marginBottom: 8 }}>Delete this row?</div>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button onClick={() => setConfirmDelete(false)}
+                style={{ flex: 1, padding: "5px 0", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 11, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+              <button onClick={() => { onDelete(); onClose(); }}
+                style={{ flex: 1, padding: "5px 0", borderRadius: 6, border: "none", background: "#E85D75", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Delete</button>
+            </div>
+          </div>}
     </div>
   );
 }
@@ -2074,8 +2090,11 @@ function ProfileField({ label, value, onChange, disabled }: { label: string; val
   );
 }
 
-function SettingsPage({ userId, userEmail, profile: externalProfile, onProfileSaved, onFiveAccountCreated, fiveAccountSettings, onFiveAccountSettingsChange }: {
-  userId: string; userEmail: string; profile: any; onProfileSaved: (p: any) => void;
+function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisableFiveAccount, onForceDisableAcknowledged, onProfileSaved, onFiveAccountCreated, fiveAccountSettings, onFiveAccountSettingsChange }: {
+  userId: string; userEmail: string; profile: any;
+  forceDisableFiveAccount?: boolean;
+  onForceDisableAcknowledged?: () => void;
+  onProfileSaved: (p: any) => void;
   onFiveAccountCreated: () => void;
   fiveAccountSettings: FiveAccountSettings;
   onFiveAccountSettingsChange: (s: FiveAccountSettings) => void;
@@ -2108,23 +2127,15 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, onProfileSa
   });
 }, [userId]);
 
-  // Keep localProfile in sync when parent updates it externally (e.g. row deletion disables five-account)
   useEffect(() => {
-    setLocalProfile(prev => ({
-      ...prev,
-      five_account_enabled: externalProfile.five_account_enabled,
-    }));
+    setLocalProfile(prev => ({ ...prev, five_account_enabled: externalProfile.five_account_enabled }));
   }, [externalProfile.five_account_enabled]);
 
-  // Also persist the disable to Supabase when toggled off externally
   useEffect(() => {
-    if (!userId || externalProfile.five_account_enabled) return;
-    supabase.from("profiles").upsert({
-      id: userId,
-      five_account_enabled: false,
-      updated_at: new Date().toISOString(),
-    });
-  }, [externalProfile.five_account_enabled, userId]);
+    if (!forceDisableFiveAccount) return;
+    setLocalProfile(prev => ({ ...prev, five_account_enabled: false }));
+    onForceDisableAcknowledged?.();
+  }, [forceDisableFiveAccount]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -2628,6 +2639,7 @@ export default function DashelloDashboard() {
     health_red_multiplier: -1.0,
   });
   const [fiveAccountSettings, setFiveAccountSettings] = useState<FiveAccountSettings>(DEFAULT_FIVE_ACCOUNT_SETTINGS);
+  const [fiveAccountForceOff, setFiveAccountForceOff] = useState(false);
   const [postTransactionPrompt, setPostTransactionPrompt] = useState<PostTransactionPrompt | null>(null);
   const pendingValueChangeRef = useRef<((description?: string) => void) | null>(null);
   
@@ -2730,15 +2742,6 @@ export default function DashelloDashboard() {
         return { ...s, metrics: updatedMetrics };
       }));
 
-      // Mark non-parent five-account boxes as out-of-sync
-      if (isFiveAccount && activeModal.metric.fiveAccountParentId) {
-        setSections(prev => prev.map(s => ({
-          ...s, metrics: s.metrics.map(m =>
-            m.id === metricId ? { ...m, outOfSync: true } : m
-          )
-        })));
-      }
-
       setActiveModal(prev => prev ? { ...prev, metric: { ...prev.metric, value: newValue, lastSyncedAt: now }, data: { ...prev.data, mainValue: newValue } } : null);
     };
 
@@ -2779,9 +2782,10 @@ export default function DashelloDashboard() {
       setProfile(prev => {
         if (!prev.five_account_enabled) return prev;
         const updated = { ...prev, five_account_enabled: false };
-        supabase.from("profiles").upsert({ id: userId!, ...updated, updated_at: new Date().toISOString() });
+        supabase.from("profiles").upsert({ id: userId!, five_account_enabled: false, updated_at: new Date().toISOString() });
         return updated;
       });
+      setFiveAccountForceOff(true);
     }
   }, [userId]);
 
@@ -2849,7 +2853,7 @@ const sidebarEl = (
           {page === "integrations" && <div style={{ flex: 1, overflowY: "auto" }}><IntegrationsPage onSelectApp={a => { setSelectedApp(a); setPage("app-detail"); }} /></div>}
           {page === "app-detail" && selectedApp && <div style={{ flex: 1, overflowY: "auto" }}><AppDetailPage app={selectedApp} onBack={() => setPage("integrations")} /></div>}
           {page === "team" && <div style={{ flex: 1, overflowY: "auto" }}><TeamPage /></div>}
-          {page === "settings" && <div style={{ flex: 1, overflowY: "auto" }}><SettingsPage userId={userId!} userEmail={userEmail} profile={profile} onProfileSaved={p => setProfile(p)} onFiveAccountCreated={handleFiveAccountCreated} fiveAccountSettings={fiveAccountSettings} onFiveAccountSettingsChange={setFiveAccountSettings} /></div>}
+          {page === "settings" && <div style={{ flex: 1, overflowY: "auto" }}><SettingsPage userId={userId!} userEmail={userEmail} profile={profile} forceDisableFiveAccount={fiveAccountForceOff} onForceDisableAcknowledged={() => setFiveAccountForceOff(false)} onProfileSaved={p => setProfile(p)} onFiveAccountCreated={handleFiveAccountCreated} fiveAccountSettings={fiveAccountSettings} onFiveAccountSettingsChange={setFiveAccountSettings} /></div>}
         </div>
       </div>
 
@@ -2875,9 +2879,9 @@ const sidebarEl = (
                   const currency = metric.currencySymbol ?? "$";
                   const reverted = `${currency}${oldValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
                   setSections(prev => prev.map(s => ({
-                    ...s, metrics: s.metrics.map(m => m.id === metricId ? { ...m, value: reverted } : m)
+                    ...s, metrics: s.metrics.map(m => m.id === metricId ? { ...m, value: reverted, outOfSync: false } : m)
                   })));
-                  setActiveModal(prev => prev ? { ...prev, metric: { ...prev.metric, value: reverted }, data: { ...prev.data, mainValue: reverted } } : null);
+                  setActiveModal(prev => prev ? { ...prev, metric: { ...prev.metric, value: reverted, outOfSync: false }, data: { ...prev.data, mainValue: reverted } } : null);
                 }
               }
               pendingValueChangeRef.current = null;
