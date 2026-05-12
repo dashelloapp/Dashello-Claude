@@ -181,9 +181,19 @@ function runFiveAccountEquation(
     if (m.fiveAccountParentId === parentId) {
       const lbl = m.label.toLowerCase();
       let inflow = 0;
-      if (lbl === "tax") inflow = taxInflow;
-      if (lbl === "profit") inflow = profitInflow;
-      if (lbl === "investments") inflow = investmentsInflow;
+      
+      // Determine if profit is full to divert to investments
+      const isProfitReallyFull = currentProfit >= profitTarget && profitTarget > 0;
+
+      if (lbl === "tax") {
+        inflow = taxInflow;
+      } else if (lbl === "profit") {
+        // Only take inflow if profit isn't full
+        inflow = isProfitReallyFull ? 0 : remaining;
+      } else if (lbl === "investments") {
+        // Take inflow if profit IS full
+        inflow = isProfitReallyFull ? remaining : 0;
+      }
 
       if (inflow > 0) {
         const currentVal = parseFloat(m.value.replace(/[^0-9.\-]/g, "")) || 0;
@@ -3038,17 +3048,19 @@ export default function DashelloDashboard() {
   // --- SETTINGS UPDATE LOGIC ---
   const handleUpdateSettings = (newSettings: FiveAccountSettings) => {
     // 1. Update local settings state
-    setFiveAccountSettings(newSettings); 
+    setFiveAccountSettings(newSettings);
     
     // 2. Force "Green Rules" to match the new monthly expenses
-    setSections((prevSections: Section[]) => syncSettingsToMetrics(prevSections, newSettings));
+    const updatedSections = syncSettingsToMetrics(sections, newSettings);
+    setSections(updatedSections);
     
     // 3. Save updates to Supabase
     if (userId) {
-      saveUserData("sections", userId, syncSettingsToMetrics(sections, newSettings));
+      saveUserData("sections", userId, updatedSections);
       saveUserData("settings", userId, newSettings);
     }
   };
+   
   const [postTransactionPrompt, setPostTransactionPrompt] = useState<PostTransactionPrompt | null>(null);
   const pendingValueChangeRef = useRef<((description?: string) => void) | null>(null);
   const [lastDashboardSync, setLastDashboardSync] = useState<number | null>(null);
