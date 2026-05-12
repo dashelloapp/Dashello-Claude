@@ -3524,8 +3524,8 @@ const sidebarEl = (
             }}
             onClose={() => setEditingMetricFromModal(null)} />
         );
-      })()}
-   </div>
+    })()}
+    </div>
   );
 }
 
