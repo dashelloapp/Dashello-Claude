@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, Fragment } from "react";
 import { supabase } from "./lib/supabase";
 import * as PhosphorReact from "@phosphor-icons/react";
 
@@ -25,7 +25,7 @@ async function refreshMetricFromSupabase(userId: string, metricId: string, secti
 // ═══════════════════════════════════════════════════════════════════════════
 
 type MetricColor = "green" | "yellow" | "red" | "gray";
-type Page = "home" | "goals" | "tasks" | "integrations" | "team" | "settings" | "app-detail";
+type Page = "home" | "goals" | "tasks" | "integrations" | "team" | "settings" | "app-detail" | "equation-builder";
 type GraphType = "bar-h" | "linear" | "pie" | "bar-v";
 type MetricType = "counter" | "percentage" | "financial";
 type RuleOp = ">=" | "<=" | ">" | "<" | "between" | "==" | "!=" ;
@@ -53,6 +53,23 @@ interface ColorRule {
   value2?: number;
 }
 
+interface EquationStep {
+  type: "metric" | "operator";
+  metricId?: string;
+  metricLabel?: string;
+  metricIcon?: string;
+  metricColor?: MetricColor;
+  metricValue?: string;
+  operator?: "+" | "-" | "*" | "/";
+  metricType?: MetricType;
+  currencySymbol?: string;
+  healthPct?: number | null;
+  stats?: StatRow[];
+  connectedApps?: string[];
+}
+interface EquationConfig {
+  steps: EquationStep[];
+}
 interface DataPoint { timestamp: number; value: number; }
 interface Transaction { date: string; description: string; credit?: number; debit?: number; }
 interface StatRow { label: string; value: string; synced?: boolean; }
@@ -84,6 +101,7 @@ interface Metric {
   resetFrequency?: ResetFrequency;
   resetKeepHistory?: boolean;
   lastResetAt?: number;
+  equation?: EquationConfig;
 }
 interface Section { id: string; title: string; avatars: string[]; metrics: Metric[]; }
 
@@ -204,6 +222,111 @@ function runFiveAccountEquation(
     }
     return m;
   });
+}
+
+// ─── Equation solver ───────────────────────────────────────────────────────
+function evaluateEquation(steps: EquationStep[], allMetrics: Metric[]): number | null {
+  if (steps.length === 0) return null;
+  if (steps.length === 1 && steps[0].type === "metric") {
+    const m = allMetrics.find(mm => mm.id === steps[0].metricId);
+    if (!m) return null;
+    return parseFloat(m.value.replace(/[^0-9.\-]/g, "")) || 0;
+  }
+
+  const resolved: (number | "+" | "-" | "*" | "/")[] = [];
+  for (const step of steps) {
+    if (step.type === "operator") {
+      if (step.operator) resolved.push(step.operator);
+    } else {
+      const m = allMetrics.find(mm => mm.id === step.metricId);
+      const val = m ? parseFloat(m.value.replace(/[^0-9.\-]/g, "")) || 0 : 0;
+      resolved.push(val);
+    }
+  }
+  if (resolved.length === 0) return null;
+
+  const evalSimple = (tokens: (number | "+" | "-" | "*" | "/")[]): number | null => {
+    let arr = [...tokens];
+    for (let pass = 0; pass < 2; pass++) {
+      const ops = pass === 0 ? ["*", "/"] : ["+", "-"];
+      let i = 1;
+      while (i < arr.length - 1) {
+        const op = arr[i];
+        if (typeof op === "string" && ops.includes(op)) {
+          const left = arr[i - 1];
+          const right = arr[i + 1];
+          if (typeof left !== "number" || typeof right !== "number") { i += 2; continue; }
+          let result: number;
+          if (op === "*") result = left * right;
+          else if (op === "/") result = right === 0 ? 0 : left / right;
+          else if (op === "+") result = left + right;
+          else result = left - right;
+          arr = [...arr.slice(0, i - 1), result, ...arr.slice(i + 2)] as any;
+          i = 1;
+        } else {
+          i += 2;
+        }
+      }
+    }
+    return arr.length === 1 && typeof arr[0] === "number" ? arr[0] : null;
+  };
+
+  return evalSimple(resolved);
+}
+
+function formatEquationResult(raw: number, steps: EquationStep[], allMetrics: Metric[]): string {
+  // Find the first metric step to inherit its formatting
+  const firstMetricStep = steps.find(s => s.type === "metric");
+  if (!firstMetricStep) return String(Math.round(raw * 100) / 100);
+  const srcMetric = allMetrics.find(m => m.id === firstMetricStep.metricId);
+  if (!srcMetric) return String(Math.round(raw * 100) / 100);
+  const mt = srcMetric.metricType ?? "counter";
+  const currency = srcMetric.currencySymbol ?? "$";
+  if (mt === "financial") {
+    return `${currency}${raw.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+  if (mt === "percentage") {
+    return `${Math.round(raw)}%`;
+  }
+  return String(Math.round(raw * 100) / 100);
+}
+
+function autoParenthesizeSteps(steps: EquationStep[]): { display: string; grouped: number[][] } {
+  const displayParts: string[] = [];
+  const grouped: number[][] = [];
+  let currentGroup: number[] = [];
+  let i = 1;
+  for (let idx = 0; idx < steps.length; idx++) {
+    const s = steps[idx];
+    if (s.type === "operator") {
+      const needsParens = s.operator === "+" || s.operator === "-";
+      if (needsParens && currentGroup.length > 0) {
+        grouped.push(currentGroup);
+        currentGroup = [];
+      }
+      displayParts.push(s.operator === "*" ? "×" : s.operator === "/" ? "÷" : s.operator ?? "+");
+      i++;
+    } else {
+      currentGroup.push(idx);
+      displayParts.push(s.metricLabel ?? `?${i}`);
+      i++;
+    }
+  }
+  if (currentGroup.length > 0) grouped.push(currentGroup);
+  return { display: displayParts.join(" "), grouped };
+}
+
+function buildEquationPreviewString(steps: EquationStep[], allMetrics: Metric[]): string {
+  const parts: string[] = [];
+  for (const s of steps) {
+    if (s.type === "operator") {
+      parts.push(s.operator === "*" ? "×" : s.operator === "/" ? "÷" : s.operator ?? "+");
+    } else {
+      const m = allMetrics.find(mm => mm.id === s.metricId);
+      parts.push(m?.label ?? s.metricLabel ?? "?");
+    }
+  }
+  return parts.join(" ");
 }
 
 // This forces the Green Rules to match your Settings menu automatically
@@ -882,7 +1005,22 @@ function FiveAccountOverflowBanner({ overflowAmount, currencySymbol, metric, sib
 }
 
 function OutOfSyncBanner({ metric, onResyncCurrent, onResyncPrevious }: {
-  
+  metric: Metric;
+  onResyncCurrent: () => void;
+  onResyncPrevious: () => void;
+}) {
+  return (
+    <div style={{ background: "#FFF5F5", border: "1.5px solid #E85D75", borderRadius: 10, padding: "10px 14px", marginBottom: 12 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: "#E85D75", marginBottom: 4 }}>⚠ Out of Sync</div>
+      <div style={{ fontSize: 11, color: "#475569", marginBottom: 8, lineHeight: 1.4 }}>{metric.outOfSyncReason ?? "This metric may not reflect the current bank balance."}</div>
+      <div style={{ display: "flex", gap: 6 }}>
+        <button onClick={onResyncCurrent} style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#E85D75", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Accept current</button>
+        <button onClick={onResyncPrevious} style={{ padding: "5px 12px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", color: "#475569", fontSize: 11, fontWeight: 500, cursor: "pointer" }}>Revert to last synced</button>
+      </div>
+    </div>
+  );
+}
+
 function RefreshButton({ onRefresh, lastSyncedAt }: {
   onRefresh: () => Promise<void>;
   lastSyncedAt?: number;
@@ -1463,21 +1601,33 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
             ))}
           </div>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332", marginBottom: 8 }}>Manually Adjust Metric</div>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-              <button onClick={() => handleIncrement(-1)} style={{ width: 30, height: 30, borderRadius: "50%", border: "1.5px solid #d1d5db", background: "none", fontSize: 18, cursor: "pointer", color: "#9CA3AF" }}>−</button>
-              <div>
-                {isEditingValue
-                  ? <input value={localValue} onChange={e => setLocalValue(e.target.value)} onBlur={handleValueSave} onKeyDown={e => { if (e.key === "Enter") handleValueSave(); }} autoFocus
-                    style={{ fontSize: 26, fontWeight: 700, color: "#1a2332", border: "none", borderBottom: "2px solid #3B82F6", outline: "none", width: 130, background: "transparent" }} />
-                  : <div onClick={() => setIsEditingValue(true)} style={{ fontSize: 26, fontWeight: 700, color: "#1a2332", cursor: "text" }} title="Click to edit">{localValue}</div>}
-                {metric?.lastSyncedAt
-                  ? <div style={{ fontSize: 10, color: "#94a3b8", fontStyle: "italic" }}>{`Synced ${new Date(metric.lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}</div>
-                  : null
-                }
+            {metric?.equation && metric.equation.steps.length > 0 ? (
+              <div style={{ background: "#F0FDF4", border: "1px solid #c3e6d4", borderRadius: 10, padding: "12px 14px", marginBottom: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#0F6E56", marginBottom: 4 }}>= Equation Active</div>
+                <div style={{ fontSize: 12, color: "#1a2332", marginBottom: 6 }}>
+                  {buildEquationPreviewString(metric.equation.steps, [metric]) || "Equation set"}
+                </div>
+                <div style={{ fontSize: 11, color: "#64748b" }}>This value is automatically computed. Edit the equation in metric settings.</div>
               </div>
-              <button onClick={() => handleIncrement(1)} style={{ width: 30, height: 30, borderRadius: "50%", border: "1.5px solid #d1d5db", background: "none", fontSize: 18, cursor: "pointer", color: "#9CA3AF" }}>+</button>
-            </div>
+            ) : (
+              <>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332", marginBottom: 8 }}>Manually Adjust Metric</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                  <button onClick={() => handleIncrement(-1)} style={{ width: 30, height: 30, borderRadius: "50%", border: "1.5px solid #d1d5db", background: "none", fontSize: 18, cursor: "pointer", color: "#9CA3AF" }}>−</button>
+                  <div>
+                    {isEditingValue
+                      ? <input value={localValue} onChange={e => setLocalValue(e.target.value)} onBlur={handleValueSave} onKeyDown={e => { if (e.key === "Enter") handleValueSave(); }} autoFocus
+                        style={{ fontSize: 26, fontWeight: 700, color: "#1a2332", border: "none", borderBottom: "2px solid #3B82F6", outline: "none", width: 130, background: "transparent" }} />
+                      : <div onClick={() => setIsEditingValue(true)} style={{ fontSize: 26, fontWeight: 700, color: "#1a2332", cursor: "text" }} title="Click to edit">{localValue}</div>}
+                    {metric?.lastSyncedAt
+                      ? <div style={{ fontSize: 10, color: "#94a3b8", fontStyle: "italic" }}>{`Synced ${new Date(metric.lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}</div>
+                      : null
+                    }
+                  </div>
+                  <button onClick={() => handleIncrement(1)} style={{ width: 30, height: 30, borderRadius: "50%", border: "1.5px solid #d1d5db", background: "none", fontSize: 18, cursor: "pointer", color: "#9CA3AF" }}>+</button>
+                </div>
+              </>
+            )}
             <div style={{ border: "1px solid #e2e8f0", borderRadius: 12, padding: "6px 8px" }}>
               <MetricChart history={history} rules={colorRules} graphType={graphType} currentValue={localValue} />
             </div>
@@ -1673,7 +1823,7 @@ const opLabels: RuleOp[] = [">=", "<=", ">", "<", "==", "!=", "between"];
 // METRIC BOX SETTINGS MODAL
 // ═══════════════════════════════════════════════════════════════════════════
 
-function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplicate, onRecreateMissing, onClose, onFiveAccountToggledOn, onFiveAccountToggledOff }: {
+function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplicate, onRecreateMissing, onClose, onFiveAccountToggledOn, onFiveAccountToggledOff, onCreateEquation }: {
   initial?: Metric;
   siblings?: Metric[];
   onSave: (m: Omit<Metric, "id">) => void;
@@ -1683,6 +1833,7 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
   onClose: () => void;
   onFiveAccountToggledOn?: () => void;
   onFiveAccountToggledOff?: (disabledMetricLabel: string) => void;
+  onCreateEquation?: () => void;
 }) {
   const [label, setLabel] = useState(initial?.label ?? "");
   const [rawValue, setRawValue] = useState(() => {
@@ -1701,6 +1852,7 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
   const [editingRule, setEditingRule] = useState<ColorRule | undefined>();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const [equationError, setEquationError] = useState("");
 
   // Live formatted preview of the value based on metric type
   const previewValue = formatValue(rawValue || "0", fiveOn ? "financial" : metricType, currency);
@@ -1765,6 +1917,7 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
       resetFrequency: resetFreq,
       resetKeepHistory,
       lastResetAt: initial?.lastResetAt,
+      equation: initial?.equation,
     });
     onClose();
   };
@@ -1779,7 +1932,7 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
 
           {/* Header */}
           <div style={{ padding: "20px 22px 0", display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-            <input value={label} onChange={e => setLabel(e.target.value)} placeholder="Metric Box Title"
+            <input value={label} onChange={e => { setLabel(e.target.value); setEquationError(""); }} placeholder="Metric Box Title"
               style={{ fontSize: 17, fontWeight: 700, border: "none", outline: "none", color: "#1a2332", background: "transparent", flex: 1, minWidth: 0 }} />
             <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: "50%", border: "1.5px solid #e2e8f0", background: "#f8fafc", fontSize: 18, cursor: "pointer", color: "#94a3b8", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginLeft: 10 }}>×</button>
           </div>
@@ -1905,9 +2058,24 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
                 ) : (
                   <>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                      <button style={{ padding: "8px 0", borderRadius: 8, border: "none", background: "#64748b", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Create Equation</button>
+                      <button onClick={() => {
+                        if (!label.trim()) { setEquationError("Please name this metric box before creating an equation"); return; }
+                        setEquationError("");
+                        onCreateEquation?.();
+                      }} style={{ padding: "8px 0", borderRadius: 8, border: "1.5px solid", borderColor: initial?.equation ? "#4CAF7D" : "transparent", background: initial?.equation ? "#F0FDF4" : "#64748b", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+                        {initial?.equation ? "Edit Equation" : "Create Equation"}
+                      </button>
                       <button onClick={openAddRule} style={{ padding: "8px 0", borderRadius: 8, border: "none", background: "#64748b", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Create Color Rule</button>
                     </div>
+                    {equationError && <div style={{ fontSize: 11, color: "#E85D75", marginTop: 4, textAlign: "center" }}>{equationError}</div>}
+                    {initial?.equation && initial.equation.steps.length > 0 && (
+                      <div style={{ background: "#F0FDF4", borderRadius: 8, padding: "8px 10px", marginTop: 6, border: "1px solid #c3e6d4" }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: "#0F6E56", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 3 }}>Equation Active</div>
+                        <div style={{ fontSize: 11, color: "#1a2332" }}>
+                          = {initial.equation.steps.map(s => s.type === "operator" ? (s.operator === "*" ? "×" : s.operator === "/" ? "÷" : s.operator) : s.metricLabel).join(" ")}
+                        </div>
+                      </div>
+                    )}
                     {rules.length > 0 && (
                       <div>
                         <SectionLabel>Active Color Rules</SectionLabel>
@@ -2120,6 +2288,9 @@ function MetricBlock({ metric, onClick, onDragStart, onDragEnter, onDrop, isDrag
     >
       <div style={{ fontSize: 12, fontWeight: 600, color: textColor, lineHeight: 1.3, textAlign: "center", width: "100%" }}>
         {metric.label}
+        {metric.equation && (
+          <span style={{ fontSize: 9, fontWeight: 700, color: isColored ? "rgba(255,255,255,0.8)" : "#4CAF7D", marginLeft: 4, verticalAlign: "super" }}>=</span>
+        )}
       </div>
       {hasIcon && (
         <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -2179,7 +2350,7 @@ function DashSection({
   section, onAddMetric, onRemoveMetric, onUpdateMetric, onRenameSection, onRemoveSection,
   onClickMetric, dragState, onMetricDragStart, onMetricDragEnter, onMetricDrop,
   onSectionDragStart, onSectionDragEnter, onSectionDrop, isSectionDragOver,
-  onFiveAccountEnabledFromBox, onFiveAccountDisabledFromBox
+  onFiveAccountEnabledFromBox, onFiveAccountDisabledFromBox, onOpenEquationBuilder
 }: {
   section: Section;
   onAddMetric: (sid: string, m: Omit<Metric, "id">) => void;
@@ -2198,6 +2369,7 @@ function DashSection({
   isSectionDragOver: boolean;
   onFiveAccountEnabledFromBox?: () => void;
   onFiveAccountDisabledFromBox?: (sectionId: string, disabledMetricId: string, disabledLabel: string) => void;
+  onOpenEquationBuilder?: (sectionId: string, metricId: string) => void;
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [editingMetric, setEditingMetric] = useState<Metric | null>(null);
@@ -2287,6 +2459,7 @@ function DashSection({
       {showAdd && <MetricBoxSettingsModal
         onSave={m => { handleAddMetricWithFiveAccount(m); setShowAdd(false); }}
         onFiveAccountToggledOn={() => { /* propagated by parent via onAddMetric → cascade handler */ }}
+        onCreateEquation={() => onOpenEquationBuilder?.(section.id, editingMetric?.id ?? "")}
         onClose={() => setShowAdd(false)} />}
 
       {editingMetric && <MetricBoxSettingsModal
@@ -2307,6 +2480,7 @@ function DashSection({
         }}
         onFiveAccountToggledOn={() => onFiveAccountEnabledFromBox?.()}
         onFiveAccountToggledOff={(label) => onFiveAccountDisabledFromBox?.(section.id, editingMetric.id, label)}
+        onCreateEquation={() => onOpenEquationBuilder?.(section.id, editingMetric.id)}
         onClose={() => setEditingMetric(null)} />}
 
       {showRowModal && <EditAddRowModal initial={section.title} onSave={name => onRenameSection(section.id, name)} onClose={() => setShowRowModal(false)} />}
@@ -2855,6 +3029,381 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// EQUATION BUILDER PAGE
+// ═══════════════════════════════════════════════════════════════════════════
+
+function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetricId, onSave, onCancel }: {
+  allMetrics: Metric[];
+  sections: Section[];
+  initialEquation?: EquationConfig;
+  targetMetricId?: string;
+  onSave: (equation: EquationConfig) => void;
+  onCancel: () => void;
+}) {
+  const [steps, setSteps] = useState<EquationStep[]>(initialEquation?.steps ?? []);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showMathPicker, setShowMathPicker] = useState(false);
+  const [editingStepIndex, setEditingStepIndex] = useState<number | null>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  // Available metrics excluding ones already used
+  const usedMetricIds = new Set(steps.filter(s => s.type === "metric").map(s => s.metricId));
+  const availableMetrics = allMetrics.filter(m => !usedMetricIds.has(m.id));
+
+  const filteredMetrics = searchQuery.trim()
+    ? availableMetrics.filter(m => m.label.toLowerCase().includes(searchQuery.toLowerCase()))
+    : availableMetrics;
+
+  // Target metric for preview
+  const targetMetric = allMetrics.find(m => m.id === targetMetricId);
+
+  // Compute live result
+  const liveResult = steps.length > 0 ? evaluateEquation(steps, allMetrics) : null;
+  const liveFormatted = liveResult !== null && targetMetric
+    ? formatEquationResult(liveResult, steps, allMetrics)
+    : null;
+
+  // Focus search input on mount
+  useEffect(() => {
+    searchRef.current?.focus();
+  }, []);
+
+  const stepsWithParents: { steps: EquationStep[]; parens: number[][] } = { steps, parens: [] };
+  const eqDisplay = buildEquationPreviewString(steps, allMetrics);
+
+  const handleSelectMetric = (m: Metric) => {
+    const step: EquationStep = {
+      type: "metric",
+      metricId: m.id,
+      metricLabel: m.label,
+      metricIcon: m.icon,
+      metricColor: m.color,
+      metricValue: m.value,
+      metricType: m.metricType,
+      currencySymbol: m.currencySymbol,
+    };
+    if (editingStepIndex !== null) {
+      setSteps(prev => {
+        const next = [...prev];
+        next[editingStepIndex] = step;
+        return next;
+      });
+      setEditingStepIndex(null);
+      setShowMathPicker(false);
+    } else {
+      setSteps(prev => [...prev, step]);
+      setShowMathPicker(true);
+    }
+    setSearchQuery("");
+  };
+
+  const handleSelectOperator = (op: "+" | "-" | "*" | "/") => {
+    if (editingStepIndex !== null) {
+      setSteps(prev => {
+        const next = [...prev];
+        if (next[editingStepIndex].type === "operator") {
+          next[editingStepIndex] = { ...next[editingStepIndex], operator: op };
+        }
+        return next;
+      });
+      setEditingStepIndex(null);
+    } else {
+      setSteps(prev => [...prev, { type: "operator", operator: op }]);
+      setShowMathPicker(false);
+      // Focus search after picking math
+      setTimeout(() => searchRef.current?.focus(), 100);
+    }
+  };
+
+  const handleEditStep = (idx: number) => {
+    setEditingStepIndex(idx);
+    const step = steps[idx];
+    if (step.type === "metric") {
+      setSearchQuery(step.metricLabel ?? "");
+    } else {
+      setShowMathPicker(true);
+    }
+  };
+
+  const handleRemoveStep = (idx: number) => {
+    setSteps(prev => {
+      const next = [...prev];
+      next.splice(idx, 1);
+      // If we removed a metric step, also remove adjacent operator if any
+      // Remove operator at idx if it exists (it shifted)
+      if (idx < next.length && next[idx].type === "operator") {
+        next.splice(idx, 1);
+      } else if (idx > 0 && next[idx - 1].type === "operator") {
+        next.splice(idx - 1, 1);
+      }
+      return next;
+    });
+    setEditingStepIndex(null);
+    setShowMathPicker(false);
+  };
+
+  const handleSave = () => {
+    if (steps.length === 0) return;
+    // Validate: must start and end with metric
+    if (steps[0].type !== "metric" || steps[steps.length - 1].type !== "metric") return;
+    // Validate: no adjacent operators, no adjacent metrics
+    for (let i = 0; i < steps.length - 1; i++) {
+      if (steps[i].type === steps[i + 1].type) return;
+    }
+    onSave({ steps });
+  };
+
+  // Compute parenthesized display
+  const needsParens = (() => {
+    if (steps.length < 3) return false;
+    let hasAddSub = false;
+    let hasMulDiv = false;
+    for (const s of steps) {
+      if (s.type === "operator") {
+        if (s.operator === "+" || s.operator === "-") hasAddSub = true;
+        if (s.operator === "*" || s.operator === "/") hasMulDiv = true;
+      }
+    }
+    return hasAddSub && hasMulDiv;
+  })();
+
+  const cardSize = Math.max(80, 140 - steps.length * 4);
+  const cursorBlink = `
+    @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+  `;
+
+  return (
+    <div style={{ flex: 1, overflowY: "auto", background: "#fff", display: "flex", flexDirection: "column", height: "100%" }}>
+      <style>{cursorBlink}</style>
+
+      {/* Header */}
+      <div style={{ padding: "18px 24px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#1a2332" }}>Create Equation</h2>
+        <button onClick={onCancel} style={{ padding: "6px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+      </div>
+
+      {/* Builder area */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "24px 32px" }}>
+        {/* Equation steps display */}
+        {steps.length > 0 && (
+          <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 24, padding: "14px 18px", background: "#F8FAFC", borderRadius: 12, border: "1px solid #e2e8f0", minHeight: 60 }}>
+            {needsParens && (
+              <span style={{ fontSize: 28, fontWeight: 300, color: "#94a3b8", fontFamily: "serif", lineHeight: 1 }}>(</span>
+            )}
+            {steps.map((step, idx) => (
+              <Fragment key={idx}>
+                {step.type === "metric" ? (
+                  <div style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "center" }}>
+                    {/* Numbered circle with pencil */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 3, marginBottom: 3 }}>
+                      <div style={{
+                        width: 22, height: 22, borderRadius: "50%",
+                        background: "linear-gradient(135deg,#3B82F6,#06B6D4)",
+                        color: "#fff", fontSize: 11, fontWeight: 700,
+                        display: "flex", alignItems: "center", justifyContent: "center"
+                      }}>
+                        {idx + 1}
+                      </div>
+                      <div onClick={() => handleEditStep(idx)} style={{ cursor: "pointer", color: "#94a3b8", fontSize: 12 }} title="Edit step">✎</div>
+                      <div onClick={() => handleRemoveStep(idx)} style={{ cursor: "pointer", color: "#E85D75", fontSize: 12 }} title="Remove step">×</div>
+                    </div>
+                    {/* Mini metric card */}
+                    <div style={{
+                      width: cardSize, minHeight: cardSize, borderRadius: 12,
+                      background: step.metricColor && step.metricColor !== "gray" ? MS[step.metricColor].bg : "#F8FAFC",
+                      border: step.metricColor === "gray" || !step.metricColor ? "1.5px solid #e2e8f0" : "none",
+                      padding: "8px", display: "flex", flexDirection: "column",
+                      alignItems: "center", justifyContent: "center", gap: 3,
+                    }}>
+                      {step.metricIcon && step.metricIcon !== ICON_NONE && (
+                        <IconGlyph name={step.metricIcon} size={cardSize * 0.22} color={step.metricColor && step.metricColor !== "gray" ? "#fff" : "#3B82F6"} />
+                      )}
+                      <div style={{ fontSize: cardSize * 0.09, fontWeight: 600, color: step.metricColor && step.metricColor !== "gray" ? "#fff" : "#1a2332", textAlign: "center", lineHeight: 1.2 }}>
+                        {step.metricLabel}
+                      </div>
+                      <div style={{ fontSize: cardSize * 0.11, fontWeight: 700, color: step.metricColor && step.metricColor !== "gray" ? "#fff" : "#1a2332", textAlign: "center" }}>
+                        {step.metricValue}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "center" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 3, marginBottom: 3 }}>
+                      <div style={{
+                        width: 22, height: 22, borderRadius: "50%",
+                        background: "#64748b", color: "#fff", fontSize: 11, fontWeight: 700,
+                        display: "flex", alignItems: "center", justifyContent: "center"
+                      }}>
+                        {idx + 1}
+                      </div>
+                      <div onClick={() => handleEditStep(idx)} style={{ cursor: "pointer", color: "#94a3b8", fontSize: 12 }} title="Edit step">✎</div>
+                      <div onClick={() => handleRemoveStep(idx)} style={{ cursor: "pointer", color: "#E85D75", fontSize: 12 }} title="Remove step">×</div>
+                    </div>
+                    <div style={{
+                      width: 48, height: 48, borderRadius: "50%",
+                      background: "#3B82F6", color: "#fff",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 22, fontWeight: 700,
+                    }}>
+                      {step.operator === "*" ? "×" : step.operator === "/" ? "÷" : step.operator}
+                    </div>
+                  </div>
+                )}
+              </Fragment>
+            ))}
+            {needsParens && (
+              <span style={{ fontSize: 28, fontWeight: 300, color: "#94a3b8", fontFamily: "serif", lineHeight: 1 }}>)</span>
+            )}
+          </div>
+        )}
+
+        {/* Editing a step indicator */}
+        {editingStepIndex !== null && steps[editingStepIndex] && (
+          <div style={{ marginBottom: 16, padding: "8px 14px", background: "#EFF6FF", borderRadius: 8, fontSize: 13, color: "#3B82F6" }}>
+            Editing step {editingStepIndex + 1}: {steps[editingStepIndex].type === "metric" ? "pick a different metric" : "pick a different operator"}
+          </div>
+        )}
+
+        {/* Search area */}
+        <div style={{ marginBottom: 16 }}>
+          {/* Big cursor + Start typing */}
+          {!showMathPicker && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+              <span style={{
+                fontSize: steps.length > 0 ? 18 : 32,
+                fontWeight: 300, color: "#1a2332",
+                animation: "blink 1.2s step-end infinite",
+                fontFamily: "monospace",
+                lineHeight: 1,
+              }}>|</span>
+              <input
+                ref={searchRef}
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder={steps.length === 0 ? "Start typing the name of a metric box..." : "Start typing the next metric box..."}
+                style={{
+                  flex: 1, border: "none", outline: "none", fontSize: steps.length > 0 ? 18 : 32,
+                  fontWeight: 300, color: "#1a2332", background: "transparent",
+                  fontFamily: "inherit",
+                }}
+              />
+            </div>
+          )}
+
+          {/* Math operator picker */}
+          {showMathPicker && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#64748b", marginBottom: 10 }}>Select the math:</div>
+              <div style={{ display: "flex", gap: 10 }}>
+                {([["+", "Add"], ["-", "Subtract"], ["*", "Multiply"], ["/", "Divide"]] as const).map(([op, label]) => (
+                  <button
+                    key={op}
+                    onClick={() => handleSelectOperator(op)}
+                    style={{
+                      width: 72, height: 72, borderRadius: 16,
+                      border: "2px solid #e2e8f0", background: "#fff",
+                      display: "flex", flexDirection: "column",
+                      alignItems: "center", justifyContent: "center", gap: 4,
+                      cursor: "pointer", fontSize: 24, fontWeight: 700,
+                      color: "#3B82F6", transition: "all 0.15s",
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = "#3B82F6"; e.currentTarget.style.background = "#EFF6FF"; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.background = "#fff"; }}
+                  >
+                    <span>{op === "*" ? "×" : op === "/" ? "÷" : op}</span>
+                    <span style={{ fontSize: 10, fontWeight: 500, color: "#94a3b8" }}>{label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Metric card suggestions */}
+        {!showMathPicker && filteredMetrics.length > 0 && (
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
+            {filteredMetrics.slice(0, 12).map(m => (
+              <div key={m.id} onClick={() => handleSelectMetric(m)} style={{ cursor: "pointer" }}>
+                <MetricBlock metric={m} onClick={() => handleSelectMetric(m)} onDragStart={() => {}} onDragEnter={() => {}} onDrop={() => {}} isDragOver={false} />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* No results message */}
+        {!showMathPicker && searchQuery.trim() && filteredMetrics.length === 0 && (
+          <div style={{ padding: "20px", textAlign: "center", color: "#94a3b8", fontSize: 13 }}>
+            No metric boxes found matching "{searchQuery}"
+          </div>
+        )}
+
+        {/* Empty state */}
+        {steps.length === 0 && !searchQuery.trim() && filteredMetrics.length === 0 && (
+          <div style={{ padding: "40px 20px", textAlign: "center" }}>
+            <div style={{ fontSize: 14, color: "#94a3b8", marginBottom: 6 }}>No metric boxes available</div>
+            <div style={{ fontSize: 12, color: "#cbd5e1" }}>Create some metric boxes on your dashboard first</div>
+          </div>
+        )}
+
+        {/* Equation display string */}
+        {steps.length > 0 && (
+          <div style={{ marginBottom: 16, padding: "8px 14px", background: "#F8FAFC", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+            <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 3 }}>Equation preview:</div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "#1a2332", fontFamily: "monospace" }}>
+              {eqDisplay ? `= ${eqDisplay}` : "Building equation..."}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Bottom: Live preview + Save */}
+      <div style={{ borderTop: "1px solid #e2e8f0", padding: "16px 24px", flexShrink: 0, background: "#F8FAFC" }}>
+        {/* Live preview of target metric */}
+        {targetMetric && (
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              Live Preview
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 16, background: "#fff", borderRadius: 12, padding: "12px 16px", border: "1px solid #e2e8f0" }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#1a2332" }}>{targetMetric.label}</div>
+                <div style={{ fontSize: 11, color: "#94a3b8" }}>Result of equation</div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontSize: 11, color: "#94a3b8" }}>Current value</div>
+                <div style={{ fontSize: 13, color: "#64748b", textDecoration: "line-through" }}>{targetMetric.value}</div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontSize: 11, color: "#4CAF7D" }}>Computed value</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: liveResult !== null ? "#4CAF7D" : "#E85D75" }}>
+                  {liveFormatted ?? "—"}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Save button */}
+        <button onClick={handleSave} disabled={steps.length < 3 || steps[0].type !== "metric" || steps[steps.length - 1].type !== "metric"}
+          style={{
+            width: "100%", padding: "12px 0", borderRadius: 8, border: "none",
+            background: steps.length >= 3 ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0",
+            color: steps.length >= 3 ? "#fff" : "#94a3b8",
+            fontSize: 14, fontWeight: 600, cursor: steps.length >= 3 ? "pointer" : "not-allowed",
+          }}>
+          Save Equation
+        </button>
+        {steps.length > 0 && steps.length < 3 && (
+          <div style={{ fontSize: 11, color: "#94a3b8", textAlign: "center", marginTop: 5 }}>
+            Add at least two metric boxes with a math operator between them
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // CHAT PANEL
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -2969,13 +3518,14 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
 // HOME PAGE — robust drag-drop
 // ═══════════════════════════════════════════════════════════════════════════
 
-function HomePage({ sections, setSections, onClickMetric, onSectionRemoved, onFiveAccountEnabledFromBox, onFiveAccountDisabledFromBox }: {
+function HomePage({ sections, setSections, onClickMetric, onSectionRemoved, onFiveAccountEnabledFromBox, onFiveAccountDisabledFromBox, onOpenEquationBuilder }: {
   sections: Section[];
   setSections: React.Dispatch<React.SetStateAction<Section[]>>;
   onClickMetric: (data: MetricModalData, metric: Metric) => void;
   onSectionRemoved?: (section: Section) => void;
   onFiveAccountEnabledFromBox?: () => void;
   onFiveAccountDisabledFromBox?: (sectionId: string, disabledMetricId: string, disabledLabel: string) => void;
+  onOpenEquationBuilder?: (sectionId: string, metricId: string) => void;
 }) {
   // Drag state stored in ref so it's always current in event handlers
   const dragMetricRef = useRef<{ sourceSid: string; sourceMid: string } | null>(null);
@@ -3093,6 +3643,7 @@ function HomePage({ sections, setSections, onClickMetric, onSectionRemoved, onFi
           isSectionDragOver={dragOverSid === s.id}
           onFiveAccountEnabledFromBox={onFiveAccountEnabledFromBox}
           onFiveAccountDisabledFromBox={onFiveAccountDisabledFromBox}
+          onOpenEquationBuilder={onOpenEquationBuilder}
         />
       ))}
       <div onClick={() => setShowAddRow(true)} style={{ display: "flex", alignItems: "center", gap: 8, color: "#94a3b8", fontSize: 13, cursor: "pointer", padding: "6px 0" }}>
@@ -3144,7 +3695,37 @@ export default function DashelloDashboard() {
   const pendingValueChangeRef = useRef<((description?: string) => void) | null>(null);
   const [lastDashboardSync, setLastDashboardSync] = useState<number | null>(null);
   const [fiveAccountForceOff, setFiveAccountForceOff] = useState(false);
+  // Equation builder state
+  const [equationBuilderTarget, setEquationBuilderTarget] = useState<{ metricId: string; sectionId: string } | null>(null);
   
+  const handleOpenEquationBuilder = useCallback((sectionId: string, metricId: string) => {
+    setEquationBuilderTarget({ sectionId, metricId });
+    setPage("equation-builder");
+    setEditingMetricFromModal(null);
+    setActiveModal(null);
+  }, []);
+
+  const handleSaveEquation = useCallback((equation: EquationConfig) => {
+    if (!equationBuilderTarget) return;
+    setSections(prev => prev.map(s => {
+      if (s.id !== equationBuilderTarget.sectionId) return s;
+      return {
+        ...s,
+        metrics: s.metrics.map(m => {
+          if (m.id !== equationBuilderTarget.metricId) return m;
+          return { ...m, equation };
+        }),
+      };
+    }));
+    setEquationBuilderTarget(null);
+    setPage("home");
+  }, [equationBuilderTarget]);
+
+  const handleCancelEquation = useCallback(() => {
+    setEquationBuilderTarget(null);
+    setPage("home");
+  }, []);
+
   const [tasksData, setTasksData] = useState([
     { id: "1", text: "Review Q3 financials", done: false, assignee: "AJ", due: "Mar 15" },
     { id: "2", text: "Follow up with 5 leads", done: true, assignee: "BK", due: "Mar 12" },
@@ -3236,7 +3817,7 @@ export default function DashelloDashboard() {
           };
         });
 
-       if (fiveAccountSettings.mode !== "five-separate") {
+        if (fiveAccountSettings.mode !== "five-separate") {
           const changedMetric = updatedMetrics.find(m => m.id === metricId);
           // Find the equation parent: box with fiveAccountEnabled=true and no fiveAccountParentId
           const equationParent = updatedMetrics.find(m =>
@@ -3251,7 +3832,25 @@ export default function DashelloDashboard() {
             return { ...s, metrics: runFiveAccountEquation(updatedMetrics, equationParent.id, fiveAccountSettings) };
           }
         }
-        return { ...s, metrics: updatedMetrics };
+        // Re-evaluate any metrics that have equations referencing the changed metric
+        const metricsWithEquations = updatedMetrics.filter(m => m.equation && m.equation.steps.length > 0);
+        let reevaluatedMetrics = [...updatedMetrics];
+        for (const em of metricsWithEquations) {
+          const refsMetric = em.equation!.steps.some(st => st.type === "metric" && st.metricId === metricId);
+          if (refsMetric) {
+            const result = evaluateEquation(em.equation!.steps, reevaluatedMetrics);
+            if (result !== null) {
+              const formatted = formatEquationResult(result, em.equation!.steps, reevaluatedMetrics);
+              const nowEq = Date.now();
+              reevaluatedMetrics = reevaluatedMetrics.map(mm =>
+                mm.id === em.id
+                  ? { ...mm, value: formatted, lastSyncedAt: nowEq, modal: { ...mm.modal, mainValue: formatted } }
+                  : mm
+              );
+            }
+          }
+        }
+        return { ...s, metrics: reevaluatedMetrics };
       }));
 
      setSections(prev2 => {
@@ -3293,9 +3892,21 @@ export default function DashelloDashboard() {
             return { ...s, metrics: runFiveAccountEquation(s.metrics, parentMetric.id, fiveAccountSettings) };
           })
         : saved as Section[];
-      setSections(refreshed);
+      // Re-evaluate all custom equations
+      const allMetrics = refreshed.flatMap(s => s.metrics);
+      const eqRefreshed = refreshed.map(s => ({
+        ...s,
+        metrics: s.metrics.map(m => {
+          if (!m.equation || m.equation.steps.length === 0) return m;
+          const result = evaluateEquation(m.equation.steps, allMetrics);
+          if (result === null) return m;
+          const formatted = formatEquationResult(result, m.equation.steps, allMetrics);
+          return { ...m, value: formatted, modal: { ...m.modal, mainValue: formatted } };
+        }),
+      }));
+      setSections(eqRefreshed);
       if (activeModal) {
-        const updated = refreshed.flatMap((s: Section) => s.metrics).find((m: Metric) => m.id === activeModal.metric.id);
+        const updated = eqRefreshed.flatMap((s: Section) => s.metrics).find((m: Metric) => m.id === activeModal.metric.id);
         if (updated) setActiveModal(prev => prev ? { ...prev, metric: updated, data: { ...prev.data, mainValue: updated.value, transactions: updated.modal.transactions } } : null);
       }
     }
@@ -3539,13 +4150,24 @@ const sidebarEl = (
         <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
           {page === "home" && <HomePage sections={sections} setSections={setSections} onClickMetric={handleClickMetric} onSectionRemoved={handleRemoveSectionWithFiveAccountCheck}
             onFiveAccountEnabledFromBox={handleFiveAccountEnabledFromBox}
-            onFiveAccountDisabledFromBox={handleFiveAccountDisabledFromBox} />}
+            onFiveAccountDisabledFromBox={handleFiveAccountDisabledFromBox}
+            onOpenEquationBuilder={handleOpenEquationBuilder} />}
           {page === "goals" && <div style={{ flex: 1, overflowY: "auto" }}><GoalsPage goals={goalsData} setGoals={setGoalsData} /></div>}
           {page === "tasks" && <div style={{ flex: 1, overflowY: "auto" }}><TasksPage tasks={tasksData} setTasks={setTasksData} /></div>}
           {page === "integrations" && <div style={{ flex: 1, overflowY: "auto" }}><IntegrationsPage onSelectApp={a => { setSelectedApp(a); setPage("app-detail"); }} /></div>}
           {page === "app-detail" && selectedApp && <div style={{ flex: 1, overflowY: "auto" }}><AppDetailPage app={selectedApp} onBack={() => setPage("integrations")} /></div>}
           {page === "team" && <div style={{ flex: 1, overflowY: "auto" }}><TeamPage /></div>}
-          {page === "settings" && <div style={{ flex: 1, overflowY: "auto" }}><SettingsPage userId={userId!} userEmail={userEmail} profile={profile} forceDisableFiveAccount={fiveAccountForceOff} onForceDisableAcknowledged={() => setFiveAccountForceOff(false)} onProfileSaved={p => setProfile(p)} onFiveAccountCreated={handleFiveAccountCreated} onFiveAccountDisabled={handleGlobalFiveAccountDisabled} fiveAccountSettings={fiveAccountSettings} onFiveAccountSettingsChange={handleUpdateSettings} /></div>}          </div>
+          {page === "settings" && <div style={{ flex: 1, overflowY: "auto" }}><SettingsPage userId={userId!} userEmail={userEmail} profile={profile} forceDisableFiveAccount={fiveAccountForceOff} onForceDisableAcknowledged={() => setFiveAccountForceOff(false)} onProfileSaved={p => setProfile(p)} onFiveAccountCreated={handleFiveAccountCreated} onFiveAccountDisabled={handleGlobalFiveAccountDisabled} fiveAccountSettings={fiveAccountSettings} onFiveAccountSettingsChange={handleUpdateSettings} /></div>}
+          {page === "equation-builder" && equationBuilderTarget && (
+            <EquationBuilderPage
+              allMetrics={sections.flatMap(s => s.metrics)}
+              sections={sections}
+              initialEquation={sections.flatMap(s => s.metrics).find(m => m.id === equationBuilderTarget.metricId)?.equation}
+              targetMetricId={equationBuilderTarget.metricId}
+              onSave={handleSaveEquation}
+              onCancel={handleCancelEquation}
+            />
+          )}          </div>
       </div>
 
       {showChat && <ChatPanel sections={sections} onClose={() => setShowChat(false)} />}
@@ -3596,6 +4218,9 @@ const sidebarEl = (
             onFiveAccountToggledOn={handleFiveAccountEnabledFromBox}
             onFiveAccountToggledOff={(label) => {
               if (foundSid) handleFiveAccountDisabledFromBox(foundSid, editingMetricFromModal.id, label);
+            }}
+            onCreateEquation={() => {
+              if (foundSid) { handleOpenEquationBuilder(foundSid, editingMetricFromModal.id); }
             }}
             onClose={() => setEditingMetricFromModal(null)} />
         );
