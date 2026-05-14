@@ -69,7 +69,6 @@ interface EquationStep {
 }
 interface EquationConfig {
   steps: EquationStep[];
-  draft?: boolean;
 }
 interface DataPoint { timestamp: number; value: number; }
 interface Transaction { date: string; description: string; credit?: number; debit?: number; }
@@ -103,6 +102,7 @@ interface Metric {
   resetKeepHistory?: boolean;
   lastResetAt?: number;
   equation?: EquationConfig;
+  draftEquation?: EquationConfig;
 }
 interface Section { id: string; title: string; avatars: string[]; metrics: Metric[]; }
 
@@ -2078,8 +2078,8 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
                         if (!label.trim()) { setEquationError("Please name this metric box before creating an equation"); return; }
                         setEquationError("");
                         onCreateEquation?.({ label, icon, metricType: effectiveMetricType, currencySymbol: currency });
-                      }} style={{ padding: "8px 0", borderRadius: 8, border: "1.5px solid", borderColor: initial?.equation?.draft ? "#cbd5e1" : initial?.equation ? "#4CAF7D" : "transparent", background: initial?.equation?.draft ? "#fff" : initial?.equation ? "#F0FDF4" : "#64748b", color: initial?.equation?.draft ? "#94a3b8" : initial?.equation ? "#4CAF7D" : "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
-                        {initial?.equation?.draft ? "Edit draft equation" : initial?.equation ? "Edit Equation" : "Create Equation"}
+                      }} style={{ padding: "8px 0", borderRadius: 8, border: "1.5px solid", borderColor: initial?.draftEquation ? "#cbd5e1" : initial?.equation ? "#4CAF7D" : "transparent", background: initial?.draftEquation ? "#fff" : initial?.equation ? "#F0FDF4" : "#64748b", color: initial?.draftEquation ? "#94a3b8" : initial?.equation ? "#4CAF7D" : "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+                        {initial?.draftEquation ? "Edit draft equation" : initial?.equation ? "Edit Equation" : "Create Equation"}
                       </button>
                       <button onClick={openAddRule} style={{ padding: "8px 0", borderRadius: 8, border: "none", background: "#64748b", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Create Color Rule</button>
                     </div>
@@ -3223,7 +3223,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
   };
 
   const handleSaveDraft = () => {
-    onSaveDraft?.({ steps, draft: true });
+    onSaveDraft?.({ steps });
   };
 
   const cardSize = Math.max(80, 140 - steps.length * 4);
@@ -3257,7 +3257,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
               const renderGroups: { type: "metric" | "operator" | "fraction"; step?: EquationStep; steps?: EquationStep[]; groupIdx?: number; startIdx: number }[] = [];
               let i = 0;
               while (i < steps.length) {
-                if (i + 2 < steps.length && steps[i].type === "metric" && steps[i+1].type === "operator" && steps[i+1].operator === "/" && steps[i+2].type === "metric") {
+                if (i + 2 < steps.length && steps[i].type === "metric" && steps[i+1].type === "operator" && (steps[i+1].operator === "/" || steps[i+1].operator === "*") && steps[i+2].type === "metric") {
                   renderGroups.push({ type: "fraction", steps: [steps[i], steps[i+1], steps[i+2]], groupIdx: renderGroups.length, startIdx: i });
                   i += 3;
                 } else {
@@ -3271,7 +3271,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                   const startIdx = g.startIdx;
                   const lineBefore = dropLineIndex === startIdx;
                   if (g.type === "fraction" && g.steps) {
-                    const [topMetric, , bottomMetric] = g.steps;
+                    const [topMetric, opStep, bottomMetric] = g.steps;
                     const actualIdx = steps.indexOf(topMetric);
                     const isEditing = actualIdx >= 0 && editingStepIndex === actualIdx;
                     const fc = cardSize * 0.8;
@@ -3302,7 +3302,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                         onClick={() => { if (actualIdx >= 0) handleEditStep(actualIdx); }}
                         style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "flex-start", borderRadius: 12, padding: 2, outline: isEditing ? "2px solid #3B82F6" : "2px solid transparent", background: isEditing ? "#EFF6FF" : "transparent" }}>
                         {isEditing && (
-                          <div onClick={e => { e.stopPropagation(); if (actualIdx >= 0) { setSteps(prev => { const n = [...prev]; n.splice(actualIdx, 3); return n; }); setEditingStepIndex(null); } }} style={{ position: "absolute", top: 4, right: 4, width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#3B82F6", fontSize: 20, fontWeight: 700, lineHeight: 1, zIndex: 10 }}>×</div>
+                          <div onClick={e => { e.stopPropagation(); if (actualIdx >= 0) { setSteps(prev => { const n = [...prev]; n.splice(actualIdx, 3); return n; }); setEditingStepIndex(null); } }} style={{ position: "absolute", top: 2, right: 2, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#3B82F6", fontSize: 22, fontWeight: 700, lineHeight: 1, zIndex: 10 }}>×</div>
                         )}
                         <div style={{ display: "flex", justifyContent: "center", width: "100%", marginBottom: 3 }}>
                           <div style={{
@@ -3332,7 +3332,11 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                               {topMetric.metricValue}
                             </div>
                           </div>
-                          <div style={{ width: fc + 8, height: 2.5, background: "#1a2332", borderRadius: 2, flexShrink: 0 }} />
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "4px 0" }}>
+                            <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#3B82F6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700 }}>
+                              {opStep?.operator === "*" ? "×" : "÷"}
+                            </div>
+                          </div>
                           <div style={{
                             width: fc, minHeight: fc, borderRadius: "0 0 8px 8px",
                             background: bottomMetric.metricColor && bottomMetric.metricColor !== "gray" ? MS[bottomMetric.metricColor].bg : "#F8FAFC",
@@ -3387,7 +3391,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                         onClick={() => handleEditStep(idx)}
                         style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "flex-start", borderRadius: 12, padding: 2, outline: isEditing ? "2px solid #3B82F6" : "2px solid transparent", background: isEditing ? "#EFF6FF" : "transparent" }}>
                         {isEditing && (
-                          <div onClick={e => { e.stopPropagation(); handleRemoveStep(idx); }} style={{ position: "absolute", top: 4, right: 4, width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#3B82F6", fontSize: 20, fontWeight: 700, lineHeight: 1, zIndex: 10 }}>×</div>
+                          <div onClick={e => { e.stopPropagation(); handleRemoveStep(idx); }} style={{ position: "absolute", top: 2, right: 2, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#3B82F6", fontSize: 22, fontWeight: 700, lineHeight: 1, zIndex: 10 }}>×</div>
                         )}
                         <div style={{ display: "flex", justifyContent: "center", width: "100%", marginBottom: 3 }}>
                           <div style={{
@@ -3448,7 +3452,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                         onClick={() => handleEditStep(idx)}
                         style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "flex-start", borderRadius: 12, padding: 2, outline: isEditing ? "2px solid #3B82F6" : "2px solid transparent", background: isEditing ? "#EFF6FF" : "transparent" }}>
                         {isEditing && (
-                          <div onClick={e => { e.stopPropagation(); handleRemoveStep(idx); }} style={{ position: "absolute", top: 4, right: 4, width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#3B82F6", fontSize: 20, fontWeight: 700, lineHeight: 1, zIndex: 10 }}>×</div>
+                          <div onClick={e => { e.stopPropagation(); handleRemoveStep(idx); }} style={{ position: "absolute", top: 2, right: 2, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#3B82F6", fontSize: 22, fontWeight: 700, lineHeight: 1, zIndex: 10 }}>×</div>
                         )}
                         <div style={{ display: "flex", justifyContent: "center", width: "100%", marginBottom: 3 }}>
                           <div style={{
@@ -3956,7 +3960,7 @@ export default function DashelloDashboard() {
           ...s,
           metrics: s.metrics.map(m => {
             if (m.id !== equationBuilderTarget.metricId) return m;
-            return { ...m, equation, value: computedValue };
+            return { ...m, equation, draftEquation: undefined, value: computedValue };
           }),
         };
       });
@@ -3975,7 +3979,7 @@ export default function DashelloDashboard() {
         ...s,
         metrics: s.metrics.map(m => {
           if (m.id !== metricId) return m;
-          return { ...m, equation };
+          return { ...m, draftEquation: equation };
         }),
       };
     }));
@@ -4440,7 +4444,10 @@ const sidebarEl = (
             <EquationBuilderPage
               allMetrics={sections.flatMap(s => s.metrics)}
               sections={sections}
-              initialEquation={sections.flatMap(s => s.metrics).find(m => m.id === equationBuilderTarget.metricId)?.equation}
+              initialEquation={(() => {
+                const m = sections.flatMap(s => s.metrics).find(m => m.id === equationBuilderTarget.metricId);
+                return m?.draftEquation ?? m?.equation;
+              })()}
               targetMetricId={equationBuilderTarget.metricId}
               onSave={handleSaveEquation}
               onSaveDraft={handleSaveDraftEquation}
