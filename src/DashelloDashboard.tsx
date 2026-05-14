@@ -3149,39 +3149,56 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
   const [forceSearch, setForceSearch] = useState(false);
   const addMenuRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
-  const [checkedSteps, setCheckedSteps] = useState<Set<number>>(new Set());
+  const [checkedOrder, setCheckedOrder] = useState<number[]>([]);
+  const checkedSteps = new Set(checkedOrder);
   const [selectedGroupStartIdx, setSelectedGroupStartIdx] = useState<number | null>(null);
   const [confirmAction, setConfirmAction] = useState<string | null>(null);
 
+  useEffect(() => {
+    const hasUnsaved = JSON.stringify(steps) !== JSON.stringify(initialEquation?.steps ?? []);
+    if (hasUnsaved) {
+      const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+      window.addEventListener("beforeunload", handler);
+      return () => window.removeEventListener("beforeunload", handler);
+    }
+  }, [steps, initialEquation]);
+
   const toggleChecked = (idx: number) => {
-    setCheckedSteps(prev => {
-      const next = new Set(prev);
-      if (next.has(idx)) next.delete(idx);
-      else next.add(idx);
-      return next;
+    setCheckedOrder(prev => {
+      if (prev.includes(idx)) return prev.filter(i => i !== idx);
+      return [...prev, idx];
     });
   };
 
   const renderCheckbox = (idx: number, isEditing: boolean) => (
-    (isEditing || checkedSteps.size > 0) ? (
-      <div onClick={e => { e.stopPropagation(); toggleChecked(idx); }} style={{ position: "absolute", top: 4, left: 4, width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", zIndex: 10, borderRadius: 4, border: "1.5px solid #94a3b8", background: checkedSteps.has(idx) ? "#3B82F6" : "#fff", color: "#fff", fontSize: 11, fontWeight: 700, lineHeight: 1 }}>
-        {checkedSteps.has(idx) ? "✓" : ""}
+    (isEditing || checkedOrder.length > 0) ? (
+      <div onClick={e => { e.stopPropagation(); toggleChecked(idx); }} style={{ position: "absolute", top: 4, left: 4, width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", zIndex: 10, borderRadius: 4, border: "1.5px solid #94a3b8", background: checkedOrder.includes(idx) ? "#3B82F6" : "#fff", color: "#fff", fontSize: 11, fontWeight: 700, lineHeight: 1 }}>
+        {checkedOrder.includes(idx) ? "✓" : ""}
       </div>
     ) : null
   );
 
   const handleGroupSelected = () => {
-    if (checkedSteps.size < 2) return;
-    const sorted = [...checkedSteps].sort((a, b) => a - b);
-    const min = sorted[0];
-    const max = sorted[sorted.length - 1];
+    const validOrder = checkedOrder.filter(i => i >= 0 && i < steps.length);
+    if (validOrder.length < 2) return;
+    const checkedSet = new Set(validOrder);
+    const firstPos = validOrder[0];
     setSteps(prev => {
-      const next = [...prev];
-      next.splice(max + 1, 0, { type: "operator", operator: "paren-end" });
-      next.splice(min, 0, { type: "operator", operator: "paren-start" });
+      const next: EquationStep[] = [];
+      for (let i = 0; i < firstPos; i++) {
+        if (!checkedSet.has(i)) next.push(prev[i]);
+      }
+      next.push({ type: "operator", operator: "paren-start" });
+      for (const idx of validOrder) {
+        next.push(prev[idx]);
+      }
+      next.push({ type: "operator", operator: "paren-end" });
+      for (let i = firstPos; i < prev.length; i++) {
+        if (!checkedSet.has(i)) next.push(prev[i]);
+      }
       return next;
     });
-    setCheckedSteps(new Set());
+    setCheckedOrder([]);
   };
 
   const handleRemoveGroup = (startIdx: number) => {
@@ -3451,18 +3468,18 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
         <div style={{ padding: "18px 24px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#1a2332" }}>Create Equation</h2>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            {checkedSteps.size >= 2 && (
+            {checkedOrder.length >= 2 && (
               <button onClick={handleGroupSelected} style={{ padding: "6px 16px", borderRadius: 8, border: "none", background: "#3B82F6", fontSize: 12, cursor: "pointer", color: "#fff", fontWeight: 600 }}>
-                Group Selected ({checkedSteps.size})
+                Group Selected ({checkedOrder.length})
               </button>
             )}
             <button onClick={() => {
               if (confirmAction === "reset") { setConfirmAction(null); setSteps(initialEquation?.steps ?? []); setEditingStepIndex(null); }
-              else { setConfirmAction("reset"); setTimeout(() => setConfirmAction(null), 3000); }
+              else { setConfirmAction("reset"); }
             }} style={{ padding: "6px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: confirmAction === "reset" ? "#E85D75" : "#64748b", fontWeight: confirmAction === "reset" ? 600 : 400 }}>{confirmAction === "reset" ? "Confirm Reset?" : "Reset"}</button>
             <button onClick={() => {
               if (confirmAction === "delete") { setConfirmAction(null); setSteps([]); setEditingStepIndex(null); }
-              else { setConfirmAction("delete"); setTimeout(() => setConfirmAction(null), 3000); }
+              else { setConfirmAction("delete"); }
             }} style={{ padding: "6px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: confirmAction === "delete" ? "#E85D75" : "#64748b", fontWeight: confirmAction === "delete" ? 600 : 400 }}>{confirmAction === "delete" ? "Confirm Delete?" : "Delete Equation"}</button>
             <button onClick={onCancel} style={{ padding: "6px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b" }}>Cancel</button>
           </div>
