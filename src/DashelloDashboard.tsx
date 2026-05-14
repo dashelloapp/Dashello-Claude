@@ -1136,14 +1136,19 @@ function RefreshButton({ onRefresh, lastSyncedAt, metricId }: {
     setTimeout(() => setState("idle"), 2500);
   };
 
-  const fmtTime = (ts: number) => new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const fmtTime = (ts: number) => {
+    const d = new Date(ts);
+    return d.toLocaleDateString([], { month: "short", day: "numeric" }) + " " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  };
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      {(timestamp ?? lastSyncedAt) && (
+      {(timestamp ?? lastSyncedAt) ? (
     <span style={{ fontSize: 10, color: "#94a3b8", fontStyle: "italic" }}>
       Synced {fmtTime((timestamp ?? lastSyncedAt)!)}
     </span>
+  ) : (
+    <span style={{ fontSize: 10, color: "#cbd5e1", fontStyle: "italic" }}>Never synced</span>
   )}
       <button onClick={handleClick} title="Refresh data" style={{
         width: 32, height: 32, borderRadius: "50%", border: "1.5px solid #e2e8f0",
@@ -1178,7 +1183,10 @@ function TopBarRefreshButton({ onRefresh, lastSyncedAt }: {
     setTimeout(() => setState("idle"), 2500);
   };
 
-  const fmtTime = (ts: number) => new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const fmtTime = (ts: number) => {
+    const d = new Date(ts);
+    return d.toLocaleDateString([], { month: "short", day: "numeric" }) + " " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  };
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -1196,11 +1204,9 @@ function TopBarRefreshButton({ onRefresh, lastSyncedAt }: {
         </span>
         {state === "done" ? "Synced" : "Refresh Data"}
       </button>
-      {lastSyncedAt && (
-        <span style={{ fontSize: 10, color: "#94a3b8", fontStyle: "italic" }}>
-          {fmtTime(lastSyncedAt)}
-        </span>
-      )}
+<span style={{ fontSize: 10, color: lastSyncedAt ? "#94a3b8" : "#cbd5e1", fontStyle: "italic" }}>
+        {lastSyncedAt ? fmtTime(lastSyncedAt) : "Never synced"}
+      </span>
     </div>
   );
 }
@@ -1358,12 +1364,13 @@ function CashBalanceInput({ value, currencySymbol, statValColor, statTextColor, 
     </div>
   );
 }
-function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onRefreshSections, siblings, onTransfer }: {
+function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onRefreshSections, siblings, onTransfer, inline }: {
   data: MetricModalData; metric?: Metric;
   onClose: () => void; onEdit?: () => void; onValueChange?: (v: string, description?: string) => void;
   userId?: string; onRefreshSections?: () => Promise<void>;
   siblings?: Metric[];
   onTransfer?: (toMetricId: string, amount: number, description: string) => void;
+  inline?: boolean;
 }) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const [localValue, setLocalValue] = useState(data.mainValue);
@@ -1435,9 +1442,9 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
   }
 
   if (isCash) return (
-    <div ref={overlayRef} onClick={e => { if (e.target === overlayRef.current) onClose(); }}
-      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 20 }}>
-      <div style={{ 
+    <div ref={overlayRef} onClick={e => { if (!inline && e.target === overlayRef.current) onClose(); }}
+      style={inline ? { padding: "20px 28px" } : { position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 20 }}>
+      <div style={inline ? { width: "100%", maxWidth: 900 } : { 
   background: "#fff", 
   borderRadius: 24, 
   width: "100%", 
@@ -1450,12 +1457,13 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
   scrollbarGutter: "stable" 
 } as React.CSSProperties}>       
         <div style={{ display: "flex", alignItems: "center", marginBottom: 16 }}>
-  <h2 style={{ margin: 0, fontSize: 28, fontWeight: 700, color: "#1a2332", flex: 1 }}>{data.title}</h2>
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            {onRefreshSections && <RefreshButton onRefresh={onRefreshSections} lastSyncedAt={metric?.lastSyncedAt} metricId={metric?.id} />}
-            <EditBtn /><CloseBtn />
+            <h2 style={{ margin: 0, fontSize: 28, fontWeight: 700, color: "#1a2332", flex: 1 }}>{data.title}</h2>
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              {onRefreshSections && <RefreshButton onRefresh={onRefreshSections} lastSyncedAt={metric?.lastSyncedAt} metricId={metric?.id} />}
+              {!inline && <><EditBtn /><CloseBtn /></>}
+              {inline && <EditBtn />}
+            </div>
           </div>
-        </div>
         {data.accountType && (
   <div style={{ marginBottom: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
     {/* Header Banner */}
@@ -1602,9 +1610,10 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
   );
 
   // ── COUNTER ───────────────────────────────────────────────────────────────
-  if (isCounter) return (
-    <div ref={overlayRef} onClick={e => { if (e.target === overlayRef.current) onClose(); }}
-      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 20 }}>
+ if (isCounter) return (
+    <div ref={overlayRef} onClick={e => { if (!inline && e.target === overlayRef.current) onClose(); }}
+      style={inline ? { padding: "20px 28px" } : { position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 20 }}>
+      <div style={inline ? { width: "100%", maxWidth: 780 } : { background: "#fff", borderRadius: 24, width: "100%", maxWidth: 780, maxHeight: "92vh", overflowY: "auto", overflowX: "hidden", padding: "28px 32px 32px", boxShadow: "0 32px 80px rgba(0,0,0,0.2)", scrollbarGutter: "stable" } as React.CSSProperties}>
       <div style={{ background: "#fff", borderRadius: 24, width: "100%", maxWidth: 780, maxHeight: "92vh", overflowY: "auto", overflowX: "hidden", padding: "28px 32px 32px", boxShadow: "0 32px 80px rgba(0,0,0,0.2)", scrollbarGutter: "stable" } as React.CSSProperties}>
         <div style={{ display: "flex", alignItems: "center", marginBottom: 24 }}>
   <h2 style={{ margin: 0, fontSize: 28, fontWeight: 700, color: "#1a2332", flex: 1 }}>{data.title}</h2>
@@ -1662,16 +1671,17 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
 
   // ── FINANCIAL / PERCENTAGE / GENERIC ──────────────────────────────────────
   return (
-    <div ref={overlayRef} onClick={e => { if (e.target === overlayRef.current) onClose(); }}
-      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 20 }}>
-      <div style={{ background: "#fff", borderRadius: 24, width: "100%", maxWidth: 900, maxHeight: "92vh", overflowY: "auto", padding: "28px 32px 32px", boxShadow: "0 32px 80px rgba(0,0,0,0.2)" }}>
+    <div ref={overlayRef} onClick={e => { if (!inline && e.target === overlayRef.current) onClose(); }}
+      style={inline ? { padding: "20px 28px" } : { position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 20 }}>
+      <div style={inline ? { width: "100%", maxWidth: 900 } : { background: "#fff", borderRadius: 24, width: "100%", maxWidth: 900, maxHeight: "92vh", overflowY: "auto", padding: "28px 32px 32px", boxShadow: "0 32px 80px rgba(0,0,0,0.2)" }}>
         <div style={{ display: "flex", alignItems: "center", marginBottom: 16 }}>
-  <h2 style={{ margin: 0, fontSize: 28, fontWeight: 700, color: "#1a2332", flex: 1 }}>{data.title}</h2>
-  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-    {onRefreshSections && <RefreshButton onRefresh={onRefreshSections} lastSyncedAt={metric?.lastSyncedAt} metricId={metric?.id} />}
-            <EditBtn /><CloseBtn />
-  </div>
-</div>
+            <h2 style={{ margin: 0, fontSize: 28, fontWeight: 700, color: "#1a2332", flex: 1 }}>{data.title}</h2>
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              {onRefreshSections && <RefreshButton onRefresh={onRefreshSections} lastSyncedAt={metric?.lastSyncedAt} metricId={metric?.id} />}
+              {!inline && <><EditBtn /><CloseBtn /></>}
+              {inline && <EditBtn />}
+            </div>
+          </div>
         {data.healthPct != null
           ? <><div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332", marginBottom: 6 }}>Health — <strong>{data.healthPct}%</strong></div>
             <div style={{ height: 28, borderRadius: 99, background: "#e5e7eb", maxWidth: 260, overflow: "hidden", marginBottom: 20 }}>
@@ -3610,7 +3620,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                           <div style={{ display: "flex", justifyContent: "center", width: "100%", marginBottom: 3 }}>
                             <div style={{
                               width: 44 * csScale, height: 44 * csScale, borderRadius: "50%",
-                              background: "#8B5CF6", color: "#fff", fontSize: 20 * csScale, fontWeight: 700,
+                              background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 20 * csScale, fontWeight: 700,
                               display: "flex", alignItems: "center", justifyContent: "center"
                             }}>
                               {g.groupIdx! + 1}
@@ -3670,8 +3680,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                           <div style={{ display: "flex", justifyContent: "center", width: "100%", marginBottom: 3 }}>
                             <div style={{
                               width: 44 * csScale, height: 44 * csScale, borderRadius: "50%",
-                              background: "linear-gradient(135deg,#3B82F6,#06B6D4)",
-                              color: "#fff", fontSize: 20 * csScale, fontWeight: 700,
+                              background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 20 * csScale, fontWeight: 700,
                               display: "flex", alignItems: "center", justifyContent: "center"
                             }}>
                               {g.groupIdx! + 1}
@@ -3734,7 +3743,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                           <div style={{ display: "flex", justifyContent: "center", width: "100%", marginBottom: 3 }}>
                             <div style={{
                               width: 44 * csScale, height: 44 * csScale, borderRadius: "50%",
-                              background: "#10B981", color: "#fff", fontSize: 20 * csScale, fontWeight: 700,
+                              background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 20 * csScale, fontWeight: 700,
                               display: "flex", alignItems: "center", justifyContent: "center"
                             }}>
                               {g.groupIdx! + 1}
@@ -3995,7 +4004,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                             )}
                             {renderCheckbox(idx, isEdit)}
                             <div style={{ display: "flex", justifyContent: "center", width: "100%", marginBottom: 3 }}>
-                              <div style={{ width: 44 * circleScale, height: 44 * circleScale, borderRadius: "50%", background: "#64748b", color: "#fff", fontSize: 20 * circleScale, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                              <div style={{ width: 44 * circleScale, height: 44 * circleScale, borderRadius: "50%", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 20 * circleScale, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>
                                 {gg.groupIdx! + 1}
                               </div>
                             </div>
@@ -5124,11 +5133,46 @@ function HomePage({ sections, setSections, onClickMetric, onSectionRemoved, onFi
 // APP ROOT
 // ═══════════════════════════════════════════════════════════════════════════
 
+function BreadcrumbNav({ items, onNavigate }: {
+  items: { label: string; key: string }[];
+  onNavigate: (key: string) => void;
+}) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}>
+      {items.map((item, i) => (
+        <Fragment key={item.key}>
+          {i > 0 && <span style={{ color: "#cbd5e1", fontWeight: 400, fontSize: 12 }}>/</span>}
+          <span
+            onClick={() => onNavigate(item.key)}
+            style={{
+              color: i === items.length - 1 ? "#1a2332" : "#3B82F6",
+              fontWeight: i === items.length - 1 ? 600 : 400,
+              cursor: i === items.length - 1 ? "default" : "pointer",
+              padding: "2px 4px",
+              borderRadius: 4,
+              transition: "background 0.15s",
+            }}
+            onMouseEnter={e => { if (i < items.length - 1) e.currentTarget.style.background = "#EFF6FF"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
+          >
+            {item.label}
+          </span>
+        </Fragment>
+      ))}
+    </div>
+  );
+}
+
 export default function DashelloDashboard() {
   const [page, setPage] = useState<Page>("home");
   const [sections, setSections] = useState<Section[]>([]);
   const [activeModal, setActiveModal] = useState<{ data: MetricModalData; metric: Metric } | null>(null);
   const [editingMetricFromModal, setEditingMetricFromModal] = useState<Metric | null>(null);
+  // Inline view system
+  type InlineView = "metric-detail" | "metric-settings" | "color-rule";
+  const [inlineView, setInlineView] = useState<InlineView | null>(null);
+  const [inlineMetric, setInlineMetric] = useState<Metric | null>(null);
+  const [inlineHasUnsaved, setInlineHasUnsaved] = useState(false);
   const [selectedApp, setSelectedApp] = useState<typeof APPS[0] | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showChat, setShowChat] = useState(false);
@@ -5428,8 +5472,44 @@ export default function DashelloDashboard() {
     setLastDashboardSync(Date.now());
   };
   
-  const handleClickMetric = (data: MetricModalData, metric: Metric) => setActiveModal({ data, metric });
-  const handleEditFromModal = () => { if (activeModal) { setEditingMetricFromModal(activeModal.metric); setActiveModal(null); } };
+  const handleClickMetric = (data: MetricModalData, metric: Metric) => {
+    setInlineMetric(metric);
+    setInlineView("metric-detail");
+    setInlineHasUnsaved(false);
+  };
+  const handleEditFromModal = () => {
+    if (inlineMetric) {
+      setInlineView("metric-settings");
+      setInlineHasUnsaved(false);
+    }
+  };
+  // Keep activeModal as null — no longer used for metric clicks
+  const handleCloseInline = () => {
+    if (inlineHasUnsaved) {
+      if (!window.confirm("You have unsaved changes. Leave without saving?")) return;
+    }
+    setInlineView(null);
+    setInlineMetric(null);
+    setInlineHasUnsaved(false);
+  };
+  const handleBreadcrumbNavigate = (key: string) => {
+    if (inlineHasUnsaved) {
+      if (!window.confirm("You have unsaved changes. Leave without saving?")) return;
+      setInlineHasUnsaved(false);
+    }
+    if (key === "home") { setInlineView(null); setInlineMetric(null); }
+    else if (key === "metric-detail") setInlineView("metric-detail");
+    else if (key === "metric-settings") setInlineView("metric-settings");
+  };
+  const getBreadcrumbItems = () => {
+    const items: { label: string; key: string }[] = [{ label: "Home", key: "home" }];
+    if (inlineMetric) {
+      items.push({ label: inlineMetric.label, key: "metric-detail" });
+      if (inlineView === "metric-settings") items.push({ label: "Settings", key: "metric-settings" });
+      if (inlineView === "color-rule") { items.push({ label: "Settings", key: "metric-settings" }); items.push({ label: "Color Rule", key: "color-rule" }); }
+    }
+    return items;
+  };
 
   // Section 1: Mirror a transaction onto another Five-Account box when "Transfer to" is checked
   const handleTransfer = useCallback((toMetricId: string, amount: number, description: string) => {
@@ -5647,13 +5727,18 @@ const sidebarEl = (
             </div>
           )}
           {page === "home" && (
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ display: "flex", borderRadius: 8, border: "1px solid #e2e8f0", overflow: "hidden" }}>
-                {["Row", "Column"].map((lbl, i) => (
-                  <div key={lbl} style={{ padding: "5px 13px", fontSize: 12, fontWeight: 500, cursor: "pointer", background: i === 0 ? "#3B82F6" : "#fff", color: i === 0 ? "#fff" : "#94a3b8" }}>{lbl}</div>
-                ))}
-              </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+              {!inlineView && (
+                <div style={{ display: "flex", borderRadius: 8, border: "1px solid #e2e8f0", overflow: "hidden" }}>
+                  {["Row", "Column"].map((lbl, i) => (
+                    <div key={lbl} style={{ padding: "5px 13px", fontSize: 12, fontWeight: 500, cursor: "pointer", background: i === 0 ? "#3B82F6" : "#fff", color: i === 0 ? "#fff" : "#94a3b8" }}>{lbl}</div>
+                  ))}
+                </div>
+              )}
               <TopBarRefreshButton onRefresh={handleRefreshAll} lastSyncedAt={lastDashboardSync} />
+              {inlineView && (
+                <BreadcrumbNav items={getBreadcrumbItems()} onNavigate={handleBreadcrumbNavigate} />
+              )}
             </div>
           )}
           <div style={{ flex: 1 }} />
@@ -5692,59 +5777,94 @@ const sidebarEl = (
 
       {showChat && <ChatPanel sections={sections} onClose={() => setShowChat(false)} />}
 
-      {activeModal && (
-        <MetricModal data={activeModal.data} metric={activeModal.metric}
-          onClose={() => setActiveModal(null)} onEdit={handleEditFromModal} onValueChange={handleValueChange}
-          userId={userId ?? undefined} onRefreshSections={handleRefreshMetric}
-          siblings={activeModalSiblings} onTransfer={handleTransfer} />
-      )}
+      {/* Inline metric detail view */}
+      {inlineView === "metric-detail" && inlineMetric && (() => {
+        const sectionContaining = sections.find(s => s.metrics.some(m => m.id === inlineMetric.id));
+        const liveMetric = sectionContaining?.metrics.find(m => m.id === inlineMetric.id) ?? inlineMetric;
+        const siblings = sectionContaining?.metrics ?? [];
+        return (
+          <div style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 2000, display: "flex", flexDirection: "column", overflowY: "auto" }}>
+            <div style={{ borderBottom: "1px solid #f1f5f9", padding: "14px 28px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0, background: "#fff" }}>
+              <BreadcrumbNav items={getBreadcrumbItems()} onNavigate={handleBreadcrumbNavigate} />
+              <div style={{ flex: 1 }} />
+              <button onClick={handleCloseInline} style={{ width: 34, height: 34, borderRadius: "50%", border: "1.5px solid #e2e8f0", background: "#f8fafc", fontSize: 20, cursor: "pointer", color: "#475569", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>×</button>
+            </div>
+            <div style={{ flex: 1, padding: "0 0 32px" }}>
+              <MetricModal
+                data={liveMetric.modal}
+                metric={liveMetric}
+                onClose={handleCloseInline}
+                onEdit={handleEditFromModal}
+                onValueChange={(v, desc) => {
+                  handleValueChange(v, desc);
+                  // keep inlineMetric in sync
+                  const updated = sections.flatMap(s => s.metrics).find(m => m.id === liveMetric.id);
+                  if (updated) setInlineMetric(updated);
+                }}
+                userId={userId ?? undefined}
+                onRefreshSections={handleRefreshMetric}
+                siblings={siblings}
+                onTransfer={handleTransfer}
+                inline
+              />
+            </div>
+          </div>
+        );
+      })()}
 
-     {editingMetricFromModal && (() => {
+     {inlineView === "metric-settings" && inlineMetric && (() => {
         let foundSid: string | undefined;
-        for (const s of sections) { if (s.metrics.find(m => m.id === editingMetricFromModal.id)) { foundSid = s.id; break; } }
+        for (const s of sections) { if (s.metrics.find(m => m.id === inlineMetric.id)) { foundSid = s.id; break; } }
         const foundSection = sections.find(s => s.id === foundSid);
         return (
-          <MetricBoxSettingsModal initial={editingMetricFromModal}
-            siblings={foundSection?.metrics ?? []}
-            onSave={updated => {
-              if (foundSid) setSections(prev => prev.map(s => s.id === foundSid ? { ...s, metrics: s.metrics.map(m => m.id === editingMetricFromModal.id ? { ...updated, id: m.id, history: m.history ?? [] } : m) } : s));
-              setEditingMetricFromModal(null);
-            }}
-            onDelete={() => {
-              if (foundSid) setSections(prev => prev.map(s => s.id === foundSid ? { ...s, metrics: s.metrics.filter(m => m.id !== editingMetricFromModal.id) } : s));
-              setEditingMetricFromModal(null);
-            }}
-            onDuplicate={() => {
-              if (foundSid) {
-                const { id, fiveAccountParentId, ...rest } = editingMetricFromModal;
-                setSections(prev => prev.map(s => s.id === foundSid ? { ...s, metrics: [...s.metrics, { ...rest, label: `${editingMetricFromModal.label} (copy)`, history: [], id: crypto.randomUUID() }] } : s));
-              }
-              setEditingMetricFromModal(null);
-            }}
-            onRecreateMissing={(missing) => {
-              if (foundSid) {
-                const groupId = editingMetricFromModal.fiveAccountParentId ?? editingMetricFromModal.id;
-                setSections(prev => prev.map(s => {
-                  if (s.id !== foundSid) return s;
-                  const newMetrics = missing.map(label => {
-                    const accountType = label.toLowerCase() as any;
-                    return { ...makeFiveAccountMetric(accountType, groupId), id: crypto.randomUUID() };
-                  });
-                  return { ...s, metrics: [...s.metrics, ...newMetrics] };
-                }));
-              }
-              setEditingMetricFromModal(null);
-            }}
-            onFiveAccountToggledOn={handleFiveAccountEnabledFromBox}
-            onFiveAccountToggledOff={(label) => {
-              if (foundSid) handleFiveAccountDisabledFromBox(foundSid, editingMetricFromModal.id, label);
-            }}
-            onCreateEquation={() => {
-              if (foundSid) { handleOpenEquationBuilder(foundSid, editingMetricFromModal.id); }
-            }}
-            onClose={() => setEditingMetricFromModal(null)} />
+          <div style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 2000, display: "flex", flexDirection: "column", overflowY: "auto" }}>
+            <div style={{ borderBottom: "1px solid #f1f5f9", padding: "14px 28px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0, background: "#fff" }}>
+              <BreadcrumbNav items={getBreadcrumbItems()} onNavigate={handleBreadcrumbNavigate} />
+              <div style={{ flex: 1 }} />
+              <button onClick={handleCloseInline} style={{ width: 34, height: 34, borderRadius: "50%", border: "1.5px solid #e2e8f0", background: "#f8fafc", fontSize: 20, cursor: "pointer", color: "#475569", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>×</button>
+            </div>
+            <div style={{ flex: 1, padding: "24px 28px 48px", overflowY: "auto" }}>
+              <MetricBoxSettingsModal
+                initial={inlineMetric}
+                siblings={foundSection?.metrics ?? []}
+                onSave={updated => {
+                  if (foundSid) setSections(prev => prev.map(s => s.id === foundSid ? { ...s, metrics: s.metrics.map(m => m.id === inlineMetric.id ? { ...updated, id: m.id, history: m.history ?? [] } : m) } : s));
+                  setInlineHasUnsaved(false);
+                  setInlineView("metric-detail");
+                  const refreshed = sections.flatMap(s => s.metrics).find(m => m.id === inlineMetric.id);
+                  if (refreshed) setInlineMetric({ ...refreshed, ...updated, id: refreshed.id });
+                }}
+                onDelete={() => {
+                  if (foundSid) setSections(prev => prev.map(s => s.id === foundSid ? { ...s, metrics: s.metrics.filter(m => m.id !== inlineMetric.id) } : s));
+                  handleCloseInline();
+                }}
+                onDuplicate={() => {
+                  if (foundSid) {
+                    const { id, fiveAccountParentId, ...rest } = inlineMetric;
+                    setSections(prev => prev.map(s => s.id === foundSid ? { ...s, metrics: [...s.metrics, { ...rest, label: `${inlineMetric.label} (copy)`, history: [], id: crypto.randomUUID() }] } : s));
+                  }
+                  handleCloseInline();
+                }}
+                onRecreateMissing={(missing) => {
+                  if (foundSid) {
+                    const groupId = inlineMetric.fiveAccountParentId ?? inlineMetric.id;
+                    setSections(prev => prev.map(s => {
+                      if (s.id !== foundSid) return s;
+                      const newMetrics = missing.map(label => ({ ...makeFiveAccountMetric(label.toLowerCase() as any, groupId), id: crypto.randomUUID() }));
+                      return { ...s, metrics: [...s.metrics, ...newMetrics] };
+                    }));
+                  }
+                  handleCloseInline();
+                }}
+                onFiveAccountToggledOn={handleFiveAccountEnabledFromBox}
+                onFiveAccountToggledOff={(label) => { if (foundSid) handleFiveAccountDisabledFromBox(foundSid, inlineMetric.id, label); }}
+                onCreateEquation={() => { if (foundSid) handleOpenEquationBuilder(foundSid, inlineMetric.id); }}
+                onClose={() => { setInlineView("metric-detail"); setInlineHasUnsaved(false); }}
+              />
+            </div>
+          </div>
         );
-    })()}
+      })()}
     </div>
   );
 }
