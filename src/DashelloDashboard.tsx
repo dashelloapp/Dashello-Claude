@@ -1107,12 +1107,27 @@ function OutOfSyncBanner({ metric, onResyncCurrent, onResyncPrevious }: {
   );
 }
 
-function RefreshButton({ onRefresh, lastSyncedAt }: {
+function RefreshButton({ onRefresh, lastSyncedAt, metricId }: {
   onRefresh: () => Promise<void>;
   lastSyncedAt?: number;
+  metricId?: string;
 }) {
   const [state, setState] = useState<"idle" | "spinning" | "done">("idle");
+  const [timestamp, setTimestamp] = useState<number | undefined>(undefined);
 
+  useEffect(() => {
+    if (metricId) {
+      const stored = localStorage.getItem(`metric-${metricId}-lastSyncedAt`);
+      if (stored) setTimestamp(parseInt(stored, 10));
+    }
+  }, [metricId]);
+
+  useEffect(() => {
+    if (lastSyncedAt && metricId) {
+      localStorage.setItem(`metric-${metricId}-lastSyncedAt`, lastSyncedAt.toString());
+      setTimestamp(lastSyncedAt);
+    }
+  }, [lastSyncedAt, metricId]);
   const handleClick = async () => {
     if (state === "spinning") return;
     setState("spinning");
@@ -1125,11 +1140,11 @@ function RefreshButton({ onRefresh, lastSyncedAt }: {
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      {lastSyncedAt && (
-        <span style={{ fontSize: 10, color: "#94a3b8", fontStyle: "italic" }}>
-          Synced {fmtTime(lastSyncedAt)}
-        </span>
-      )}
+      {(timestamp ?? lastSyncedAt) && (
+    <span style={{ fontSize: 10, color: "#94a3b8", fontStyle: "italic" }}>
+      Synced {fmtTime((timestamp ?? lastSyncedAt)!)}
+    </span>
+  )}
       <button onClick={handleClick} title="Refresh data" style={{
         width: 32, height: 32, borderRadius: "50%", border: "1.5px solid #e2e8f0",
         background: state === "done" ? "#F0FDF4" : "#f8fafc",
@@ -1434,10 +1449,10 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
   boxShadow: "0 32px 80px rgba(0,0,0,0.2)", 
   scrollbarGutter: "stable" 
 } as React.CSSProperties}>       
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-          <h2 style={{ margin: 0, fontSize: 28, fontWeight: 700, color: "#1a2332" }}>{data.title}</h2>
+        <div style={{ display: "flex", alignItems: "center", marginBottom: 16 }}>
+  <h2 style={{ margin: 0, fontSize: 28, fontWeight: 700, color: "#1a2332", flex: 1 }}>{data.title}</h2>
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            {onRefreshSections && <RefreshButton onRefresh={onRefreshSections} lastSyncedAt={metric?.lastSyncedAt} />}
+            {onRefreshSections && <RefreshButton onRefresh={onRefreshSections} lastSyncedAt={metric?.lastSyncedAt} metricId={metric?.id} />}
             <EditBtn /><CloseBtn />
           </div>
         </div>
@@ -1591,11 +1606,10 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
     <div ref={overlayRef} onClick={e => { if (e.target === overlayRef.current) onClose(); }}
       style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 20 }}>
       <div style={{ background: "#fff", borderRadius: 24, width: "100%", maxWidth: 780, maxHeight: "92vh", overflowY: "auto", overflowX: "hidden", padding: "28px 32px 32px", boxShadow: "0 32px 80px rgba(0,0,0,0.2)", scrollbarGutter: "stable" } as React.CSSProperties}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
-          <div style={{ flex: 1 }} />
-          <h2 style={{ margin: 0, fontSize: 28, fontWeight: 700, color: "#1a2332" }}>{data.title}</h2>
-          <div style={{ flex: 1, display: "flex", justifyContent: "flex-end", gap: 10, alignItems: "center" }}>
-            {onRefreshSections && <RefreshButton onRefresh={onRefreshSections} lastSyncedAt={metric?.lastSyncedAt} />}
+        <div style={{ display: "flex", alignItems: "center", marginBottom: 24 }}>
+  <h2 style={{ margin: 0, fontSize: 28, fontWeight: 700, color: "#1a2332", flex: 1 }}>{data.title}</h2>
+  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            {onRefreshSections && <RefreshButton onRefresh={onRefreshSections} lastSyncedAt={metric?.lastSyncedAt} metricId={metric?.id} />}
             <EditBtn /><CloseBtn />
           </div>
         </div>
@@ -1651,13 +1665,13 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
     <div ref={overlayRef} onClick={e => { if (e.target === overlayRef.current) onClose(); }}
       style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 20 }}>
       <div style={{ background: "#fff", borderRadius: 24, width: "100%", maxWidth: 900, maxHeight: "92vh", overflowY: "auto", padding: "28px 32px 32px", boxShadow: "0 32px 80px rgba(0,0,0,0.2)" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-          <h2 style={{ margin: 0, fontSize: 28, fontWeight: 700, color: "#1a2332" }}>{data.title}</h2>
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            {onRefreshSections && <RefreshButton onRefresh={onRefreshSections} lastSyncedAt={metric?.lastSyncedAt} />}
+        <div style={{ display: "flex", alignItems: "center", marginBottom: 16 }}>
+  <h2 style={{ margin: 0, fontSize: 28, fontWeight: 700, color: "#1a2332", flex: 1 }}>{data.title}</h2>
+  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+    {onRefreshSections && <RefreshButton onRefresh={onRefreshSections} lastSyncedAt={metric?.lastSyncedAt} metricId={metric?.id} />}
             <EditBtn /><CloseBtn />
-          </div>
-        </div>
+  </div>
+</div>
         {data.healthPct != null
           ? <><div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332", marginBottom: 6 }}>Health — <strong>{data.healthPct}%</strong></div>
             <div style={{ height: 28, borderRadius: 99, background: "#e5e7eb", maxWidth: 260, overflow: "hidden", marginBottom: 20 }}>
@@ -4123,7 +4137,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                               </div>
                               <div style={{ width: cardSize, minHeight: cardSize, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
                                 <div style={{
-                                  width: 56, height: 56, borderRadius: "50%",
+                                 width: 56, height: 56, borderRadius: "10px",
                                   background: "#3B82F6", color: "#fff",
                                   display: "flex", alignItems: "center", justifyContent: "center",
                                   fontSize: 26, fontWeight: 700,
