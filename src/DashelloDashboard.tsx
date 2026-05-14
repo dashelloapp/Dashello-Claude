@@ -3148,10 +3148,12 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
     });
   };
 
-  const renderCheckbox = (idx: number) => (
-    <div onClick={e => { e.stopPropagation(); toggleChecked(idx); }} style={{ position: "absolute", top: 2, left: 2, width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", zIndex: 10, borderRadius: 4, border: "1.5px solid #94a3b8", background: checkedSteps.has(idx) ? "#3B82F6" : "#fff", color: "#fff", fontSize: 14, fontWeight: 700, lineHeight: 1 }}>
-      {checkedSteps.has(idx) ? "✓" : ""}
-    </div>
+  const renderCheckbox = (idx: number, isEditing: boolean) => (
+    (isEditing || checkedSteps.size > 0) ? (
+      <div onClick={e => { e.stopPropagation(); toggleChecked(idx); }} style={{ position: "absolute", top: 4, left: 4, width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", zIndex: 10, borderRadius: 4, border: "1.5px solid #94a3b8", background: checkedSteps.has(idx) ? "#3B82F6" : "#fff", color: "#fff", fontSize: 11, fontWeight: 700, lineHeight: 1 }}>
+        {checkedSteps.has(idx) ? "✓" : ""}
+      </div>
+    ) : null
   );
 
   const handleGroupSelected = () => {
@@ -3486,7 +3488,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                           {isEditing && (
                             <div onClick={e => { e.stopPropagation(); if (actualIdx >= 0) { setSteps(prev => { const n = [...prev]; n.splice(actualIdx, 3); return n; }); setEditingStepIndex(null); } }} style={{ position: "absolute", top: 2, right: 2, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#3B82F6", fontSize: 22, fontWeight: 700, lineHeight: 1, zIndex: 10 }}>×</div>
                           )}
-                          {renderCheckbox(actualIdx)}
+                          {renderCheckbox(actualIdx, isEditing)}
                           <div style={{ display: "flex", justifyContent: "center", width: "100%", marginBottom: 3 }}>
                             <div style={{
                               width: 44 * csScale, height: 44 * csScale, borderRadius: "50%",
@@ -3546,7 +3548,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                           {isEditing && (
                             <div onClick={e => { e.stopPropagation(); handleRemoveStep(idx); }} style={{ position: "absolute", top: 2, right: 2, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#3B82F6", fontSize: 22, fontWeight: 700, lineHeight: 1, zIndex: 10 }}>×</div>
                           )}
-                          {renderCheckbox(idx)}
+                          {renderCheckbox(idx, isEditing)}
                           <div style={{ display: "flex", justifyContent: "center", width: "100%", marginBottom: 3 }}>
                             <div style={{
                               width: 44 * csScale, height: 44 * csScale, borderRadius: "50%",
@@ -3609,7 +3611,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                           {isEditing && (
                             <div onClick={e => { e.stopPropagation(); handleRemoveStep(idx); }} style={{ position: "absolute", top: 2, right: 2, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#3B82F6", fontSize: 22, fontWeight: 700, lineHeight: 1, zIndex: 10 }}>×</div>
                           )}
-                          {renderCheckbox(idx)}
+                          {renderCheckbox(idx, isEditing)}
                           <div style={{ display: "flex", justifyContent: "center", width: "100%", marginBottom: 3 }}>
                             <div style={{
                               width: 44 * csScale, height: 44 * csScale, borderRadius: "50%",
@@ -3777,7 +3779,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                             {isEdit && (
                               <div onClick={e => { e.stopPropagation(); handleRemoveStep(idx); }} style={{ position: "absolute", top: 2, right: 2, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#3B82F6", fontSize: 22, fontWeight: 700, lineHeight: 1, zIndex: 10 }}>×</div>
                             )}
-                            {renderCheckbox(idx)}
+                            {renderCheckbox(idx, isEdit)}
                             <div style={{ display: "flex", justifyContent: "center", width: "100%", marginBottom: 3 }}>
                               <div style={{ width: 44 * circleScale, height: 44 * circleScale, borderRadius: "50%", background: "#64748b", color: "#fff", fontSize: 20 * circleScale, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>
                                 {gg.groupIdx! + 1}
@@ -3885,7 +3887,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                               {isEditing && (
                                 <div onClick={e => { e.stopPropagation(); handleRemoveStep(idx); }} style={{ position: "absolute", top: 2, right: 2, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#3B82F6", fontSize: 22, fontWeight: 700, lineHeight: 1, zIndex: 10 }}>×</div>
                               )}
-                              {renderCheckbox(idx)}
+                              {renderCheckbox(idx, isEditing)}
                               <div style={{ display: "flex", justifyContent: "center", width: "100%", marginBottom: 3 }}>
                                 <div style={{
                                   width: 44 * circleScale, height: 44 * circleScale, borderRadius: "50%", background: "#64748b", color: "#fff", fontSize: 20 * circleScale, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center"
@@ -4099,36 +4101,54 @@ function ChatPanel({ sections, onClose }: { sections: Section[]; onClose: () => 
 // ═══════════════════════════════════════════════════════════════════════════
 
 const playbookStyles = {
-  container: { display: "flex", flexDirection: "column" as const, height: "100%", background: "#f5f5f5", fontFamily: "Montserrat, system-ui, sans-serif", fontSize: 15, lineHeight: 1.5, color: "#111" },
-  topbar: { position: "sticky" as const, top: 0, zIndex: 20, backdropFilter: "blur(10px)", background: "rgba(245,245,245,0.92)", borderBottom: "1px solid #e3e3e3", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.6rem 1.25rem", gap: "0.5rem", flexShrink: 0 },
-  topTitle: { fontWeight: 700, fontSize: "0.85rem", letterSpacing: "0.08em", textTransform: "uppercase" as const },
-  topSub: { fontSize: "0.8rem", color: "#555" },
-  mainArea: { flex: 1, display: "flex", padding: "1rem 1.25rem", gap: "1rem", overflow: "auto" },
-  colLeft: { width: 230, maxWidth: "100%", display: "flex", flexDirection: "column" as const, gap: "0.8rem", flexShrink: 0 },
-  colRight: { flex: 1, display: "flex", flexDirection: "column" as const, gap: "1rem", overflow: "auto" },
-  card: { background: "#fff", borderRadius: 10, boxShadow: "0 8px 20px rgba(0,0,0,0.05)", border: "1px solid #e0e0e0", padding: "1rem 1.25rem 1.2rem" },
-  pillBtn: { borderRadius: 999, border: "1px solid #111", background: "#111", color: "#fff", padding: "0.45rem 1.1rem", fontSize: "0.75rem", letterSpacing: "0.16em", textTransform: "uppercase" as const, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "0.35rem" },
-  pillBtnSec: { borderRadius: 999, border: "1px solid #ccc", background: "transparent", color: "#111", padding: "0.45rem 1.1rem", fontSize: "0.75rem", letterSpacing: "0.16em", textTransform: "uppercase" as const, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "0.35rem" },
-  fieldLabel: { fontSize: "0.85rem", fontWeight: 500, marginBottom: "0.2rem" },
-  fieldHint: { fontSize: "0.85rem", color: "#555", marginBottom: "0.25rem" },
-  input: { width: "100%", fontFamily: "inherit", fontSize: "0.9rem", padding: "0.5rem 0.6rem", borderRadius: 7, border: "1px solid #e0e0e0", background: "#fafafa", resize: "vertical" as const, boxSizing: "border-box" as const },
-  textarea: { width: "100%", fontFamily: "inherit", fontSize: "0.9rem", padding: "0.5rem 0.6rem", borderRadius: 7, border: "1px solid #e0e0e0", background: "#fafafa", resize: "vertical" as const, minHeight: 50, boxSizing: "border-box" as const },
-  previewCard: { borderRadius: 10, border: "1px dashed #ccc", background: "#fcfcfc", padding: "0.7rem 0.9rem 0.6rem", minHeight: 60, marginBottom: "0.5rem" },
-  previewLabel: { fontSize: "0.75rem", letterSpacing: "0.16em", textTransform: "uppercase" as const, color: "#555" },
-  previewOut: { fontSize: "0.9rem", lineHeight: 1.55, whiteSpace: "pre-wrap" as const },
-  stepChip: { fontFamily: "Montserrat, system-ui", borderRadius: 999, border: "1px solid #e0e0e0", padding: "0.35rem 0.75rem", fontSize: "0.85rem", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", background: "#fafafa", color: "inherit", textDecoration: "none", gap: 6 },
-  stepChipActive: { fontFamily: "Montserrat, system-ui", borderRadius: 999, border: "1px solid #111", padding: "0.35rem 0.75rem", fontSize: "0.85rem", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", background: "#111", color: "#fff", textDecoration: "none", gap: 6 },
-  emailBlock: { marginBottom: "0.3rem", padding: "0.7rem 0.7rem 0.8rem", borderRadius: 10, background: "#fafafa", border: "1px solid #e0e0e0" },
+  container: { display: "flex", flexDirection: "column" as const, height: "100%", background: "#f8fafc", fontSize: 13, lineHeight: 1.5, color: "#1a2332" },
+  topbar: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 24px", gap: "0.5rem", flexShrink: 0, borderBottom: "1px solid #f1f5f9" },
+  topTitle: { fontWeight: 700, fontSize: 18, color: "#1a2332" },
+  topSub: { fontSize: 12, color: "#64748b", marginTop: 2 },
+  mainArea: { flex: 1, display: "flex", padding: "clamp(16px,4vw,32px)", gap: "1rem", overflow: "auto" },
+  colLeft: { width: 230, maxWidth: "100%", display: "flex", flexDirection: "column" as const, gap: 16, flexShrink: 0 },
+  colRight: { flex: 1, display: "flex", flexDirection: "column" as const, gap: 16, overflow: "auto" },
+  card: { background: "#fff", borderRadius: 14, border: "1px solid #f1f5f9", padding: "16px 18px" },
+  btnPrimary: { background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", border: "none", borderRadius: 8, padding: "7px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 },
+  btnSecondary: { background: "#fff", border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "7px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, color: "#475569" },
+  fieldLabel: { fontSize: 12, fontWeight: 600, color: "#1a2332", marginBottom: 2 },
+  fieldHint: { fontSize: 12, color: "#64748b", marginBottom: 4 },
+  input: { width: "100%", fontFamily: "inherit", fontSize: 13, padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", boxSizing: "border-box" as const },
+  textarea: { width: "100%", fontFamily: "inherit", fontSize: 13, padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", resize: "vertical" as const, minHeight: 60, boxSizing: "border-box" as const },
+  previewCard: { borderRadius: 10, border: "1px dashed #e2e8f0", background: "#F8FAFC", padding: "10px 12px", minHeight: 60, marginBottom: 8 },
+  previewLabel: { fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 4, textTransform: "uppercase" as const, letterSpacing: "0.05em" },
+  previewOut: { fontSize: 13, lineHeight: 1.55, whiteSpace: "pre-wrap" as const, color: "#1a2332" },
+  stepChip: { borderRadius: 8, border: "1.5px solid #e2e8f0", padding: "8px 12px", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", background: "#fff", color: "#475569", gap: 6 },
+  stepChipActive: { borderRadius: 8, border: "1.5px solid #3B82F6", padding: "8px 12px", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", background: "#EFF6FF", color: "#3B82F6", fontWeight: 600, gap: 6 },
+  emailBlock: { marginBottom: 4, padding: "10px 12px", borderRadius: 14, background: "#F8FAFC", border: "1px solid #f1f5f9" },
   emailRow: { display: "grid", gridTemplateColumns: "minmax(0,1.35fr) 30px minmax(0,1.35fr)", gap: "0.6rem", alignItems: "stretch" },
   connector: { position: "relative" as const },
-  connectorLine: { position: "absolute" as const, left: "50%", top: "12%", bottom: "12%", width: 2, background: "#e0e0e0" },
-  sidebarCard: { background: "#fff", borderRadius: 10, boxShadow: "0 8px 20px rgba(0,0,0,0.05)", padding: "0.9rem 0.9rem 1rem", border: "1px solid #e0e0e0" },
-  stepNav: { display: "flex", flexDirection: "column" as const, gap: "0.35rem", marginTop: "0.6rem" },
+  connectorLine: { position: "absolute" as const, left: "50%", top: "12%", bottom: "12%", width: 2, background: "#e2e8f0" },
+  sidebarCard: { background: "#fff", borderRadius: 14, padding: "16px 18px", border: "1px solid #f1f5f9" },
+  stepNav: { display: "flex", flexDirection: "column" as const, gap: 6, marginTop: 12 },
 };
 
-function PlaybooksPage() {
+function PlaybooksPage({ userId }: { userId: string | null }) {
   const [activeStep, setActiveStep] = useState("tagline-card");
   const [copiedLabel, setCopiedLabel] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [savedLabel, setSavedLabel] = useState<string | null>(null);
+
+  const playbookData = () => ({
+    companyName, taglineInput,
+    olProblem, olSolution, olResult,
+    epProblem, epSolution, epResult, epCTA,
+    bs, sm, em, lgTitle
+  });
+
+  const handleSave = async (label: string) => {
+    if (!userId) return;
+    setSaving(true);
+    await saveUserData("playbooks", userId, playbookData());
+    setSaving(false);
+    setSavedLabel(label);
+    setTimeout(() => setSavedLabel(null), 2000);
+  };
 
   // Form state
   const [companyName, setCompanyName] = useState("ACME Plumbing");
@@ -4326,6 +4346,27 @@ function PlaybooksPage() {
     setLgTitle("5 Simple Checks to Prevent Emergency Plumbing Disasters");
   };
 
+  useEffect(() => {
+    if (!userId) return;
+    (async () => {
+      const saved = await loadUserData("playbooks", userId);
+      if (!saved) return;
+      if (saved.companyName !== undefined) setCompanyName(saved.companyName);
+      if (saved.taglineInput !== undefined) setTaglineInput(saved.taglineInput);
+      if (saved.olProblem !== undefined) setOlProblem(saved.olProblem);
+      if (saved.olSolution !== undefined) setOlSolution(saved.olSolution);
+      if (saved.olResult !== undefined) setOlResult(saved.olResult);
+      if (saved.epProblem !== undefined) setEpProblem(saved.epProblem);
+      if (saved.epSolution !== undefined) setEpSolution(saved.epSolution);
+      if (saved.epResult !== undefined) setEpResult(saved.epResult);
+      if (saved.epCTA !== undefined) setEpCTA(saved.epCTA);
+      if (saved.bs) setBs(saved.bs);
+      if (saved.sm) setSm(saved.sm);
+      if (saved.em) setEm(saved.em);
+      if (saved.lgTitle !== undefined) setLgTitle(saved.lgTitle);
+    })();
+  }, [userId]);
+
   const steps = [
     { id: "tagline-card", num: "01", label: "Tagline" },
     { id: "oneliner-card", num: "02", label: "One-Liner" },
@@ -4348,8 +4389,14 @@ function PlaybooksPage() {
     </div>
   );
 
+  const saveBtn = (label: string) => (
+    <button style={playbookStyles.btnPrimary} onClick={() => handleSave(label)} disabled={saving}>
+      {saving ? "Saving…" : savedLabel === label ? "Saved" : "Save"}
+    </button>
+  );
+
   const copyBtn = (targetText: string, label: string, copyLabel: string) => (
-    <button style={playbookStyles.pillBtnSec} onClick={() => copyText(targetText, copyLabel)}>
+    <button style={playbookStyles.btnSecondary} onClick={() => copyText(targetText, copyLabel)}>
       {copiedLabel === copyLabel ? "✔ Copied" : label}
     </button>
   );
@@ -4362,17 +4409,17 @@ function PlaybooksPage() {
   );
 
   return (
-    <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column", background: "#f5f5f5" }}>
+    <div style={playbookStyles.container}>
       <div style={playbookStyles.topbar}>
         <div>
           <div style={playbookStyles.topTitle}>MY MARKETING PLAYBOOK</div>
           <div style={playbookStyles.topSub}>Marketing Message Builder for Contractors</div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", flexWrap: "wrap", justifyContent: "flex-end" }}>
-          <button style={playbookStyles.pillBtnSec} onClick={clearAll}>Clear All</button>
-          <button style={playbookStyles.pillBtnSec} onClick={resetAll}>Reset All</button>
-          <button style={playbookStyles.pillBtnSec} onClick={() => window.print()}>Print / Save PDF</button>
-          <button style={playbookStyles.pillBtn} onClick={copyAllText}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <button style={playbookStyles.btnSecondary} onClick={clearAll}>Clear All</button>
+          <button style={playbookStyles.btnSecondary} onClick={resetAll}>Reset All</button>
+          <button style={playbookStyles.btnSecondary} onClick={() => window.print()}>Print / Save PDF</button>
+          <button style={playbookStyles.btnPrimary} onClick={copyAllText}>
             {copiedLabel === "all" ? "✔ Copied" : "Copy All Text"}
           </button>
         </div>
@@ -4380,9 +4427,9 @@ function PlaybooksPage() {
       <div style={playbookStyles.mainArea}>
         <div style={playbookStyles.colLeft}>
           <div style={playbookStyles.sidebarCard}>
-            <div style={{ fontSize: "0.75rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "#555" }}>Workflow</div>
-            <div style={{ fontWeight: 600, fontSize: "0.95rem", marginBottom: "0.3rem" }}>Build your message in eight steps</div>
-            <div style={{ fontSize: "0.85rem", color: "#555", lineHeight: 1.6 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>Workflow</div>
+            <div style={{ fontWeight: 600, fontSize: 15, color: "#1a2332", marginBottom: 4, marginTop: 4 }}>Build your message in eight steps</div>
+            <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.6 }}>
               Start with a clear tagline next to your logo, then build a one-liner, a short elevator pitch, your full BrandScript, social posts, emails, and a lead magnet title.
             </div>
             <div style={playbookStyles.stepNav}>
@@ -4392,16 +4439,16 @@ function PlaybooksPage() {
                   style={activeStep === s.id ? playbookStyles.stepChipActive : playbookStyles.stepChip}
                   onClick={() => setActiveStep(s.id)}
                 >
-                  <span style={{ fontSize: "0.75rem", letterSpacing: "0.16em", textTransform: "uppercase" }}>{s.num}</span>
-                  <span style={{ fontWeight: 500 }}>{s.label}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: activeStep === s.id ? "#3B82F6" : "#94a3b8" }}>{s.num}</span>
+                  <span style={{ fontWeight: activeStep === s.id ? 600 : 400 }}>{s.label}</span>
                 </div>
               ))}
             </div>
           </div>
           <div style={playbookStyles.sidebarCard}>
-            <div style={{ fontSize: "0.75rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "#555" }}>How they fit</div>
-            <div style={{ fontWeight: 600, fontSize: "0.95rem", marginBottom: "0.3rem" }}>From logo to full story</div>
-            <div style={{ fontSize: "0.85rem", color: "#555", lineHeight: 1.6 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>How they fit</div>
+            <div style={{ fontWeight: 600, fontSize: 15, color: "#1a2332", marginBottom: 4, marginTop: 4 }}>From logo to full story</div>
+            <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.6 }}>
               <strong>Tagline</strong> lives with your logo everywhere.<br /><br />
               <strong>One-Liner</strong> is your quick answer when people ask what you do.<br /><br />
               <strong>Elevator Pitch</strong> is a slightly longer spoken version that invites a conversation.<br /><br />
@@ -4415,15 +4462,16 @@ function PlaybooksPage() {
           {/* TAGLINE */}
           {activeStep === "tagline-card" && (
             <div style={playbookStyles.card}>
-              <div style={{ fontSize: "0.75rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "#555" }}>Step 1</div>
-              <div style={{ fontSize: "1.1rem", fontWeight: 600, marginBottom: "0.25rem" }}>Tagline / Brand Descriptor</div>
-              <div style={{ fontSize: "0.9rem", color: "#555", lineHeight: 1.6, maxWidth: 640, marginBottom: "0.75rem" }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>Step 1</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: "#1a2332", marginBottom: 4, marginTop: 2 }}>Tagline / Brand Descriptor</div>
+              <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.6, maxWidth: 640, marginBottom: 12 }}>
                 A short, clear phrase that sits under your company name and instantly tells people what you do or what you promise.
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.4fr) minmax(0,1fr)", gap: "1rem" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.4fr) minmax(0,1fr)", gap: 16 }}>
                 <div>
                   {renderField("Company name", "The name as it appears on your logo, trucks, and paperwork.", companyName, setCompanyName)}
                   {renderField("Tagline question", "If someone only saw your company name and five words, what must they instantly understand?", taglineInput, setTaglineInput, { textarea: true })}
+                  <div style={{ marginTop: 12 }}>{saveBtn("tagline")}</div>
                 </div>
                 <div>
                   {previewBox("Tagline Preview", taglinePreview)}
@@ -4436,16 +4484,17 @@ function PlaybooksPage() {
           {/* ONE-LINER */}
           {activeStep === "oneliner-card" && (
             <div style={playbookStyles.card}>
-              <div style={{ fontSize: "0.75rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "#555" }}>Step 2</div>
-              <div style={{ fontSize: "1.1rem", fontWeight: 600, marginBottom: "0.25rem" }}>One-Liner</div>
-              <div style={{ fontSize: "0.9rem", color: "#555", lineHeight: 1.6, maxWidth: 640, marginBottom: "0.75rem" }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>Step 2</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: "#1a2332", marginBottom: 4, marginTop: 2 }}>One-Liner</div>
+              <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.6, maxWidth: 640, marginBottom: 12 }}>
                 A short sentence that describes the problem, the solution, and the result.
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.4fr) minmax(0,1fr)", gap: "1rem" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.4fr) minmax(0,1fr)", gap: 16 }}>
                 <div>
                   {renderField("1. Problem", "What problem are your customers dealing with right now?", olProblem, setOlProblem, { textarea: true })}
                   {renderField("2. Solution", "How do you solve that problem?", olSolution, setOlSolution, { textarea: true })}
                   {renderField("3. Result", "What positive outcome do they experience?", olResult, setOlResult, { textarea: true })}
+                  <div style={{ marginTop: 12 }}>{saveBtn("oneliner")}</div>
                 </div>
                 <div>
                   {previewBox("One-Liner Preview", olPreview)}
@@ -4458,17 +4507,18 @@ function PlaybooksPage() {
           {/* ELEVATOR PITCH */}
           {activeStep === "elevator-card" && (
             <div style={playbookStyles.card}>
-              <div style={{ fontSize: "0.75rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "#555" }}>Step 3</div>
-              <div style={{ fontSize: "1.1rem", fontWeight: 600, marginBottom: "0.25rem" }}>Elevator Pitch</div>
-              <div style={{ fontSize: "0.9rem", color: "#555", lineHeight: 1.6, maxWidth: 640, marginBottom: "0.75rem" }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>Step 3</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: "#1a2332", marginBottom: 4, marginTop: 2 }}>Elevator Pitch</div>
+              <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.6, maxWidth: 640, marginBottom: 12 }}>
                 A 20-30 second spoken summary that starts with the problem, explains your solution, shows the result, and offers a next step.
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.4fr) minmax(0,1fr)", gap: "1rem" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.4fr) minmax(0,1fr)", gap: 16 }}>
                 <div>
                   {renderField("1. Problem", "Briefly describe the main problem your customer is facing.", epProblem, setEpProblem, { textarea: true })}
                   {renderField("2. Your solution", "How do you guide them and what do you actually do?", epSolution, setEpSolution, { textarea: true })}
                   {renderField("3. Result", "What transformation or win do they experience?", epResult, setEpResult, { textarea: true })}
                   {renderField("4. Call to action", "What's the simple next step you want them to take?", epCTA, setEpCTA, { textarea: true })}
+                  <div style={{ marginTop: 12 }}>{saveBtn("elevator")}</div>
                 </div>
                 <div>
                   {previewBox("Elevator Pitch Preview", epPreview)}
@@ -4481,12 +4531,12 @@ function PlaybooksPage() {
           {/* BRANDSCRIPT */}
           {activeStep === "brandscript-card" && (
             <div style={playbookStyles.card}>
-              <div style={{ fontSize: "0.75rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "#555" }}>Step 4</div>
-              <div style={{ fontSize: "1.1rem", fontWeight: 600, marginBottom: "0.25rem" }}>BrandScript – Story Framework</div>
-              <div style={{ fontSize: "0.9rem", color: "#555", lineHeight: 1.6, maxWidth: 640, marginBottom: "0.75rem" }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>Step 4</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: "#1a2332", marginBottom: 4, marginTop: 2 }}>BrandScript – Story Framework</div>
+              <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.6, maxWidth: 640, marginBottom: 12 }}>
                 The full story you are inviting your customer into.
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.4fr) minmax(0,1fr)", gap: "1rem" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.4fr) minmax(0,1fr)", gap: 16 }}>
                 <div>
                   {renderField("1. Character – What do they want?", "What do your customers want?", bs.want, v => updateBs("want", v), { textarea: true })}
                   {renderField("2. Has a Problem – Villain", "Is there a root cause you can personify?", bs.villain, v => updateBs("villain", v), { textarea: true })}
@@ -4502,6 +4552,7 @@ function PlaybooksPage() {
                   {renderField("12. That Ends in Success", "What positive changes will they experience?", bs.success, v => updateBs("success", v), { textarea: true })}
                   {renderField("13. And Avoids Failure", "What negative consequences will they avoid?", bs.failure, v => updateBs("failure", v), { textarea: true })}
                   {renderField("14. Identity Transformation", "Who were they before and who are they becoming?", bs.identity, v => updateBs("identity", v), { textarea: true })}
+                  <div style={{ marginTop: 12 }}>{saveBtn("brandscript")}</div>
                 </div>
                 <div>
                   {previewBox("BrandScript Talking Points", bsPoints)}
@@ -4514,12 +4565,12 @@ function PlaybooksPage() {
           {/* SOCIAL */}
           {activeStep === "social-card" && (
             <div style={playbookStyles.card}>
-              <div style={{ fontSize: "0.75rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "#555" }}>Step 6</div>
-              <div style={{ fontSize: "1.1rem", fontWeight: 600, marginBottom: "0.25rem" }}>Social Media Messaging Framework</div>
-              <div style={{ fontSize: "0.9rem", color: "#555", lineHeight: 1.6, maxWidth: 640, marginBottom: "0.75rem" }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>Step 6</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: "#1a2332", marginBottom: 4, marginTop: 2 }}>Social Media Messaging Framework</div>
+              <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.6, maxWidth: 640, marginBottom: 12 }}>
                 Turn your BrandScript into repeatable social captions.
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.4fr) minmax(0,1fr)", gap: "1rem" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.4fr) minmax(0,1fr)", gap: 16 }}>
                 <div>
                   {renderField("1. Controlling idea", "The main truth your content repeats.", sm.controlling, v => updateSm("controlling", v), { textarea: true })}
                   {renderField("2. Story question", "The big question in your customer's mind.", sm.question, v => updateSm("question", v), { textarea: true })}
@@ -4529,6 +4580,7 @@ function PlaybooksPage() {
                   {renderField("6. Plan", "Your 3-4 step plan in sentence form.", sm.plan, v => updateSm("plan", v), { textarea: true })}
                   {renderField("7. Call to action", "What simple step do you want them to take?", sm.cta, v => updateSm("cta", v), { textarea: true })}
                   {renderField("8. Future success", "Life after working with you.", sm.success, v => updateSm("success", v), { textarea: true })}
+                  <div style={{ marginTop: 12 }}>{saveBtn("social")}</div>
                 </div>
                 <div>
                   {previewBox("Caption 1 – Controlling Idea", sm.controlling || "(Caption 1 will appear here…)")}
@@ -4547,22 +4599,22 @@ function PlaybooksPage() {
           {/* EMAILS */}
           {activeStep === "emails-card" && (
             <div style={playbookStyles.card}>
-              <div style={{ fontSize: "0.75rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "#555" }}>Step 7</div>
-              <div style={{ fontSize: "1.1rem", fontWeight: 600, marginBottom: "0.25rem" }}>6-Email Nurture Sequence</div>
-              <div style={{ fontSize: "0.9rem", color: "#555", lineHeight: 1.6, maxWidth: 640, marginBottom: "0.75rem" }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>Step 7</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: "#1a2332", marginBottom: 4, marginTop: 2 }}>6-Email Nurture Sequence</div>
+              <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.6, maxWidth: 640, marginBottom: 12 }}>
                 Build a simple six-email sequence that delivers value and makes a clear offer.
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 {[1,2,3,4,5,6].map(i => (
                   <div key={i} style={playbookStyles.emailRow}>
                     <div style={playbookStyles.emailBlock}>
                       <div style={playbookStyles.fieldLabel}>Email {i}</div>
                       {renderField("Subject", "", (em as any)[`em${i}Sub`] || "", v => updateEm(`em${i}Sub`, v))}
-                      <div style={{ marginBottom: "0.5rem" }}>
+                      <div style={{ marginBottom: 8 }}>
                         <div style={playbookStyles.fieldLabel}>Body</div>
                         <textarea style={{ ...playbookStyles.textarea, minHeight: 80 }} value={(em as any)[`em${i}Body`] || ""} onChange={e => updateEm(`em${i}Body`, e.target.value)} />
                       </div>
-                      <div style={{ marginBottom: "0.5rem" }}>
+                      <div style={{ marginBottom: 8 }}>
                         <div style={playbookStyles.fieldLabel}>P.S.</div>
                         <textarea style={playbookStyles.textarea} value={(em as any)[`em${i}PS`] || ""} onChange={e => updateEm(`em${i}PS`, e.target.value)} />
                       </div>
@@ -4579,6 +4631,7 @@ function PlaybooksPage() {
                   <div style={playbookStyles.fieldHint}>Added at the end of every email.</div>
                   <textarea style={playbookStyles.textarea} value={em.signature} onChange={e => updateEm("signature", e.target.value)} rows={4} />
                 </div>
+                <div>{saveBtn("emails")}</div>
               </div>
             </div>
           )}
@@ -4586,14 +4639,15 @@ function PlaybooksPage() {
           {/* LEAD MAGNET */}
           {activeStep === "lead-card" && (
             <div style={playbookStyles.card}>
-              <div style={{ fontSize: "0.75rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "#555" }}>Step 8</div>
-              <div style={{ fontSize: "1.1rem", fontWeight: 600, marginBottom: "0.25rem" }}>Lead Magnet Title Creator</div>
-              <div style={{ fontSize: "0.9rem", color: "#555", lineHeight: 1.6, maxWidth: 640, marginBottom: "0.75rem" }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>Step 8</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: "#1a2332", marginBottom: 4, marginTop: 2 }}>Lead Magnet Title Creator</div>
+              <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.6, maxWidth: 640, marginBottom: 12 }}>
                 Create a clear, valuable title for your downloadable guide, checklist, or video.
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.4fr) minmax(0,1fr)", gap: "1rem" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.4fr) minmax(0,1fr)", gap: 16 }}>
                 <div>
                   {renderField("Lead magnet title", "The exact title your ideal customer would want to grab.", lgTitle, setLgTitle, { textarea: true })}
+                  <div style={{ marginTop: 12 }}>{saveBtn("lead")}</div>
                 </div>
                 <div>
                   {previewBox("Lead Magnet Title Preview", lgTitle.trim() || "(Your lead magnet title will appear here…)")}
@@ -5377,7 +5431,7 @@ const sidebarEl = (
           {page === "app-detail" && selectedApp && <div style={{ flex: 1, overflowY: "auto" }}><AppDetailPage app={selectedApp} onBack={() => setPage("integrations")} /></div>}
           {page === "team" && <div style={{ flex: 1, overflowY: "auto" }}><TeamPage /></div>}
           {page === "settings" && <div style={{ flex: 1, overflowY: "auto" }}><SettingsPage userId={userId!} userEmail={userEmail} profile={profile} forceDisableFiveAccount={fiveAccountForceOff} onForceDisableAcknowledged={() => setFiveAccountForceOff(false)} onProfileSaved={p => setProfile(p)} onFiveAccountCreated={handleFiveAccountCreated} onFiveAccountDisabled={handleGlobalFiveAccountDisabled} fiveAccountSettings={fiveAccountSettings} onFiveAccountSettingsChange={handleUpdateSettings} /></div>}
-          {page === "playbooks" && <PlaybooksPage />}
+          {page === "playbooks" && <PlaybooksPage userId={userId} />}
           {page === "equation-builder" && equationBuilderTarget && (
             <EquationBuilderPage
               allMetrics={sections.flatMap(s => s.metrics)}
