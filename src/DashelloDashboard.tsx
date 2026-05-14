@@ -2077,7 +2077,7 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
                         if (!label.trim()) { setEquationError("Please name this metric box before creating an equation"); return; }
                         setEquationError("");
                         onCreateEquation?.({ label, icon, metricType: effectiveMetricType, currencySymbol: currency });
-                      }} style={{ padding: "8px 0", borderRadius: 8, border: "1.5px solid", borderColor: initial?.equation ? "#4CAF7D" : "transparent", background: initial?.equation ? "#F0FDF4" : "#64748b", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+                      }} style={{ padding: "8px 0", borderRadius: 8, border: "1.5px solid", borderColor: initial?.equation ? "#4CAF7D" : "transparent", background: initial?.equation ? "#F0FDF4" : "#64748b", color: initial?.equation ? "#4CAF7D" : "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
                         {initial?.equation ? "Edit Equation" : "Create Equation"}
                       </button>
                       <button onClick={openAddRule} style={{ padding: "8px 0", borderRadius: 8, border: "none", background: "#64748b", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Create Color Rule</button>
@@ -2310,7 +2310,7 @@ function MetricBlock({ metric, onClick, onDragStart, onDragEnter, onDrop, isDrag
         </div>
       )}
       <div style={{ fontSize: 15, fontWeight: 700, color: textColor, textAlign: "center", width: "100%" }}>
-        {metric.equation && <span style={{ marginRight: 2 }}>=</span>}{metric.value}
+        {metric.value}
       </div>
     </div>
   );
@@ -3266,7 +3266,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                 }
               }
               return (
-              <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6, padding: "14px 18px", background: "#F8FAFC", borderRadius: 12, border: "1px solid #e2e8f0", minHeight: 60 }}>
+              <div style={{ display: "flex", alignItems: "flex-start", flexWrap: "wrap", gap: 6, padding: "14px 18px", background: "#F8FAFC", borderRadius: 12, border: "1px solid #e2e8f0", minHeight: 60 }}>
                 {needsParens && (
                   <span style={{ fontSize: 28 * circleScale, fontWeight: 300, color: "#94a3b8", fontFamily: "serif", lineHeight: 1 }}>(</span>
                 )}
