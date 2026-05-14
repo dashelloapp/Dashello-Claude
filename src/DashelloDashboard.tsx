@@ -1949,6 +1949,7 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
       resetKeepHistory,
       lastResetAt: initial?.lastResetAt,
       equation: initial?.equation,
+      draftEquation: initial?.draftEquation,
     });
     onClose();
   };
