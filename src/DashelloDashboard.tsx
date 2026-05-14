@@ -3316,7 +3316,9 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                     if (g.type === "fraction" && g.steps) {
                       const [topMetric, opStep, bottomMetric] = g.steps;
                       const actualIdx = steps.indexOf(topMetric);
-                      const isEditing = actualIdx >= 0 && editingStepIndex === actualIdx;
+                      const isEditing = actualIdx >= 0 && (editingStepIndex === actualIdx || editingStepIndex === actualIdx + 2);
+                      const isTopEditing = actualIdx >= 0 && editingStepIndex === actualIdx;
+                      const isBottomEditing = actualIdx >= 0 && editingStepIndex === actualIdx + 2;
                       const fc = cs * 0.8;
                       const topFullMetric = allMetrics.find(m => m.id === topMetric.metricId);
                       const bottomFullMetric = allMetrics.find(m => m.id === bottomMetric.metricId);
@@ -3326,7 +3328,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                       const bottomMS = MS[bottomColor];
                       const topIsColored = topColor !== "gray";
                       const bottomIsColored = bottomColor !== "gray";
-                      const renderMiniMetricCard = (eqStep: EquationStep, fullM: Metric | undefined, mColor: MetricColor, mMS: typeof MS.green, isColored: boolean) => {
+                      const renderMiniMetricCard = (eqStep: EquationStep, fullM: Metric | undefined, mColor: MetricColor, mMS: typeof MS.green, isColored: boolean, isPartEditing: boolean) => {
                         const hasIcon = !!(eqStep.metricIcon && eqStep.metricIcon !== ICON_NONE);
                         const txtColor = isColored ? "#fff" : "#4A5568";
                         return (
@@ -3336,6 +3338,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                             padding: "8px 6px", display: "flex", flexDirection: "column",
                             alignItems: "center", justifyContent: hasIcon ? "space-between" : "center",
                             gap: 2,
+                            outline: isPartEditing ? "2px solid #3B82F6" : "2px solid transparent",
                           }}>
                             <div style={{ fontSize: fc * 0.09, fontWeight: 600, color: txtColor, textAlign: "center", lineHeight: 1.1 }}>
                               {eqStep.metricLabel}
@@ -3390,13 +3393,17 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                             </div>
                           </div>
                           <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                            {renderMiniMetricCard(topMetric, topFullMetric, topColor, topMS, topIsColored)}
+                            <div onClick={e => { e.stopPropagation(); if (actualIdx >= 0) handleEditStep(actualIdx); }} style={{ cursor: "pointer" }}>
+                              {renderMiniMetricCard(topMetric, topFullMetric, topColor, topMS, topIsColored, isTopEditing)}
+                            </div>
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "4px 0" }}>
                               <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#3B82F6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700 }}>
                                 {opStep?.operator === "*" ? "×" : "÷"}
                               </div>
                             </div>
-                            {renderMiniMetricCard(bottomMetric, bottomFullMetric, bottomColor, bottomMS, bottomIsColored)}
+                            <div onClick={e => { e.stopPropagation(); if (actualIdx >= 0) handleEditStep(actualIdx + 2); }} style={{ cursor: "pointer" }}>
+                              {renderMiniMetricCard(bottomMetric, bottomFullMetric, bottomColor, bottomMS, bottomIsColored, isBottomEditing)}
+                            </div>
                           </div>
                         </div>
                       ];
