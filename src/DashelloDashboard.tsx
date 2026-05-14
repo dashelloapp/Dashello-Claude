@@ -4613,13 +4613,13 @@ function PlaybooksPage() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 const NAV = [
-  { icon: "⊞", label: "Home", page: "home" as Page },
-  { icon: "◎", label: "Goals", page: "goals" as Page },
-  { icon: "✓", label: "Tasks", page: "tasks" as Page },
-  { icon: "📋", label: "Playbooks", page: "playbooks" as Page },
-  { icon: "⛓", label: "Integrations", page: "integrations" as Page },
-  { icon: "👥", label: "Team", page: "team" as Page },
-  { icon: "⚙", label: "Settings", page: "settings" as Page },
+  { icon: "House", label: "Home", page: "home" as Page },
+  { icon: "Target", label: "Goals", page: "goals" as Page },
+  { icon: "CheckSquare", label: "Tasks", page: "tasks" as Page },
+  { icon: "Notebook", label: "Playbooks", page: "playbooks" as Page },
+  { icon: "Plugs", label: "Integrations", page: "integrations" as Page },
+  { icon: "Users", label: "Team", page: "team" as Page },
+  { icon: "Gear", label: "Settings", page: "settings" as Page },
 ];
 
 function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, health }: {
@@ -4645,7 +4645,7 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
       <nav style={{ flex: 1, padding: "10px 10px" }}>
         {NAV.map(item => (
           <div key={item.label} className="nav-item" onClick={() => onNav(item.page)} style={{ display: "flex", alignItems: "center", gap: 9, padding: "9px 11px", borderRadius: 9, marginBottom: 2, cursor: "pointer", background: active === item.page ? "#EFF6FF" : "transparent", color: active === item.page ? "#3B82F6" : "#475569", fontSize: 13, fontWeight: active === item.page ? 600 : 400, transition: "background 0.15s" }}>
-            <span style={{ fontSize: 14, flexShrink: 0 }}>{item.icon}</span>
+            <IconGlyph name={item.icon} size={14} color={active === item.page ? "#3B82F6" : "#475569"} />
             <span style={{ whiteSpace: "nowrap" }}>{item.label}</span>
           </div>
         ))}
