@@ -1614,12 +1614,12 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
     <div ref={overlayRef} onClick={e => { if (!inline && e.target === overlayRef.current) onClose(); }}
       style={inline ? { padding: "20px 28px" } : { position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 20 }}>
       <div style={inline ? { width: "100%", maxWidth: 780 } : { background: "#fff", borderRadius: 24, width: "100%", maxWidth: 780, maxHeight: "92vh", overflowY: "auto", overflowX: "hidden", padding: "28px 32px 32px", boxShadow: "0 32px 80px rgba(0,0,0,0.2)", scrollbarGutter: "stable" } as React.CSSProperties}>
-      <div style={{ background: "#fff", borderRadius: 24, width: "100%", maxWidth: 780, maxHeight: "92vh", overflowY: "auto", overflowX: "hidden", padding: "28px 32px 32px", boxShadow: "0 32px 80px rgba(0,0,0,0.2)", scrollbarGutter: "stable" } as React.CSSProperties}>
         <div style={{ display: "flex", alignItems: "center", marginBottom: 24 }}>
-  <h2 style={{ margin: 0, fontSize: 28, fontWeight: 700, color: "#1a2332", flex: 1 }}>{data.title}</h2>
-  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <h2 style={{ margin: 0, fontSize: 28, fontWeight: 700, color: "#1a2332", flex: 1 }}>{data.title}</h2>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
             {onRefreshSections && <RefreshButton onRefresh={onRefreshSections} lastSyncedAt={metric?.lastSyncedAt} metricId={metric?.id} />}
-            <EditBtn /><CloseBtn />
+            {!inline && <><EditBtn /><CloseBtn /></>}
+            {inline && <EditBtn />}
           </div>
         </div>
         {metric?.icon && metric.icon !== ICON_NONE && (
@@ -3807,7 +3807,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                           <div style={{ display: "flex", justifyContent: "center", width: "100%", marginBottom: 3 }}>
                             <div style={{
                               width: 44 * csScale, height: 44 * csScale, borderRadius: "50%",
-                              background: "#64748b", color: "#fff", fontSize: 20 * csScale, fontWeight: 700,
+                              background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 20 * csScale, fontWeight: 700,
                               display: "flex", alignItems: "center", justifyContent: "center"
                             }}>
                               {g.groupIdx! + 1}
@@ -4139,7 +4139,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                               {renderCheckbox(idx, isEditing)}
                               <div style={{ display: "flex", justifyContent: "center", width: "100%", marginBottom: 3 }}>
                                 <div style={{
-                                  width: 44 * circleScale, height: 44 * circleScale, borderRadius: "50%", background: "#64748b", color: "#fff", fontSize: 20 * circleScale, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center"
+                                  width: 44 * circleScale, height: 44 * circleScale, borderRadius: "50%", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 20 * circleScale, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center"
                                 }}>
                                   {g.groupIdx! + 1}
                                 </div>
@@ -5169,8 +5169,7 @@ export default function DashelloDashboard() {
   const [activeModal, setActiveModal] = useState<{ data: MetricModalData; metric: Metric } | null>(null);
   const [editingMetricFromModal, setEditingMetricFromModal] = useState<Metric | null>(null);
   // Inline view system
-  type InlineView = "metric-detail" | "metric-settings" | "color-rule";
-  const [inlineView, setInlineView] = useState<InlineView | null>(null);
+  const [inlineView, setInlineView] = useState<"metric-detail" | "metric-settings" | "color-rule" | null>(null);
   const [inlineMetric, setInlineMetric] = useState<Metric | null>(null);
   const [inlineHasUnsaved, setInlineHasUnsaved] = useState(false);
   const [selectedApp, setSelectedApp] = useState<typeof APPS[0] | null>(null);
@@ -5349,11 +5348,12 @@ export default function DashelloDashboard() {
 
   // When value changed in modal, update sections + history
   const handleValueChange = (newValue: string, description?: string) => {
-    if (!activeModal) return;
-    const metricId = activeModal.metric.id;
+    const activeMetric = activeModal?.metric ?? inlineMetric;
+    if (!activeMetric) return;
+    const metricId = activeMetric.id;
     const numericVal = parseFloat(newValue.replace(/[^0-9.\-]/g, ""));
-    const oldVal = parseFloat(activeModal.metric.value.replace(/[^0-9.\-]/g, "")) || 0;
-    const isFiveAccount = !!(activeModal.metric.modal?.fiveAccountEnabled || activeModal.metric.fiveAccountParentId);
+    const oldVal = parseFloat(activeMetric.value.replace(/[^0-9.\-]/g, "")) || 0;
+    const isFiveAccount = !!(activeMetric.modal?.fiveAccountEnabled || activeMetric.fiveAccountParentId);
     const now = Date.now();
 
     const applyChange = (description?: string) => {
