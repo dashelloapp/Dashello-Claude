@@ -3088,9 +3088,8 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
       ? steps[editingStepIndex]?.type === "operator"
       : pendingOperator || (steps.length > 0 && steps[steps.length - 1].type === "metric");
 
-  // Available metrics excluding ones already used
-  const usedMetricIds = new Set(steps.filter(s => s.type === "metric").map(s => s.metricId));
-  const availableMetrics = allMetrics.filter(m => m.id !== targetMetricId && !usedMetricIds.has(m.id));
+  // Available metrics excluding the target metric being edited
+  const availableMetrics = allMetrics.filter(m => m.id !== targetMetricId);
 
   const filteredMetrics = searchQuery.trim()
     ? availableMetrics.filter(m => m.label.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -3275,6 +3274,39 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                     const actualIdx = steps.indexOf(topMetric);
                     const isEditing = actualIdx >= 0 && editingStepIndex === actualIdx;
                     const fc = cardSize * 0.8;
+                    const topFullMetric = allMetrics.find(m => m.id === topMetric.metricId);
+                    const bottomFullMetric = allMetrics.find(m => m.id === bottomMetric.metricId);
+                    const topColor = topFullMetric ? resolveColor(topFullMetric) : "gray";
+                    const bottomColor = bottomFullMetric ? resolveColor(bottomFullMetric) : "gray";
+                    const topMS = MS[topColor];
+                    const bottomMS = MS[bottomColor];
+                    const topIsColored = topColor !== "gray";
+                    const bottomIsColored = bottomColor !== "gray";
+                    const renderMiniMetricCard = (eqStep: EquationStep, fullM: Metric | undefined, mColor: MetricColor, mMS: typeof MS.green, isColored: boolean) => {
+                      const hasIcon = !!(eqStep.metricIcon && eqStep.metricIcon !== ICON_NONE);
+                      const txtColor = isColored ? "#fff" : "#4A5568";
+                      return (
+                        <div style={{
+                          width: fc, minHeight: fc, borderRadius: 8,
+                          background: mMS.bg,
+                          padding: "8px 6px", display: "flex", flexDirection: "column",
+                          alignItems: "center", justifyContent: hasIcon ? "space-between" : "center",
+                          gap: 2,
+                        }}>
+                          <div style={{ fontSize: fc * 0.09, fontWeight: 600, color: txtColor, textAlign: "center", lineHeight: 1.1 }}>
+                            {eqStep.metricLabel}
+                          </div>
+                          {hasIcon && (
+                            <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                              <IconGlyph name={eqStep.metricIcon!} size={13} color={isColored ? mMS.bg : "#3B82F6"} />
+                            </div>
+                          )}
+                          <div style={{ fontSize: fc * 0.1, fontWeight: 700, color: txtColor, textAlign: "center" }}>
+                            {eqStep.metricValue}
+                          </div>
+                        </div>
+                      );
+                    };
                     return [
                       lineBefore && (
                         <div key={`line-${gi}`} style={{ width: 3, alignSelf: "stretch", background: "#3B82F6", borderRadius: 2, flexShrink: 0, minHeight: 60 }} />
@@ -3289,7 +3321,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                           dragCountRef.current = 3;
                           if (actualIdx >= 0) handleEditStep(actualIdx);
                           const el = e.currentTarget.cloneNode(true) as HTMLElement;
-                          el.style.cssText = 'position:absolute;top:-999px;left:-999px;transform:scale(0.5);transform-origin:top left;border-radius:12px;overflow:hidden;';
+                          el.style.cssText = 'position:absolute;top:-999px;left:-999px;transform:scale(0.5);transform-origin:top left;border-radius:12px;overflow:hidden;outline:2px solid #3B82F6;background:#EFF6FF;';
                           el.style.pointerEvents = 'none';
                           document.body.appendChild(el);
                           const r = el.getBoundingClientRect();
@@ -3314,47 +3346,13 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                           </div>
                         </div>
                         <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                          <div style={{
-                            width: fc, minHeight: fc, borderRadius: "8px 8px 0 0",
-                            background: topMetric.metricColor && topMetric.metricColor !== "gray" ? MS[topMetric.metricColor].bg : "#F8FAFC",
-                            border: topMetric.metricColor === "gray" || !topMetric.metricColor ? "1.5px solid #e2e8f0" : "none",
-                            borderBottom: "none",
-                            padding: "6px", display: "flex", flexDirection: "column",
-                            alignItems: "center", justifyContent: "center", gap: 2,
-                          }}>
-                            {topMetric.metricIcon && topMetric.metricIcon !== ICON_NONE && (
-                              <IconGlyph name={topMetric.metricIcon} size={fc * 0.2} color={topMetric.metricColor && topMetric.metricColor !== "gray" ? "#fff" : "#3B82F6"} />
-                            )}
-                            <div style={{ fontSize: fc * 0.09, fontWeight: 600, color: topMetric.metricColor && topMetric.metricColor !== "gray" ? "#fff" : "#1a2332", textAlign: "center", lineHeight: 1.1 }}>
-                              {topMetric.metricLabel}
-                            </div>
-                            <div style={{ fontSize: fc * 0.1, fontWeight: 700, color: topMetric.metricColor && topMetric.metricColor !== "gray" ? "#fff" : "#1a2332", textAlign: "center" }}>
-                              {topMetric.metricValue}
-                            </div>
-                          </div>
+                          {renderMiniMetricCard(topMetric, topFullMetric, topColor, topMS, topIsColored)}
                           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "4px 0" }}>
                             <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#3B82F6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700 }}>
                               {opStep?.operator === "*" ? "×" : "÷"}
                             </div>
                           </div>
-                          <div style={{
-                            width: fc, minHeight: fc, borderRadius: "0 0 8px 8px",
-                            background: bottomMetric.metricColor && bottomMetric.metricColor !== "gray" ? MS[bottomMetric.metricColor].bg : "#F8FAFC",
-                            border: bottomMetric.metricColor === "gray" || !bottomMetric.metricColor ? "1.5px solid #e2e8f0" : "none",
-                            borderTop: "none",
-                            padding: "6px", display: "flex", flexDirection: "column",
-                            alignItems: "center", justifyContent: "center", gap: 2,
-                          }}>
-                            {bottomMetric.metricIcon && bottomMetric.metricIcon !== ICON_NONE && (
-                              <IconGlyph name={bottomMetric.metricIcon} size={fc * 0.2} color={bottomMetric.metricColor && bottomMetric.metricColor !== "gray" ? "#fff" : "#3B82F6"} />
-                            )}
-                            <div style={{ fontSize: fc * 0.09, fontWeight: 600, color: bottomMetric.metricColor && bottomMetric.metricColor !== "gray" ? "#fff" : "#1a2332", textAlign: "center", lineHeight: 1.1 }}>
-                              {bottomMetric.metricLabel}
-                            </div>
-                            <div style={{ fontSize: fc * 0.1, fontWeight: 700, color: bottomMetric.metricColor && bottomMetric.metricColor !== "gray" ? "#fff" : "#1a2332", textAlign: "center" }}>
-                              {bottomMetric.metricValue}
-                            </div>
-                          </div>
+                          {renderMiniMetricCard(bottomMetric, bottomFullMetric, bottomColor, bottomMS, bottomIsColored)}
                         </div>
                       </div>
                     ];
@@ -3378,7 +3376,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                           dragCountRef.current = 1;
                           handleEditStep(idx);
                           const el = e.currentTarget.cloneNode(true) as HTMLElement;
-                          el.style.cssText = 'position:absolute;top:-999px;left:-999px;transform:scale(0.5);transform-origin:top left;border-radius:12px;overflow:hidden;';
+                          el.style.cssText = 'position:absolute;top:-999px;left:-999px;transform:scale(0.5);transform-origin:top left;border-radius:12px;overflow:hidden;outline:2px solid #3B82F6;background:#EFF6FF;';
                           el.style.pointerEvents = 'none';
                           document.body.appendChild(el);
                           const r = el.getBoundingClientRect();
@@ -3439,7 +3437,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                           dragCountRef.current = 1;
                           handleEditStep(idx);
                           const el = e.currentTarget.cloneNode(true) as HTMLElement;
-                          el.style.cssText = 'position:absolute;top:-999px;left:-999px;transform:scale(0.5);transform-origin:top left;border-radius:12px;overflow:hidden;';
+                          el.style.cssText = 'position:absolute;top:-999px;left:-999px;transform:scale(0.5);transform-origin:top left;border-radius:12px;overflow:hidden;outline:2px solid #3B82F6;background:#EFF6FF;';
                           el.style.pointerEvents = 'none';
                           document.body.appendChild(el);
                           const r = el.getBoundingClientRect();
