@@ -3043,7 +3043,9 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
   const [steps, setSteps] = useState<EquationStep[]>(initialEquation?.steps ?? []);
   const [searchQuery, setSearchQuery] = useState("");
   const [editingStepIndex, setEditingStepIndex] = useState<number | null>(null);
+  const [dropTargetStepIdx, setDropTargetStepIdx] = useState<number | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const dragStepIdxRef = useRef<number | null>(null);
 
   // Derived: whether to show math picker or search based on current state
   const showMathPicker = editingStepIndex !== null
@@ -3133,9 +3135,36 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
     setSteps(prev => {
       const next = [...prev];
       next.splice(idx, 1);
+      // Remove orphaned leading/trailing operators
+      while (next.length > 0 && next[0].type === "operator") next.splice(0, 1);
+      while (next.length > 0 && next[next.length - 1].type === "operator") next.splice(next.length - 1, 1);
       return next;
     });
     setEditingStepIndex(null);
+  };
+
+  const handleStepDrop = (toStepIdx: number) => {
+    const fromIdx = dragStepIdxRef.current;
+    if (fromIdx === null || fromIdx === toStepIdx) {
+      dragStepIdxRef.current = null;
+      setDropTargetStepIdx(null);
+      return;
+    }
+    setSteps(prev => {
+      const next = [...prev];
+      const [item] = next.splice(fromIdx, 1);
+      const adjustedTo = fromIdx < toStepIdx ? toStepIdx - 1 : toStepIdx;
+      next.splice(adjustedTo, 0, item);
+      // Validate: no adjacent same types, must start/end with metric
+      if (next.length < 2) return prev;
+      if (next[0].type !== "metric" || next[next.length - 1].type !== "metric") return prev;
+      for (let i = 0; i < next.length - 1; i++) {
+        if (next[i].type === next[i + 1].type) return prev;
+      }
+      return next;
+    });
+    dragStepIdxRef.current = null;
+    setDropTargetStepIdx(null);
   };
 
   const handleSave = () => {
@@ -3210,9 +3239,17 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                   const [topMetric, , bottomMetric] = g.steps;
                   const actualIdx = steps.indexOf(topMetric);
                   const isEditing = actualIdx >= 0 && editingStepIndex === actualIdx;
+                  const isDropTarget = dropTargetStepIdx === actualIdx;
                   const fc = cardSize * 0.8;
                   return (
-                    <div key={gi} onClick={() => { if (actualIdx >= 0) handleEditStep(actualIdx); }} style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "center", cursor: "pointer", borderRadius: 12, padding: 2, outline: isEditing ? "2px solid #3B82F6" : "2px solid transparent", background: isEditing ? "#EFF6FF" : "transparent" }}>
+                    <div key={gi}
+                      draggable
+                      onDragStart={e => { e.stopPropagation(); if (actualIdx >= 0) dragStepIdxRef.current = actualIdx; }}
+                      onDragOver={e => { e.preventDefault(); e.stopPropagation(); if (actualIdx >= 0) setDropTargetStepIdx(actualIdx); }}
+                      onDrop={e => { e.preventDefault(); e.stopPropagation(); if (actualIdx >= 0) handleStepDrop(actualIdx); }}
+                      onDragEnd={() => { dragStepIdxRef.current = null; setDropTargetStepIdx(null); }}
+                      onClick={() => { if (actualIdx >= 0) handleEditStep(actualIdx); }}
+                      style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "center", cursor: "grab", borderRadius: 12, padding: 2, outline: isEditing ? "2px solid #3B82F6" : isDropTarget ? "2px dashed #3B82F6" : "2px solid transparent", background: isEditing ? "#EFF6FF" : isDropTarget ? "#F0F4FF" : "transparent" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 3 }}>
                         <div style={{
                           width: 44, height: 44, borderRadius: "50%",
@@ -3272,8 +3309,16 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                   const step = g.step;
                   const idx = steps.indexOf(step);
                   const isEditing = editingStepIndex === idx;
+                  const isDropTarget = dropTargetStepIdx === idx;
                   return (
-                    <div key={gi} onClick={() => handleEditStep(idx)} style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "center", cursor: "pointer", borderRadius: 12, padding: 2, outline: isEditing ? "2px solid #3B82F6" : "2px solid transparent", background: isEditing ? "#EFF6FF" : "transparent" }}>
+                    <div key={gi}
+                      draggable
+                      onDragStart={e => { e.stopPropagation(); dragStepIdxRef.current = idx; }}
+                      onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDropTargetStepIdx(idx); }}
+                      onDrop={e => { e.preventDefault(); e.stopPropagation(); handleStepDrop(idx); }}
+                      onDragEnd={() => { dragStepIdxRef.current = null; setDropTargetStepIdx(null); }}
+                      onClick={() => handleEditStep(idx)}
+                      style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "center", cursor: "grab", borderRadius: 12, padding: 2, outline: isEditing ? "2px solid #3B82F6" : isDropTarget ? "2px dashed #3B82F6" : "2px solid transparent", background: isEditing ? "#EFF6FF" : isDropTarget ? "#F0F4FF" : "transparent" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 3 }}>
                         <div style={{
                           width: 44, height: 44, borderRadius: "50%",
@@ -3309,8 +3354,16 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                   const step = g.step;
                   const idx = steps.indexOf(step);
                   const isEditing = editingStepIndex === idx;
+                  const isDropTarget = dropTargetStepIdx === idx;
                   return (
-                    <div key={gi} onClick={() => handleEditStep(idx)} style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "center", cursor: "pointer", borderRadius: 12, padding: 2, outline: isEditing ? "2px solid #3B82F6" : "2px solid transparent", background: isEditing ? "#EFF6FF" : "transparent" }}>
+                    <div key={gi}
+                      draggable
+                      onDragStart={e => { e.stopPropagation(); dragStepIdxRef.current = idx; }}
+                      onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDropTargetStepIdx(idx); }}
+                      onDrop={e => { e.preventDefault(); e.stopPropagation(); handleStepDrop(idx); }}
+                      onDragEnd={() => { dragStepIdxRef.current = null; setDropTargetStepIdx(null); }}
+                      onClick={() => handleEditStep(idx)}
+                      style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "center", cursor: "grab", borderRadius: 12, padding: 2, outline: isEditing ? "2px solid #3B82F6" : isDropTarget ? "2px dashed #3B82F6" : "2px solid transparent", background: isEditing ? "#EFF6FF" : isDropTarget ? "#F0F4FF" : "transparent" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 3 }}>
                         <div style={{
                           width: 44, height: 44, borderRadius: "50%",
