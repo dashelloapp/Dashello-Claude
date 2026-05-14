@@ -252,6 +252,7 @@ function evaluateEquation(steps: EquationStep[], allMetrics: Metric[]): number |
       if (step.operator) {
         if (step.operator === "total-multiply" || step.operator === "total-divide") continue;
         resolved.push(step.operator as "+" | "-" | "*" | "/");
+      }
     } else {
       const m = allMetrics.find(mm => mm.id === step.metricId);
       const val = m ? parseFloat(m.value.replace(/[^0-9.\-]/g, "")) || 0 : 0;
