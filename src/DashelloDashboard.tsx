@@ -3151,6 +3151,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
   const searchRef = useRef<HTMLInputElement>(null);
   const [checkedSteps, setCheckedSteps] = useState<Set<number>>(new Set());
   const [selectedGroupStartIdx, setSelectedGroupStartIdx] = useState<number | null>(null);
+  const [confirmAction, setConfirmAction] = useState<string | null>(null);
 
   const toggleChecked = (idx: number) => {
     setCheckedSteps(prev => {
@@ -3455,6 +3456,14 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                 Group Selected ({checkedSteps.size})
               </button>
             )}
+            <button onClick={() => {
+              if (confirmAction === "reset") { setConfirmAction(null); setSteps(initialEquation?.steps ?? []); setEditingStepIndex(null); }
+              else { setConfirmAction("reset"); setTimeout(() => setConfirmAction(null), 3000); }
+            }} style={{ padding: "6px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: confirmAction === "reset" ? "#E85D75" : "#64748b", fontWeight: confirmAction === "reset" ? 600 : 400 }}>{confirmAction === "reset" ? "Confirm Reset?" : "Reset"}</button>
+            <button onClick={() => {
+              if (confirmAction === "delete") { setConfirmAction(null); setSteps([]); setEditingStepIndex(null); }
+              else { setConfirmAction("delete"); setTimeout(() => setConfirmAction(null), 3000); }
+            }} style={{ padding: "6px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: confirmAction === "delete" ? "#E85D75" : "#64748b", fontWeight: confirmAction === "delete" ? 600 : 400 }}>{confirmAction === "delete" ? "Confirm Delete?" : "Delete Equation"}</button>
             <button onClick={onCancel} style={{ padding: "6px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b" }}>Cancel</button>
           </div>
         </div>
