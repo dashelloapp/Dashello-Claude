@@ -3042,9 +3042,13 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
 }) {
   const [steps, setSteps] = useState<EquationStep[]>(initialEquation?.steps ?? []);
   const [searchQuery, setSearchQuery] = useState("");
-  const [showMathPicker, setShowMathPicker] = useState(false);
   const [editingStepIndex, setEditingStepIndex] = useState<number | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+
+  // Derived: whether to show math picker or search based on current state
+  const showMathPicker = editingStepIndex !== null
+    ? steps[editingStepIndex]?.type === "operator"
+    : steps.length > 0 && steps[steps.length - 1].type === "metric";
 
   // Available metrics excluding ones already used
   const usedMetricIds = new Set(steps.filter(s => s.type === "metric").map(s => s.metricId));
@@ -3088,10 +3092,8 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
         return next;
       });
       setEditingStepIndex(null);
-      setShowMathPicker(false);
     } else {
       setSteps(prev => [...prev, step]);
-      setShowMathPicker(true);
     }
     setSearchQuery("");
   };
@@ -3106,11 +3108,9 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
         return next;
       });
       setEditingStepIndex(null);
-      setShowMathPicker(false);
       setTimeout(() => searchRef.current?.focus(), 100);
     } else {
       setSteps(prev => [...prev, { type: "operator", operator: op }]);
-      setShowMathPicker(false);
       // Focus search after picking math
       setTimeout(() => searchRef.current?.focus(), 100);
     }
@@ -3121,26 +3121,21 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
     const step = steps[idx];
     if (step.type === "metric") {
       setSearchQuery(step.metricLabel ?? "");
-    } else {
-      setShowMathPicker(true);
     }
   };
 
   const handleRemoveStep = (idx: number) => {
+    const step = steps[idx];
+    if (step.type === "operator") {
+      setEditingStepIndex(idx);
+      return;
+    }
     setSteps(prev => {
       const next = [...prev];
       next.splice(idx, 1);
-      // If we removed a metric step, also remove adjacent operator if any
-      // Remove operator at idx if it exists (it shifted)
-      if (idx < next.length && next[idx].type === "operator") {
-        next.splice(idx, 1);
-      } else if (idx > 0 && next[idx - 1].type === "operator") {
-        next.splice(idx - 1, 1);
-      }
       return next;
     });
     setEditingStepIndex(null);
-    setShowMathPicker(false);
   };
 
   const handleSave = () => {
@@ -3170,6 +3165,15 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
 
   const cardSize = Math.max(80, 140 - steps.length * 4);
 
+  // Whether the equation is valid enough to save
+  const equationValid = (() => {
+    if (steps.length < 3) return false;
+    if (steps[0].type !== "metric" || steps[steps.length - 1].type !== "metric") return false;
+    for (let i = 0; i < steps.length - 1; i++) {
+      if (steps[i].type === steps[i + 1].type) return false;
+    }
+    return true;
+  })();
 
   return (
     <div style={{ flex: 1, overflowY: "auto", background: "#fff", display: "flex", flexDirection: "column", height: "100%" }}>
@@ -3179,7 +3183,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
         <button onClick={onCancel} style={{ padding: "6px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b" }}>Cancel</button>
       </div>
 
-      {/* Side-by-side content */}
+      {/* Main content: steps left, preview+picker right */}
       <div style={{ flex: 1, display: "flex", overflow: "hidden", padding: "24px 32px", gap: 24 }}>
         {/* Left: Steps */}
         <div style={{ flex: 1, overflowY: "auto", minWidth: 0 }}>
@@ -3346,8 +3350,40 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
           )}
         </div>
 
-        {/* Right: Contextual Picker */}
-        <div style={{ width: 340, flexShrink: 0, overflowY: "auto" }}>
+        {/* Right: Final Output on top, Contextual Picker below */}
+        <div style={{ width: 340, flexShrink: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: 20 }}>
+          {/* Final Output MetricBlock — fixed full size */}
+          {targetMetric && (
+            <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", padding: "12px 16px" }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                Final Output
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <span style={{ fontSize: 28, fontWeight: 300, color: "#1a2332", fontFamily: "serif", lineHeight: 1 }}>=</span>
+                <MetricBlock
+                  metric={{
+                    id: targetMetric.id,
+                    label: targetMetric.label,
+                    icon: targetMetric.icon,
+                    color: targetMetric.color,
+                    value: liveFormatted ?? "...",
+                    metricType: targetMetric.metricType,
+                    currencySymbol: targetMetric.currencySymbol,
+                    modal: targetMetric.modal,
+                    history: targetMetric.history,
+                    equation: targetMetric.equation,
+                  }}
+                  onClick={() => {}}
+                  onDragStart={() => {}}
+                  onDragEnter={() => {}}
+                  onDrop={() => {}}
+                  isDragOver={false}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Contextual Picker */}
           {showMathPicker && (
             <div>
               <div style={{ fontSize: 13, fontWeight: 600, color: "#64748b", marginBottom: 10 }}>Select the math:</div>
@@ -3423,54 +3459,19 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
         </div>
       </div>
 
-      {/* Bottom: Final Output + Save */}
-      <div style={{ borderTop: "1px solid #e2e8f0", padding: "16px 24px", flexShrink: 0, background: "#F8FAFC" }}>
-        {targetMetric && (
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", whiteSpace: "nowrap" }}>
-              Final Output
-            </div>
-            <span style={{ fontSize: 32, fontWeight: 300, color: "#1a2332", fontFamily: "serif", lineHeight: 1 }}>=</span>
-            <div style={{ flexShrink: 0 }}>
-              <MetricBlock
-                metric={{
-                  id: targetMetric.id,
-                  label: targetMetric.label,
-                  icon: targetMetric.icon,
-                  color: targetMetric.color,
-                  value: liveFormatted ?? "...",
-                  metricType: targetMetric.metricType,
-                  currencySymbol: targetMetric.currencySymbol,
-                  modal: targetMetric.modal,
-                  history: targetMetric.history,
-                  equation: targetMetric.equation,
-                }}
-                onClick={() => {}}
-                onDragStart={() => {}}
-                onDragEnter={() => {}}
-                onDrop={() => {}}
-                isDragOver={false}
-              />
-            </div>
-            <div style={{ flex: 1 }} />
-            <div style={{ textAlign: "right" }}>
-              <button onClick={handleSave} disabled={steps.length < 3 || steps[0].type !== "metric" || steps[steps.length - 1].type !== "metric"}
-                style={{
-                  padding: "12px 32px", borderRadius: 8, border: "none",
-                  background: steps.length >= 3 ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0",
-                  color: steps.length >= 3 ? "#fff" : "#94a3b8",
-                  fontSize: 14, fontWeight: 600, cursor: steps.length >= 3 ? "pointer" : "not-allowed",
-                }}>
-                Save Equation
-              </button>
-              {steps.length > 0 && steps.length < 3 && (
-                <div style={{ fontSize: 11, color: "#94a3b8", textAlign: "center", marginTop: 5 }}>
-                  Add at least two metric boxes with a math operator between them
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+      {/* Bottom: Save */}
+      <div style={{ borderTop: "1px solid #e2e8f0", padding: "16px 24px", flexShrink: 0, background: "#F8FAFC", display: "flex", justifyContent: "flex-end" }}>
+        <div style={{ textAlign: "right" }}>
+          <button onClick={handleSave} disabled={!equationValid}
+            style={{
+              padding: "12px 32px", borderRadius: 8, border: "none",
+              background: equationValid ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0",
+              color: equationValid ? "#fff" : "#94a3b8",
+              fontSize: 14, fontWeight: 600, cursor: equationValid ? "pointer" : "not-allowed",
+            }}>
+            Save Equation
+          </button>
+        </div>
       </div>
     </div>
   );
