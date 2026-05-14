@@ -3077,9 +3077,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
   const [steps, setSteps] = useState<EquationStep[]>(initialEquation?.steps ?? []);
   const [searchQuery, setSearchQuery] = useState("");
   const [editingStepIndex, setEditingStepIndex] = useState<number | null>(null);
-  const [dropTargetStepIdx, setDropTargetStepIdx] = useState<number | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
-  const dragStepIdxRef = useRef<number | null>(null);
 
   // Derived: whether to show math picker or search based on current state
   const showMathPicker = editingStepIndex !== null
@@ -3177,30 +3175,6 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
     setEditingStepIndex(null);
   };
 
-  const handleStepDrop = (toStepIdx: number) => {
-    const fromIdx = dragStepIdxRef.current;
-    if (fromIdx === null || fromIdx === toStepIdx) {
-      dragStepIdxRef.current = null;
-      setDropTargetStepIdx(null);
-      return;
-    }
-    setSteps(prev => {
-      const next = [...prev];
-      const [item] = next.splice(fromIdx, 1);
-      const adjustedTo = fromIdx < toStepIdx ? toStepIdx - 1 : toStepIdx;
-      next.splice(adjustedTo, 0, item);
-      // Validate: no adjacent same types, must start/end with metric
-      if (next.length < 2) return prev;
-      if (next[0].type !== "metric" || next[next.length - 1].type !== "metric") return prev;
-      for (let i = 0; i < next.length - 1; i++) {
-        if (next[i].type === next[i + 1].type) return prev;
-      }
-      return next;
-    });
-    dragStepIdxRef.current = null;
-    setDropTargetStepIdx(null);
-  };
-
   const handleSave = () => {
     if (steps.length === 0) return;
     // Validate: must start and end with metric
@@ -3211,20 +3185,6 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
     }
     onSave({ steps });
   };
-
-  // Compute parenthesized display
-  const needsParens = (() => {
-    if (steps.length < 3) return false;
-    let hasAddSub = false;
-    let hasMulDiv = false;
-    for (const s of steps) {
-      if (s.type === "operator") {
-        if (s.operator === "+" || s.operator === "-") hasAddSub = true;
-        if (s.operator === "*" || s.operator === "/") hasMulDiv = true;
-      }
-    }
-    return hasAddSub && hasMulDiv;
-  })();
 
   const cardSize = Math.max(80, 140 - steps.length * 4);
   const circleScale = Math.max(0.6, Math.min(1, cardSize / 140));
@@ -3267,23 +3227,16 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
               }
               return (
               <div style={{ display: "flex", alignItems: "flex-start", flexWrap: "wrap", gap: 6, padding: "14px 18px", background: "#F8FAFC", borderRadius: 12, border: "1px solid #e2e8f0", minHeight: 60 }}>
-                {needsParens && (
-                  <span style={{ fontSize: 28 * circleScale, fontWeight: 300, color: "#94a3b8", fontFamily: "serif", lineHeight: 1 }}>(</span>
-                )}
                 {renderGroups.map((g, gi) => {
                   if (g.type === "fraction" && g.steps) {
                     const [topMetric, , bottomMetric] = g.steps;
                     const actualIdx = steps.indexOf(topMetric);
                     const isEditing = actualIdx >= 0 && editingStepIndex === actualIdx;
-                    const isDropTarget = dropTargetStepIdx === actualIdx;
                     const fc = cardSize * 0.8;
                     return (
                       <div key={gi}
-                        onDragOver={e => { e.preventDefault(); e.stopPropagation(); if (actualIdx >= 0) setDropTargetStepIdx(actualIdx); }}
-                        onDrop={e => { e.preventDefault(); e.stopPropagation(); if (actualIdx >= 0) handleStepDrop(actualIdx); }}
-                        onDragEnd={() => { dragStepIdxRef.current = null; setDropTargetStepIdx(null); }}
                         onClick={() => { if (actualIdx >= 0) handleEditStep(actualIdx); }}
-                        style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "flex-start", borderRadius: 12, padding: 2, outline: isEditing ? "2px solid #3B82F6" : isDropTarget ? "2px dashed #3B82F6" : "2px solid transparent", background: isEditing ? "#EFF6FF" : isDropTarget ? "#F0F4FF" : "transparent" }}>
+                        style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "flex-start", borderRadius: 12, padding: 2, outline: isEditing ? "2px solid #3B82F6" : "2px solid transparent", background: isEditing ? "#EFF6FF" : "transparent" }}>
                         <div style={{ display: "flex", alignItems: "flex-start", gap: 4, marginBottom: 3 }}>
                           <div style={{
                             width: 44 * circleScale, height: 44 * circleScale, borderRadius: "50%",
@@ -3340,14 +3293,11 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                     const step = g.step;
                     const idx = steps.indexOf(step);
                     const isEditing = editingStepIndex === idx;
-                    const isDropTarget = dropTargetStepIdx === idx;
+                    const fullMetric = allMetrics.find(m => m.id === step.metricId);
                     return (
                       <div key={gi}
-                        onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDropTargetStepIdx(idx); }}
-                        onDrop={e => { e.preventDefault(); e.stopPropagation(); handleStepDrop(idx); }}
-                        onDragEnd={() => { dragStepIdxRef.current = null; setDropTargetStepIdx(null); }}
                         onClick={() => handleEditStep(idx)}
-                        style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "flex-start", borderRadius: 12, padding: 2, outline: isEditing ? "2px solid #3B82F6" : isDropTarget ? "2px dashed #3B82F6" : "2px solid transparent", background: isEditing ? "#EFF6FF" : isDropTarget ? "#F0F4FF" : "transparent" }}>
+                        style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "flex-start", borderRadius: 12, padding: 2, outline: isEditing ? "2px solid #3B82F6" : "2px solid transparent", background: isEditing ? "#EFF6FF" : "transparent" }}>
                         <div style={{ display: "flex", alignItems: "flex-start", gap: 4, marginBottom: 3 }}>
                           <div style={{
                             width: 44 * circleScale, height: 44 * circleScale, borderRadius: "50%",
@@ -3359,25 +3309,21 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                           </div>
                           <div onClick={e => { e.stopPropagation(); handleRemoveStep(idx); }} style={{ width: 32 * circleScale, height: 32 * circleScale, borderRadius: "50%", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#E85D75", fontSize: 20 * circleScale, border: "1px solid #e2e8f0" }} title="Remove step">×</div>
                         </div>
-                        <div draggable
-                          onDragStart={e => { e.dataTransfer.setData("text/plain", ""); e.dataTransfer.effectAllowed = "move"; e.stopPropagation(); dragStepIdxRef.current = idx; }}
-                          style={{
-                            width: cardSize, minHeight: cardSize, borderRadius: 12,
-                            background: step.metricColor && step.metricColor !== "gray" ? MS[step.metricColor].bg : "#F8FAFC",
-                            border: step.metricColor === "gray" || !step.metricColor ? "1.5px solid #e2e8f0" : "none",
-                            padding: "8px", display: "flex", flexDirection: "column",
-                            alignItems: "center", justifyContent: "center", gap: 3, cursor: "grab",
-                          }}>
-                          {step.metricIcon && step.metricIcon !== ICON_NONE && (
-                            <IconGlyph name={step.metricIcon} size={cardSize * 0.22} color={step.metricColor && step.metricColor !== "gray" ? "#fff" : "#3B82F6"} />
-                          )}
-                          <div style={{ fontSize: cardSize * 0.09, fontWeight: 600, color: step.metricColor && step.metricColor !== "gray" ? "#fff" : "#1a2332", textAlign: "center", lineHeight: 1.2 }}>
-                            {step.metricLabel}
+                        {fullMetric ? (
+                          <MetricBlock
+                            metric={fullMetric}
+                            onClick={() => handleEditStep(idx)}
+                            onDragStart={() => {}}
+                            onDragEnter={() => {}}
+                            onDrop={() => {}}
+                            isDragOver={false}
+                          />
+                        ) : (
+                          <div style={{ width: cardSize, minHeight: cardSize, borderRadius: 12, background: "#F8FAFC", border: "1.5px solid #e2e8f0", padding: "8px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                            <div style={{ fontSize: cardSize * 0.09, fontWeight: 600, color: "#1a2332", textAlign: "center" }}>{step.metricLabel ?? "?"}</div>
+                            <div style={{ fontSize: cardSize * 0.11, fontWeight: 700, color: "#1a2332", textAlign: "center" }}>{step.metricValue ?? ""}</div>
                           </div>
-                          <div style={{ fontSize: cardSize * 0.11, fontWeight: 700, color: step.metricColor && step.metricColor !== "gray" ? "#fff" : "#1a2332", textAlign: "center" }}>
-                            {step.metricValue}
-                          </div>
-                        </div>
+                        )}
                       </div>
                     );
                   }
@@ -3385,14 +3331,10 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                     const step = g.step;
                     const idx = steps.indexOf(step);
                     const isEditing = editingStepIndex === idx;
-                    const isDropTarget = dropTargetStepIdx === idx;
                     return (
                       <div key={gi}
-                        onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDropTargetStepIdx(idx); }}
-                        onDrop={e => { e.preventDefault(); e.stopPropagation(); handleStepDrop(idx); }}
-                        onDragEnd={() => { dragStepIdxRef.current = null; setDropTargetStepIdx(null); }}
                         onClick={() => handleEditStep(idx)}
-                        style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "flex-start", borderRadius: 12, padding: 2, outline: isEditing ? "2px solid #3B82F6" : isDropTarget ? "2px dashed #3B82F6" : "2px solid transparent", background: isEditing ? "#EFF6FF" : isDropTarget ? "#F0F4FF" : "transparent" }}>
+                        style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "flex-start", borderRadius: 12, padding: 2, outline: isEditing ? "2px solid #3B82F6" : "2px solid transparent", background: isEditing ? "#EFF6FF" : "transparent" }}>
                         <div style={{ display: "flex", alignItems: "flex-start", gap: 4, marginBottom: 3 }}>
                           <div style={{
                             width: 44 * circleScale, height: 44 * circleScale, borderRadius: "50%",
@@ -3403,22 +3345,21 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                           </div>
                           <div onClick={e => { e.stopPropagation(); handleRemoveStep(idx); }} style={{ width: 32 * circleScale, height: 32 * circleScale, borderRadius: "50%", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#E85D75", fontSize: 20 * circleScale, border: "1px solid #e2e8f0" }} title="Remove step">×</div>
                         </div>
-                        <div style={{
-                          width: 48 * circleScale, height: 48 * circleScale, borderRadius: "50%",
-                          background: "#3B82F6", color: "#fff",
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                          fontSize: 22 * circleScale, fontWeight: 700,
-                        }}>
-                          {step.operator === "*" ? "×" : step.operator === "/" ? "÷" : step.operator}
+                        <div style={{ width: cardSize, minHeight: cardSize, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <div style={{
+                            width: 48 * circleScale, height: 48 * circleScale, borderRadius: "50%",
+                            background: "#3B82F6", color: "#fff",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            fontSize: 22 * circleScale, fontWeight: 700,
+                          }}>
+                            {step.operator === "*" ? "×" : step.operator === "/" ? "÷" : step.operator}
+                          </div>
                         </div>
                       </div>
                     );
                   }
                   return null;
                 })}
-                {needsParens && (
-                  <span style={{ fontSize: 28 * circleScale, fontWeight: 300, color: "#94a3b8", fontFamily: "serif", lineHeight: 1 }}>)</span>
-                )}
               </div>
               );
             })()}
@@ -3864,16 +3805,24 @@ export default function DashelloDashboard() {
 
   const handleSaveEquation = useCallback((equation: EquationConfig) => {
     if (!equationBuilderTarget) return;
-    setSections(prev => prev.map(s => {
-      if (s.id !== equationBuilderTarget.sectionId) return s;
-      return {
-        ...s,
-        metrics: s.metrics.map(m => {
-          if (m.id !== equationBuilderTarget.metricId) return m;
-          return { ...m, equation };
-        }),
-      };
-    }));
+    setSections(prev => {
+      const allMetrics = prev.flatMap(s => s.metrics);
+      const raw = evaluateEquation(equation.steps, allMetrics);
+      const targetMetric = allMetrics.find(m => m.id === equationBuilderTarget.metricId);
+      const computedValue = raw !== null && targetMetric
+        ? formatEquationResult(raw, equation.steps, allMetrics)
+        : targetMetric?.value ?? "0";
+      return prev.map(s => {
+        if (s.id !== equationBuilderTarget.sectionId) return s;
+        return {
+          ...s,
+          metrics: s.metrics.map(m => {
+            if (m.id !== equationBuilderTarget.metricId) return m;
+            return { ...m, equation, value: computedValue };
+          }),
+        };
+      });
+    });
     setEquationBuilderTarget(null);
     setPage(pageBeforeEquationRef.current);
     pageBeforeEquationRef.current = "home";
