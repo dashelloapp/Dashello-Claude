@@ -3088,6 +3088,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
   const dragStepIdxRef = useRef<number | null>(null);
   const dragCountRef = useRef<number>(1);
   const [showAddMenu, setShowAddMenu] = useState(false);
+  const [addAtIndex, setAddAtIndex] = useState<number | null>(null);
   const [pendingOperator, setPendingOperator] = useState(false);
   const [forceSearch, setForceSearch] = useState(false);
   const addMenuRef = useRef<HTMLDivElement>(null);
@@ -3155,7 +3156,13 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
       });
       setEditingStepIndex(null);
     } else {
-      setSteps(prev => [...prev, step]);
+      const insertAt = addAtIndex ?? steps.length;
+      setSteps(prev => {
+        const next = [...prev];
+        next.splice(insertAt, 0, step);
+        return next;
+      });
+      setAddAtIndex(null);
     }
     setSearchQuery("");
   };
@@ -3174,7 +3181,13 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
       setEditingStepIndex(null);
       setTimeout(() => searchRef.current?.focus(), 100);
     } else {
-      setSteps(prev => [...prev, { type: "operator", operator: op }]);
+      const insertAt = addAtIndex ?? steps.length;
+      setSteps(prev => {
+        const next = [...prev];
+        next.splice(insertAt, 0, { type: "operator", operator: op });
+        return next;
+      });
+      setAddAtIndex(null);
       // Focus search after picking math
       setTimeout(() => searchRef.current?.focus(), 100);
     }
@@ -3186,7 +3199,13 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
     setPendingOperator(false);
     setEditingStepIndex(null);
     setSearchQuery("");
-    setSteps(prev => [...prev, { type: "operator", operator: op }]);
+    const insertAt = addAtIndex ?? steps.length;
+    setSteps(prev => {
+      const next = [...prev];
+      next.splice(insertAt, 0, { type: "operator", operator: op });
+      return next;
+    });
+    setAddAtIndex(null);
     setTimeout(() => searchRef.current?.focus(), 50);
   };
 
@@ -3247,8 +3266,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
     onSaveDraft?.({ steps });
   };
 
-  const hasTotalOp = steps.some(s => s.type === "operator" && (s.operator === "total-multiply" || s.operator === "total-divide"));
-  const cardSize = Math.max(hasTotalOp ? 70 : 80, 140 - steps.length * 4);
+  const cardSize = Math.max(80, 140 - steps.length * 4);
   const circleScale = Math.max(0.6, Math.min(1, cardSize / 140));
 
   // Whether the equation is valid enough to save
@@ -3450,8 +3468,6 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                       const step = g.step;
                       const idx = steps.indexOf(step);
                       const isEditing = editingStepIndex === idx;
-                      const isTotalOp = step.operator === "total-multiply" || step.operator === "total-divide";
-                      const opColor = isTotalOp ? "#059669" : "#3B82F6";
                       return [
                         lineBefore && (
                           <div key={`ol-${gi}-${si}`} style={{ width: 3, alignSelf: "stretch", background: "#3B82F6", borderRadius: 2, flexShrink: 0, minHeight: 60 }} />
@@ -3484,24 +3500,21 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                           <div style={{ display: "flex", justifyContent: "center", width: "100%", marginBottom: 3 }}>
                             <div style={{
                               width: 44 * csScale, height: 44 * csScale, borderRadius: "50%",
-                              background: isTotalOp ? "#059669" : "#64748b", color: "#fff", fontSize: 20 * csScale, fontWeight: 700,
+                              background: "#64748b", color: "#fff", fontSize: 20 * csScale, fontWeight: 700,
                               display: "flex", alignItems: "center", justifyContent: "center"
                             }}>
-                              {isTotalOp ? "T" : g.groupIdx! + 1}
+                              {g.groupIdx! + 1}
                             </div>
                           </div>
-                          <div style={{ width: isTotalOp ? 100 : 140, minHeight: isTotalOp ? 100 : 140, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4 }}>
+                          <div style={{ width: 140, minHeight: 140, display: "flex", alignItems: "center", justifyContent: "center" }}>
                             <div style={{
                               width: 48 * csScale, height: 48 * csScale, borderRadius: "50%",
-                              background: opColor, color: "#fff",
+                              background: "#3B82F6", color: "#fff",
                               display: "flex", alignItems: "center", justifyContent: "center",
                               fontSize: 22 * csScale, fontWeight: 700,
                             }}>
                               {step.operator === "*" ? "×" : step.operator === "/" ? "÷" : step.operator === "total-multiply" ? "×" : step.operator === "total-divide" ? "÷" : step.operator}
                             </div>
-                            {isTotalOp && (
-                              <div style={{ fontSize: 9, fontWeight: 600, color: "#059669", textTransform: "uppercase", letterSpacing: "0.5px" }}>TOTAL</div>
-                            )}
                           </div>
                         </div>
                       ];
@@ -3509,34 +3522,136 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                     return null;
                   };
 
-                  // Render groups inline
-                  const flatContent: React.ReactNode[] = [];
-                  renderGroups.forEach((g, gi) => {
-                    const rendered = innerRenderGroup(g, gi, 0, cardSize, 1);
-                    if (rendered) flatContent.push(...rendered);
+                  const renderAddMenu = (insertAt: number, menuKey: string) => (
+                    showAddMenu && addAtIndex === insertAt ? (
+                      <div key={menuKey} ref={addMenuRef} style={{ position: "absolute", left: 0, top: "100%", marginTop: 4, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 50, minWidth: 170, overflow: "hidden" }}>
+                        <div onClick={() => { setShowAddMenu(false); setAddAtIndex(null); setForceSearch(true); setPendingOperator(false); setEditingStepIndex(null); setSearchQuery(""); setTimeout(() => searchRef.current?.focus(), 50); }} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
+                          onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Add Metric Box</div>
+                        <div onClick={() => { setShowAddMenu(false); setAddAtIndex(null); setForceSearch(false); setPendingOperator(true); setEditingStepIndex(null); setSearchQuery(""); }} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
+                          onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Add Math Symbol</div>
+                        <div onClick={() => handleAddTotalOperator("total-multiply")} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
+                          onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Multiply Total</div>
+                        <div onClick={() => handleAddTotalOperator("total-divide")} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
+                          onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Divide Total</div>
+                      </div>
+                    ) : null
+                  );
+
+                  const renderPlusButton = (insertAt: number, key: string) => (
+                    <div key={key} style={{ alignSelf: "center", position: "relative" }}
+                      onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDropLineIndex(insertAt); dropLineIndexRef.current = insertAt; }}
+                      onDrop={e => { e.preventDefault(); e.stopPropagation(); handleStepDrop(insertAt); }}>
+                      <div onMouseDown={e => e.stopPropagation()} onClick={() => { setAddAtIndex(insertAt); setShowAddMenu(v => !v); }}
+                        style={{ width: 36, height: 36, borderRadius: "50%", border: "1.5px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#94a3b8", fontSize: 18, background: "#fff", flexShrink: 0 }}>+</div>
+                      {renderAddMenu(insertAt, `menu-${key}`)}
+                    </div>
+                  );
+
+                  // Build sections: split at total operators
+                  const sections: { type: "seq" | "total-op"; groups?: typeof renderGroups; group?: typeof renderGroups[0]; endStepIdx: number }[] = [];
+                  for (let ri = 0; ri < renderGroups.length; ri++) {
+                    const g = renderGroups[ri];
+                    const isTotalOp = g.type === "operator" && g.step && (g.step.operator === "total-multiply" || g.step.operator === "total-divide");
+                    if (isTotalOp) {
+                      sections.push({ type: "total-op", group: g, endStepIdx: g.startIdx + 1 });
+                    } else {
+                      const last = sections[sections.length - 1];
+                      const stepCount = g.type === "fraction" ? 3 : 1;
+                      if (last && last.type === "seq") {
+                        last.groups!.push(g);
+                        last.endStepIdx = g.startIdx + stepCount;
+                      } else {
+                        sections.push({ type: "seq", groups: [g], endStepIdx: g.startIdx + stepCount });
+                      }
+                    }
+                  }
+
+                  // Render sections
+                  const result: React.ReactNode[] = [];
+                  sections.forEach((sec, si) => {
+                    if (sec.type === "seq") {
+                      const groupsRendered: React.ReactNode[] = [];
+                      sec.groups!.forEach((g, gi) => {
+                        const rendered = innerRenderGroup(g, gi, si, cardSize, 1);
+                        if (rendered) groupsRendered.push(...rendered);
+                      });
+                      const isLast = si === sections.length - 1;
+                      if (isLast) {
+                        result.push(...groupsRendered);
+                      } else {
+                        result.push(
+                          <div key={`wrap-${si}`} style={{ display: "inline-flex", flexWrap: "wrap", gap: 6, padding: "8px 12px", border: "2px solid #e2e8f0", borderRadius: 16, background: "#fff", alignItems: "flex-start" }}>
+                            {groupsRendered}
+                            {renderPlusButton(sec.endStepIdx, `sp-${si}`)}
+                          </div>
+                        );
+                      }
+                    } else if (sec.type === "total-op" && sec.group) {
+                      const g = sec.group;
+                      const step = g.step!;
+                      const idx = steps.indexOf(step);
+                      const isEditing = editingStepIndex === idx;
+                      const opChar = step.operator === "total-multiply" ? "×" : "÷";
+                      const lineIdx = dropLineIndex === g.startIdx;
+                      if (lineIdx) {
+                        result.push(<div key={`tl-${si}`} style={{ width: 3, alignSelf: "stretch", background: "#3B82F6", borderRadius: 2, flexShrink: 0, minHeight: 60 }} />);
+                      }
+                      result.push(
+                        <div key={`to-${si}`}
+                          onClick={() => handleEditStep(idx)}
+                          draggable
+                          onDragStart={e => {
+                            e.dataTransfer.setData("text/plain", "");
+                            e.dataTransfer.effectAllowed = "move";
+                            e.stopPropagation();
+                            dragStepIdxRef.current = idx;
+                            dragCountRef.current = 1;
+                            handleEditStep(idx);
+                            const el = e.currentTarget.cloneNode(true) as HTMLElement;
+                            el.style.cssText = 'position:absolute;top:-999px;left:-999px;transform:scale(0.5);transform-origin:top left;border-radius:12px;overflow:hidden;outline:2px solid #3B82F6;background:#EFF6FF;';
+                            el.style.pointerEvents = 'none';
+                            document.body.appendChild(el);
+                            const r = el.getBoundingClientRect();
+                            e.dataTransfer.setDragImage(el, r.width / 2, r.height / 2);
+                            setTimeout(() => document.body.removeChild(el), 0);
+                          }}
+                          onDragOver={e => { e.preventDefault(); e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); const m = rect.left + rect.width / 2; const idx2 = e.clientX < m ? idx : idx + 1; setDropLineIndex(idx2); dropLineIndexRef.current = idx2; }}
+                          onDrop={e => { e.preventDefault(); e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); const m = rect.left + rect.width / 2; const idx2 = e.clientX < m ? idx : idx + 1; handleStepDrop(idx2); }}
+                          onDragEnd={() => { dragStepIdxRef.current = null; dragCountRef.current = 1; setDropLineIndex(null); dropLineIndexRef.current = null; }}
+                          style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "flex-start", borderRadius: 12, padding: 2, outline: isEditing ? "2px solid #3B82F6" : "2px solid transparent", background: isEditing ? "#EFF6FF" : "transparent" }}>
+                          {isEditing && (
+                            <div onClick={e => { e.stopPropagation(); handleRemoveStep(idx); }} style={{ position: "absolute", top: 2, right: 2, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#3B82F6", fontSize: 22, fontWeight: 700, lineHeight: 1, zIndex: 10 }}>×</div>
+                          )}
+                          <div style={{ display: "flex", justifyContent: "center", width: "100%", marginBottom: 3 }}>
+                            <div style={{
+                              width: 44 * circleScale, height: 44 * circleScale, borderRadius: "50%",
+                              background: "#64748b", color: "#fff", fontSize: 20 * circleScale, fontWeight: 700,
+                              display: "flex", alignItems: "center", justifyContent: "center"
+                            }}>
+                              {g.groupIdx! + 1}
+                            </div>
+                          </div>
+                          <div style={{ width: cardSize, minHeight: cardSize, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                            <div style={{
+                              width: 56, height: 56, borderRadius: "50%",
+                              background: "#3B82F6", color: "#fff",
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              fontSize: 26, fontWeight: 700,
+                            }}>
+                              {opChar}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
                   });
-                  return flatContent;
+                  // Far-right plus button
+                  result.push(renderPlusButton(steps.length, "end"));
+                  return result;
                 })()}
                 {dropLineIndex === steps.length && (
                   <div key="end-line" style={{ width: 3, alignSelf: "stretch", background: "#3B82F6", borderRadius: 2, flexShrink: 0, minHeight: 60 }} />
                 )}
-                <div style={{ alignSelf: "center", position: "relative" }} ref={addMenuRef}
-                  onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDropLineIndex(steps.length); dropLineIndexRef.current = steps.length; }}
-                  onDrop={e => { e.preventDefault(); e.stopPropagation(); handleStepDrop(steps.length); }}>
-                  <div onClick={() => setShowAddMenu(v => !v)} style={{ width: 36, height: 36, borderRadius: "50%", border: "1.5px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#94a3b8", fontSize: 18, background: "#fff", flexShrink: 0 }}>+</div>
-                  {showAddMenu && (
-                    <div style={{ position: "absolute", left: 0, top: "100%", marginTop: 4, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 50, minWidth: 170, overflow: "hidden" }}>
-                      <div onClick={() => { setShowAddMenu(false); setForceSearch(true); setPendingOperator(false); setEditingStepIndex(null); setSearchQuery(""); setTimeout(() => searchRef.current?.focus(), 50); }} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
-                        onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Add Metric Box</div>
-                      <div onClick={() => { setShowAddMenu(false); setForceSearch(false); setPendingOperator(true); setEditingStepIndex(null); setSearchQuery(""); }} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
-                        onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Add Math Symbol</div>
-                      <div onClick={() => handleAddTotalOperator("total-multiply")} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
-                        onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Multiply Total</div>
-                      <div onClick={() => handleAddTotalOperator("total-divide")} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
-                        onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Divide Total</div>
-                    </div>
-                  )}
-                </div>
               </div>
               );
             })()}
