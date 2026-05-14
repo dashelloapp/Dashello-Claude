@@ -3607,7 +3607,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                               {renderMiniMetricCard(topMetric, topFullMetric, topColor, topMS, topIsColored, isTopEditing)}
                             </div>
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "4px 0" }}>
-                              <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#3B82F6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700 }}>
+                              <div onClick={e => { e.stopPropagation(); if (actualIdx >= 0) handleEditStep(actualIdx + 1); }} style={{ width: 28, height: 28, borderRadius: "50%", background: "#3B82F6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
                                 {opStep?.operator === "*" ? "×" : "÷"}
                               </div>
                             </div>
@@ -3899,6 +3899,24 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                             secRendered.push(
                               <div key={`rpg-${rStart}-${ssi}-${ggi}`}
                                 onClick={e => { e.stopPropagation(); setSelectedGroupStartIdx(rpgIsSelected ? null : g.startIdx); }}
+                                draggable
+                                onDragStart={e => {
+                                  e.dataTransfer.setData("text/plain", "");
+                                  e.dataTransfer.effectAllowed = "move";
+                                  e.stopPropagation();
+                                  dragStepIdxRef.current = g.startIdx;
+                                  dragCountRef.current = g.steps!.length;
+                                  const el = e.currentTarget.cloneNode(true) as HTMLElement;
+                                  el.style.cssText = 'position:absolute;top:-999px;left:-999px;transform:scale(0.5);transform-origin:top left;border-radius:12px;overflow:hidden;outline:2px solid #3B82F6;background:#EFF6FF;';
+                                  el.style.pointerEvents = 'none';
+                                  document.body.appendChild(el);
+                                  const r = el.getBoundingClientRect();
+                                  e.dataTransfer.setDragImage(el, r.width / 2, r.height / 2);
+                                  setTimeout(() => document.body.removeChild(el), 0);
+                                }}
+                                onDragOver={e => { e.preventDefault(); e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); const m = rect.left + rect.width / 2; const idx = e.clientX < m ? g.startIdx : g.startIdx + g.steps!.length; setDropLineIndex(idx); dropLineIndexRef.current = idx; }}
+                                onDrop={e => { e.preventDefault(); e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); const m = rect.left + rect.width / 2; const idx = e.clientX < m ? g.startIdx : g.startIdx + g.steps!.length; handleStepDrop(idx); }}
+                                onDragEnd={() => { dragStepIdxRef.current = null; dragCountRef.current = 1; setDropLineIndex(null); dropLineIndexRef.current = null; }}
                                 style={{ position: "relative", display: "inline-flex", flexWrap: "wrap", gap: 6, padding: "8px 12px", border: `2px solid ${rpgIsSelected ? "#3B82F6" : "#e2e8f0"}`, borderRadius: 16, background: "#fff", alignItems: "flex-start" }}>
                                 {rpgIsSelected && (
                                   <div onClick={e => { e.stopPropagation(); handleRemoveGroup(g.startIdx); }} style={{ position: "absolute", top: -6, right: -6, width: 24, height: 24, borderRadius: "50%", background: "#3B82F6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 14, fontWeight: 700, zIndex: 20, boxShadow: "0 2px 6px rgba(0,0,0,0.15)" }}>×</div>
@@ -3918,6 +3936,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                         } else {
                           subResult.push(
                             <div key={`rw-${rStart}-${ssi}`} style={{ display: "inline-flex", flexWrap: "wrap", gap: 6, padding: "8px 12px", border: "2px solid #e2e8f0", borderRadius: 16, background: "#fff", alignItems: "flex-start" }}
+                              onClick={e => e.stopPropagation()}
                               onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDropLineIndex(sec.endStepIdx); dropLineIndexRef.current = sec.endStepIdx; }}
                               onDrop={e => { e.preventDefault(); e.stopPropagation(); handleStepDrop(sec.endStepIdx); }}>
                               {secRendered}
@@ -4010,6 +4029,24 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                           groupsRendered.push(
                             <div key={`pg-${si}-${gi}`}
                               onClick={e => { e.stopPropagation(); setSelectedGroupStartIdx(pgIsSelected ? null : g.startIdx); }}
+                              draggable
+                              onDragStart={e => {
+                                e.dataTransfer.setData("text/plain", "");
+                                e.dataTransfer.effectAllowed = "move";
+                                e.stopPropagation();
+                                dragStepIdxRef.current = g.startIdx;
+                                dragCountRef.current = g.steps!.length;
+                                const el = e.currentTarget.cloneNode(true) as HTMLElement;
+                                el.style.cssText = 'position:absolute;top:-999px;left:-999px;transform:scale(0.5);transform-origin:top left;border-radius:12px;overflow:hidden;outline:2px solid #3B82F6;background:#EFF6FF;';
+                                el.style.pointerEvents = 'none';
+                                document.body.appendChild(el);
+                                const r = el.getBoundingClientRect();
+                                e.dataTransfer.setDragImage(el, r.width / 2, r.height / 2);
+                                setTimeout(() => document.body.removeChild(el), 0);
+                              }}
+                              onDragOver={e => { e.preventDefault(); e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); const m = rect.left + rect.width / 2; const idx = e.clientX < m ? g.startIdx : g.startIdx + g.steps!.length; setDropLineIndex(idx); dropLineIndexRef.current = idx; }}
+                              onDrop={e => { e.preventDefault(); e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); const m = rect.left + rect.width / 2; const idx = e.clientX < m ? g.startIdx : g.startIdx + g.steps!.length; handleStepDrop(idx); }}
+                              onDragEnd={() => { dragStepIdxRef.current = null; dragCountRef.current = 1; setDropLineIndex(null); dropLineIndexRef.current = null; }}
                               style={{ position: "relative", display: "inline-flex", flexWrap: "wrap", gap: 6, padding: "8px 12px", border: `2px solid ${pgIsSelected ? "#3B82F6" : "#e2e8f0"}`, borderRadius: 16, background: "#fff", alignItems: "flex-start" }}>
                               {pgIsSelected && (
                                 <div onClick={e => { e.stopPropagation(); handleRemoveGroup(g.startIdx); }} style={{ position: "absolute", top: -6, right: -6, width: 24, height: 24, borderRadius: "50%", background: "#3B82F6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 14, fontWeight: 700, zIndex: 20, boxShadow: "0 2px 6px rgba(0,0,0,0.15)" }}>×</div>
@@ -4030,6 +4067,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                       } else {
                         result.push(
                           <div key={`wrap-${si}`} style={{ display: "inline-flex", flexWrap: "wrap", gap: 6, padding: "8px 12px", border: "2px solid #e2e8f0", borderRadius: 16, background: "#fff", alignItems: "flex-start" }}
+                            onClick={e => e.stopPropagation()}
                             onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDropLineIndex(sec.endStepIdx); dropLineIndexRef.current = sec.endStepIdx; }}
                             onDrop={e => { e.preventDefault(); e.stopPropagation(); handleStepDrop(sec.endStepIdx); }}>
                             {groupsRendered}
@@ -4116,7 +4154,9 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
               <div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: "#64748b", marginBottom: 10 }}>Select the math:</div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                  {([["+", "Add"], ["-", "Subtract"], ["*", "Multiply"], ["/", "Divide"]] as const).map(([op, label]) => (
+                  {(() => {
+                    const isFractionOp = editingStepIndex !== null && steps[editingStepIndex]?.type === "operator" && (steps[editingStepIndex]?.operator === "*" || steps[editingStepIndex]?.operator === "/");
+                    return (isFractionOp ? [["*", "Multiply"], ["/", "Divide"]] as const : [["+", "Add"], ["-", "Subtract"], ["*", "Multiply"], ["/", "Divide"]] as const).map(([op, label]) => (
                     <button
                       key={op}
                       onClick={() => handleSelectOperator(op)}
@@ -4134,7 +4174,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                       <span>{op === "*" ? "×" : op === "/" ? "÷" : op}</span>
                       <span style={{ fontSize: 10, fontWeight: 500, color: "#94a3b8" }}>{label}</span>
                     </button>
-                  ))}
+                  ));})()}
                 </div>
               </div>
             )}
