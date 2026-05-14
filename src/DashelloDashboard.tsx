@@ -2303,9 +2303,6 @@ function MetricBlock({ metric, onClick, onDragStart, onDragEnter, onDrop, isDrag
     >
       <div style={{ fontSize: 12, fontWeight: 600, color: textColor, lineHeight: 1.3, textAlign: "center", width: "100%" }}>
         {metric.label}
-        {metric.equation && (
-          <span style={{ fontSize: 9, fontWeight: 700, color: isColored ? "rgba(255,255,255,0.8)" : "#4CAF7D", marginLeft: 4, verticalAlign: "super" }}>=</span>
-        )}
       </div>
       {hasIcon && (
         <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -2313,7 +2310,7 @@ function MetricBlock({ metric, onClick, onDragStart, onDragEnter, onDrop, isDrag
         </div>
       )}
       <div style={{ fontSize: 15, fontWeight: 700, color: textColor, textAlign: "center", width: "100%" }}>
-        {metric.value}
+        {metric.equation && <span style={{ marginRight: 2 }}>=</span>}{metric.value}
       </div>
     </div>
   );
@@ -3243,311 +3240,311 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
   })();
 
   return (
-    <div style={{ flex: 1, overflowY: "auto", background: "#fff", display: "flex", flexDirection: "column", height: "100%" }}>
-      {/* Header */}
-      <div style={{ padding: "18px 24px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#1a2332" }}>Create Equation</h2>
-        <button onClick={onCancel} style={{ padding: "6px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b" }}>Cancel</button>
-      </div>
+    <div style={{ flex: 1, display: "flex", background: "#fff", height: "100%" }}>
+      {/* Left panel ~75% */}
+      <div style={{ flex: 3, display: "flex", flexDirection: "column", minWidth: 0, borderRight: targetMetric && steps.length > 0 ? "1px solid #e2e8f0" : "none" }}>
+        {/* Header — fixed */}
+        <div style={{ padding: "18px 24px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#1a2332" }}>Create Equation</h2>
+          <button onClick={onCancel} style={{ padding: "6px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+        </div>
 
-      {/* Main content: one-column layout */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", padding: "24px 32px", gap: 20 }}>
-        {/* Steps */}
-        {steps.length > 0 && <div style={{ flexShrink: 0, overflowY: "auto", minWidth: 0 }}>
-          {(() => {
-            const renderGroups: { type: "metric" | "operator" | "fraction"; step?: EquationStep; steps?: EquationStep[]; groupIdx?: number }[] = [];
-            let i = 0;
-            while (i < steps.length) {
-              if (i + 2 < steps.length && steps[i].type === "metric" && steps[i+1].type === "operator" && steps[i+1].operator === "/" && steps[i+2].type === "metric") {
-                renderGroups.push({ type: "fraction", steps: [steps[i], steps[i+1], steps[i+2]], groupIdx: renderGroups.length });
-                i += 3;
-              } else {
-                renderGroups.push({ type: steps[i].type as "metric" | "operator", step: steps[i], groupIdx: renderGroups.length });
-                i++;
+        {/* Scrollable middle area */}
+        <div style={{ flex: 1, padding: "24px 32px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 20 }}>
+          {/* Steps preview */}
+          <div>
+            {steps.length > 0 && (() => {
+              const renderGroups: { type: "metric" | "operator" | "fraction"; step?: EquationStep; steps?: EquationStep[]; groupIdx?: number }[] = [];
+              let i = 0;
+              while (i < steps.length) {
+                if (i + 2 < steps.length && steps[i].type === "metric" && steps[i+1].type === "operator" && steps[i+1].operator === "/" && steps[i+2].type === "metric") {
+                  renderGroups.push({ type: "fraction", steps: [steps[i], steps[i+1], steps[i+2]], groupIdx: renderGroups.length });
+                  i += 3;
+                } else {
+                  renderGroups.push({ type: steps[i].type as "metric" | "operator", step: steps[i], groupIdx: renderGroups.length });
+                  i++;
+                }
               }
-            }
-            return (
-            <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6, padding: "14px 18px", background: "#F8FAFC", borderRadius: 12, border: "1px solid #e2e8f0", minHeight: 60 }}>
-              {needsParens && (
-                <span style={{ fontSize: 28 * circleScale, fontWeight: 300, color: "#94a3b8", fontFamily: "serif", lineHeight: 1 }}>(</span>
-              )}
-              {renderGroups.map((g, gi) => {
-                if (g.type === "fraction" && g.steps) {
-                  const [topMetric, , bottomMetric] = g.steps;
-                  const actualIdx = steps.indexOf(topMetric);
-                  const isEditing = actualIdx >= 0 && editingStepIndex === actualIdx;
-                  const isDropTarget = dropTargetStepIdx === actualIdx;
-                  const fc = cardSize * 0.8;
-                  return (
-                    <div key={gi}
-                      onDragOver={e => { e.preventDefault(); e.stopPropagation(); if (actualIdx >= 0) setDropTargetStepIdx(actualIdx); }}
-                      onDrop={e => { e.preventDefault(); e.stopPropagation(); if (actualIdx >= 0) handleStepDrop(actualIdx); }}
-                      onDragEnd={() => { dragStepIdxRef.current = null; setDropTargetStepIdx(null); }}
-                      onClick={() => { if (actualIdx >= 0) handleEditStep(actualIdx); }}
-                      style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "flex-start", borderRadius: 12, padding: 2, outline: isEditing ? "2px solid #3B82F6" : isDropTarget ? "2px dashed #3B82F6" : "2px solid transparent", background: isEditing ? "#EFF6FF" : isDropTarget ? "#F0F4FF" : "transparent" }}>
-                      <div style={{ display: "flex", alignItems: "flex-start", gap: 4, marginBottom: 3 }}>
-                        <div style={{
-                          width: 44 * circleScale, height: 44 * circleScale, borderRadius: "50%",
-                          background: "#8B5CF6", color: "#fff", fontSize: 20 * circleScale, fontWeight: 700,
-                          display: "flex", alignItems: "center", justifyContent: "center"
-                        }}>
-                          {g.groupIdx! + 1}
+              return (
+              <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6, padding: "14px 18px", background: "#F8FAFC", borderRadius: 12, border: "1px solid #e2e8f0", minHeight: 60 }}>
+                {needsParens && (
+                  <span style={{ fontSize: 28 * circleScale, fontWeight: 300, color: "#94a3b8", fontFamily: "serif", lineHeight: 1 }}>(</span>
+                )}
+                {renderGroups.map((g, gi) => {
+                  if (g.type === "fraction" && g.steps) {
+                    const [topMetric, , bottomMetric] = g.steps;
+                    const actualIdx = steps.indexOf(topMetric);
+                    const isEditing = actualIdx >= 0 && editingStepIndex === actualIdx;
+                    const isDropTarget = dropTargetStepIdx === actualIdx;
+                    const fc = cardSize * 0.8;
+                    return (
+                      <div key={gi}
+                        onDragOver={e => { e.preventDefault(); e.stopPropagation(); if (actualIdx >= 0) setDropTargetStepIdx(actualIdx); }}
+                        onDrop={e => { e.preventDefault(); e.stopPropagation(); if (actualIdx >= 0) handleStepDrop(actualIdx); }}
+                        onDragEnd={() => { dragStepIdxRef.current = null; setDropTargetStepIdx(null); }}
+                        onClick={() => { if (actualIdx >= 0) handleEditStep(actualIdx); }}
+                        style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "flex-start", borderRadius: 12, padding: 2, outline: isEditing ? "2px solid #3B82F6" : isDropTarget ? "2px dashed #3B82F6" : "2px solid transparent", background: isEditing ? "#EFF6FF" : isDropTarget ? "#F0F4FF" : "transparent" }}>
+                        <div style={{ display: "flex", alignItems: "flex-start", gap: 4, marginBottom: 3 }}>
+                          <div style={{
+                            width: 44 * circleScale, height: 44 * circleScale, borderRadius: "50%",
+                            background: "#8B5CF6", color: "#fff", fontSize: 20 * circleScale, fontWeight: 700,
+                            display: "flex", alignItems: "center", justifyContent: "center"
+                          }}>
+                            {g.groupIdx! + 1}
+                          </div>
+                          <div onClick={e => { e.stopPropagation(); if (actualIdx >= 0) { setSteps(prev => { const n = [...prev]; n.splice(actualIdx, 3); return n; }); setEditingStepIndex(null); } }} style={{ width: 32 * circleScale, height: 32 * circleScale, borderRadius: "50%", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#E85D75", fontSize: 20 * circleScale, border: "1px solid #e2e8f0" }} title="Remove fraction">×</div>
                         </div>
-                        <div onClick={e => { e.stopPropagation(); if (actualIdx >= 0) { setSteps(prev => { const n = [...prev]; n.splice(actualIdx, 3); return n; }); setEditingStepIndex(null); } }} style={{ width: 32 * circleScale, height: 32 * circleScale, borderRadius: "50%", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#E85D75", fontSize: 20 * circleScale, border: "1px solid #e2e8f0" }} title="Remove fraction">×</div>
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                          <div style={{
+                            width: fc, minHeight: fc, borderRadius: "8px 8px 0 0",
+                            background: topMetric.metricColor && topMetric.metricColor !== "gray" ? MS[topMetric.metricColor].bg : "#F8FAFC",
+                            border: topMetric.metricColor === "gray" || !topMetric.metricColor ? "1.5px solid #e2e8f0" : "none",
+                            borderBottom: "none",
+                            padding: "6px", display: "flex", flexDirection: "column",
+                            alignItems: "center", justifyContent: "center", gap: 2,
+                          }}>
+                            {topMetric.metricIcon && topMetric.metricIcon !== ICON_NONE && (
+                              <IconGlyph name={topMetric.metricIcon} size={fc * 0.2} color={topMetric.metricColor && topMetric.metricColor !== "gray" ? "#fff" : "#3B82F6"} />
+                            )}
+                            <div style={{ fontSize: fc * 0.09, fontWeight: 600, color: topMetric.metricColor && topMetric.metricColor !== "gray" ? "#fff" : "#1a2332", textAlign: "center", lineHeight: 1.1 }}>
+                              {topMetric.metricLabel}
+                            </div>
+                            <div style={{ fontSize: fc * 0.1, fontWeight: 700, color: topMetric.metricColor && topMetric.metricColor !== "gray" ? "#fff" : "#1a2332", textAlign: "center" }}>
+                              {topMetric.metricValue}
+                            </div>
+                          </div>
+                          <div style={{ width: fc + 8, height: 2.5, background: "#1a2332", borderRadius: 2, flexShrink: 0 }} />
+                          <div style={{
+                            width: fc, minHeight: fc, borderRadius: "0 0 8px 8px",
+                            background: bottomMetric.metricColor && bottomMetric.metricColor !== "gray" ? MS[bottomMetric.metricColor].bg : "#F8FAFC",
+                            border: bottomMetric.metricColor === "gray" || !bottomMetric.metricColor ? "1.5px solid #e2e8f0" : "none",
+                            borderTop: "none",
+                            padding: "6px", display: "flex", flexDirection: "column",
+                            alignItems: "center", justifyContent: "center", gap: 2,
+                          }}>
+                            {bottomMetric.metricIcon && bottomMetric.metricIcon !== ICON_NONE && (
+                              <IconGlyph name={bottomMetric.metricIcon} size={fc * 0.2} color={bottomMetric.metricColor && bottomMetric.metricColor !== "gray" ? "#fff" : "#3B82F6"} />
+                            )}
+                            <div style={{ fontSize: fc * 0.09, fontWeight: 600, color: bottomMetric.metricColor && bottomMetric.metricColor !== "gray" ? "#fff" : "#1a2332", textAlign: "center", lineHeight: 1.1 }}>
+                              {bottomMetric.metricLabel}
+                            </div>
+                            <div style={{ fontSize: fc * 0.1, fontWeight: 700, color: bottomMetric.metricColor && bottomMetric.metricColor !== "gray" ? "#fff" : "#1a2332", textAlign: "center" }}>
+                              {bottomMetric.metricValue}
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                        <div style={{
-                          width: fc, minHeight: fc, borderRadius: "8px 8px 0 0",
-                          background: topMetric.metricColor && topMetric.metricColor !== "gray" ? MS[topMetric.metricColor].bg : "#F8FAFC",
-                          border: topMetric.metricColor === "gray" || !topMetric.metricColor ? "1.5px solid #e2e8f0" : "none",
-                          borderBottom: "none",
-                          padding: "6px", display: "flex", flexDirection: "column",
-                          alignItems: "center", justifyContent: "center", gap: 2,
-                        }}>
-                          {topMetric.metricIcon && topMetric.metricIcon !== ICON_NONE && (
-                            <IconGlyph name={topMetric.metricIcon} size={fc * 0.2} color={topMetric.metricColor && topMetric.metricColor !== "gray" ? "#fff" : "#3B82F6"} />
+                    );
+                  }
+                  if (g.type === "metric" && g.step) {
+                    const step = g.step;
+                    const idx = steps.indexOf(step);
+                    const isEditing = editingStepIndex === idx;
+                    const isDropTarget = dropTargetStepIdx === idx;
+                    return (
+                      <div key={gi}
+                        onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDropTargetStepIdx(idx); }}
+                        onDrop={e => { e.preventDefault(); e.stopPropagation(); handleStepDrop(idx); }}
+                        onDragEnd={() => { dragStepIdxRef.current = null; setDropTargetStepIdx(null); }}
+                        onClick={() => handleEditStep(idx)}
+                        style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "flex-start", borderRadius: 12, padding: 2, outline: isEditing ? "2px solid #3B82F6" : isDropTarget ? "2px dashed #3B82F6" : "2px solid transparent", background: isEditing ? "#EFF6FF" : isDropTarget ? "#F0F4FF" : "transparent" }}>
+                        <div style={{ display: "flex", alignItems: "flex-start", gap: 4, marginBottom: 3 }}>
+                          <div style={{
+                            width: 44 * circleScale, height: 44 * circleScale, borderRadius: "50%",
+                            background: "linear-gradient(135deg,#3B82F6,#06B6D4)",
+                            color: "#fff", fontSize: 20 * circleScale, fontWeight: 700,
+                            display: "flex", alignItems: "center", justifyContent: "center"
+                          }}>
+                            {g.groupIdx! + 1}
+                          </div>
+                          <div onClick={e => { e.stopPropagation(); handleRemoveStep(idx); }} style={{ width: 32 * circleScale, height: 32 * circleScale, borderRadius: "50%", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#E85D75", fontSize: 20 * circleScale, border: "1px solid #e2e8f0" }} title="Remove step">×</div>
+                        </div>
+                        <div draggable
+                          onDragStart={e => { e.dataTransfer.setData("text/plain", ""); e.dataTransfer.effectAllowed = "move"; e.stopPropagation(); dragStepIdxRef.current = idx; }}
+                          style={{
+                            width: cardSize, minHeight: cardSize, borderRadius: 12,
+                            background: step.metricColor && step.metricColor !== "gray" ? MS[step.metricColor].bg : "#F8FAFC",
+                            border: step.metricColor === "gray" || !step.metricColor ? "1.5px solid #e2e8f0" : "none",
+                            padding: "8px", display: "flex", flexDirection: "column",
+                            alignItems: "center", justifyContent: "center", gap: 3, cursor: "grab",
+                          }}>
+                          {step.metricIcon && step.metricIcon !== ICON_NONE && (
+                            <IconGlyph name={step.metricIcon} size={cardSize * 0.22} color={step.metricColor && step.metricColor !== "gray" ? "#fff" : "#3B82F6"} />
                           )}
-                          <div style={{ fontSize: fc * 0.09, fontWeight: 600, color: topMetric.metricColor && topMetric.metricColor !== "gray" ? "#fff" : "#1a2332", textAlign: "center", lineHeight: 1.1 }}>
-                            {topMetric.metricLabel}
+                          <div style={{ fontSize: cardSize * 0.09, fontWeight: 600, color: step.metricColor && step.metricColor !== "gray" ? "#fff" : "#1a2332", textAlign: "center", lineHeight: 1.2 }}>
+                            {step.metricLabel}
                           </div>
-                          <div style={{ fontSize: fc * 0.1, fontWeight: 700, color: topMetric.metricColor && topMetric.metricColor !== "gray" ? "#fff" : "#1a2332", textAlign: "center" }}>
-                            {topMetric.metricValue}
+                          <div style={{ fontSize: cardSize * 0.11, fontWeight: 700, color: step.metricColor && step.metricColor !== "gray" ? "#fff" : "#1a2332", textAlign: "center" }}>
+                            {step.metricValue}
                           </div>
                         </div>
-                        <div style={{ width: fc + 8, height: 2.5, background: "#1a2332", borderRadius: 2, flexShrink: 0 }} />
+                      </div>
+                    );
+                  }
+                  if (g.type === "operator" && g.step) {
+                    const step = g.step;
+                    const idx = steps.indexOf(step);
+                    const isEditing = editingStepIndex === idx;
+                    const isDropTarget = dropTargetStepIdx === idx;
+                    return (
+                      <div key={gi}
+                        onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDropTargetStepIdx(idx); }}
+                        onDrop={e => { e.preventDefault(); e.stopPropagation(); handleStepDrop(idx); }}
+                        onDragEnd={() => { dragStepIdxRef.current = null; setDropTargetStepIdx(null); }}
+                        onClick={() => handleEditStep(idx)}
+                        style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "flex-start", borderRadius: 12, padding: 2, outline: isEditing ? "2px solid #3B82F6" : isDropTarget ? "2px dashed #3B82F6" : "2px solid transparent", background: isEditing ? "#EFF6FF" : isDropTarget ? "#F0F4FF" : "transparent" }}>
+                        <div style={{ display: "flex", alignItems: "flex-start", gap: 4, marginBottom: 3 }}>
+                          <div style={{
+                            width: 44 * circleScale, height: 44 * circleScale, borderRadius: "50%",
+                            background: "#64748b", color: "#fff", fontSize: 20 * circleScale, fontWeight: 700,
+                            display: "flex", alignItems: "center", justifyContent: "center"
+                          }}>
+                            {g.groupIdx! + 1}
+                          </div>
+                          <div onClick={e => { e.stopPropagation(); handleRemoveStep(idx); }} style={{ width: 32 * circleScale, height: 32 * circleScale, borderRadius: "50%", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#E85D75", fontSize: 20 * circleScale, border: "1px solid #e2e8f0" }} title="Remove step">×</div>
+                        </div>
                         <div style={{
-                          width: fc, minHeight: fc, borderRadius: "0 0 8px 8px",
-                          background: bottomMetric.metricColor && bottomMetric.metricColor !== "gray" ? MS[bottomMetric.metricColor].bg : "#F8FAFC",
-                          border: bottomMetric.metricColor === "gray" || !bottomMetric.metricColor ? "1.5px solid #e2e8f0" : "none",
-                          borderTop: "none",
-                          padding: "6px", display: "flex", flexDirection: "column",
-                          alignItems: "center", justifyContent: "center", gap: 2,
+                          width: 48 * circleScale, height: 48 * circleScale, borderRadius: "50%",
+                          background: "#3B82F6", color: "#fff",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          fontSize: 22 * circleScale, fontWeight: 700,
                         }}>
-                          {bottomMetric.metricIcon && bottomMetric.metricIcon !== ICON_NONE && (
-                            <IconGlyph name={bottomMetric.metricIcon} size={fc * 0.2} color={bottomMetric.metricColor && bottomMetric.metricColor !== "gray" ? "#fff" : "#3B82F6"} />
-                          )}
-                          <div style={{ fontSize: fc * 0.09, fontWeight: 600, color: bottomMetric.metricColor && bottomMetric.metricColor !== "gray" ? "#fff" : "#1a2332", textAlign: "center", lineHeight: 1.1 }}>
-                            {bottomMetric.metricLabel}
-                          </div>
-                          <div style={{ fontSize: fc * 0.1, fontWeight: 700, color: bottomMetric.metricColor && bottomMetric.metricColor !== "gray" ? "#fff" : "#1a2332", textAlign: "center" }}>
-                            {bottomMetric.metricValue}
-                          </div>
+                          {step.operator === "*" ? "×" : step.operator === "/" ? "÷" : step.operator}
                         </div>
                       </div>
-                    </div>
-                  );
-                }
-                if (g.type === "metric" && g.step) {
-                  const step = g.step;
-                  const idx = steps.indexOf(step);
-                  const isEditing = editingStepIndex === idx;
-                  const isDropTarget = dropTargetStepIdx === idx;
-                  return (
-                    <div key={gi}
-                      onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDropTargetStepIdx(idx); }}
-                      onDrop={e => { e.preventDefault(); e.stopPropagation(); handleStepDrop(idx); }}
-                      onDragEnd={() => { dragStepIdxRef.current = null; setDropTargetStepIdx(null); }}
-                      onClick={() => handleEditStep(idx)}
-                      style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "flex-start", borderRadius: 12, padding: 2, outline: isEditing ? "2px solid #3B82F6" : isDropTarget ? "2px dashed #3B82F6" : "2px solid transparent", background: isEditing ? "#EFF6FF" : isDropTarget ? "#F0F4FF" : "transparent" }}>
-                      <div style={{ display: "flex", alignItems: "flex-start", gap: 4, marginBottom: 3 }}>
-                        <div style={{
-                          width: 44 * circleScale, height: 44 * circleScale, borderRadius: "50%",
-                          background: "linear-gradient(135deg,#3B82F6,#06B6D4)",
-                          color: "#fff", fontSize: 20 * circleScale, fontWeight: 700,
-                          display: "flex", alignItems: "center", justifyContent: "center"
-                        }}>
-                          {g.groupIdx! + 1}
-                        </div>
-                        <div onClick={e => { e.stopPropagation(); handleRemoveStep(idx); }} style={{ width: 32 * circleScale, height: 32 * circleScale, borderRadius: "50%", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#E85D75", fontSize: 20 * circleScale, border: "1px solid #e2e8f0" }} title="Remove step">×</div>
-                      </div>
-                      <div draggable
-                        onDragStart={e => { e.dataTransfer.setData("text/plain", ""); e.dataTransfer.effectAllowed = "move"; e.stopPropagation(); dragStepIdxRef.current = idx; }}
-                        style={{
-                          width: cardSize, minHeight: cardSize, borderRadius: 12,
-                          background: step.metricColor && step.metricColor !== "gray" ? MS[step.metricColor].bg : "#F8FAFC",
-                          border: step.metricColor === "gray" || !step.metricColor ? "1.5px solid #e2e8f0" : "none",
-                          padding: "8px", display: "flex", flexDirection: "column",
-                          alignItems: "center", justifyContent: "center", gap: 3, cursor: "grab",
-                        }}>
-                        {step.metricIcon && step.metricIcon !== ICON_NONE && (
-                          <IconGlyph name={step.metricIcon} size={cardSize * 0.22} color={step.metricColor && step.metricColor !== "gray" ? "#fff" : "#3B82F6"} />
-                        )}
-                        <div style={{ fontSize: cardSize * 0.09, fontWeight: 600, color: step.metricColor && step.metricColor !== "gray" ? "#fff" : "#1a2332", textAlign: "center", lineHeight: 1.2 }}>
-                          {step.metricLabel}
-                        </div>
-                        <div style={{ fontSize: cardSize * 0.11, fontWeight: 700, color: step.metricColor && step.metricColor !== "gray" ? "#fff" : "#1a2332", textAlign: "center" }}>
-                          {step.metricValue}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                }
-                if (g.type === "operator" && g.step) {
-                  const step = g.step;
-                  const idx = steps.indexOf(step);
-                  const isEditing = editingStepIndex === idx;
-                  const isDropTarget = dropTargetStepIdx === idx;
-                  return (
-                    <div key={gi}
-                      onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDropTargetStepIdx(idx); }}
-                      onDrop={e => { e.preventDefault(); e.stopPropagation(); handleStepDrop(idx); }}
-                      onDragEnd={() => { dragStepIdxRef.current = null; setDropTargetStepIdx(null); }}
-                      onClick={() => handleEditStep(idx)}
-                      style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "flex-start", borderRadius: 12, padding: 2, outline: isEditing ? "2px solid #3B82F6" : isDropTarget ? "2px dashed #3B82F6" : "2px solid transparent", background: isEditing ? "#EFF6FF" : isDropTarget ? "#F0F4FF" : "transparent" }}>
-                      <div style={{ display: "flex", alignItems: "flex-start", gap: 4, marginBottom: 3 }}>
-                        <div style={{
-                          width: 44 * circleScale, height: 44 * circleScale, borderRadius: "50%",
-                          background: "#64748b", color: "#fff", fontSize: 20 * circleScale, fontWeight: 700,
-                          display: "flex", alignItems: "center", justifyContent: "center"
-                        }}>
-                          {g.groupIdx! + 1}
-                        </div>
-                        <div onClick={e => { e.stopPropagation(); handleRemoveStep(idx); }} style={{ width: 32 * circleScale, height: 32 * circleScale, borderRadius: "50%", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#E85D75", fontSize: 20 * circleScale, border: "1px solid #e2e8f0" }} title="Remove step">×</div>
-                      </div>
-                      <div style={{
-                        width: 48 * circleScale, height: 48 * circleScale, borderRadius: "50%",
-                        background: "#3B82F6", color: "#fff",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        fontSize: 22 * circleScale, fontWeight: 700,
-                      }}>
-                        {step.operator === "*" ? "×" : step.operator === "/" ? "÷" : step.operator}
-                      </div>
-                    </div>
-                  );
-                }
-                return null;
-              })}
-              {needsParens && (
-                <span style={{ fontSize: 28 * circleScale, fontWeight: 300, color: "#94a3b8", fontFamily: "serif", lineHeight: 1 }}>)</span>
-              )}
-            </div>
-            );
-          })()}
-
-          {/* Empty state within steps area */}
-          {steps.length === 0 && !searchQuery.trim() && filteredMetrics.length === 0 && (
-            <div style={{ padding: "40px 20px", textAlign: "center" }}>
-              <div style={{ fontSize: 14, color: "#94a3b8", marginBottom: 6 }}>No metric boxes available</div>
-              <div style={{ fontSize: 12, color: "#cbd5e1" }}>Create some metric boxes on your dashboard first</div>
-            </div>
-          )}
-        </div>}
-
-        {/* Final Output */}
-        {targetMetric && steps.length > 0 && (
-          <div style={{ flexShrink: 0, background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", padding: "12px 16px" }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-              Final Output
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <span style={{ fontSize: 28, fontWeight: 300, color: "#1a2332", fontFamily: "serif", lineHeight: 1 }}>=</span>
-              <MetricBlock
-                metric={{
-                  id: targetMetric.id,
-                  label: targetMetric.label,
-                  icon: targetMetric.icon,
-                  color: targetMetric.color,
-                  value: liveFormatted ?? "...",
-                  metricType: targetMetric.metricType,
-                  currencySymbol: targetMetric.currencySymbol,
-                  modal: targetMetric.modal,
-                  history: targetMetric.history,
-                  equation: targetMetric.equation,
-                }}
-                onClick={() => {}}
-                onDragStart={() => {}}
-                onDragEnter={() => {}}
-                onDrop={() => {}}
-                isDragOver={false}
-              />
-            </div>
+                    );
+                  }
+                  return null;
+                })}
+                {needsParens && (
+                  <span style={{ fontSize: 28 * circleScale, fontWeight: 300, color: "#94a3b8", fontFamily: "serif", lineHeight: 1 }}>)</span>
+                )}
+              </div>
+              );
+            })()}
           </div>
-        )}
 
-        {/* Contextual Picker — fills remaining space */}
-        <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column" }}>
-          {showMathPicker && (
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "#64748b", marginBottom: 10 }}>Select the math:</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                {([["+", "Add"], ["-", "Subtract"], ["*", "Multiply"], ["/", "Divide"]] as const).map(([op, label]) => (
-                  <button
-                    key={op}
-                    onClick={() => handleSelectOperator(op)}
-                    style={{
-                      padding: "14px 0", borderRadius: 16,
-                      border: "2px solid #e2e8f0", background: "#fff",
-                      display: "flex", flexDirection: "column",
-                      alignItems: "center", justifyContent: "center", gap: 4,
-                      cursor: "pointer", fontSize: 24, fontWeight: 700,
-                      color: "#3B82F6", transition: "all 0.15s",
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = "#3B82F6"; e.currentTarget.style.background = "#EFF6FF"; }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.background = "#fff"; }}
-                  >
-                    <span>{op === "*" ? "×" : op === "/" ? "÷" : op}</span>
-                    <span style={{ fontSize: 10, fontWeight: 500, color: "#94a3b8" }}>{label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          {!showMathPicker && (
-            <>
-              <div style={{ marginBottom: 16 }}>
-                <input
-                  ref={searchRef}
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  placeholder={steps.length === 0 ? "Start typing the name of a metric box..." : "Start typing the next metric box..."}
-                  style={{
-                    width: "100%", border: "none", outline: "none", fontSize: 18,
-                    fontWeight: 300, color: "#1a2332", background: "transparent",
-                    fontFamily: "inherit",
-                    borderBottom: "2px solid #e2e8f0",
-                    padding: "8px 0", boxSizing: "border-box",
-                  }}
-                />
-              </div>
-              {filteredMetrics.length > 0 && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {filteredMetrics.slice(0, 12).map(m => (
-                    <div key={m.id} style={{ cursor: "pointer" }}>
-                      <MetricBlock metric={m} onClick={() => handleSelectMetric(m)} onDragStart={() => {}} onDragEnter={() => {}} onDrop={() => {}} isDragOver={false} />
-                    </div>
+          {/* Contextual Picker */}
+          <div>
+            {showMathPicker && (
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#64748b", marginBottom: 10 }}>Select the math:</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  {([["+", "Add"], ["-", "Subtract"], ["*", "Multiply"], ["/", "Divide"]] as const).map(([op, label]) => (
+                    <button
+                      key={op}
+                      onClick={() => handleSelectOperator(op)}
+                      style={{
+                        padding: "14px 0", borderRadius: 16,
+                        border: "2px solid #e2e8f0", background: "#fff",
+                        display: "flex", flexDirection: "column",
+                        alignItems: "center", justifyContent: "center", gap: 4,
+                        cursor: "pointer", fontSize: 24, fontWeight: 700,
+                        color: "#3B82F6", transition: "all 0.15s",
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = "#3B82F6"; e.currentTarget.style.background = "#EFF6FF"; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.background = "#fff"; }}
+                    >
+                      <span>{op === "*" ? "×" : op === "/" ? "÷" : op}</span>
+                      <span style={{ fontSize: 10, fontWeight: 500, color: "#94a3b8" }}>{label}</span>
+                    </button>
                   ))}
                 </div>
-              )}
-              {searchQuery.trim() && filteredMetrics.length === 0 && (
-                <div style={{ padding: "20px", textAlign: "center", color: "#94a3b8", fontSize: 13 }}>
-                  No metric boxes found matching "{searchQuery}"
+              </div>
+            )}
+            {!showMathPicker && (
+              <>
+                <div style={{ marginBottom: 16 }}>
+                  <input
+                    ref={searchRef}
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    placeholder={steps.length === 0 ? "Start typing the name of a metric box..." : "Start typing the next metric box..."}
+                    style={{
+                      width: "100%", border: "none", outline: "none",
+                      fontSize: steps.length === 0 ? 48 : 18,
+                      fontWeight: steps.length === 0 ? 700 : 300,
+                      color: "#1a2332", background: "transparent",
+                      fontFamily: "inherit",
+                      borderBottom: "2px solid #e2e8f0",
+                      padding: steps.length === 0 ? "24px 0" : "8px 0",
+                      boxSizing: "border-box",
+                    }}
+                  />
                 </div>
-              )}
-              {steps.length === 0 && !searchQuery.trim() && filteredMetrics.length === 0 && (
-                <div style={{ padding: "40px 20px", textAlign: "center" }}>
-                  <div style={{ fontSize: 14, color: "#94a3b8", marginBottom: 6 }}>No metric boxes available</div>
-                  <div style={{ fontSize: 12, color: "#cbd5e1" }}>Create some metric boxes on your dashboard first</div>
-                </div>
-              )}
-            </>
-          )}
+                {filteredMetrics.length > 0 && (
+                  <div style={{ display: "flex", flexDirection: "row", gap: 10, overflowX: "auto", flexWrap: "nowrap", paddingBottom: 4 }}>
+                    {filteredMetrics.slice(0, 12).map(m => (
+                      <div key={m.id} style={{ cursor: "pointer", flexShrink: 0 }}>
+                        <MetricBlock metric={m} onClick={() => handleSelectMetric(m)} onDragStart={() => {}} onDragEnter={() => {}} onDrop={() => {}} isDragOver={false} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {searchQuery.trim() && filteredMetrics.length === 0 && (
+                  <div style={{ padding: "20px", textAlign: "center", color: "#94a3b8", fontSize: 13 }}>
+                    No metric boxes found matching "{searchQuery}"
+                  </div>
+                )}
+                {steps.length === 0 && !searchQuery.trim() && filteredMetrics.length === 0 && (
+                  <div style={{ padding: "40px 20px", textAlign: "center" }}>
+                    <div style={{ fontSize: 14, color: "#94a3b8", marginBottom: 6 }}>No metric boxes available</div>
+                    <div style={{ fontSize: 12, color: "#cbd5e1" }}>Create some metric boxes on your dashboard first</div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Save — fixed */}
+        <div style={{ borderTop: "1px solid #e2e8f0", padding: "16px 24px", flexShrink: 0, background: "#F8FAFC", display: "flex", justifyContent: "flex-end" }}>
+          <div style={{ textAlign: "right" }}>
+            <button onClick={handleSave} disabled={!equationValid}
+              style={{
+                padding: "12px 32px", borderRadius: 8, border: "none",
+                background: equationValid ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0",
+                color: equationValid ? "#fff" : "#94a3b8",
+                fontSize: 14, fontWeight: 600, cursor: equationValid ? "pointer" : "not-allowed",
+              }}>
+              Save Equation
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Bottom: Save */}
-      <div style={{ borderTop: "1px solid #e2e8f0", padding: "16px 24px", flexShrink: 0, background: "#F8FAFC", display: "flex", justifyContent: "flex-end" }}>
-        <div style={{ textAlign: "right" }}>
-          <button onClick={handleSave} disabled={!equationValid}
-            style={{
-              padding: "12px 32px", borderRadius: 8, border: "none",
-              background: equationValid ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0",
-              color: equationValid ? "#fff" : "#94a3b8",
-              fontSize: 14, fontWeight: 600, cursor: equationValid ? "pointer" : "not-allowed",
-            }}>
-            Save Equation
-          </button>
+      {/* Right panel ~25% — Final Output, always visible */}
+      {targetMetric && steps.length > 0 && (
+        <div style={{ flex: 1, maxWidth: "25%", minWidth: 220, background: "#F8FAFC", display: "flex", flexDirection: "column" }}>
+          <div style={{ padding: "20px 20px", borderBottom: "1px solid #e2e8f0" }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              Final Output
+            </div>
+          </div>
+          <div style={{ flex: 1, padding: "24px 20px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16 }}>
+            <span style={{ fontSize: 32, fontWeight: 300, color: "#1a2332", fontFamily: "serif", lineHeight: 1 }}>=</span>
+            <MetricBlock
+              metric={{
+                id: targetMetric.id,
+                label: targetMetric.label,
+                icon: targetMetric.icon,
+                color: targetMetric.color,
+                value: liveFormatted ?? "...",
+                metricType: targetMetric.metricType,
+                currencySymbol: targetMetric.currencySymbol,
+                modal: targetMetric.modal,
+                history: targetMetric.history,
+                equation: targetMetric.equation,
+              }}
+              onClick={() => {}}
+              onDragStart={() => {}}
+              onDragEnter={() => {}}
+              onDrop={() => {}}
+              isDragOver={false}
+            />
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
