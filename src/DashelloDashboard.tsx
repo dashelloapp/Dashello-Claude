@@ -1144,12 +1144,10 @@ function RefreshButton({ onRefresh, lastSyncedAt, metricId }: {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
       {(timestamp ?? lastSyncedAt) ? (
-    <span style={{ fontSize: 10, color: "#94a3b8", fontStyle: "italic" }}>
-      Synced {fmtTime((timestamp ?? lastSyncedAt)!)}
-    </span>
-  ) : (
-    <span style={{ fontSize: 10, color: "#cbd5e1", fontStyle: "italic" }}>Never synced</span>
-  )}
+        <span style={{ fontSize: 10, color: "#94a3b8", fontStyle: "italic" }}>
+          Synced {fmtTime((timestamp ?? lastSyncedAt)!)}
+        </span>
+      ) : null}
       <button onClick={handleClick} title="Refresh data" style={{
         width: 32, height: 32, borderRadius: "50%", border: "1.5px solid #e2e8f0",
         background: state === "done" ? "#F0FDF4" : "#f8fafc",
@@ -1204,9 +1202,11 @@ function TopBarRefreshButton({ onRefresh, lastSyncedAt }: {
         </span>
         {state === "done" ? "Synced" : "Refresh Data"}
       </button>
-<span style={{ fontSize: 10, color: lastSyncedAt ? "#94a3b8" : "#cbd5e1", fontStyle: "italic" }}>
-        {lastSyncedAt ? fmtTime(lastSyncedAt) : "Never synced"}
-      </span>
+      {lastSyncedAt && (
+        <span style={{ fontSize: 10, color: "#94a3b8", fontStyle: "italic" }}>
+          {fmtTime(lastSyncedAt)}
+        </span>
+      )}
     </div>
   );
 }
@@ -5172,6 +5172,8 @@ export default function DashelloDashboard() {
   const [inlineView, setInlineView] = useState<"metric-detail" | "metric-settings" | "color-rule" | null>(null);
   const [inlineMetric, setInlineMetric] = useState<Metric | null>(null);
   const [inlineHasUnsaved, setInlineHasUnsaved] = useState(false);
+  // "popup" = default modal behaviour; "inline" = expanded in-page view
+  const [viewMode, setViewMode] = useState<"popup" | "inline">("popup");
   const [selectedApp, setSelectedApp] = useState<typeof APPS[0] | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showChat, setShowChat] = useState(false);
@@ -5506,16 +5508,28 @@ export default function DashelloDashboard() {
   
   const handleClickMetric = (data: MetricModalData, metric: Metric) => {
     setInlineMetric(metric);
-    setInlineView("metric-detail");
     setInlineHasUnsaved(false);
-  };
-  const handleEditFromModal = () => {
-    if (inlineMetric) {
-      setInlineView("metric-settings");
-      setInlineHasUnsaved(false);
+    if (viewMode === "inline") {
+      setInlineView("metric-detail");
+      setActiveModal(null);
+    } else {
+      // popup mode: open as modal, keep inlineView null
+      setInlineView(null);
+      setActiveModal({ data, metric });
     }
   };
-  // Keep activeModal as null — no longer used for metric clicks
+  const handleEditFromModal = () => {
+    if (!inlineMetric) return;
+    setInlineHasUnsaved(false);
+    if (viewMode === "inline") {
+      setInlineView("metric-settings");
+      setActiveModal(null);
+    } else {
+      // popup mode: close metric modal, open settings modal
+      setActiveModal(null);
+      setEditingMetricFromModal(inlineMetric);
+    }
+  };
   const handleCloseInline = () => {
     if (inlineHasUnsaved) {
       if (!window.confirm("You have unsaved changes. Leave without saving?")) return;
@@ -5523,6 +5537,8 @@ export default function DashelloDashboard() {
     setInlineView(null);
     setInlineMetric(null);
     setInlineHasUnsaved(false);
+    setActiveModal(null);
+    setEditingMetricFromModal(null);
   };
   const handleBreadcrumbNavigate = (key: string) => {
     if (inlineHasUnsaved) {
@@ -5714,7 +5730,19 @@ export default function DashelloDashboard() {
     }
   }, [userId]);
 
-  const handleNav = (p: Page) => { setPage(p); setSelectedApp(null); if (isMobile) setSidebarOpen(false); };
+  const handleNav = (p: Page) => {
+    setPage(p);
+    setSelectedApp(null);
+    if (isMobile) setSidebarOpen(false);
+    if (p === "home") {
+      // Reset to popup mode whenever user navigates back to home
+      setViewMode("popup");
+      setInlineView(null);
+      setInlineMetric(null);
+      setInlineHasUnsaved(false);
+      setActiveModal(null);
+    }
+  };
 
  const health = calculateHealth(
   sections,
@@ -5902,6 +5930,115 @@ const sidebarEl = (
       </div>
 
       {showChat && <ChatPanel sections={sections} onClose={() => setShowChat(false)} />}
+
+      {/* ── POPUP mode: metric detail modal ── */}
+      {viewMode === "popup" && activeModal && (
+        <>
+          <MetricModal
+            data={activeModal.data}
+            metric={activeModal.metric}
+            onClose={() => { setActiveModal(null); setInlineMetric(null); }}
+            onEdit={handleEditFromModal}
+            onValueChange={(v, desc) => {
+              handleValueChange(v, desc);
+              const updated = sections.flatMap(s => s.metrics).find(m => m.id === activeModal.metric.id);
+              if (updated) setActiveModal(prev => prev ? { ...prev, metric: updated, data: { ...prev.data, mainValue: updated.value, transactions: updated.modal.transactions } } : null);
+            }}
+            userId={userId ?? undefined}
+            onRefreshSections={handleRefreshMetric}
+            siblings={sections.find(s => s.metrics.some(m => m.id === activeModal.metric.id))?.metrics ?? []}
+            onTransfer={handleTransfer}
+          />
+          <div
+            onClick={() => { setViewMode("inline"); setInlineView("metric-detail"); setActiveModal(null); }}
+            title="Expand to full view"
+            style={{
+              position: "fixed", bottom: 28, right: 28, zIndex: 3000,
+              width: 44, height: 44, borderRadius: 12,
+              background: "linear-gradient(135deg,#3B82F6,#06B6D4)",
+              boxShadow: "0 4px 16px rgba(59,130,246,0.45)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: "pointer", transition: "transform 0.15s",
+            }}
+            onMouseEnter={e => (e.currentTarget.style.transform = "scale(1.1)")}
+            onMouseLeave={e => (e.currentTarget.style.transform = "scale(1)")}
+          >
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <path d="M3 11.5V15H6.5M15 6.5V3H11.5M3 6.5V3H6.5M15 11.5V15H11.5" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+        </>
+      )}
+
+      {/* ── POPUP mode: metric settings modal ── */}
+      {viewMode === "popup" && editingMetricFromModal && (() => {
+        let foundSid: string | undefined;
+        for (const s of sections) { if (s.metrics.find(m => m.id === editingMetricFromModal.id)) { foundSid = s.id; break; } }
+        const foundSection = sections.find(s => s.id === foundSid);
+        return (
+          <>
+            <MetricBoxSettingsModal
+              initial={editingMetricFromModal}
+              siblings={foundSection?.metrics ?? []}
+              onSave={updated => {
+                if (foundSid) setSections(prev => prev.map(s => s.id === foundSid ? { ...s, metrics: s.metrics.map(m => m.id === editingMetricFromModal.id ? { ...updated, id: m.id, history: m.history ?? [] } : m) } : s));
+                const refreshedMetric = { ...editingMetricFromModal, ...updated, id: editingMetricFromModal.id };
+                setInlineMetric(refreshedMetric);
+                setActiveModal({ data: refreshedMetric.modal, metric: refreshedMetric });
+                setEditingMetricFromModal(null);
+              }}
+              onDelete={() => {
+                if (foundSid) setSections(prev => prev.map(s => s.id === foundSid ? { ...s, metrics: s.metrics.filter(m => m.id !== editingMetricFromModal.id) } : s));
+                setEditingMetricFromModal(null); setActiveModal(null); setInlineMetric(null);
+              }}
+              onDuplicate={() => {
+                if (foundSid) {
+                  const { id, fiveAccountParentId, ...rest } = editingMetricFromModal;
+                  setSections(prev => prev.map(s => s.id === foundSid ? { ...s, metrics: [...s.metrics, { ...rest, label: `${editingMetricFromModal.label} (copy)`, history: [], id: crypto.randomUUID() }] } : s));
+                }
+                setEditingMetricFromModal(null); setActiveModal(null); setInlineMetric(null);
+              }}
+              onRecreateMissing={(missing) => {
+                if (foundSid) {
+                  const groupId = editingMetricFromModal.fiveAccountParentId ?? editingMetricFromModal.id;
+                  setSections(prev => prev.map(s => {
+                    if (s.id !== foundSid) return s;
+                    const newMetrics = missing.map(label => ({ ...makeFiveAccountMetric(label.toLowerCase() as any, groupId), id: crypto.randomUUID() }));
+                    return { ...s, metrics: [...s.metrics, ...newMetrics] };
+                  }));
+                }
+                setEditingMetricFromModal(null);
+              }}
+              onFiveAccountToggledOn={handleFiveAccountEnabledFromBox}
+              onFiveAccountToggledOff={(label) => { if (foundSid) handleFiveAccountDisabledFromBox(foundSid, editingMetricFromModal.id, label); }}
+              onCreateEquation={() => { if (foundSid) handleOpenEquationBuilder(foundSid, editingMetricFromModal.id); setEditingMetricFromModal(null); }}
+              onClose={() => {
+                const m = sections.flatMap(s => s.metrics).find(m => m.id === editingMetricFromModal.id);
+                if (m) setActiveModal({ data: m.modal, metric: m });
+                setEditingMetricFromModal(null);
+              }}
+            />
+            <div
+              onClick={() => { setViewMode("inline"); setInlineView("metric-settings"); setEditingMetricFromModal(null); setActiveModal(null); }}
+              title="Expand to full view"
+              style={{
+                position: "fixed", bottom: 28, right: 28, zIndex: 4000,
+                width: 44, height: 44, borderRadius: 12,
+                background: "linear-gradient(135deg,#3B82F6,#06B6D4)",
+                boxShadow: "0 4px 16px rgba(59,130,246,0.45)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                cursor: "pointer", transition: "transform 0.15s",
+              }}
+              onMouseEnter={e => (e.currentTarget.style.transform = "scale(1.1)")}
+              onMouseLeave={e => (e.currentTarget.style.transform = "scale(1)")}
+            >
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                <path d="M3 11.5V15H6.5M15 6.5V3H11.5M3 6.5V3H6.5M15 11.5V15H11.5" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+          </>
+        );
+      })()}
 
     </div>
   );
