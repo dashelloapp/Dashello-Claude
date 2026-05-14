@@ -5212,13 +5212,14 @@ export default function DashelloDashboard() {
 
   const handleOpenEquationBuilder = useCallback((sectionId: string, metricId: string, reopenAfterSave?: boolean) => {
     pageBeforeEquationRef.current = page;
-    if (reopenAfterSave) {
-      reopenMetricAfterEquationRef.current = { sectionId, metricId };
-    }
+    // Always store so we can return to metric-settings after equation save/cancel
+    reopenMetricAfterEquationRef.current = { sectionId, metricId };
     setEquationBuilderTarget({ sectionId, metricId });
     setPage("equation-builder");
     setEditingMetricFromModal(null);
     setActiveModal(null);
+    // Collapse sidebar on equation builder for full width
+    setSidebarOpen(false);
   }, [page]);
 
   const handleSaveEquation = useCallback((equation: EquationConfig) => {
@@ -5241,48 +5242,79 @@ export default function DashelloDashboard() {
         };
       });
     });
+    const { sectionId, metricId } = equationBuilderTarget;
     setEquationBuilderTarget(null);
-    setPage(pageBeforeEquationRef.current);
+    reopenMetricAfterEquationRef.current = null;
+    // Return to metric-settings inline view
+    setPage("home");
     pageBeforeEquationRef.current = "home";
+    // Find the metric and restore inline settings view
+    setSections(prev => {
+      const metric = prev.flatMap(s => s.metrics).find(m => m.id === metricId);
+      if (metric) {
+        setInlineMetric(metric);
+        setInlineView("metric-settings");
+      } else {
+        setInlineView(null);
+        setInlineMetric(null);
+      }
+      return prev;
+    });
   }, [equationBuilderTarget]);
 
   const handleSaveDraftEquation = useCallback((equation: EquationConfig) => {
     if (!equationBuilderTarget) return;
     const { sectionId, metricId } = equationBuilderTarget;
-    setSections(prev => prev.map(s => {
-      if (s.id !== sectionId) return s;
-      return {
-        ...s,
-        metrics: s.metrics.map(m => {
-          if (m.id !== metricId) return m;
-          return { ...m, draftEquation: equation };
-        }),
-      };
-    }));
-    reopenMetricAfterEquationRef.current = { sectionId, metricId };
+    setSections(prev => {
+      const updated = prev.map(s => {
+        if (s.id !== sectionId) return s;
+        return {
+          ...s,
+          metrics: s.metrics.map(m => {
+            if (m.id !== metricId) return m;
+            return { ...m, draftEquation: equation };
+          }),
+        };
+      });
+      const metric = updated.flatMap(s => s.metrics).find(m => m.id === metricId);
+      if (metric) {
+        setInlineMetric(metric);
+        setInlineView("metric-settings");
+      } else {
+        setInlineView(null);
+        setInlineMetric(null);
+      }
+      return updated;
+    });
+    reopenMetricAfterEquationRef.current = null;
     setEquationBuilderTarget(null);
-    setPage(pageBeforeEquationRef.current);
+    setPage("home");
     pageBeforeEquationRef.current = "home";
   }, [equationBuilderTarget]);
 
   const handleCancelEquation = useCallback(() => {
+    const target = equationBuilderTarget;
     setEquationBuilderTarget(null);
-    setPage(pageBeforeEquationRef.current);
+    reopenMetricAfterEquationRef.current = null;
+    setPage("home");
     pageBeforeEquationRef.current = "home";
-  }, []);
-
-  // Reopen MetricBoxSettingsModal after equation builder closes for newly created metrics
-  useEffect(() => {
-    if (!equationBuilderTarget && reopenMetricAfterEquationRef.current) {
-      const { sectionId, metricId } = reopenMetricAfterEquationRef.current;
-      reopenMetricAfterEquationRef.current = null;
-      const section = sections.find(s => s.id === sectionId);
-      const metric = section?.metrics.find(m => m.id === metricId);
-      if (metric) {
-        setEditingMetricFromModal(metric);
-      }
+    // Return to metric-settings inline view
+    if (target) {
+      setSections(prev => {
+        const metric = prev.flatMap(s => s.metrics).find(m => m.id === target.metricId);
+        if (metric) {
+          setInlineMetric(metric);
+          setInlineView("metric-settings");
+        } else {
+          setInlineView(null);
+          setInlineMetric(null);
+        }
+        return prev;
+      });
     }
-  }, [equationBuilderTarget, sections]);
+  }, [equationBuilderTarget]);
+
+  // (reopen effect removed - equation builder returns directly to metric-settings inline view)
 
   const [tasksData, setTasksData] = useState([
     { id: "1", text: "Review Q3 financials", done: false, assignee: "AJ", due: "Mar 15" },
@@ -5726,21 +5758,37 @@ const sidebarEl = (
               </div>
             </div>
           )}
-          {page === "home" && (
-            <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
-              {!inlineView && (
-                <div style={{ display: "flex", borderRadius: 8, border: "1px solid #e2e8f0", overflow: "hidden" }}>
-                  {["Row", "Column"].map((lbl, i) => (
-                    <div key={lbl} style={{ padding: "5px 13px", fontSize: 12, fontWeight: 500, cursor: "pointer", background: i === 0 ? "#3B82F6" : "#fff", color: i === 0 ? "#fff" : "#94a3b8" }}>{lbl}</div>
-                  ))}
-                </div>
-              )}
-              <TopBarRefreshButton onRefresh={handleRefreshAll} lastSyncedAt={lastDashboardSync} />
-              {inlineView && (
-                <BreadcrumbNav items={getBreadcrumbItems()} onNavigate={handleBreadcrumbNavigate} />
-              )}
-            </div>
-          )}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+            {page === "home" && !inlineView && (
+              <div style={{ display: "flex", borderRadius: 8, border: "1px solid #e2e8f0", overflow: "hidden" }}>
+                {["Row", "Column"].map((lbl, i) => (
+                  <div key={lbl} style={{ padding: "5px 13px", fontSize: 12, fontWeight: 500, cursor: "pointer", background: i === 0 ? "#3B82F6" : "#fff", color: i === 0 ? "#fff" : "#94a3b8" }}>{lbl}</div>
+                ))}
+              </div>
+            )}
+            <TopBarRefreshButton onRefresh={handleRefreshAll} lastSyncedAt={lastDashboardSync} />
+            {(page === "home" && inlineView) && (
+              <BreadcrumbNav items={getBreadcrumbItems()} onNavigate={handleBreadcrumbNavigate} />
+            )}
+            {page === "equation-builder" && inlineMetric && (
+              <BreadcrumbNav
+                items={[
+                  { label: "Home", key: "home" },
+                  { label: inlineMetric.label, key: "metric-detail" },
+                  { label: "Settings", key: "metric-settings" },
+                  { label: "Equation", key: "equation" },
+                ]}
+                onNavigate={(key) => {
+                  if (inlineHasUnsaved) {
+                    if (!window.confirm("You have unsaved changes. Leave without saving?")) return;
+                  }
+                  if (key === "home") { handleCancelEquation(); setInlineView(null); setInlineMetric(null); }
+                  else if (key === "metric-detail") { handleCancelEquation(); }
+                  else if (key === "metric-settings") { handleCancelEquation(); }
+                }}
+              />
+            )}
+          </div>
           <div style={{ flex: 1 }} />
           <div onClick={() => setShowChat(v => !v)} style={{ padding: "6px 16px", borderRadius: 20, border: "1px solid #e2e8f0", fontSize: 12, color: "#64748b", cursor: "pointer", background: showChat ? "#EFF6FF" : "#fff" }}>Chat</div>
           <div style={{ padding: "7px clamp(10px,2vw,20px)", borderRadius: 8, background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Customize</div>
@@ -5748,7 +5796,7 @@ const sidebarEl = (
 
         {/* Pages */}
         <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-          {page === "home" && <HomePage sections={sections} setSections={setSections} onClickMetric={handleClickMetric} onSectionRemoved={handleRemoveSectionWithFiveAccountCheck}
+          {page === "home" && !inlineView && <HomePage sections={sections} setSections={setSections} onClickMetric={handleClickMetric} onSectionRemoved={handleRemoveSectionWithFiveAccountCheck}
             onFiveAccountEnabledFromBox={handleFiveAccountEnabledFromBox}
             onFiveAccountDisabledFromBox={handleFiveAccountDisabledFromBox}
             onOpenEquationBuilder={handleOpenEquationBuilder} />}
@@ -5772,99 +5820,89 @@ const sidebarEl = (
               onSaveDraft={handleSaveDraftEquation}
               onCancel={handleCancelEquation}
             />
-          )}          </div>
+          )}
+          {/* Inline metric detail view — renders in page flow, no overlay */}
+          {page === "home" && inlineView === "metric-detail" && inlineMetric && (() => {
+            const sectionContaining = sections.find(s => s.metrics.some(m => m.id === inlineMetric.id));
+            const liveMetric = sectionContaining?.metrics.find(m => m.id === inlineMetric.id) ?? inlineMetric;
+            const siblings = sectionContaining?.metrics ?? [];
+            return (
+              <div style={{ flex: 1, overflowY: "auto", background: "#fff" }}>
+                <MetricModal
+                  data={liveMetric.modal}
+                  metric={liveMetric}
+                  onClose={handleCloseInline}
+                  onEdit={handleEditFromModal}
+                  onValueChange={(v, desc) => {
+                    handleValueChange(v, desc);
+                    const updated = sections.flatMap(s => s.metrics).find(m => m.id === liveMetric.id);
+                    if (updated) setInlineMetric(updated);
+                  }}
+                  userId={userId ?? undefined}
+                  onRefreshSections={handleRefreshMetric}
+                  siblings={siblings}
+                  onTransfer={handleTransfer}
+                  inline
+                />
+              </div>
+            );
+          })()}
+          {/* Inline metric settings view — renders in page flow, no overlay */}
+          {page === "home" && inlineView === "metric-settings" && inlineMetric && (() => {
+            let foundSid: string | undefined;
+            for (const s of sections) { if (s.metrics.find(m => m.id === inlineMetric.id)) { foundSid = s.id; break; } }
+            const foundSection = sections.find(s => s.id === foundSid);
+            return (
+              <div style={{ flex: 1, overflowY: "auto", background: "#fff", padding: "24px 28px 48px" }}>
+                <MetricBoxSettingsModal
+                  initial={inlineMetric}
+                  siblings={foundSection?.metrics ?? []}
+                  onSave={updated => {
+                    if (foundSid) setSections(prev => prev.map(s => s.id === foundSid ? { ...s, metrics: s.metrics.map(m => m.id === inlineMetric.id ? { ...updated, id: m.id, history: m.history ?? [] } : m) } : s));
+                    setInlineHasUnsaved(false);
+                    // Return to metric detail after save
+                    setSections(prev => {
+                      const refreshed = prev.flatMap(s => s.metrics).find(m => m.id === inlineMetric.id);
+                      if (refreshed) setInlineMetric({ ...refreshed, ...updated, id: refreshed.id });
+                      return prev;
+                    });
+                    setInlineView("metric-detail");
+                  }}
+                  onDelete={() => {
+                    if (foundSid) setSections(prev => prev.map(s => s.id === foundSid ? { ...s, metrics: s.metrics.filter(m => m.id !== inlineMetric.id) } : s));
+                    handleCloseInline();
+                  }}
+                  onDuplicate={() => {
+                    if (foundSid) {
+                      const { id, fiveAccountParentId, ...rest } = inlineMetric;
+                      setSections(prev => prev.map(s => s.id === foundSid ? { ...s, metrics: [...s.metrics, { ...rest, label: `${inlineMetric.label} (copy)`, history: [], id: crypto.randomUUID() }] } : s));
+                    }
+                    handleCloseInline();
+                  }}
+                  onRecreateMissing={(missing) => {
+                    if (foundSid) {
+                      const groupId = inlineMetric.fiveAccountParentId ?? inlineMetric.id;
+                      setSections(prev => prev.map(s => {
+                        if (s.id !== foundSid) return s;
+                        const newMetrics = missing.map(label => ({ ...makeFiveAccountMetric(label.toLowerCase() as any, groupId), id: crypto.randomUUID() }));
+                        return { ...s, metrics: [...s.metrics, ...newMetrics] };
+                      }));
+                    }
+                    handleCloseInline();
+                  }}
+                  onFiveAccountToggledOn={handleFiveAccountEnabledFromBox}
+                  onFiveAccountToggledOff={(label) => { if (foundSid) handleFiveAccountDisabledFromBox(foundSid, inlineMetric.id, label); }}
+                  onCreateEquation={() => { if (foundSid) handleOpenEquationBuilder(foundSid, inlineMetric.id); }}
+                  onClose={() => { setInlineView("metric-detail"); setInlineHasUnsaved(false); }}
+                />
+              </div>
+            );
+          })()}
+        </div>
       </div>
 
       {showChat && <ChatPanel sections={sections} onClose={() => setShowChat(false)} />}
 
-      {/* Inline metric detail view */}
-      {inlineView === "metric-detail" && inlineMetric && (() => {
-        const sectionContaining = sections.find(s => s.metrics.some(m => m.id === inlineMetric.id));
-        const liveMetric = sectionContaining?.metrics.find(m => m.id === inlineMetric.id) ?? inlineMetric;
-        const siblings = sectionContaining?.metrics ?? [];
-        return (
-          <div style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 2000, display: "flex", flexDirection: "column", overflowY: "auto" }}>
-            <div style={{ borderBottom: "1px solid #f1f5f9", padding: "14px 28px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0, background: "#fff" }}>
-              <BreadcrumbNav items={getBreadcrumbItems()} onNavigate={handleBreadcrumbNavigate} />
-              <div style={{ flex: 1 }} />
-              <button onClick={handleCloseInline} style={{ width: 34, height: 34, borderRadius: "50%", border: "1.5px solid #e2e8f0", background: "#f8fafc", fontSize: 20, cursor: "pointer", color: "#475569", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>×</button>
-            </div>
-            <div style={{ flex: 1, padding: "0 0 32px" }}>
-              <MetricModal
-                data={liveMetric.modal}
-                metric={liveMetric}
-                onClose={handleCloseInline}
-                onEdit={handleEditFromModal}
-                onValueChange={(v, desc) => {
-                  handleValueChange(v, desc);
-                  // keep inlineMetric in sync
-                  const updated = sections.flatMap(s => s.metrics).find(m => m.id === liveMetric.id);
-                  if (updated) setInlineMetric(updated);
-                }}
-                userId={userId ?? undefined}
-                onRefreshSections={handleRefreshMetric}
-                siblings={siblings}
-                onTransfer={handleTransfer}
-                inline
-              />
-            </div>
-          </div>
-        );
-      })()}
-
-     {inlineView === "metric-settings" && inlineMetric && (() => {
-        let foundSid: string | undefined;
-        for (const s of sections) { if (s.metrics.find(m => m.id === inlineMetric.id)) { foundSid = s.id; break; } }
-        const foundSection = sections.find(s => s.id === foundSid);
-        return (
-          <div style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 2000, display: "flex", flexDirection: "column", overflowY: "auto" }}>
-            <div style={{ borderBottom: "1px solid #f1f5f9", padding: "14px 28px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0, background: "#fff" }}>
-              <BreadcrumbNav items={getBreadcrumbItems()} onNavigate={handleBreadcrumbNavigate} />
-              <div style={{ flex: 1 }} />
-              <button onClick={handleCloseInline} style={{ width: 34, height: 34, borderRadius: "50%", border: "1.5px solid #e2e8f0", background: "#f8fafc", fontSize: 20, cursor: "pointer", color: "#475569", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>×</button>
-            </div>
-            <div style={{ flex: 1, padding: "24px 28px 48px", overflowY: "auto" }}>
-              <MetricBoxSettingsModal
-                initial={inlineMetric}
-                siblings={foundSection?.metrics ?? []}
-                onSave={updated => {
-                  if (foundSid) setSections(prev => prev.map(s => s.id === foundSid ? { ...s, metrics: s.metrics.map(m => m.id === inlineMetric.id ? { ...updated, id: m.id, history: m.history ?? [] } : m) } : s));
-                  setInlineHasUnsaved(false);
-                  setInlineView("metric-detail");
-                  const refreshed = sections.flatMap(s => s.metrics).find(m => m.id === inlineMetric.id);
-                  if (refreshed) setInlineMetric({ ...refreshed, ...updated, id: refreshed.id });
-                }}
-                onDelete={() => {
-                  if (foundSid) setSections(prev => prev.map(s => s.id === foundSid ? { ...s, metrics: s.metrics.filter(m => m.id !== inlineMetric.id) } : s));
-                  handleCloseInline();
-                }}
-                onDuplicate={() => {
-                  if (foundSid) {
-                    const { id, fiveAccountParentId, ...rest } = inlineMetric;
-                    setSections(prev => prev.map(s => s.id === foundSid ? { ...s, metrics: [...s.metrics, { ...rest, label: `${inlineMetric.label} (copy)`, history: [], id: crypto.randomUUID() }] } : s));
-                  }
-                  handleCloseInline();
-                }}
-                onRecreateMissing={(missing) => {
-                  if (foundSid) {
-                    const groupId = inlineMetric.fiveAccountParentId ?? inlineMetric.id;
-                    setSections(prev => prev.map(s => {
-                      if (s.id !== foundSid) return s;
-                      const newMetrics = missing.map(label => ({ ...makeFiveAccountMetric(label.toLowerCase() as any, groupId), id: crypto.randomUUID() }));
-                      return { ...s, metrics: [...s.metrics, ...newMetrics] };
-                    }));
-                  }
-                  handleCloseInline();
-                }}
-                onFiveAccountToggledOn={handleFiveAccountEnabledFromBox}
-                onFiveAccountToggledOff={(label) => { if (foundSid) handleFiveAccountDisabledFromBox(foundSid, inlineMetric.id, label); }}
-                onCreateEquation={() => { if (foundSid) handleOpenEquationBuilder(foundSid, inlineMetric.id); }}
-                onClose={() => { setInlineView("metric-detail"); setInlineHasUnsaved(false); }}
-              />
-            </div>
-          </div>
-        );
-      })()}
     </div>
   );
 }
