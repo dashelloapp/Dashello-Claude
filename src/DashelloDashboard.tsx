@@ -563,9 +563,24 @@ const PHOSPHOR_CATEGORIES: { label: string; icons: string[] }[] = [
       "MapPin","MapTrifold","Navigation","NavigationArrow","Compass","Path","Road","RoadHorizon","TrafficCone","TrafficSign","TrafficSignal",
     ]
   },
+  {
+    label: "Food",
+    icons: [
+      "ForkKnife","CookingPot","BowlFood","Bread","Coffee","Hamburger","Pizza","Popcorn",
+      "BeerBottle","Wine","Knife","Cake","Cookie","OrangeSlice","Lemon","IceCream","AppleLogo",
+    ]
+  },
+  {
+    label: "Health",
+    icons: [
+      "Hospital","Syringe","Thermometer","TestTube","Flask","Dna","MaskHappy","HandSoap",
+      "HeartBreak","HeartHalf",
+    ]
+  },
 ];
 
 const ALL_PHOSPHOR_ICONS = PHOSPHOR_CATEGORIES.flatMap(c => c.icons);
+const DISPLAY_CATEGORIES = [{ label: "All", icons: ALL_PHOSPHOR_ICONS }, ...PHOSPHOR_CATEGORIES];
 
 // Renders any Phosphor icon by name from the official @phosphor-icons/react package.
 // Falls back to a circle if the name doesn't match a known icon.
@@ -668,7 +683,7 @@ function IconPicker({ selected, onSelect }: { selected: string; onSelect: (icon:
 
   const displayIcons = search.trim()
     ? ALL_PHOSPHOR_ICONS.filter(i => i.toLowerCase().includes(search.toLowerCase()))
-    : PHOSPHOR_CATEGORIES[activeCategory]?.icons ?? [];
+    : DISPLAY_CATEGORIES[activeCategory]?.icons ?? [];
 
   return (
     <div>
@@ -685,7 +700,7 @@ function IconPicker({ selected, onSelect }: { selected: string; onSelect: (icon:
 
       {!search && (
         <div style={{ display: "flex", gap: 4, overflowX: "auto", marginBottom: 8, paddingBottom: 2 }}>
-          {PHOSPHOR_CATEGORIES.map((cat, i) => (
+          {DISPLAY_CATEGORIES.map((cat, i) => (
             <button key={i} onClick={() => setActiveCategory(i)} style={{
               padding: "3px 8px", borderRadius: 20, border: "none", cursor: "pointer", flexShrink: 0,
               background: activeCategory === i ? "#3B82F6" : "#f1f5f9",
@@ -1833,7 +1848,7 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
   onClose: () => void;
   onFiveAccountToggledOn?: () => void;
   onFiveAccountToggledOff?: (disabledMetricLabel: string) => void;
-  onCreateEquation?: () => void;
+  onCreateEquation?: (formData?: { label: string; icon: string; metricType: MetricType; currencySymbol: string }) => void;
 }) {
   const [label, setLabel] = useState(initial?.label ?? "");
   const [rawValue, setRawValue] = useState(() => {
@@ -2061,7 +2076,7 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
                       <button onClick={() => {
                         if (!label.trim()) { setEquationError("Please name this metric box before creating an equation"); return; }
                         setEquationError("");
-                        onCreateEquation?.();
+                        onCreateEquation?.({ label, icon, metricType: effectiveMetricType, currencySymbol: currency });
                       }} style={{ padding: "8px 0", borderRadius: 8, border: "1.5px solid", borderColor: initial?.equation ? "#4CAF7D" : "transparent", background: initial?.equation ? "#F0FDF4" : "#64748b", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
                         {initial?.equation ? "Edit Equation" : "Create Equation"}
                       </button>
@@ -2347,13 +2362,14 @@ function RowMenu({ onRename, onDelete, onClose }: { onRename: () => void; onDele
 // ═══════════════════════════════════════════════════════════════════════════
 
 function DashSection({
-  section, onAddMetric, onRemoveMetric, onUpdateMetric, onRenameSection, onRemoveSection,
+  section, onAddMetric, onAddMetricById, onRemoveMetric, onUpdateMetric, onRenameSection, onRemoveSection,
   onClickMetric, dragState, onMetricDragStart, onMetricDragEnter, onMetricDrop,
   onSectionDragStart, onSectionDragEnter, onSectionDrop, isSectionDragOver,
   onFiveAccountEnabledFromBox, onFiveAccountDisabledFromBox, onOpenEquationBuilder
 }: {
   section: Section;
   onAddMetric: (sid: string, m: Omit<Metric, "id">) => void;
+  onAddMetricById?: (sid: string, m: Metric) => void;
   onRemoveMetric: (sid: string, mid: string) => void;
   onUpdateMetric: (sid: string, mid: string, m: Omit<Metric, "id">) => void;
   onRenameSection: (sid: string, name: string) => void;
@@ -2369,7 +2385,7 @@ function DashSection({
   isSectionDragOver: boolean;
   onFiveAccountEnabledFromBox?: () => void;
   onFiveAccountDisabledFromBox?: (sectionId: string, disabledMetricId: string, disabledLabel: string) => void;
-  onOpenEquationBuilder?: (sectionId: string, metricId: string) => void;
+  onOpenEquationBuilder?: (sectionId: string, metricId: string, reopenAfterSave?: boolean) => void;
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [editingMetric, setEditingMetric] = useState<Metric | null>(null);
@@ -2459,7 +2475,28 @@ function DashSection({
       {showAdd && <MetricBoxSettingsModal
         onSave={m => { handleAddMetricWithFiveAccount(m); setShowAdd(false); }}
         onFiveAccountToggledOn={() => { /* propagated by parent via onAddMetric → cascade handler */ }}
-        onCreateEquation={() => onOpenEquationBuilder?.(section.id, editingMetric?.id ?? "")}
+        onCreateEquation={(formData) => {
+          if (!formData) return;
+          const newId = crypto.randomUUID();
+          const modalType = formData.metricType === "counter" ? "leads" : formData.metricType === "percentage" ? "website" : "invoices";
+          const newMetric: Metric = {
+            id: newId,
+            label: formData.label,
+            value: "0",
+            icon: formData.icon,
+            color: "gray",
+            modal: makeModal(formData.label, "0", "gray", { type: modalType, mainValue: "0" }),
+            metricType: formData.metricType,
+            currencySymbol: formData.currencySymbol,
+            graphType: "linear",
+            connectedApps: [],
+            history: [],
+            colorRules: [],
+          };
+          onAddMetricById?.(section.id, newMetric);
+          setShowAdd(false);
+          onOpenEquationBuilder?.(section.id, newId, true);
+        }}
         onClose={() => setShowAdd(false)} />}
 
       {editingMetric && <MetricBoxSettingsModal
@@ -3193,6 +3230,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
   })();
 
   const cardSize = Math.max(80, 140 - steps.length * 4);
+  const circleScale = Math.max(0.6, Math.min(1, cardSize / 140));
 
   // Whether the equation is valid enough to save
   const equationValid = (() => {
@@ -3212,12 +3250,11 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
         <button onClick={onCancel} style={{ padding: "6px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b" }}>Cancel</button>
       </div>
 
-      {/* Main content: steps left, preview+picker right */}
-      <div style={{ flex: 1, display: "flex", overflow: "hidden", padding: "24px 32px", gap: 24 }}>
-        {/* Left: Steps */}
-        <div style={{ flex: 1, overflowY: "auto", minWidth: 0 }}>
-          {steps.length > 0 && (() => {
-            // Build render groups: detect [metric, ÷, metric] → fraction group
+      {/* Main content: one-column layout */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", padding: "24px 32px", gap: 20 }}>
+        {/* Steps */}
+        {steps.length > 0 && <div style={{ flexShrink: 0, overflowY: "auto", minWidth: 0 }}>
+          {(() => {
             const renderGroups: { type: "metric" | "operator" | "fraction"; step?: EquationStep; steps?: EquationStep[]; groupIdx?: number }[] = [];
             let i = 0;
             while (i < steps.length) {
@@ -3232,7 +3269,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
             return (
             <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6, padding: "14px 18px", background: "#F8FAFC", borderRadius: 12, border: "1px solid #e2e8f0", minHeight: 60 }}>
               {needsParens && (
-                <span style={{ fontSize: 28, fontWeight: 300, color: "#94a3b8", fontFamily: "serif", lineHeight: 1 }}>(</span>
+                <span style={{ fontSize: 28 * circleScale, fontWeight: 300, color: "#94a3b8", fontFamily: "serif", lineHeight: 1 }}>(</span>
               )}
               {renderGroups.map((g, gi) => {
                 if (g.type === "fraction" && g.steps) {
@@ -3243,25 +3280,22 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                   const fc = cardSize * 0.8;
                   return (
                     <div key={gi}
-                      draggable
-                      onDragStart={e => { e.stopPropagation(); if (actualIdx >= 0) dragStepIdxRef.current = actualIdx; }}
                       onDragOver={e => { e.preventDefault(); e.stopPropagation(); if (actualIdx >= 0) setDropTargetStepIdx(actualIdx); }}
                       onDrop={e => { e.preventDefault(); e.stopPropagation(); if (actualIdx >= 0) handleStepDrop(actualIdx); }}
                       onDragEnd={() => { dragStepIdxRef.current = null; setDropTargetStepIdx(null); }}
                       onClick={() => { if (actualIdx >= 0) handleEditStep(actualIdx); }}
-                      style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "center", cursor: "grab", borderRadius: 12, padding: 2, outline: isEditing ? "2px solid #3B82F6" : isDropTarget ? "2px dashed #3B82F6" : "2px solid transparent", background: isEditing ? "#EFF6FF" : isDropTarget ? "#F0F4FF" : "transparent" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 3 }}>
+                      style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "flex-start", borderRadius: 12, padding: 2, outline: isEditing ? "2px solid #3B82F6" : isDropTarget ? "2px dashed #3B82F6" : "2px solid transparent", background: isEditing ? "#EFF6FF" : isDropTarget ? "#F0F4FF" : "transparent" }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 4, marginBottom: 3 }}>
                         <div style={{
-                          width: 44, height: 44, borderRadius: "50%",
-                          background: "#8B5CF6", color: "#fff", fontSize: 20, fontWeight: 700,
+                          width: 44 * circleScale, height: 44 * circleScale, borderRadius: "50%",
+                          background: "#8B5CF6", color: "#fff", fontSize: 20 * circleScale, fontWeight: 700,
                           display: "flex", alignItems: "center", justifyContent: "center"
                         }}>
                           {g.groupIdx! + 1}
                         </div>
-                        <div onClick={e => { e.stopPropagation(); if (actualIdx >= 0) { setSteps(prev => { const n = [...prev]; n.splice(actualIdx, 3); return n; }); setEditingStepIndex(null); } }} style={{ width: 32, height: 32, borderRadius: "50%", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#E85D75", fontSize: 20, border: "1px solid #e2e8f0" }} title="Remove fraction">×</div>
+                        <div onClick={e => { e.stopPropagation(); if (actualIdx >= 0) { setSteps(prev => { const n = [...prev]; n.splice(actualIdx, 3); return n; }); setEditingStepIndex(null); } }} style={{ width: 32 * circleScale, height: 32 * circleScale, borderRadius: "50%", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#E85D75", fontSize: 20 * circleScale, border: "1px solid #e2e8f0" }} title="Remove fraction">×</div>
                       </div>
                       <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                        {/* Numerator */}
                         <div style={{
                           width: fc, minHeight: fc, borderRadius: "8px 8px 0 0",
                           background: topMetric.metricColor && topMetric.metricColor !== "gray" ? MS[topMetric.metricColor].bg : "#F8FAFC",
@@ -3280,9 +3314,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                             {topMetric.metricValue}
                           </div>
                         </div>
-                        {/* Fraction line */}
                         <div style={{ width: fc + 8, height: 2.5, background: "#1a2332", borderRadius: 2, flexShrink: 0 }} />
-                        {/* Denominator */}
                         <div style={{
                           width: fc, minHeight: fc, borderRadius: "0 0 8px 8px",
                           background: bottomMetric.metricColor && bottomMetric.metricColor !== "gray" ? MS[bottomMetric.metricColor].bg : "#F8FAFC",
@@ -3312,31 +3344,31 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                   const isDropTarget = dropTargetStepIdx === idx;
                   return (
                     <div key={gi}
-                      draggable
-                      onDragStart={e => { e.stopPropagation(); dragStepIdxRef.current = idx; }}
                       onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDropTargetStepIdx(idx); }}
                       onDrop={e => { e.preventDefault(); e.stopPropagation(); handleStepDrop(idx); }}
                       onDragEnd={() => { dragStepIdxRef.current = null; setDropTargetStepIdx(null); }}
                       onClick={() => handleEditStep(idx)}
-                      style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "center", cursor: "grab", borderRadius: 12, padding: 2, outline: isEditing ? "2px solid #3B82F6" : isDropTarget ? "2px dashed #3B82F6" : "2px solid transparent", background: isEditing ? "#EFF6FF" : isDropTarget ? "#F0F4FF" : "transparent" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 3 }}>
+                      style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "flex-start", borderRadius: 12, padding: 2, outline: isEditing ? "2px solid #3B82F6" : isDropTarget ? "2px dashed #3B82F6" : "2px solid transparent", background: isEditing ? "#EFF6FF" : isDropTarget ? "#F0F4FF" : "transparent" }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 4, marginBottom: 3 }}>
                         <div style={{
-                          width: 44, height: 44, borderRadius: "50%",
+                          width: 44 * circleScale, height: 44 * circleScale, borderRadius: "50%",
                           background: "linear-gradient(135deg,#3B82F6,#06B6D4)",
-                          color: "#fff", fontSize: 20, fontWeight: 700,
+                          color: "#fff", fontSize: 20 * circleScale, fontWeight: 700,
                           display: "flex", alignItems: "center", justifyContent: "center"
                         }}>
                           {g.groupIdx! + 1}
                         </div>
-                        <div onClick={e => { e.stopPropagation(); handleRemoveStep(idx); }} style={{ width: 32, height: 32, borderRadius: "50%", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#E85D75", fontSize: 20, border: "1px solid #e2e8f0" }} title="Remove step">×</div>
+                        <div onClick={e => { e.stopPropagation(); handleRemoveStep(idx); }} style={{ width: 32 * circleScale, height: 32 * circleScale, borderRadius: "50%", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#E85D75", fontSize: 20 * circleScale, border: "1px solid #e2e8f0" }} title="Remove step">×</div>
                       </div>
-                      <div style={{
-                        width: cardSize, minHeight: cardSize, borderRadius: 12,
-                        background: step.metricColor && step.metricColor !== "gray" ? MS[step.metricColor].bg : "#F8FAFC",
-                        border: step.metricColor === "gray" || !step.metricColor ? "1.5px solid #e2e8f0" : "none",
-                        padding: "8px", display: "flex", flexDirection: "column",
-                        alignItems: "center", justifyContent: "center", gap: 3,
-                      }}>
+                      <div draggable
+                        onDragStart={e => { e.dataTransfer.setData("text/plain", ""); e.dataTransfer.effectAllowed = "move"; e.stopPropagation(); dragStepIdxRef.current = idx; }}
+                        style={{
+                          width: cardSize, minHeight: cardSize, borderRadius: 12,
+                          background: step.metricColor && step.metricColor !== "gray" ? MS[step.metricColor].bg : "#F8FAFC",
+                          border: step.metricColor === "gray" || !step.metricColor ? "1.5px solid #e2e8f0" : "none",
+                          padding: "8px", display: "flex", flexDirection: "column",
+                          alignItems: "center", justifyContent: "center", gap: 3, cursor: "grab",
+                        }}>
                         {step.metricIcon && step.metricIcon !== ICON_NONE && (
                           <IconGlyph name={step.metricIcon} size={cardSize * 0.22} color={step.metricColor && step.metricColor !== "gray" ? "#fff" : "#3B82F6"} />
                         )}
@@ -3357,28 +3389,26 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                   const isDropTarget = dropTargetStepIdx === idx;
                   return (
                     <div key={gi}
-                      draggable
-                      onDragStart={e => { e.stopPropagation(); dragStepIdxRef.current = idx; }}
                       onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDropTargetStepIdx(idx); }}
                       onDrop={e => { e.preventDefault(); e.stopPropagation(); handleStepDrop(idx); }}
                       onDragEnd={() => { dragStepIdxRef.current = null; setDropTargetStepIdx(null); }}
                       onClick={() => handleEditStep(idx)}
-                      style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "center", cursor: "grab", borderRadius: 12, padding: 2, outline: isEditing ? "2px solid #3B82F6" : isDropTarget ? "2px dashed #3B82F6" : "2px solid transparent", background: isEditing ? "#EFF6FF" : isDropTarget ? "#F0F4FF" : "transparent" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 3 }}>
+                      style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "flex-start", borderRadius: 12, padding: 2, outline: isEditing ? "2px solid #3B82F6" : isDropTarget ? "2px dashed #3B82F6" : "2px solid transparent", background: isEditing ? "#EFF6FF" : isDropTarget ? "#F0F4FF" : "transparent" }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 4, marginBottom: 3 }}>
                         <div style={{
-                          width: 44, height: 44, borderRadius: "50%",
-                          background: "#64748b", color: "#fff", fontSize: 20, fontWeight: 700,
+                          width: 44 * circleScale, height: 44 * circleScale, borderRadius: "50%",
+                          background: "#64748b", color: "#fff", fontSize: 20 * circleScale, fontWeight: 700,
                           display: "flex", alignItems: "center", justifyContent: "center"
                         }}>
                           {g.groupIdx! + 1}
                         </div>
-                        <div onClick={e => { e.stopPropagation(); handleRemoveStep(idx); }} style={{ width: 32, height: 32, borderRadius: "50%", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#E85D75", fontSize: 20, border: "1px solid #e2e8f0" }} title="Remove step">×</div>
+                        <div onClick={e => { e.stopPropagation(); handleRemoveStep(idx); }} style={{ width: 32 * circleScale, height: 32 * circleScale, borderRadius: "50%", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#E85D75", fontSize: 20 * circleScale, border: "1px solid #e2e8f0" }} title="Remove step">×</div>
                       </div>
                       <div style={{
-                        width: 48, height: 48, borderRadius: "50%",
+                        width: 48 * circleScale, height: 48 * circleScale, borderRadius: "50%",
                         background: "#3B82F6", color: "#fff",
                         display: "flex", alignItems: "center", justifyContent: "center",
-                        fontSize: 22, fontWeight: 700,
+                        fontSize: 22 * circleScale, fontWeight: 700,
                       }}>
                         {step.operator === "*" ? "×" : step.operator === "/" ? "÷" : step.operator}
                       </div>
@@ -3388,55 +3418,54 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                 return null;
               })}
               {needsParens && (
-                <span style={{ fontSize: 28, fontWeight: 300, color: "#94a3b8", fontFamily: "serif", lineHeight: 1 }}>)</span>
+                <span style={{ fontSize: 28 * circleScale, fontWeight: 300, color: "#94a3b8", fontFamily: "serif", lineHeight: 1 }}>)</span>
               )}
             </div>
             );
           })()}
 
-          {/* Empty state on left */}
+          {/* Empty state within steps area */}
           {steps.length === 0 && !searchQuery.trim() && filteredMetrics.length === 0 && (
             <div style={{ padding: "40px 20px", textAlign: "center" }}>
               <div style={{ fontSize: 14, color: "#94a3b8", marginBottom: 6 }}>No metric boxes available</div>
               <div style={{ fontSize: 12, color: "#cbd5e1" }}>Create some metric boxes on your dashboard first</div>
             </div>
           )}
-        </div>
+        </div>}
 
-        {/* Right: Final Output on top, Contextual Picker below */}
-        <div style={{ width: 340, flexShrink: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: 20 }}>
-          {/* Final Output MetricBlock — fixed full size */}
-          {targetMetric && (
-            <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", padding: "12px 16px" }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                Final Output
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <span style={{ fontSize: 28, fontWeight: 300, color: "#1a2332", fontFamily: "serif", lineHeight: 1 }}>=</span>
-                <MetricBlock
-                  metric={{
-                    id: targetMetric.id,
-                    label: targetMetric.label,
-                    icon: targetMetric.icon,
-                    color: targetMetric.color,
-                    value: liveFormatted ?? "...",
-                    metricType: targetMetric.metricType,
-                    currencySymbol: targetMetric.currencySymbol,
-                    modal: targetMetric.modal,
-                    history: targetMetric.history,
-                    equation: targetMetric.equation,
-                  }}
-                  onClick={() => {}}
-                  onDragStart={() => {}}
-                  onDragEnter={() => {}}
-                  onDrop={() => {}}
-                  isDragOver={false}
-                />
-              </div>
+        {/* Final Output */}
+        {targetMetric && steps.length > 0 && (
+          <div style={{ flexShrink: 0, background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", padding: "12px 16px" }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              Final Output
             </div>
-          )}
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <span style={{ fontSize: 28, fontWeight: 300, color: "#1a2332", fontFamily: "serif", lineHeight: 1 }}>=</span>
+              <MetricBlock
+                metric={{
+                  id: targetMetric.id,
+                  label: targetMetric.label,
+                  icon: targetMetric.icon,
+                  color: targetMetric.color,
+                  value: liveFormatted ?? "...",
+                  metricType: targetMetric.metricType,
+                  currencySymbol: targetMetric.currencySymbol,
+                  modal: targetMetric.modal,
+                  history: targetMetric.history,
+                  equation: targetMetric.equation,
+                }}
+                onClick={() => {}}
+                onDragStart={() => {}}
+                onDragEnter={() => {}}
+                onDrop={() => {}}
+                isDragOver={false}
+              />
+            </div>
+          </div>
+        )}
 
-          {/* Contextual Picker */}
+        {/* Contextual Picker — fills remaining space */}
+        <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column" }}>
           {showMathPicker && (
             <div>
               <div style={{ fontSize: 13, fontWeight: 600, color: "#64748b", marginBottom: 10 }}>Select the math:</div>
@@ -3465,7 +3494,6 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
           )}
           {!showMathPicker && (
             <>
-              {/* Search input */}
               <div style={{ marginBottom: 16 }}>
                 <input
                   ref={searchRef}
@@ -3481,8 +3509,6 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                   }}
                 />
               </div>
-
-              {/* Metric card suggestions */}
               {filteredMetrics.length > 0 && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {filteredMetrics.slice(0, 12).map(m => (
@@ -3492,15 +3518,11 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                   ))}
                 </div>
               )}
-
-              {/* No results message */}
               {searchQuery.trim() && filteredMetrics.length === 0 && (
                 <div style={{ padding: "20px", textAlign: "center", color: "#94a3b8", fontSize: 13 }}>
                   No metric boxes found matching "{searchQuery}"
                 </div>
               )}
-
-              {/* Initial prompt */}
               {steps.length === 0 && !searchQuery.trim() && filteredMetrics.length === 0 && (
                 <div style={{ padding: "40px 20px", textAlign: "center" }}>
                   <div style={{ fontSize: 14, color: "#94a3b8", marginBottom: 6 }}>No metric boxes available</div>
@@ -3652,7 +3674,7 @@ function HomePage({ sections, setSections, onClickMetric, onSectionRemoved, onFi
   onSectionRemoved?: (section: Section) => void;
   onFiveAccountEnabledFromBox?: () => void;
   onFiveAccountDisabledFromBox?: (sectionId: string, disabledMetricId: string, disabledLabel: string) => void;
-  onOpenEquationBuilder?: (sectionId: string, metricId: string) => void;
+  onOpenEquationBuilder?: (sectionId: string, metricId: string, reopenAfterSave?: boolean) => void;
 }) {
   // Drag state stored in ref so it's always current in event handlers
   const dragMetricRef = useRef<{ sourceSid: string; sourceMid: string } | null>(null);
@@ -3669,6 +3691,9 @@ function HomePage({ sections, setSections, onClickMetric, onSectionRemoved, onFi
     setSections(p => p.filter(s => s.id !== sid));
   };
   const addMetric = (sid: string, m: Omit<Metric, "id">) => setSections(p => p.map(s => s.id === sid ? { ...s, metrics: [...s.metrics, { ...m, id: crypto.randomUUID() }] } : s));
+  const addMetricById = useCallback((sid: string, m: Metric) => {
+    setSections(prev => prev.map(s => s.id === sid ? { ...s, metrics: [...s.metrics, m] } : s));
+  }, [setSections]);
   const removeMetric = (sid: string, mid: string) => setSections(p => p.map(s => s.id === sid ? { ...s, metrics: s.metrics.filter(m => m.id !== mid) } : s));
   const updateMetric = (sid: string, mid: string, updated: Omit<Metric, "id">) => setSections(p => p.map(s => s.id === sid ? { ...s, metrics: s.metrics.map(m => m.id === mid ? { ...updated, id: mid } : m) } : s));
 
@@ -3757,7 +3782,7 @@ function HomePage({ sections, setSections, onClickMetric, onSectionRemoved, onFi
       onDragEnd={handleDragEnd}>
       {sections.map(s => (
         <DashSection key={s.id} section={s}
-          onAddMetric={addMetric} onRemoveMetric={removeMetric} onUpdateMetric={updateMetric}
+          onAddMetric={addMetric} onAddMetricById={addMetricById} onRemoveMetric={removeMetric} onUpdateMetric={updateMetric}
           onRenameSection={renameSection} onRemoveSection={removeSection}
           onClickMetric={onClickMetric}
           dragState={dragMetricState}
@@ -3825,12 +3850,20 @@ export default function DashelloDashboard() {
   // Equation builder state
   const [equationBuilderTarget, setEquationBuilderTarget] = useState<{ metricId: string; sectionId: string } | null>(null);
   
-  const handleOpenEquationBuilder = useCallback((sectionId: string, metricId: string) => {
+  // Track where to return after equation builder closes
+  const pageBeforeEquationRef = useRef<Page>("home");
+  const reopenMetricAfterEquationRef = useRef<{ sectionId: string; metricId: string } | null>(null);
+
+  const handleOpenEquationBuilder = useCallback((sectionId: string, metricId: string, reopenAfterSave?: boolean) => {
+    pageBeforeEquationRef.current = page;
+    if (reopenAfterSave) {
+      reopenMetricAfterEquationRef.current = { sectionId, metricId };
+    }
     setEquationBuilderTarget({ sectionId, metricId });
     setPage("equation-builder");
     setEditingMetricFromModal(null);
     setActiveModal(null);
-  }, []);
+  }, [page]);
 
   const handleSaveEquation = useCallback((equation: EquationConfig) => {
     if (!equationBuilderTarget) return;
@@ -3845,13 +3878,28 @@ export default function DashelloDashboard() {
       };
     }));
     setEquationBuilderTarget(null);
-    setPage("home");
+    setPage(pageBeforeEquationRef.current);
+    pageBeforeEquationRef.current = "home";
   }, [equationBuilderTarget]);
 
   const handleCancelEquation = useCallback(() => {
     setEquationBuilderTarget(null);
-    setPage("home");
+    setPage(pageBeforeEquationRef.current);
+    pageBeforeEquationRef.current = "home";
   }, []);
+
+  // Reopen MetricBoxSettingsModal after equation builder closes for newly created metrics
+  useEffect(() => {
+    if (!equationBuilderTarget && reopenMetricAfterEquationRef.current) {
+      const { sectionId, metricId } = reopenMetricAfterEquationRef.current;
+      reopenMetricAfterEquationRef.current = null;
+      const section = sections.find(s => s.id === sectionId);
+      const metric = section?.metrics.find(m => m.id === metricId);
+      if (metric) {
+        setEditingMetricFromModal(metric);
+      }
+    }
+  }, [equationBuilderTarget, sections]);
 
   const [tasksData, setTasksData] = useState([
     { id: "1", text: "Review Q3 financials", done: false, assignee: "AJ", due: "Mar 15" },
