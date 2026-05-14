@@ -25,7 +25,7 @@ async function refreshMetricFromSupabase(userId: string, metricId: string, secti
 // ═══════════════════════════════════════════════════════════════════════════
 
 type MetricColor = "green" | "yellow" | "red" | "gray";
-type Page = "home" | "goals" | "tasks" | "integrations" | "team" | "settings" | "app-detail" | "equation-builder";
+type Page = "home" | "goals" | "tasks" | "integrations" | "team" | "settings" | "app-detail" | "equation-builder" | "playbooks";
 type GraphType = "bar-h" | "linear" | "pie" | "bar-v";
 type MetricType = "counter" | "percentage" | "financial";
 type RuleOp = ">=" | "<=" | ">" | "<" | "between" | "==" | "!=" ;
@@ -2138,7 +2138,7 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
                         setEquationError("");
                         onCreateEquation?.({ label, icon, metricType: effectiveMetricType, currencySymbol: currency });
                       }} style={{ padding: "8px 0", borderRadius: 8, border: "1.5px solid", borderColor: initial?.draftEquation ? "#cbd5e1" : initial?.equation ? "#4CAF7D" : "transparent", background: initial?.draftEquation ? "#fff" : initial?.equation ? "#F0FDF4" : "#64748b", color: initial?.draftEquation ? "#94a3b8" : initial?.equation ? "#4CAF7D" : "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
-                        {initial?.draftEquation ? "Edit draft equation" : initial?.equation ? "Edit Equation" : "Create Equation"}
+                        {initial?.draftEquation ? "Edit draft equation" : initial?.equation ? "Edit Live Equation" : "Create Equation"}
                       </button>
                       <button onClick={openAddRule} style={{ padding: "8px 0", borderRadius: 8, border: "none", background: "#64748b", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Create Color Rule</button>
                     </div>
@@ -3137,6 +3137,36 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
   const [forceSearch, setForceSearch] = useState(false);
   const addMenuRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const [checkedSteps, setCheckedSteps] = useState<Set<number>>(new Set());
+
+  const toggleChecked = (idx: number) => {
+    setCheckedSteps(prev => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  };
+
+  const renderCheckbox = (idx: number) => (
+    <div onClick={e => { e.stopPropagation(); toggleChecked(idx); }} style={{ position: "absolute", top: 2, left: 2, width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", zIndex: 10, borderRadius: 4, border: "1.5px solid #94a3b8", background: checkedSteps.has(idx) ? "#3B82F6" : "#fff", color: "#fff", fontSize: 14, fontWeight: 700, lineHeight: 1 }}>
+      {checkedSteps.has(idx) ? "✓" : ""}
+    </div>
+  );
+
+  const handleGroupSelected = () => {
+    if (checkedSteps.size < 2) return;
+    const sorted = [...checkedSteps].sort((a, b) => a - b);
+    const min = sorted[0];
+    const max = sorted[sorted.length - 1];
+    setSteps(prev => {
+      const next = [...prev];
+      next.splice(max + 1, 0, { type: "operator", operator: "paren-end" });
+      next.splice(min, 0, { type: "operator", operator: "paren-start" });
+      return next;
+    });
+    setCheckedSteps(new Set());
+  };
 
   // Derived: whether to show math picker or search based on current state
   const showMathPicker = forceSearch
@@ -3342,7 +3372,14 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
         {/* Header — fixed */}
         <div style={{ padding: "18px 24px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#1a2332" }}>Create Equation</h2>
-          <button onClick={onCancel} style={{ padding: "6px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {checkedSteps.size >= 2 && (
+              <button onClick={handleGroupSelected} style={{ padding: "6px 16px", borderRadius: 8, border: "none", background: "#3B82F6", fontSize: 12, cursor: "pointer", color: "#fff", fontWeight: 600 }}>
+                Group Selected ({checkedSteps.size})
+              </button>
+            )}
+            <button onClick={onCancel} style={{ padding: "6px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+          </div>
         </div>
 
         {/* Scrollable middle area */}
@@ -3449,6 +3486,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                           {isEditing && (
                             <div onClick={e => { e.stopPropagation(); if (actualIdx >= 0) { setSteps(prev => { const n = [...prev]; n.splice(actualIdx, 3); return n; }); setEditingStepIndex(null); } }} style={{ position: "absolute", top: 2, right: 2, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#3B82F6", fontSize: 22, fontWeight: 700, lineHeight: 1, zIndex: 10 }}>×</div>
                           )}
+                          {renderCheckbox(actualIdx)}
                           <div style={{ display: "flex", justifyContent: "center", width: "100%", marginBottom: 3 }}>
                             <div style={{
                               width: 44 * csScale, height: 44 * csScale, borderRadius: "50%",
@@ -3508,6 +3546,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                           {isEditing && (
                             <div onClick={e => { e.stopPropagation(); handleRemoveStep(idx); }} style={{ position: "absolute", top: 2, right: 2, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#3B82F6", fontSize: 22, fontWeight: 700, lineHeight: 1, zIndex: 10 }}>×</div>
                           )}
+                          {renderCheckbox(idx)}
                           <div style={{ display: "flex", justifyContent: "center", width: "100%", marginBottom: 3 }}>
                             <div style={{
                               width: 44 * csScale, height: 44 * csScale, borderRadius: "50%",
@@ -3570,6 +3609,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                           {isEditing && (
                             <div onClick={e => { e.stopPropagation(); handleRemoveStep(idx); }} style={{ position: "absolute", top: 2, right: 2, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#3B82F6", fontSize: 22, fontWeight: 700, lineHeight: 1, zIndex: 10 }}>×</div>
                           )}
+                          {renderCheckbox(idx)}
                           <div style={{ display: "flex", justifyContent: "center", width: "100%", marginBottom: 3 }}>
                             <div style={{
                               width: 44 * csScale, height: 44 * csScale, borderRadius: "50%",
@@ -3602,19 +3642,15 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                           onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Add Metric Box</div>
                         <div onClick={() => { setShowAddMenu(false); setAddAtIndex(null); setForceSearch(false); setPendingOperator(true); setEditingStepIndex(null); setSearchQuery(""); }} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
                           onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Add Math Symbol</div>
-                        <div onClick={() => handleAddTotalOperator("total-add")} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
-                          onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Add Total</div>
-                        <div onClick={() => handleAddTotalOperator("total-subtract")} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
-                          onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Subtract Total</div>
-                        <div onClick={() => handleAddTotalOperator("total-multiply")} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
-                          onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Multiply Total</div>
+                        <div style={{ borderTop: "1px solid #e2e8f0", margin: "4px 0" }} />
                         <div onClick={() => handleAddTotalOperator("total-divide")} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
                           onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Divide Total</div>
-                        <div style={{ borderTop: "1px solid #e2e8f0", margin: "4px 0" }} />
-                        <div onClick={() => { setShowAddMenu(false); addAtIndex !== null && setSteps(prev => { const n = [...prev]; n.splice(addAtIndex, 0, { type: "operator" as const, operator: "paren-start" as const }); return n; }); setAddAtIndex(null); setTimeout(() => searchRef.current?.focus(), 50); }} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
-                          onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Start Group</div>
-                        <div onClick={() => { setShowAddMenu(false); addAtIndex !== null && setSteps(prev => { const n = [...prev]; n.splice(addAtIndex, 0, { type: "operator" as const, operator: "paren-end" as const }); return n; }); setAddAtIndex(null); setTimeout(() => searchRef.current?.focus(), 50); }} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
-                          onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>End Group</div>
+                        <div onClick={() => handleAddTotalOperator("total-multiply")} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
+                          onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Multiply Total</div>
+                        <div onClick={() => handleAddTotalOperator("total-subtract")} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
+                          onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Subtract Total</div>
+                        <div onClick={() => handleAddTotalOperator("total-add")} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
+                          onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Add Total</div>
                       </div>
                     ) : null
                   );
@@ -3741,6 +3777,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                             {isEdit && (
                               <div onClick={e => { e.stopPropagation(); handleRemoveStep(idx); }} style={{ position: "absolute", top: 2, right: 2, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#3B82F6", fontSize: 22, fontWeight: 700, lineHeight: 1, zIndex: 10 }}>×</div>
                             )}
+                            {renderCheckbox(idx)}
                             <div style={{ display: "flex", justifyContent: "center", width: "100%", marginBottom: 3 }}>
                               <div style={{ width: 44 * circleScale, height: 44 * circleScale, borderRadius: "50%", background: "#64748b", color: "#fff", fontSize: 20 * circleScale, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>
                                 {gg.groupIdx! + 1}
@@ -3845,32 +3882,32 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                           onDrop={e => { e.preventDefault(); e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); const m = rect.left + rect.width / 2; const idx2 = e.clientX < m ? idx : idx + 1; handleStepDrop(idx2); }}
                           onDragEnd={() => { dragStepIdxRef.current = null; dragCountRef.current = 1; setDropLineIndex(null); dropLineIndexRef.current = null; }}
                           style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "flex-start", borderRadius: 12, padding: 2, outline: isEditing ? "2px solid #3B82F6" : "2px solid transparent", background: isEditing ? "#EFF6FF" : "transparent" }}>
-                          {isEditing && (
-                            <div onClick={e => { e.stopPropagation(); handleRemoveStep(idx); }} style={{ position: "absolute", top: 2, right: 2, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#3B82F6", fontSize: 22, fontWeight: 700, lineHeight: 1, zIndex: 10 }}>×</div>
-                          )}
-                          <div style={{ display: "flex", justifyContent: "center", width: "100%", marginBottom: 3 }}>
-                            <div style={{
-                              width: 44 * circleScale, height: 44 * circleScale, borderRadius: "50%",
-                              background: "#64748b", color: "#fff", fontSize: 20 * circleScale, fontWeight: 700,
-                              display: "flex", alignItems: "center", justifyContent: "center"
-                            }}>
-                              {g.groupIdx! + 1}
+                              {isEditing && (
+                                <div onClick={e => { e.stopPropagation(); handleRemoveStep(idx); }} style={{ position: "absolute", top: 2, right: 2, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#3B82F6", fontSize: 22, fontWeight: 700, lineHeight: 1, zIndex: 10 }}>×</div>
+                              )}
+                              {renderCheckbox(idx)}
+                              <div style={{ display: "flex", justifyContent: "center", width: "100%", marginBottom: 3 }}>
+                                <div style={{
+                                  width: 44 * circleScale, height: 44 * circleScale, borderRadius: "50%", background: "#64748b", color: "#fff", fontSize: 20 * circleScale, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center"
+                                }}>
+                                  {g.groupIdx! + 1}
+                                </div>
+                              </div>
+                              <div style={{ width: cardSize, minHeight: cardSize, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                                <div style={{
+                                  width: 56, height: 56, borderRadius: "50%",
+                                  background: "#3B82F6", color: "#fff",
+                                  display: "flex", alignItems: "center", justifyContent: "center",
+                                  fontSize: 26, fontWeight: 700,
+                                }}>
+                                  {opChar}
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                          <div style={{ width: cardSize, minHeight: cardSize, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-                            <div style={{
-                              width: 56, height: 56, borderRadius: "50%",
-                              background: "#3B82F6", color: "#fff",
-                              display: "flex", alignItems: "center", justifyContent: "center",
-                              fontSize: 26, fontWeight: 700,
-                            }}>
-                              {opChar}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    }
-                  });
+                          );
+                        }
+                      });
+                      // Far-right plus button
                   // Far-right plus button
                   result.push(renderPlusButton(steps.length, "end"));
                   return result;
@@ -4058,6 +4095,520 @@ function ChatPanel({ sections, onClose }: { sections: Section[]; onClose: () => 
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// PLAYBOOKS
+// ═══════════════════════════════════════════════════════════════════════════
+
+const playbookStyles = {
+  container: { display: "flex", flexDirection: "column" as const, height: "100%", background: "#f5f5f5", fontFamily: "Montserrat, system-ui, sans-serif", fontSize: 15, lineHeight: 1.5, color: "#111" },
+  topbar: { position: "sticky" as const, top: 0, zIndex: 20, backdropFilter: "blur(10px)", background: "rgba(245,245,245,0.92)", borderBottom: "1px solid #e3e3e3", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.6rem 1.25rem", gap: "0.5rem", flexShrink: 0 },
+  topTitle: { fontWeight: 700, fontSize: "0.85rem", letterSpacing: "0.08em", textTransform: "uppercase" as const },
+  topSub: { fontSize: "0.8rem", color: "#555" },
+  mainArea: { flex: 1, display: "flex", padding: "1rem 1.25rem", gap: "1rem", overflow: "auto" },
+  colLeft: { width: 230, maxWidth: "100%", display: "flex", flexDirection: "column" as const, gap: "0.8rem", flexShrink: 0 },
+  colRight: { flex: 1, display: "flex", flexDirection: "column" as const, gap: "1rem", overflow: "auto" },
+  card: { background: "#fff", borderRadius: 10, boxShadow: "0 8px 20px rgba(0,0,0,0.05)", border: "1px solid #e0e0e0", padding: "1rem 1.25rem 1.2rem" },
+  pillBtn: { borderRadius: 999, border: "1px solid #111", background: "#111", color: "#fff", padding: "0.45rem 1.1rem", fontSize: "0.75rem", letterSpacing: "0.16em", textTransform: "uppercase" as const, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "0.35rem" },
+  pillBtnSec: { borderRadius: 999, border: "1px solid #ccc", background: "transparent", color: "#111", padding: "0.45rem 1.1rem", fontSize: "0.75rem", letterSpacing: "0.16em", textTransform: "uppercase" as const, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "0.35rem" },
+  fieldLabel: { fontSize: "0.85rem", fontWeight: 500, marginBottom: "0.2rem" },
+  fieldHint: { fontSize: "0.85rem", color: "#555", marginBottom: "0.25rem" },
+  input: { width: "100%", fontFamily: "inherit", fontSize: "0.9rem", padding: "0.5rem 0.6rem", borderRadius: 7, border: "1px solid #e0e0e0", background: "#fafafa", resize: "vertical" as const, boxSizing: "border-box" as const },
+  textarea: { width: "100%", fontFamily: "inherit", fontSize: "0.9rem", padding: "0.5rem 0.6rem", borderRadius: 7, border: "1px solid #e0e0e0", background: "#fafafa", resize: "vertical" as const, minHeight: 50, boxSizing: "border-box" as const },
+  previewCard: { borderRadius: 10, border: "1px dashed #ccc", background: "#fcfcfc", padding: "0.7rem 0.9rem 0.6rem", minHeight: 60, marginBottom: "0.5rem" },
+  previewLabel: { fontSize: "0.75rem", letterSpacing: "0.16em", textTransform: "uppercase" as const, color: "#555" },
+  previewOut: { fontSize: "0.9rem", lineHeight: 1.55, whiteSpace: "pre-wrap" as const },
+  stepChip: { fontFamily: "Montserrat, system-ui", borderRadius: 999, border: "1px solid #e0e0e0", padding: "0.35rem 0.75rem", fontSize: "0.85rem", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", background: "#fafafa", color: "inherit", textDecoration: "none", gap: 6 },
+  stepChipActive: { fontFamily: "Montserrat, system-ui", borderRadius: 999, border: "1px solid #111", padding: "0.35rem 0.75rem", fontSize: "0.85rem", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", background: "#111", color: "#fff", textDecoration: "none", gap: 6 },
+  emailBlock: { marginBottom: "0.3rem", padding: "0.7rem 0.7rem 0.8rem", borderRadius: 10, background: "#fafafa", border: "1px solid #e0e0e0" },
+  emailRow: { display: "grid", gridTemplateColumns: "minmax(0,1.35fr) 30px minmax(0,1.35fr)", gap: "0.6rem", alignItems: "stretch" },
+  connector: { position: "relative" as const },
+  connectorLine: { position: "absolute" as const, left: "50%", top: "12%", bottom: "12%", width: 2, background: "#e0e0e0" },
+  sidebarCard: { background: "#fff", borderRadius: 10, boxShadow: "0 8px 20px rgba(0,0,0,0.05)", padding: "0.9rem 0.9rem 1rem", border: "1px solid #e0e0e0" },
+  stepNav: { display: "flex", flexDirection: "column" as const, gap: "0.35rem", marginTop: "0.6rem" },
+};
+
+function PlaybooksPage() {
+  const [activeStep, setActiveStep] = useState("tagline-card");
+  const [copiedLabel, setCopiedLabel] = useState<string | null>(null);
+
+  // Form state
+  const [companyName, setCompanyName] = useState("ACME Plumbing");
+  const [taglineInput, setTaglineInput] = useState("24-Hour Service – Always On Time");
+  const [olProblem, setOlProblem] = useState("Homeowners are frustrated and stressed over clogged sinks, broken toilets, and unexpected plumbing issues.");
+  const [olSolution, setOlSolution] = useState("ACME Plumbing provides fast, reliable service from a BBB-accredited team with hundreds of satisfied customers.");
+  const [olResult, setOlResult] = useState("So you can enjoy peace of mind and a home with plumbing that just works.");
+  const [epProblem, setEpProblem] = useState("A lot of homeowners feel overwhelmed and stressed when plumbing problems disrupt their day.");
+  const [epSolution, setEpSolution] = useState("At ACME Plumbing, we provide fast, reliable service backed by hundreds of satisfied customers and BBB accreditation.");
+  const [epResult, setEpResult] = useState("So you can protect your home from damage, stop worrying about leaks, and get back to normal quickly.");
+  const [epCTA, setEpCTA] = useState("If that sounds familiar, call ACME Plumbing today and we'll take care of it.");
+  const [bs, setBs] = useState({
+    want: "reliable plumbing repairs and maintenance with as little disruption as possible.",
+    villain: "unreliable plumbers who show up late, leave a mess, or don't fully fix the issue.",
+    external: "clogged sinks, broken toilets, and hidden leaks that disrupt everyday life.",
+    internal: "frustration, stress, and worry that the problem will come back.",
+    philosophical: "homeowners shouldn't have to put their life on hold because of plumbing problems.",
+    empathy: "We know how stressful it is when water is going where it shouldn't.",
+    authority: "With hundreds of satisfied customers and BBB accreditation, ACME Plumbing has a proven track record.",
+    process: "1) Call ACME, 2) We inspect and explain your options, 3) We fix the problem fast and clean up.",
+    agreement: "We arrive on time, respect your home, communicate clearly, and stand behind our work.",
+    directCTA: "Call ACME Plumbing today to schedule your service.",
+    transitionalCTA: "Download our free guide to get ahead of future issues.",
+    success: "a home with plumbing that just works, no surprises, and a plumber you can call with confidence.",
+    failure: "ongoing leaks, costly damage, and the stress of never knowing when plumbing problems will strike.",
+    identity: "a homeowner who feels in control, protected, and confident about their plumbing.",
+  });
+  const [sm, setSm] = useState({
+    controlling: "You don't have to live with plumbing chaos at home.",
+    question: "What if your plumbing just worked without surprise leaks or clogs?",
+    problem: "Right now, small plumbing issues are turning into big disruptions.",
+    stakes: "Left alone, those 'little' problems can become expensive water damage.",
+    guide: "At ACME Plumbing, we've helped hundreds of homeowners get back to normal.",
+    plan: "Call ACME, we inspect and explain your options, then fix the problem fast.",
+    cta: "If you're dealing with a plumbing issue, send us a message today.",
+    success: "Imagine going to bed tonight knowing your plumbing is handled.",
+  });
+  const [em, setEm] = useState({
+    em1Sub: "Here's your plumbing quick-win checklist",
+    em1Body: "Thanks for requesting our guide! Inside, you'll find five simple checks you can do this week to prevent emergency plumbing disasters.",
+    em1PS: "If you'd rather have a pro look things over, reply to this email and we'll help you out.",
+    em2Sub: "The real cost of ignoring small plumbing issues",
+    em2Body: "Most plumbing emergencies start as small, easy-to-ignore problems. Don't wait.",
+    em2PS: "Don't wait until a small leak becomes a big problem.",
+    em3Sub: "How one homeowner avoided a $5,000 flood",
+    em3Body: "A quick call saved them thousands and a lot of stress.",
+    em3PS: "A quick call saved them thousands and a lot of stress.",
+    em4Sub: "3 simple rules for stress-free plumbing",
+    em4Body: "Check regularly, act early, and call a trusted pro.",
+    em4PS: "Hit reply and tell us what plumbing issue you're worried about most.",
+    em5Sub: "Our 3-step plan to protect your home",
+    em5Body: "1) Call ACME, 2) We inspect and explain options, 3) We fix the issue and clean up.",
+    em5PS: "It really is as simple as call, inspect, and fix.",
+    em6Sub: "Ready to fix that plumbing problem for good?",
+    em6Body: "Schedule a visit today and get it handled before it turns into something bigger.",
+    em6PS: "This week is a great time to get it handled.",
+    signature: "John Smith\nOwner, ACME Plumbing\n(555) 123-4567\njohn@acmeplumbing.com",
+  });
+  const [lgTitle, setLgTitle] = useState("5 Simple Checks to Prevent Emergency Plumbing Disasters");
+
+  const updateBs = (key: string, val: string) => setBs(prev => ({ ...prev, [key]: val }));
+  const updateSm = (key: string, val: string) => setSm(prev => ({ ...prev, [key]: val }));
+  const updateEm = (key: string, val: string) => setEm(prev => ({ ...prev, [key]: val }));
+
+  const taglinePreview = companyName.trim() ? `${companyName.trim()} — ${taglineInput.trim()}` : taglineInput.trim() || "(Your tagline will appear here…)";
+  const olPreview = [olProblem, olSolution, olResult].filter(Boolean).join(" ") || "(Your one-liner will appear here…)";
+  const epPreview = [epProblem, epSolution, epResult, epCTA].filter(Boolean).join(" ") || "(Your elevator pitch will appear here…)";
+
+  const bsPoints = (() => {
+    const pieces: string[] = [];
+    if (bs.want) pieces.push(`Character – Wants: ${bs.want}`);
+    if (bs.villain) pieces.push(`Villain: ${bs.villain}`);
+    if (bs.external) pieces.push(`External Problem: ${bs.external}`);
+    if (bs.internal) pieces.push(`Internal Problem: ${bs.internal}`);
+    if (bs.philosophical) pieces.push(`Philosophical Problem: ${bs.philosophical}`);
+    if (bs.empathy) pieces.push(`Guide – Empathy: ${bs.empathy}`);
+    if (bs.authority) pieces.push(`Guide – Authority: ${bs.authority}`);
+    if (bs.process) pieces.push(`Plan – Process: ${bs.process}`);
+    if (bs.agreement) pieces.push(`Plan – Agreement: ${bs.agreement}`);
+    if (bs.directCTA) pieces.push(`Direct CTA: ${bs.directCTA}`);
+    if (bs.transitionalCTA) pieces.push(`Transitional CTA: ${bs.transitionalCTA}`);
+    if (bs.success) pieces.push(`Success: ${bs.success}`);
+    if (bs.failure) pieces.push(`Failure: ${bs.failure}`);
+    if (bs.identity) pieces.push(`Identity: ${bs.identity}`);
+    return pieces.length ? pieces.join("\n\n") : "(Short talking points based on your BrandScript will appear here…)";
+  })();
+
+  const buildEmailPreview = (sub: string, body: string, ps: string) => {
+    let txt = "";
+    if (sub) txt += `Subject: ${sub}\n\n`;
+    if (body) txt += `${body}\n\n`;
+    if (em.signature) txt += `${em.signature}\n\n`;
+    if (ps) txt += `P.S. ${ps}`;
+    return txt.trim() || "(Email will appear here…)";
+  };
+
+  const copyText = async (text: string, label: string) => {
+    if (!text.trim()) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedLabel(label);
+      setTimeout(() => setCopiedLabel(null), 1600);
+    } catch {}
+  };
+
+  const copyAllText = () => {
+    const chunks: string[] = [];
+    if (taglinePreview && !taglinePreview.includes("will appear here")) chunks.push(`TAGLINE:\n${taglinePreview}`);
+    if (olPreview && !olPreview.includes("will appear here")) chunks.push(`ONE-LINER:\n${olPreview}`);
+    if (epPreview && !epPreview.includes("will appear here")) chunks.push(`ELEVATOR PITCH:\n${epPreview}`);
+    if (bsPoints && !bsPoints.includes("BrandScript")) chunks.push(`BRANDSCRIPT TALKING POINTS:\n${bsPoints}`);
+    const caps = [
+      ["SOCIAL CAPTION 1", sm.controlling],
+      ["SOCIAL CAPTION 2", sm.question],
+      ["SOCIAL CAPTION 3", sm.problem],
+      ["SOCIAL CAPTION 4", sm.stakes],
+      ["SOCIAL CAPTION 5", sm.guide],
+      ["SOCIAL CAPTION 6", sm.plan],
+      ["SOCIAL CAPTION 7", sm.cta],
+      ["SOCIAL CAPTION 8", sm.success],
+    ].filter(([, v]) => v).map(([l, v]) => `${l}:\n${v}`).join("\n\n");
+    if (caps) chunks.push(caps);
+    if (lgTitle.trim()) chunks.push(`LEAD MAGNET TITLE:\n${lgTitle.trim()}`);
+    const joined = chunks.join("\n\n-------------------------\n\n");
+    if (joined) copyText(joined, "all");
+  };
+
+  const clearAll = () => {
+    setCompanyName(""); setTaglineInput("");
+    setOlProblem(""); setOlSolution(""); setOlResult("");
+    setEpProblem(""); setEpSolution(""); setEpResult(""); setEpCTA("");
+    setBs({ want: "", villain: "", external: "", internal: "", philosophical: "", empathy: "", authority: "", process: "", agreement: "", directCTA: "", transitionalCTA: "", success: "", failure: "", identity: "" });
+    setSm({ controlling: "", question: "", problem: "", stakes: "", guide: "", plan: "", cta: "", success: "" });
+    setEm({ em1Sub: "", em1Body: "", em1PS: "", em2Sub: "", em2Body: "", em2PS: "", em3Sub: "", em3Body: "", em3PS: "", em4Sub: "", em4Body: "", em4PS: "", em5Sub: "", em5Body: "", em5PS: "", em6Sub: "", em6Body: "", em6PS: "", signature: "" });
+    setLgTitle("");
+  };
+
+  const resetAll = () => {
+    setCompanyName("ACME Plumbing");
+    setTaglineInput("24-Hour Service – Always On Time");
+    setOlProblem("Homeowners are frustrated and stressed over clogged sinks, broken toilets, and unexpected plumbing issues.");
+    setOlSolution("ACME Plumbing provides fast, reliable service from a BBB-accredited team with hundreds of satisfied customers.");
+    setOlResult("So you can enjoy peace of mind and a home with plumbing that just works.");
+    setEpProblem("A lot of homeowners feel overwhelmed and stressed when plumbing problems disrupt their day.");
+    setEpSolution("At ACME Plumbing, we provide fast, reliable service backed by hundreds of satisfied customers and BBB accreditation.");
+    setEpResult("So you can protect your home from damage, stop worrying about leaks, and get back to normal quickly.");
+    setEpCTA("If that sounds familiar, call ACME Plumbing today and we'll take care of it.");
+    setBs({
+      want: "reliable plumbing repairs and maintenance with as little disruption as possible.",
+      villain: "unreliable plumbers who show up late, leave a mess, or don't fully fix the issue.",
+      external: "clogged sinks, broken toilets, and hidden leaks that disrupt everyday life.",
+      internal: "frustration, stress, and worry that the problem will come back.",
+      philosophical: "homeowners shouldn't have to put their life on hold because of plumbing problems.",
+      empathy: "We know how stressful it is when water is going where it shouldn't.",
+      authority: "With hundreds of satisfied customers and BBB accreditation, ACME Plumbing has a proven track record.",
+      process: "1) Call ACME, 2) We inspect and explain your options, 3) We fix the problem fast and clean up.",
+      agreement: "We arrive on time, respect your home, communicate clearly, and stand behind our work.",
+      directCTA: "Call ACME Plumbing today to schedule your service.",
+      transitionalCTA: "Download our free guide to get ahead of future issues.",
+      success: "a home with plumbing that just works, no surprises, and a plumber you can call with confidence.",
+      failure: "ongoing leaks, costly damage, and the stress of never knowing when plumbing problems will strike.",
+      identity: "a homeowner who feels in control, protected, and confident about their plumbing.",
+    });
+    setSm({
+      controlling: "You don't have to live with plumbing chaos at home.",
+      question: "What if your plumbing just worked without surprise leaks or clogs?",
+      problem: "Right now, small plumbing issues are turning into big disruptions.",
+      stakes: "Left alone, those 'little' problems can become expensive water damage.",
+      guide: "At ACME Plumbing, we've helped hundreds of homeowners get back to normal.",
+      plan: "Call ACME, we inspect and explain your options, then fix the problem fast.",
+      cta: "If you're dealing with a plumbing issue, send us a message today.",
+      success: "Imagine going to bed tonight knowing your plumbing is handled.",
+    });
+    setEm({
+      em1Sub: "Here's your plumbing quick-win checklist",
+      em1Body: "Thanks for requesting our guide! Inside, you'll find five simple checks you can do this week to prevent emergency plumbing disasters.",
+      em1PS: "If you'd rather have a pro look things over, reply to this email and we'll help you out.",
+      em2Sub: "The real cost of ignoring small plumbing issues",
+      em2Body: "Most plumbing emergencies start as small, easy-to-ignore problems. Don't wait.",
+      em2PS: "Don't wait until a small leak becomes a big problem.",
+      em3Sub: "How one homeowner avoided a $5,000 flood",
+      em3Body: "A quick call saved them thousands and a lot of stress.",
+      em3PS: "A quick call saved them thousands and a lot of stress.",
+      em4Sub: "3 simple rules for stress-free plumbing",
+      em4Body: "Check regularly, act early, and call a trusted pro.",
+      em4PS: "Hit reply and tell us what plumbing issue you're worried about most.",
+      em5Sub: "Our 3-step plan to protect your home",
+      em5Body: "1) Call ACME, 2) We inspect and explain options, 3) We fix the issue and clean up.",
+      em5PS: "It really is as simple as call, inspect, and fix.",
+      em6Sub: "Ready to fix that plumbing problem for good?",
+      em6Body: "Schedule a visit today and get it handled before it turns into something bigger.",
+      em6PS: "This week is a great time to get it handled.",
+      signature: "John Smith\nOwner, ACME Plumbing\n(555) 123-4567\njohn@acmeplumbing.com",
+    });
+    setLgTitle("5 Simple Checks to Prevent Emergency Plumbing Disasters");
+  };
+
+  const steps = [
+    { id: "tagline-card", num: "01", label: "Tagline" },
+    { id: "oneliner-card", num: "02", label: "One-Liner" },
+    { id: "elevator-card", num: "03", label: "Elevator Pitch" },
+    { id: "brandscript-card", num: "04", label: "BrandScript" },
+    { id: "social-card", num: "06", label: "Social Posts" },
+    { id: "emails-card", num: "07", label: "Emails" },
+    { id: "lead-card", num: "08", label: "Lead Magnet" },
+  ];
+
+  const renderField = (label: string, hint: string, value: string, onChange: (v: string) => void, opts?: { textarea?: boolean; body?: boolean }) => (
+    <div style={{ marginBottom: "0.7rem" }}>
+      <div style={playbookStyles.fieldLabel}>{label}</div>
+      <div style={playbookStyles.fieldHint}>{hint}</div>
+      {opts?.textarea ? (
+        <textarea style={{ ...playbookStyles.textarea, ...(opts.body ? { minHeight: 100 } : {}) }} value={value} onChange={e => onChange(e.target.value)} />
+      ) : (
+        <input style={playbookStyles.input} value={value} onChange={e => onChange(e.target.value)} />
+      )}
+    </div>
+  );
+
+  const copyBtn = (targetText: string, label: string, copyLabel: string) => (
+    <button style={playbookStyles.pillBtnSec} onClick={() => copyText(targetText, copyLabel)}>
+      {copiedLabel === copyLabel ? "✔ Copied" : label}
+    </button>
+  );
+
+  const previewBox = (label: string, text: string) => (
+    <div style={playbookStyles.previewCard}>
+      <div style={playbookStyles.previewLabel}>{label}</div>
+      <div style={playbookStyles.previewOut}>{text}</div>
+    </div>
+  );
+
+  return (
+    <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column", background: "#f5f5f5" }}>
+      <div style={playbookStyles.topbar}>
+        <div>
+          <div style={playbookStyles.topTitle}>MY MARKETING PLAYBOOK</div>
+          <div style={playbookStyles.topSub}>Marketing Message Builder for Contractors</div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <button style={playbookStyles.pillBtnSec} onClick={clearAll}>Clear All</button>
+          <button style={playbookStyles.pillBtnSec} onClick={resetAll}>Reset All</button>
+          <button style={playbookStyles.pillBtnSec} onClick={() => window.print()}>Print / Save PDF</button>
+          <button style={playbookStyles.pillBtn} onClick={copyAllText}>
+            {copiedLabel === "all" ? "✔ Copied" : "Copy All Text"}
+          </button>
+        </div>
+      </div>
+      <div style={playbookStyles.mainArea}>
+        <div style={playbookStyles.colLeft}>
+          <div style={playbookStyles.sidebarCard}>
+            <div style={{ fontSize: "0.75rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "#555" }}>Workflow</div>
+            <div style={{ fontWeight: 600, fontSize: "0.95rem", marginBottom: "0.3rem" }}>Build your message in eight steps</div>
+            <div style={{ fontSize: "0.85rem", color: "#555", lineHeight: 1.6 }}>
+              Start with a clear tagline next to your logo, then build a one-liner, a short elevator pitch, your full BrandScript, social posts, emails, and a lead magnet title.
+            </div>
+            <div style={playbookStyles.stepNav}>
+              {steps.map(s => (
+                <div
+                  key={s.id}
+                  style={activeStep === s.id ? playbookStyles.stepChipActive : playbookStyles.stepChip}
+                  onClick={() => setActiveStep(s.id)}
+                >
+                  <span style={{ fontSize: "0.75rem", letterSpacing: "0.16em", textTransform: "uppercase" }}>{s.num}</span>
+                  <span style={{ fontWeight: 500 }}>{s.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={playbookStyles.sidebarCard}>
+            <div style={{ fontSize: "0.75rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "#555" }}>How they fit</div>
+            <div style={{ fontWeight: 600, fontSize: "0.95rem", marginBottom: "0.3rem" }}>From logo to full story</div>
+            <div style={{ fontSize: "0.85rem", color: "#555", lineHeight: 1.6 }}>
+              <strong>Tagline</strong> lives with your logo everywhere.<br /><br />
+              <strong>One-Liner</strong> is your quick answer when people ask what you do.<br /><br />
+              <strong>Elevator Pitch</strong> is a slightly longer spoken version that invites a conversation.<br /><br />
+              <strong>BrandScript</strong> is the master story that guides your website, emails, and sales.<br /><br />
+              <strong>Social, Emails & Lead Magnet</strong> reuse the same message across all your marketing.
+            </div>
+          </div>
+        </div>
+
+        <div style={playbookStyles.colRight}>
+          {/* TAGLINE */}
+          {activeStep === "tagline-card" && (
+            <div style={playbookStyles.card}>
+              <div style={{ fontSize: "0.75rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "#555" }}>Step 1</div>
+              <div style={{ fontSize: "1.1rem", fontWeight: 600, marginBottom: "0.25rem" }}>Tagline / Brand Descriptor</div>
+              <div style={{ fontSize: "0.9rem", color: "#555", lineHeight: 1.6, maxWidth: 640, marginBottom: "0.75rem" }}>
+                A short, clear phrase that sits under your company name and instantly tells people what you do or what you promise.
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.4fr) minmax(0,1fr)", gap: "1rem" }}>
+                <div>
+                  {renderField("Company name", "The name as it appears on your logo, trucks, and paperwork.", companyName, setCompanyName)}
+                  {renderField("Tagline question", "If someone only saw your company name and five words, what must they instantly understand?", taglineInput, setTaglineInput, { textarea: true })}
+                </div>
+                <div>
+                  {previewBox("Tagline Preview", taglinePreview)}
+                  {copyBtn(taglinePreview, "Copy Tagline", "tagline")}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ONE-LINER */}
+          {activeStep === "oneliner-card" && (
+            <div style={playbookStyles.card}>
+              <div style={{ fontSize: "0.75rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "#555" }}>Step 2</div>
+              <div style={{ fontSize: "1.1rem", fontWeight: 600, marginBottom: "0.25rem" }}>One-Liner</div>
+              <div style={{ fontSize: "0.9rem", color: "#555", lineHeight: 1.6, maxWidth: 640, marginBottom: "0.75rem" }}>
+                A short sentence that describes the problem, the solution, and the result.
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.4fr) minmax(0,1fr)", gap: "1rem" }}>
+                <div>
+                  {renderField("1. Problem", "What problem are your customers dealing with right now?", olProblem, setOlProblem, { textarea: true })}
+                  {renderField("2. Solution", "How do you solve that problem?", olSolution, setOlSolution, { textarea: true })}
+                  {renderField("3. Result", "What positive outcome do they experience?", olResult, setOlResult, { textarea: true })}
+                </div>
+                <div>
+                  {previewBox("One-Liner Preview", olPreview)}
+                  {copyBtn(olPreview, "Copy One-Liner", "ol")}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ELEVATOR PITCH */}
+          {activeStep === "elevator-card" && (
+            <div style={playbookStyles.card}>
+              <div style={{ fontSize: "0.75rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "#555" }}>Step 3</div>
+              <div style={{ fontSize: "1.1rem", fontWeight: 600, marginBottom: "0.25rem" }}>Elevator Pitch</div>
+              <div style={{ fontSize: "0.9rem", color: "#555", lineHeight: 1.6, maxWidth: 640, marginBottom: "0.75rem" }}>
+                A 20-30 second spoken summary that starts with the problem, explains your solution, shows the result, and offers a next step.
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.4fr) minmax(0,1fr)", gap: "1rem" }}>
+                <div>
+                  {renderField("1. Problem", "Briefly describe the main problem your customer is facing.", epProblem, setEpProblem, { textarea: true })}
+                  {renderField("2. Your solution", "How do you guide them and what do you actually do?", epSolution, setEpSolution, { textarea: true })}
+                  {renderField("3. Result", "What transformation or win do they experience?", epResult, setEpResult, { textarea: true })}
+                  {renderField("4. Call to action", "What's the simple next step you want them to take?", epCTA, setEpCTA, { textarea: true })}
+                </div>
+                <div>
+                  {previewBox("Elevator Pitch Preview", epPreview)}
+                  {copyBtn(epPreview, "Copy Elevator Pitch", "ep")}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* BRANDSCRIPT */}
+          {activeStep === "brandscript-card" && (
+            <div style={playbookStyles.card}>
+              <div style={{ fontSize: "0.75rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "#555" }}>Step 4</div>
+              <div style={{ fontSize: "1.1rem", fontWeight: 600, marginBottom: "0.25rem" }}>BrandScript – Story Framework</div>
+              <div style={{ fontSize: "0.9rem", color: "#555", lineHeight: 1.6, maxWidth: 640, marginBottom: "0.75rem" }}>
+                The full story you are inviting your customer into.
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.4fr) minmax(0,1fr)", gap: "1rem" }}>
+                <div>
+                  {renderField("1. Character – What do they want?", "What do your customers want?", bs.want, v => updateBs("want", v), { textarea: true })}
+                  {renderField("2. Has a Problem – Villain", "Is there a root cause you can personify?", bs.villain, v => updateBs("villain", v), { textarea: true })}
+                  {renderField("3. Has a Problem – External", "What is the external, practical problem?", bs.external, v => updateBs("external", v), { textarea: true })}
+                  {renderField("4. Has a Problem – Internal", "How is this problem making them feel?", bs.internal, v => updateBs("internal", v), { textarea: true })}
+                  {renderField("5. Has a Problem – Philosophical", "Why is it wrong for them to be burdened?", bs.philosophical, v => updateBs("philosophical", v), { textarea: true })}
+                  {renderField("6. Meets a Guide – Empathy", "What expresses empathy and understanding?", bs.empathy, v => updateBs("empathy", v), { textarea: true })}
+                  {renderField("7. Meets a Guide – Authority", "How do you demonstrate competency?", bs.authority, v => updateBs("authority", v), { textarea: true })}
+                  {renderField("8. Gives Them a Plan – Process", "3-4 steps they can take?", bs.process, v => updateBs("process", v), { textarea: true })}
+                  {renderField("9. Gives Them a Plan – Agreement", "What assurances can you make?", bs.agreement, v => updateBs("agreement", v), { textarea: true })}
+                  {renderField("10. Call to Action – Direct", "What is your direct call to action?", bs.directCTA, v => updateBs("directCTA", v), { textarea: true })}
+                  {renderField("11. Call to Action – Transitional", "What transitional CTAs will you use?", bs.transitionalCTA, v => updateBs("transitionalCTA", v), { textarea: true })}
+                  {renderField("12. That Ends in Success", "What positive changes will they experience?", bs.success, v => updateBs("success", v), { textarea: true })}
+                  {renderField("13. And Avoids Failure", "What negative consequences will they avoid?", bs.failure, v => updateBs("failure", v), { textarea: true })}
+                  {renderField("14. Identity Transformation", "Who were they before and who are they becoming?", bs.identity, v => updateBs("identity", v), { textarea: true })}
+                </div>
+                <div>
+                  {previewBox("BrandScript Talking Points", bsPoints)}
+                  {copyBtn(bsPoints, "Copy Talking Points", "bs")}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* SOCIAL */}
+          {activeStep === "social-card" && (
+            <div style={playbookStyles.card}>
+              <div style={{ fontSize: "0.75rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "#555" }}>Step 6</div>
+              <div style={{ fontSize: "1.1rem", fontWeight: 600, marginBottom: "0.25rem" }}>Social Media Messaging Framework</div>
+              <div style={{ fontSize: "0.9rem", color: "#555", lineHeight: 1.6, maxWidth: 640, marginBottom: "0.75rem" }}>
+                Turn your BrandScript into repeatable social captions.
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.4fr) minmax(0,1fr)", gap: "1rem" }}>
+                <div>
+                  {renderField("1. Controlling idea", "The main truth your content repeats.", sm.controlling, v => updateSm("controlling", v), { textarea: true })}
+                  {renderField("2. Story question", "The big question in your customer's mind.", sm.question, v => updateSm("question", v), { textarea: true })}
+                  {renderField("3. Problem", "Summarize the problem.", sm.problem, v => updateSm("problem", v), { textarea: true })}
+                  {renderField("4. Stakes", "What do they stand to win or lose?", sm.stakes, v => updateSm("stakes", v), { textarea: true })}
+                  {renderField("5. Guide statement", "Empathy and authority in one or two lines.", sm.guide, v => updateSm("guide", v), { textarea: true })}
+                  {renderField("6. Plan", "Your 3-4 step plan in sentence form.", sm.plan, v => updateSm("plan", v), { textarea: true })}
+                  {renderField("7. Call to action", "What simple step do you want them to take?", sm.cta, v => updateSm("cta", v), { textarea: true })}
+                  {renderField("8. Future success", "Life after working with you.", sm.success, v => updateSm("success", v), { textarea: true })}
+                </div>
+                <div>
+                  {previewBox("Caption 1 – Controlling Idea", sm.controlling || "(Caption 1 will appear here…)")}
+                  {previewBox("Caption 2 – Story Question", sm.question || "(Caption 2 will appear here…)")}
+                  {previewBox("Caption 3 – Problem", sm.problem || "(Caption 3 will appear here…)")}
+                  {previewBox("Caption 4 – Stakes", sm.stakes || "(Caption 4 will appear here…)")}
+                  {previewBox("Caption 5 – Guide", sm.guide || "(Caption 5 will appear here…)")}
+                  {previewBox("Caption 6 – Plan", sm.plan || "(Caption 6 will appear here…)")}
+                  {previewBox("Caption 7 – Call to Action", sm.cta || "(Caption 7 will appear here…)")}
+                  {previewBox("Caption 8 – Future Success", sm.success || "(Caption 8 will appear here…)")}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* EMAILS */}
+          {activeStep === "emails-card" && (
+            <div style={playbookStyles.card}>
+              <div style={{ fontSize: "0.75rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "#555" }}>Step 7</div>
+              <div style={{ fontSize: "1.1rem", fontWeight: 600, marginBottom: "0.25rem" }}>6-Email Nurture Sequence</div>
+              <div style={{ fontSize: "0.9rem", color: "#555", lineHeight: 1.6, maxWidth: 640, marginBottom: "0.75rem" }}>
+                Build a simple six-email sequence that delivers value and makes a clear offer.
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                {[1,2,3,4,5,6].map(i => (
+                  <div key={i} style={playbookStyles.emailRow}>
+                    <div style={playbookStyles.emailBlock}>
+                      <div style={playbookStyles.fieldLabel}>Email {i}</div>
+                      {renderField("Subject", "", (em as any)[`em${i}Sub`] || "", v => updateEm(`em${i}Sub`, v))}
+                      <div style={{ marginBottom: "0.5rem" }}>
+                        <div style={playbookStyles.fieldLabel}>Body</div>
+                        <textarea style={{ ...playbookStyles.textarea, minHeight: 80 }} value={(em as any)[`em${i}Body`] || ""} onChange={e => updateEm(`em${i}Body`, e.target.value)} />
+                      </div>
+                      <div style={{ marginBottom: "0.5rem" }}>
+                        <div style={playbookStyles.fieldLabel}>P.S.</div>
+                        <textarea style={playbookStyles.textarea} value={(em as any)[`em${i}PS`] || ""} onChange={e => updateEm(`em${i}PS`, e.target.value)} />
+                      </div>
+                    </div>
+                    <div style={playbookStyles.connector}><div style={playbookStyles.connectorLine} /></div>
+                    <div>
+                      {previewBox(`Email ${i} Preview`, buildEmailPreview((em as any)[`em${i}Sub`] || "", (em as any)[`em${i}Body`] || "", (em as any)[`em${i}PS`] || ""))}
+                      {copyBtn(buildEmailPreview((em as any)[`em${i}Sub`] || "", (em as any)[`em${i}Body`] || "", (em as any)[`em${i}PS`] || ""), `Copy Email ${i}`, `em${i}`)}
+                    </div>
+                  </div>
+                ))}
+                <div>
+                  <div style={playbookStyles.fieldLabel}>Email signature</div>
+                  <div style={playbookStyles.fieldHint}>Added at the end of every email.</div>
+                  <textarea style={playbookStyles.textarea} value={em.signature} onChange={e => updateEm("signature", e.target.value)} rows={4} />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* LEAD MAGNET */}
+          {activeStep === "lead-card" && (
+            <div style={playbookStyles.card}>
+              <div style={{ fontSize: "0.75rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "#555" }}>Step 8</div>
+              <div style={{ fontSize: "1.1rem", fontWeight: 600, marginBottom: "0.25rem" }}>Lead Magnet Title Creator</div>
+              <div style={{ fontSize: "0.9rem", color: "#555", lineHeight: 1.6, maxWidth: 640, marginBottom: "0.75rem" }}>
+                Create a clear, valuable title for your downloadable guide, checklist, or video.
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.4fr) minmax(0,1fr)", gap: "1rem" }}>
+                <div>
+                  {renderField("Lead magnet title", "The exact title your ideal customer would want to grab.", lgTitle, setLgTitle, { textarea: true })}
+                </div>
+                <div>
+                  {previewBox("Lead Magnet Title Preview", lgTitle.trim() || "(Your lead magnet title will appear here…)")}
+                  {copyBtn(lgTitle.trim(), "Copy Lead Magnet Title", "lg")}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // SIDEBAR
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -4065,6 +4616,7 @@ const NAV = [
   { icon: "⊞", label: "Home", page: "home" as Page },
   { icon: "◎", label: "Goals", page: "goals" as Page },
   { icon: "✓", label: "Tasks", page: "tasks" as Page },
+  { icon: "📋", label: "Playbooks", page: "playbooks" as Page },
   { icon: "⛓", label: "Integrations", page: "integrations" as Page },
   { icon: "👥", label: "Team", page: "team" as Page },
   { icon: "⚙", label: "Settings", page: "settings" as Page },
@@ -4825,6 +5377,7 @@ const sidebarEl = (
           {page === "app-detail" && selectedApp && <div style={{ flex: 1, overflowY: "auto" }}><AppDetailPage app={selectedApp} onBack={() => setPage("integrations")} /></div>}
           {page === "team" && <div style={{ flex: 1, overflowY: "auto" }}><TeamPage /></div>}
           {page === "settings" && <div style={{ flex: 1, overflowY: "auto" }}><SettingsPage userId={userId!} userEmail={userEmail} profile={profile} forceDisableFiveAccount={fiveAccountForceOff} onForceDisableAcknowledged={() => setFiveAccountForceOff(false)} onProfileSaved={p => setProfile(p)} onFiveAccountCreated={handleFiveAccountCreated} onFiveAccountDisabled={handleGlobalFiveAccountDisabled} fiveAccountSettings={fiveAccountSettings} onFiveAccountSettingsChange={handleUpdateSettings} /></div>}
+          {page === "playbooks" && <PlaybooksPage />}
           {page === "equation-builder" && equationBuilderTarget && (
             <EquationBuilderPage
               allMetrics={sections.flatMap(s => s.metrics)}
