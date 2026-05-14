@@ -60,7 +60,7 @@ interface EquationStep {
   metricIcon?: string;
   metricColor?: MetricColor;
   metricValue?: string;
-  operator?: "+" | "-" | "*" | "/" | "total-multiply" | "total-divide";
+  operator?: "+" | "-" | "*" | "/" | "total-multiply" | "total-divide" | "total-add" | "total-subtract" | "paren-start" | "paren-end";
   metricType?: MetricType;
   currencySymbol?: string;
   healthPct?: number | null;
@@ -229,14 +229,41 @@ function runFiveAccountEquation(
 function evaluateEquation(steps: EquationStep[], allMetrics: Metric[]): number | null {
   if (steps.length === 0) return null;
 
-  // Handle total-multiply / total-divide: evaluate left and right recursively
+  // Handle parentheses: evaluate innermost groups first
+  let depth = 0;
+  let parenStart = -1;
   for (let i = 0; i < steps.length; i++) {
     const s = steps[i];
-    if (s.type === "operator" && (s.operator === "total-multiply" || s.operator === "total-divide")) {
+    if (s.type === "operator" && s.operator === "paren-start") {
+      if (depth === 0) parenStart = i;
+      depth++;
+    } else if (s.type === "operator" && s.operator === "paren-end") {
+      depth--;
+      if (depth === 0 && parenStart >= 0) {
+        const innerSteps = steps.slice(parenStart + 1, i);
+        const innerResult = evaluateEquation(innerSteps, allMetrics);
+        if (innerResult === null) return null;
+        const newSteps: EquationStep[] = [
+          ...steps.slice(0, parenStart),
+          { type: "metric", metricId: "_paren", metricValue: String(innerResult), metricLabel: String(innerResult) },
+          ...steps.slice(i + 1),
+        ];
+        return evaluateEquation(newSteps, allMetrics);
+      }
+    }
+  }
+
+  // Handle total operators: evaluate left and right recursively
+  for (let i = 0; i < steps.length; i++) {
+    const s = steps[i];
+    if (s.type === "operator" && (s.operator === "total-multiply" || s.operator === "total-divide" || s.operator === "total-add" || s.operator === "total-subtract")) {
       const leftResult = evaluateEquation(steps.slice(0, i), allMetrics);
       const rightResult = evaluateEquation(steps.slice(i + 1), allMetrics);
       if (leftResult === null || rightResult === null) return null;
-      return s.operator === "total-multiply" ? leftResult * rightResult : leftResult / rightResult;
+      if (s.operator === "total-multiply") return leftResult * rightResult;
+      if (s.operator === "total-divide") return rightResult === 0 ? 0 : leftResult / rightResult;
+      if (s.operator === "total-add") return leftResult + rightResult;
+      return leftResult - rightResult;
     }
   }
 
@@ -250,7 +277,7 @@ function evaluateEquation(steps: EquationStep[], allMetrics: Metric[]): number |
   for (const step of steps) {
     if (step.type === "operator") {
       if (step.operator) {
-        if (step.operator === "total-multiply" || step.operator === "total-divide") continue;
+        if (step.operator === "total-multiply" || step.operator === "total-divide" || step.operator === "total-add" || step.operator === "total-subtract" || step.operator === "paren-start" || step.operator === "paren-end") continue;
         resolved.push(step.operator as "+" | "-" | "*" | "/");
       }
     } else {
@@ -315,12 +342,20 @@ function autoParenthesizeSteps(steps: EquationStep[]): { display: string; groupe
   for (let idx = 0; idx < steps.length; idx++) {
     const s = steps[idx];
     if (s.type === "operator") {
+      if (s.operator === "paren-start") { displayParts.push("("); i++; continue; }
+      if (s.operator === "paren-end") { displayParts.push(")"); i++; continue; }
       const needsParens = s.operator === "+" || s.operator === "-";
       if (needsParens && currentGroup.length > 0) {
         grouped.push(currentGroup);
         currentGroup = [];
       }
-      displayParts.push(s.operator === "*" ? "×" : s.operator === "/" ? "÷" : s.operator ?? "+");
+      if (s.operator === "*") displayParts.push("×");
+      else if (s.operator === "/") displayParts.push("÷");
+      else if (s.operator === "total-multiply") displayParts.push("TOTAL×");
+      else if (s.operator === "total-divide") displayParts.push("TOTAL÷");
+      else if (s.operator === "total-add") displayParts.push("TOTAL+");
+      else if (s.operator === "total-subtract") displayParts.push("TOTAL−");
+      else displayParts.push(s.operator ?? "+");
       i++;
     } else {
       currentGroup.push(idx);
@@ -336,7 +371,15 @@ function buildEquationPreviewString(steps: EquationStep[], allMetrics: Metric[])
   const parts: string[] = [];
   for (const s of steps) {
     if (s.type === "operator") {
-      parts.push(s.operator === "*" ? "×" : s.operator === "/" ? "÷" : s.operator ?? "+");
+      if (s.operator === "*") parts.push("×");
+      else if (s.operator === "/") parts.push("÷");
+      else if (s.operator === "total-multiply") parts.push("TOTAL×");
+      else if (s.operator === "total-divide") parts.push("TOTAL÷");
+      else if (s.operator === "total-add") parts.push("TOTAL+");
+      else if (s.operator === "total-subtract") parts.push("TOTAL−");
+      else if (s.operator === "paren-start") parts.push("(");
+      else if (s.operator === "paren-end") parts.push(")");
+      else parts.push(s.operator ?? "+");
     } else {
       const m = allMetrics.find(mm => mm.id === s.metricId);
       parts.push(m?.label ?? s.metricLabel ?? "?");
@@ -3175,7 +3218,18 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
       setSteps(prev => {
         const next = [...prev];
         if (next[editingStepIndex].type === "operator") {
-          next[editingStepIndex] = { ...next[editingStepIndex], operator: op };
+          const cur = next[editingStepIndex].operator;
+          if (cur === "total-multiply" || cur === "total-divide" || cur === "total-add" || cur === "total-subtract") {
+            const totalMap: Record<string, "total-multiply" | "total-divide" | "total-add" | "total-subtract"> = {
+              "+": "total-add",
+              "-": "total-subtract",
+              "*": "total-multiply",
+              "/": "total-divide",
+            };
+            next[editingStepIndex] = { ...next[editingStepIndex], operator: totalMap[op] ?? op as any };
+          } else {
+            next[editingStepIndex] = { ...next[editingStepIndex], operator: op };
+          }
         }
         return next;
       });
@@ -3194,7 +3248,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
     }
   };
 
-  const handleAddTotalOperator = (op: "total-multiply" | "total-divide") => {
+  const handleAddTotalOperator = (op: "total-multiply" | "total-divide" | "total-add" | "total-subtract") => {
     setShowAddMenu(false);
     setForceSearch(false);
     setPendingOperator(false);
@@ -3272,10 +3326,11 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
 
   // Whether the equation is valid enough to save
   const equationValid = (() => {
-    if (steps.length < 3) return false;
-    if (steps[0].type !== "metric" || steps[steps.length - 1].type !== "metric") return false;
-    for (let i = 0; i < steps.length - 1; i++) {
-      if (steps[i].type === steps[i + 1].type) return false;
+    const filteredSteps = steps.filter(s => !(s.type === "operator" && (s.operator === "paren-start" || s.operator === "paren-end")));
+    if (filteredSteps.length < 3) return false;
+    if (filteredSteps[0].type !== "metric" || filteredSteps[filteredSteps.length - 1].type !== "metric") return false;
+    for (let i = 0; i < filteredSteps.length - 1; i++) {
+      if (filteredSteps[i].type === filteredSteps[i + 1].type) return false;
     }
     return true;
   })();
@@ -3295,10 +3350,20 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
           {/* Steps preview */}
           <div>
             {steps.length > 0 && (() => {
-              const renderGroups: { type: "metric" | "operator" | "fraction"; step?: EquationStep; steps?: EquationStep[]; groupIdx?: number; startIdx: number }[] = [];
+              const renderGroups: { type: "metric" | "operator" | "fraction" | "paren-group"; step?: EquationStep; steps?: EquationStep[]; groupIdx?: number; startIdx: number }[] = [];
               let i = 0;
               while (i < steps.length) {
-                if (i + 2 < steps.length && steps[i].type === "metric" && steps[i+1].type === "operator" && (steps[i+1].operator === "/" || steps[i+1].operator === "*") && steps[i+2].type === "metric") {
+                if (steps[i].type === "operator" && steps[i].operator === "paren-start") {
+                  let depth = 1;
+                  let j = i + 1;
+                  while (j < steps.length && depth > 0) {
+                    if (steps[j].type === "operator" && steps[j].operator === "paren-start") depth++;
+                    else if (steps[j].type === "operator" && steps[j].operator === "paren-end") depth--;
+                    if (depth > 0) j++;
+                  }
+                  renderGroups.push({ type: "paren-group", steps: steps.slice(i, j + 1), groupIdx: renderGroups.length, startIdx: i });
+                  i = j + 1;
+                } else if (i + 2 < steps.length && steps[i].type === "metric" && steps[i+1].type === "operator" && (steps[i+1].operator === "/" || steps[i+1].operator === "*") && steps[i+2].type === "metric") {
                   renderGroups.push({ type: "fraction", steps: [steps[i], steps[i+1], steps[i+2]], groupIdx: renderGroups.length, startIdx: i });
                   i += 3;
                 } else {
@@ -3521,7 +3586,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                               display: "flex", alignItems: "center", justifyContent: "center",
                               fontSize: 22 * csScale, fontWeight: 700,
                             }}>
-                              {step.operator === "*" ? "×" : step.operator === "/" ? "÷" : step.operator === "total-multiply" ? "×" : step.operator === "total-divide" ? "÷" : step.operator}
+                              {step.operator === "*" ? "×" : step.operator === "/" ? "÷" : step.operator === "total-multiply" ? "×" : step.operator === "total-divide" ? "÷" : step.operator === "total-add" ? "+" : step.operator === "total-subtract" ? "−" : step.operator}
                             </div>
                           </div>
                         </div>
@@ -3537,10 +3602,19 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                           onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Add Metric Box</div>
                         <div onClick={() => { setShowAddMenu(false); setAddAtIndex(null); setForceSearch(false); setPendingOperator(true); setEditingStepIndex(null); setSearchQuery(""); }} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
                           onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Add Math Symbol</div>
+                        <div onClick={() => handleAddTotalOperator("total-add")} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
+                          onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Add Total</div>
+                        <div onClick={() => handleAddTotalOperator("total-subtract")} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
+                          onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Subtract Total</div>
                         <div onClick={() => handleAddTotalOperator("total-multiply")} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
                           onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Multiply Total</div>
                         <div onClick={() => handleAddTotalOperator("total-divide")} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
                           onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Divide Total</div>
+                        <div style={{ borderTop: "1px solid #e2e8f0", margin: "4px 0" }} />
+                        <div onClick={() => { setShowAddMenu(false); addAtIndex !== null && setSteps(prev => { const n = [...prev]; n.splice(addAtIndex, 0, { type: "operator" as const, operator: "paren-start" as const }); return n; }); setAddAtIndex(null); setTimeout(() => searchRef.current?.focus(), 50); }} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
+                          onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Start Group</div>
+                        <div onClick={() => { setShowAddMenu(false); addAtIndex !== null && setSteps(prev => { const n = [...prev]; n.splice(addAtIndex, 0, { type: "operator" as const, operator: "paren-end" as const }); return n; }); setAddAtIndex(null); setTimeout(() => searchRef.current?.focus(), 50); }} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
+                          onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>End Group</div>
                       </div>
                     ) : null
                   );
@@ -3555,16 +3629,145 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                     </div>
                   );
 
+                  // Recursive renderer for nested paren groups
+                  const renderRange = (rStart: number, rEnd: number): React.ReactNode[] => {
+                    const rangeLen = rEnd - rStart;
+                    if (rangeLen <= 0) return [];
+                    const subGroups: typeof renderGroups = [];
+                    let ri = rStart;
+                    while (ri < rEnd) {
+                      if (steps[ri].type === "operator" && steps[ri].operator === "paren-start") {
+                        let depth = 1; let rj = ri + 1;
+                        while (rj < rEnd && depth > 0) {
+                          if (steps[rj].type === "operator" && steps[rj].operator === "paren-start") depth++;
+                          else if (steps[rj].type === "operator" && steps[rj].operator === "paren-end") depth--;
+                          if (depth > 0) rj++;
+                        }
+                        subGroups.push({ type: "paren-group", steps: steps.slice(ri, rj + 1), groupIdx: ri, startIdx: ri });
+                        ri = rj + 1;
+                      } else if (ri + 2 < rEnd && steps[ri].type === "metric" && steps[ri+1].type === "operator" && (steps[ri+1].operator === "/" || steps[ri+1].operator === "*") && steps[ri+2].type === "metric") {
+                        subGroups.push({ type: "fraction", steps: [steps[ri], steps[ri+1], steps[ri+2]], groupIdx: ri, startIdx: ri });
+                        ri += 3;
+                      } else if (steps[ri].type === "operator" && steps[ri].operator === "paren-end") {
+                        ri++;
+                      } else {
+                        subGroups.push({ type: steps[ri].type as "metric" | "operator", step: steps[ri], groupIdx: ri, startIdx: ri });
+                        ri++;
+                      }
+                    }
+                    if (subGroups.length === 0) return [];
+
+                    const subSections: typeof sections = [];
+                    for (let sri = 0; sri < subGroups.length; sri++) {
+                      const g = subGroups[sri];
+                      const isTOp = g.type === "operator" && g.step && (g.step.operator === "total-multiply" || g.step.operator === "total-divide" || g.step.operator === "total-add" || g.step.operator === "total-subtract");
+                      if (isTOp) {
+                        subSections.push({ type: "total-op", group: g, endStepIdx: g.startIdx + 1 });
+                      } else {
+                        const last = subSections[subSections.length - 1];
+                        const sCnt = g.type === "fraction" ? 3 : g.type === "paren-group" ? g.steps!.length : 1;
+                        if (last && last.type === "seq") {
+                          last.groups!.push(g);
+                          last.endStepIdx = g.startIdx + sCnt;
+                        } else {
+                          subSections.push({ type: "seq", groups: [g], endStepIdx: g.startIdx + sCnt });
+                        }
+                      }
+                    }
+
+                    const subResult: React.ReactNode[] = [];
+                    subSections.forEach((sec, ssi) => {
+                      if (sec.type === "seq") {
+                        const secRendered: React.ReactNode[] = [];
+                        sec.groups!.forEach((g, ggi) => {
+                          if (g.type === "paren-group") {
+                            const pgLineBefore = dropLineIndex === g.startIdx;
+                            if (pgLineBefore) secRendered.push(<div key={`rpgline-${rStart}-${ssi}-${ggi}`} style={{ width: 3, alignSelf: "stretch", background: "#3B82F6", borderRadius: 2, flexShrink: 0, minHeight: 60 }} />);
+                            secRendered.push(
+                              <div key={`rpg-${rStart}-${ssi}-${ggi}`} style={{ display: "inline-flex", flexWrap: "wrap", gap: 6, padding: "8px 12px", border: "2px solid #e2e8f0", borderRadius: 16, background: "#fff", alignItems: "flex-start" }}>
+                                {renderRange(g.startIdx + 1, g.startIdx + g.steps!.length - 1)}
+                              </div>
+                            );
+                          } else {
+                            const r = innerRenderGroup(g, ggi, ssi, cardSize, 1);
+                            if (r) secRendered.push(...r);
+                          }
+                        });
+                        const isLast = ssi === subSections.length - 1;
+                        if (isLast) {
+                          subResult.push(...secRendered);
+                        } else {
+                          subResult.push(
+                            <div key={`rw-${rStart}-${ssi}`} style={{ display: "inline-flex", flexWrap: "wrap", gap: 6, padding: "8px 12px", border: "2px solid #e2e8f0", borderRadius: 16, background: "#fff", alignItems: "flex-start" }}
+                              onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDropLineIndex(sec.endStepIdx); dropLineIndexRef.current = sec.endStepIdx; }}
+                              onDrop={e => { e.preventDefault(); e.stopPropagation(); handleStepDrop(sec.endStepIdx); }}>
+                              {secRendered}
+                              {dropLineIndex === sec.endStepIdx && <div style={{ width: 3, alignSelf: "stretch", background: "#3B82F6", borderRadius: 2, flexShrink: 0, minHeight: 60 }} />}
+                              {renderPlusButton(sec.endStepIdx, `rp-${rStart}-${ssi}`)}
+                            </div>
+                          );
+                        }
+                      } else if (sec.type === "total-op" && sec.group) {
+                        const gg = sec.group; const st = gg.step!;
+                        const idx = steps.indexOf(st);
+                        const isEdit = editingStepIndex === idx;
+                        const opC = st.operator === "total-multiply" ? "×" : st.operator === "total-divide" ? "÷" : st.operator === "total-add" ? "+" : "-";
+                        const prevIsSeq2 = ssi > 0 && subSections[ssi - 1].type === "seq" && subSections[ssi - 1].endStepIdx === gg.startIdx;
+                        const lIdx2 = !prevIsSeq2 && dropLineIndex === gg.startIdx;
+                        if (lIdx2) subResult.push(<div key={`rtl-${rStart}-${ssi}`} style={{ width: 3, alignSelf: "stretch", background: "#3B82F6", borderRadius: 2, flexShrink: 0, minHeight: 60 }} />);
+                        subResult.push(
+                          <div key={`rto-${rStart}-${ssi}`}
+                            onClick={() => handleEditStep(idx)}
+                            draggable
+                            onDragStart={e => {
+                              e.dataTransfer.setData("text/plain", "");
+                              e.dataTransfer.effectAllowed = "move";
+                              e.stopPropagation();
+                              dragStepIdxRef.current = idx;
+                              dragCountRef.current = 1;
+                              handleEditStep(idx);
+                              const el = e.currentTarget.cloneNode(true) as HTMLElement;
+                              el.style.cssText = 'position:absolute;top:-999px;left:-999px;transform:scale(0.5);transform-origin:top left;border-radius:12px;overflow:hidden;outline:2px solid #3B82F6;background:#EFF6FF;';
+                              el.style.pointerEvents = 'none';
+                              document.body.appendChild(el);
+                              const r = el.getBoundingClientRect();
+                              e.dataTransfer.setDragImage(el, r.width / 2, r.height / 2);
+                              setTimeout(() => document.body.removeChild(el), 0);
+                            }}
+                            onDragOver={e => { e.preventDefault(); e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); const m = rect.left + rect.width / 2; const idx2 = e.clientX < m ? idx : idx + 1; setDropLineIndex(idx2); dropLineIndexRef.current = idx2; }}
+                            onDrop={e => { e.preventDefault(); e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); const m = rect.left + rect.width / 2; const idx2 = e.clientX < m ? idx : idx + 1; handleStepDrop(idx2); }}
+                            onDragEnd={() => { dragStepIdxRef.current = null; dragCountRef.current = 1; setDropLineIndex(null); dropLineIndexRef.current = null; }}
+                            style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "flex-start", borderRadius: 12, padding: 2, outline: isEdit ? "2px solid #3B82F6" : "2px solid transparent", background: isEdit ? "#EFF6FF" : "transparent" }}>
+                            {isEdit && (
+                              <div onClick={e => { e.stopPropagation(); handleRemoveStep(idx); }} style={{ position: "absolute", top: 2, right: 2, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#3B82F6", fontSize: 22, fontWeight: 700, lineHeight: 1, zIndex: 10 }}>×</div>
+                            )}
+                            <div style={{ display: "flex", justifyContent: "center", width: "100%", marginBottom: 3 }}>
+                              <div style={{ width: 44 * circleScale, height: 44 * circleScale, borderRadius: "50%", background: "#64748b", color: "#fff", fontSize: 20 * circleScale, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                {gg.groupIdx! + 1}
+                              </div>
+                            </div>
+                            <div style={{ width: cardSize, minHeight: cardSize, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                              <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#3B82F6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, fontWeight: 700 }}>
+                                {opC}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+                    });
+                    return subResult;
+                  };
+
                   // Build sections: split at total operators
                   const sections: { type: "seq" | "total-op"; groups?: typeof renderGroups; group?: typeof renderGroups[0]; endStepIdx: number }[] = [];
                   for (let ri = 0; ri < renderGroups.length; ri++) {
                     const g = renderGroups[ri];
-                    const isTotalOp = g.type === "operator" && g.step && (g.step.operator === "total-multiply" || g.step.operator === "total-divide");
+                    const isTotalOp = g.type === "operator" && g.step && (g.step.operator === "total-multiply" || g.step.operator === "total-divide" || g.step.operator === "total-add" || g.step.operator === "total-subtract");
                     if (isTotalOp) {
                       sections.push({ type: "total-op", group: g, endStepIdx: g.startIdx + 1 });
                     } else {
                       const last = sections[sections.length - 1];
-                      const stepCount = g.type === "fraction" ? 3 : 1;
+                      const stepCount = g.type === "fraction" ? 3 : g.type === "paren-group" ? g.steps!.length : 1;
                       if (last && last.type === "seq") {
                         last.groups!.push(g);
                         last.endStepIdx = g.startIdx + stepCount;
@@ -3580,16 +3783,30 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                     if (sec.type === "seq") {
                       const groupsRendered: React.ReactNode[] = [];
                       sec.groups!.forEach((g, gi) => {
-                        const rendered = innerRenderGroup(g, gi, si, cardSize, 1);
-                        if (rendered) groupsRendered.push(...rendered);
+                        if (g.type === "paren-group") {
+                          const lineBefore = dropLineIndex === g.startIdx;
+                          if (lineBefore) groupsRendered.push(<div key={`pgline-${si}-${gi}`} style={{ width: 3, alignSelf: "stretch", background: "#3B82F6", borderRadius: 2, flexShrink: 0, minHeight: 60 }} />);
+                          groupsRendered.push(
+                            <div key={`pg-${si}-${gi}`} style={{ display: "inline-flex", flexWrap: "wrap", gap: 6, padding: "8px 12px", border: "2px solid #e2e8f0", borderRadius: 16, background: "#fff", alignItems: "flex-start" }}>
+                              {renderRange(g.startIdx + 1, g.startIdx + g.steps!.length - 1)}
+                            </div>
+                          );
+                        } else {
+                          const rendered = innerRenderGroup(g, gi, si, cardSize, 1);
+                          if (rendered) groupsRendered.push(...rendered);
+                        }
                       });
                       const isLast = si === sections.length - 1;
+                      const lineAtEnd = dropLineIndex === sec.endStepIdx;
                       if (isLast) {
                         result.push(...groupsRendered);
                       } else {
                         result.push(
-                          <div key={`wrap-${si}`} style={{ display: "inline-flex", flexWrap: "wrap", gap: 6, padding: "8px 12px", border: "2px solid #e2e8f0", borderRadius: 16, background: "#fff", alignItems: "flex-start" }}>
+                          <div key={`wrap-${si}`} style={{ display: "inline-flex", flexWrap: "wrap", gap: 6, padding: "8px 12px", border: "2px solid #e2e8f0", borderRadius: 16, background: "#fff", alignItems: "flex-start" }}
+                            onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDropLineIndex(sec.endStepIdx); dropLineIndexRef.current = sec.endStepIdx; }}
+                            onDrop={e => { e.preventDefault(); e.stopPropagation(); handleStepDrop(sec.endStepIdx); }}>
                             {groupsRendered}
+                            {lineAtEnd && <div style={{ width: 3, alignSelf: "stretch", background: "#3B82F6", borderRadius: 2, flexShrink: 0, minHeight: 60 }} />}
                             {renderPlusButton(sec.endStepIdx, `sp-${si}`)}
                           </div>
                         );
@@ -3599,8 +3816,9 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                       const step = g.step!;
                       const idx = steps.indexOf(step);
                       const isEditing = editingStepIndex === idx;
-                      const opChar = step.operator === "total-multiply" ? "×" : "÷";
-                      const lineIdx = dropLineIndex === g.startIdx;
+                      const opChar = step.operator === "total-multiply" ? "×" : step.operator === "total-divide" ? "÷" : step.operator === "total-add" ? "+" : "-";
+                      const prevIsSeq = si > 0 && sections[si - 1].type === "seq" && sections[si - 1].endStepIdx === g.startIdx;
+                      const lineIdx = !prevIsSeq && dropLineIndex === g.startIdx;
                       if (lineIdx) {
                         result.push(<div key={`tl-${si}`} style={{ width: 3, alignSelf: "stretch", background: "#3B82F6", borderRadius: 2, flexShrink: 0, minHeight: 60 }} />);
                       }
