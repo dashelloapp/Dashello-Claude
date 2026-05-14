@@ -3138,6 +3138,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
   const addMenuRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const [checkedSteps, setCheckedSteps] = useState<Set<number>>(new Set());
+  const [selectedGroupStartIdx, setSelectedGroupStartIdx] = useState<number | null>(null);
 
   const toggleChecked = (idx: number) => {
     setCheckedSteps(prev => {
@@ -3168,6 +3169,37 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
       return next;
     });
     setCheckedSteps(new Set());
+  };
+
+  const handleRemoveGroup = (startIdx: number) => {
+    setSteps(prev => {
+      const next = [...prev];
+      if (next[startIdx]?.type === "operator" && next[startIdx]?.operator === "paren-start") {
+        let depth = 1;
+        let endIdx = startIdx + 1;
+        while (endIdx < next.length && depth > 0) {
+          if (next[endIdx].type === "operator" && next[endIdx].operator === "paren-start") depth++;
+          else if (next[endIdx].type === "operator" && next[endIdx].operator === "paren-end") depth--;
+          if (depth > 0) endIdx++;
+        }
+        next.splice(startIdx, endIdx - startIdx + 1);
+      }
+      let changed = true;
+      while (changed) {
+        changed = false;
+        for (let i = 0; i < next.length - 1; i++) {
+          if (next[i].type === "operator" && next[i].operator === "paren-start" &&
+              next[i + 1].type === "operator" && next[i + 1].operator === "paren-end") {
+            next.splice(i, 2);
+            changed = true;
+            break;
+          }
+        }
+      }
+      return next;
+    });
+    setSelectedGroupStartIdx(null);
+    setEditingStepIndex(null);
   };
 
   // Derived: whether to show math picker or search based on current state
@@ -3308,6 +3340,18 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
     setSteps(prev => {
       const next = [...prev];
       next.splice(idx, 1);
+      let changed = true;
+      while (changed) {
+        changed = false;
+        for (let i = 0; i < next.length - 1; i++) {
+          if (next[i].type === "operator" && next[i].operator === "paren-start" &&
+              next[i + 1].type === "operator" && next[i + 1].operator === "paren-end") {
+            next.splice(i, 2);
+            changed = true;
+            break;
+          }
+        }
+      }
       return next;
     });
     setEditingStepIndex(null);
@@ -3411,7 +3455,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                 }
               }
               return (
-              <div style={{ display: "flex", alignItems: "flex-start", flexWrap: "wrap", gap: 6, padding: "14px 18px", background: "#F8FAFC", borderRadius: 12, border: "1px solid #e2e8f0", minHeight: 60, position: "relative" }}>
+              <div onClick={() => setSelectedGroupStartIdx(null)} style={{ display: "flex", alignItems: "flex-start", flexWrap: "wrap", gap: 6, padding: "14px 18px", background: "#F8FAFC", borderRadius: 12, border: "1px solid #e2e8f0", minHeight: 60, position: "relative" }}>
                 {(() => {
                   const innerRenderGroup = (g: typeof renderGroups[0], gi: number, si: number, sc: number, shrinkScale: number) => {
                     const startIdx = g.startIdx;
@@ -3640,18 +3684,18 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                   const renderAddMenu = (insertAt: number, menuKey: string) => (
                     showAddMenu && addAtIndex === insertAt ? (
                       <div key={menuKey} ref={addMenuRef} style={{ position: "absolute", left: 0, top: "100%", marginTop: 4, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 50, minWidth: 170, overflow: "hidden" }}>
-                        <div onClick={() => { setShowAddMenu(false); setAddAtIndex(null); setForceSearch(true); setPendingOperator(false); setEditingStepIndex(null); setSearchQuery(""); setTimeout(() => searchRef.current?.focus(), 50); }} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
+                        <div onClick={e => { e.stopPropagation(); setShowAddMenu(false); setAddAtIndex(null); setForceSearch(true); setPendingOperator(false); setEditingStepIndex(null); setSearchQuery(""); setTimeout(() => searchRef.current?.focus(), 50); }} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
                           onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Add Metric Box</div>
-                        <div onClick={() => { setShowAddMenu(false); setAddAtIndex(null); setForceSearch(false); setPendingOperator(true); setEditingStepIndex(null); setSearchQuery(""); }} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
+                        <div onClick={e => { e.stopPropagation(); setShowAddMenu(false); setAddAtIndex(null); setForceSearch(false); setPendingOperator(true); setEditingStepIndex(null); setSearchQuery(""); }} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
                           onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Add Math Symbol</div>
                         <div style={{ borderTop: "1px solid #e2e8f0", margin: "4px 0" }} />
-                        <div onClick={() => handleAddTotalOperator("total-divide")} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
+                        <div onClick={e => { e.stopPropagation(); handleAddTotalOperator("total-divide"); }} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
                           onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Divide Total</div>
-                        <div onClick={() => handleAddTotalOperator("total-multiply")} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
+                        <div onClick={e => { e.stopPropagation(); handleAddTotalOperator("total-multiply"); }} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
                           onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Multiply Total</div>
-                        <div onClick={() => handleAddTotalOperator("total-subtract")} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
+                        <div onClick={e => { e.stopPropagation(); handleAddTotalOperator("total-subtract"); }} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
                           onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Subtract Total</div>
-                        <div onClick={() => handleAddTotalOperator("total-add")} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
+                        <div onClick={e => { e.stopPropagation(); handleAddTotalOperator("total-add"); }} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
                           onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Add Total</div>
                       </div>
                     ) : null
@@ -3661,7 +3705,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                     <div key={key} style={{ alignSelf: "center", position: "relative" }}
                       onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDropLineIndex(insertAt); dropLineIndexRef.current = insertAt; }}
                       onDrop={e => { e.preventDefault(); e.stopPropagation(); handleStepDrop(insertAt); }}>
-                      <div onMouseDown={e => e.stopPropagation()} onClick={() => { setAddAtIndex(insertAt); setShowAddMenu(v => !v); }}
+                      <div onMouseDown={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); setAddAtIndex(insertAt); setShowAddMenu(v => !v); }}
                         style={{ width: 36, height: 36, borderRadius: "50%", border: "1.5px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#94a3b8", fontSize: 18, background: "#fff", flexShrink: 0 }}>+</div>
                       {renderAddMenu(insertAt, `menu-${key}`)}
                     </div>
@@ -3720,10 +3764,17 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                         sec.groups!.forEach((g, ggi) => {
                           if (g.type === "paren-group") {
                             const pgLineBefore = dropLineIndex === g.startIdx;
+                            const rpgIsSelected = selectedGroupStartIdx === g.startIdx;
                             if (pgLineBefore) secRendered.push(<div key={`rpgline-${rStart}-${ssi}-${ggi}`} style={{ width: 3, alignSelf: "stretch", background: "#3B82F6", borderRadius: 2, flexShrink: 0, minHeight: 60 }} />);
                             secRendered.push(
-                              <div key={`rpg-${rStart}-${ssi}-${ggi}`} style={{ display: "inline-flex", flexWrap: "wrap", gap: 6, padding: "8px 12px", border: "2px solid #e2e8f0", borderRadius: 16, background: "#fff", alignItems: "flex-start" }}>
+                              <div key={`rpg-${rStart}-${ssi}-${ggi}`}
+                                onClick={e => { e.stopPropagation(); setSelectedGroupStartIdx(rpgIsSelected ? null : g.startIdx); }}
+                                style={{ position: "relative", display: "inline-flex", flexWrap: "wrap", gap: 6, padding: "8px 12px", border: `2px solid ${rpgIsSelected ? "#3B82F6" : "#e2e8f0"}`, borderRadius: 16, background: "#fff", alignItems: "flex-start" }}>
+                                {rpgIsSelected && (
+                                  <div onClick={e => { e.stopPropagation(); handleRemoveGroup(g.startIdx); }} style={{ position: "absolute", top: -10, right: -10, width: 24, height: 24, borderRadius: "50%", background: "#3B82F6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 14, fontWeight: 700, zIndex: 20, boxShadow: "0 2px 6px rgba(0,0,0,0.15)" }}>×</div>
+                                )}
                                 {renderRange(g.startIdx + 1, g.startIdx + g.steps!.length - 1)}
+                                {renderPlusButton(g.startIdx + g.steps!.length - 1, `rpgp-${rStart}-${ssi}-${ggi}`)}
                               </div>
                             );
                           } else {
@@ -3822,12 +3873,19 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                     if (sec.type === "seq") {
                       const groupsRendered: React.ReactNode[] = [];
                       sec.groups!.forEach((g, gi) => {
-                        if (g.type === "paren-group") {
+                          if (g.type === "paren-group") {
                           const lineBefore = dropLineIndex === g.startIdx;
+                          const pgIsSelected = selectedGroupStartIdx === g.startIdx;
                           if (lineBefore) groupsRendered.push(<div key={`pgline-${si}-${gi}`} style={{ width: 3, alignSelf: "stretch", background: "#3B82F6", borderRadius: 2, flexShrink: 0, minHeight: 60 }} />);
                           groupsRendered.push(
-                            <div key={`pg-${si}-${gi}`} style={{ display: "inline-flex", flexWrap: "wrap", gap: 6, padding: "8px 12px", border: "2px solid #e2e8f0", borderRadius: 16, background: "#fff", alignItems: "flex-start" }}>
+                            <div key={`pg-${si}-${gi}`}
+                              onClick={e => { e.stopPropagation(); setSelectedGroupStartIdx(pgIsSelected ? null : g.startIdx); }}
+                              style={{ position: "relative", display: "inline-flex", flexWrap: "wrap", gap: 6, padding: "8px 12px", border: `2px solid ${pgIsSelected ? "#3B82F6" : "#e2e8f0"}`, borderRadius: 16, background: "#fff", alignItems: "flex-start" }}>
+                              {pgIsSelected && (
+                                <div onClick={e => { e.stopPropagation(); handleRemoveGroup(g.startIdx); }} style={{ position: "absolute", top: -10, right: -10, width: 24, height: 24, borderRadius: "50%", background: "#3B82F6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 14, fontWeight: 700, zIndex: 20, boxShadow: "0 2px 6px rgba(0,0,0,0.15)" }}>×</div>
+                              )}
                               {renderRange(g.startIdx + 1, g.startIdx + g.steps!.length - 1)}
+                              {renderPlusButton(g.startIdx + g.steps!.length - 1, `pgp-${si}-${gi}`)}
                             </div>
                           );
                         } else {
