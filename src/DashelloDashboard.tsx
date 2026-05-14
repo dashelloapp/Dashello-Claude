@@ -3247,7 +3247,8 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
     onSaveDraft?.({ steps });
   };
 
-  const cardSize = Math.max(80, 140 - steps.length * 4);
+  const hasTotalOp = steps.some(s => s.type === "operator" && (s.operator === "total-multiply" || s.operator === "total-divide"));
+  const cardSize = Math.max(hasTotalOp ? 70 : 80, 140 - steps.length * 4);
   const circleScale = Math.max(0.6, Math.min(1, cardSize / 140));
 
   // Whether the equation is valid enough to save
@@ -3289,33 +3290,6 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
               return (
               <div style={{ display: "flex", alignItems: "flex-start", flexWrap: "wrap", gap: 6, padding: "14px 18px", background: "#F8FAFC", borderRadius: 12, border: "1px solid #e2e8f0", minHeight: 60, position: "relative" }}>
                 {(() => {
-                  // Build visual sections: split renderGroups at total operators
-                  const sections: { type: "seq" | "total-op"; groups?: typeof renderGroups; group?: typeof renderGroups[0] }[] = [];
-                  let wrapNext = false;
-                  for (let ri = 0; ri < renderGroups.length; ri++) {
-                    const g = renderGroups[ri];
-                    const isTotalOp = g.type === "operator" && g.step && (g.step.operator === "total-multiply" || g.step.operator === "total-divide");
-                    if (isTotalOp) {
-                      if (sections.length > 0 && sections[sections.length - 1].type === "seq") sections[sections.length - 1].type = "seq";
-                      sections.push({ type: "total-op", group: g });
-                      wrapNext = true;
-                    } else {
-                      const seq = sections.length > 0 && sections[sections.length - 1].type === "seq" ? sections[sections.length - 1] : null;
-                      if (seq && !wrapNext) {
-                        seq.groups!.push(g);
-                      } else {
-                        sections.push({ type: "seq", groups: [g] });
-                        wrapNext = false;
-                      }
-                    }
-                  }
-                  // Wrap seq blocks that are followed by a total-op
-                  for (let si = 0; si < sections.length; si++) {
-                    if (sections[si].type === "seq" && si + 1 < sections.length && sections[si + 1].type === "total-op") {
-                      sections[si].type = "seq";
-                    }
-                  }
-
                   const innerRenderGroup = (g: typeof renderGroups[0], gi: number, si: number, sc: number, shrinkScale: number) => {
                     const startIdx = g.startIdx;
                     const lineBefore = dropLineIndex === startIdx;
@@ -3476,6 +3450,8 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                       const step = g.step;
                       const idx = steps.indexOf(step);
                       const isEditing = editingStepIndex === idx;
+                      const isTotalOp = step.operator === "total-multiply" || step.operator === "total-divide";
+                      const opColor = isTotalOp ? "#059669" : "#3B82F6";
                       return [
                         lineBefore && (
                           <div key={`ol-${gi}-${si}`} style={{ width: 3, alignSelf: "stretch", background: "#3B82F6", borderRadius: 2, flexShrink: 0, minHeight: 60 }} />
@@ -3508,21 +3484,24 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                           <div style={{ display: "flex", justifyContent: "center", width: "100%", marginBottom: 3 }}>
                             <div style={{
                               width: 44 * csScale, height: 44 * csScale, borderRadius: "50%",
-                              background: "#64748b", color: "#fff", fontSize: 20 * csScale, fontWeight: 700,
+                              background: isTotalOp ? "#059669" : "#64748b", color: "#fff", fontSize: 20 * csScale, fontWeight: 700,
                               display: "flex", alignItems: "center", justifyContent: "center"
                             }}>
-                              {g.groupIdx! + 1}
+                              {isTotalOp ? "T" : g.groupIdx! + 1}
                             </div>
                           </div>
-                          <div style={{ width: 140, minHeight: 140, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <div style={{ width: isTotalOp ? 100 : 140, minHeight: isTotalOp ? 100 : 140, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4 }}>
                             <div style={{
                               width: 48 * csScale, height: 48 * csScale, borderRadius: "50%",
-                              background: "#3B82F6", color: "#fff",
+                              background: opColor, color: "#fff",
                               display: "flex", alignItems: "center", justifyContent: "center",
                               fontSize: 22 * csScale, fontWeight: 700,
                             }}>
                               {step.operator === "*" ? "×" : step.operator === "/" ? "÷" : step.operator === "total-multiply" ? "×" : step.operator === "total-divide" ? "÷" : step.operator}
                             </div>
+                            {isTotalOp && (
+                              <div style={{ fontSize: 9, fontWeight: 600, color: "#059669", textTransform: "uppercase", letterSpacing: "0.5px" }}>TOTAL</div>
+                            )}
                           </div>
                         </div>
                       ];
@@ -3530,77 +3509,13 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                     return null;
                   };
 
-                  // Render sections
-                  const result: React.ReactNode[] = [];
-                  sections.forEach((sec, si) => {
-                    const shrink = sec.type === "seq" ? 1 : 1;
-                    const sc = cardSize * shrink;
-                    if (sec.type === "total-op" && sec.group) {
-                      const g = sec.group;
-                      const step = g.step!;
-                      const idx = steps.indexOf(step);
-                      const isEditing = editingStepIndex === idx;
-                      const lineIdx = dropLineIndex === g.startIdx;
-                      if (lineIdx) {
-                        result.push(<div key={`tl-${si}`} style={{ width: 3, alignSelf: "stretch", background: "#3B82F6", borderRadius: 2, flexShrink: 0, minHeight: 60 }} />);
-                      }
-                      const opChar = step.operator === "total-multiply" ? "×" : "÷";
-                      result.push(
-                        <div key={`to-${si}`}
-                          onClick={() => handleEditStep(idx)}
-                          draggable
-                          onDragStart={e => {
-                            e.dataTransfer.setData("text/plain", "");
-                            e.dataTransfer.effectAllowed = "move";
-                            e.stopPropagation();
-                            dragStepIdxRef.current = idx;
-                            dragCountRef.current = 1;
-                            handleEditStep(idx);
-                            const el = e.currentTarget.cloneNode(true) as HTMLElement;
-                            el.style.cssText = 'position:absolute;top:-999px;left:-999px;transform:scale(0.5);transform-origin:top left;border-radius:12px;overflow:hidden;outline:2px solid #3B82F6;background:#EFF6FF;';
-                            el.style.pointerEvents = 'none';
-                            document.body.appendChild(el);
-                            const r = el.getBoundingClientRect();
-                            e.dataTransfer.setDragImage(el, r.width / 2, r.height / 2);
-                            setTimeout(() => document.body.removeChild(el), 0);
-                          }}
-                          onDragOver={e => { e.preventDefault(); e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); const m = rect.left + rect.width / 2; const idx2 = e.clientX < m ? idx : idx + 1; setDropLineIndex(idx2); dropLineIndexRef.current = idx2; }}
-                          onDrop={e => { e.preventDefault(); e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); const m = rect.left + rect.width / 2; const idx2 = e.clientX < m ? idx : idx + 1; handleStepDrop(idx2); }}
-                          onDragEnd={() => { dragStepIdxRef.current = null; dragCountRef.current = 1; setDropLineIndex(null); dropLineIndexRef.current = null; }}
-                          style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 4, borderRadius: 12, padding: "6px 10px", outline: isEditing ? "2px solid #3B82F6" : "2px solid transparent", background: isEditing ? "#EFF6FF" : "transparent" }}>
-                          {isEditing && (
-                            <div onClick={e => { e.stopPropagation(); handleRemoveStep(idx); }} style={{ position: "absolute", top: 2, right: 2, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#3B82F6", fontSize: 22, fontWeight: 700, lineHeight: 1, zIndex: 10 }}>×</div>
-                          )}
-                          <span style={{ fontSize: 28, fontWeight: 300, color: "#1a2332", fontFamily: "serif" }}>(</span>
-                          <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#3B82F6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, fontWeight: 700 }}>
-                            {opChar}
-                          </div>
-                          <span style={{ fontSize: 28, fontWeight: 300, color: "#1a2332", fontFamily: "serif" }}>)</span>
-                        </div>
-                      );
-                    } else if (sec.type === "seq" && sec.groups) {
-                      const isWrapped = si + 1 < sections.length && sections[si + 1].type === "total-op";
-                      const content = sec.groups.map((g, gi) => innerRenderGroup(g, gi, si, sc, 1));
-                      const firstStartIdx = sec.groups[0]?.startIdx;
-                      const lineBefore = dropLineIndex === firstStartIdx;
-                      if (lineBefore) {
-                        result.push(<div key={`sl-${si}`} style={{ width: 3, alignSelf: "stretch", background: "#3B82F6", borderRadius: 2, flexShrink: 0, minHeight: 60 }} />);
-                      }
-                      if (isWrapped) {
-                        if (si > 0) {
-                          result.push(<div key={`wrap-paren-${si}`} style={{ fontSize: 28, fontWeight: 300, color: "#1a2332", fontFamily: "serif", alignSelf: "center" }}>(</div>);
-                        }
-                        result.push(
-                          <div key={`wrap-${si}`} style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: "8px 12px", border: "2px solid #e2e8f0", borderRadius: 16, background: "#fff", alignItems: "flex-start" }}>
-                            {content}
-                          </div>
-                        );
-                      } else {
-                        result.push(...content);
-                      }
-                    }
+                  // Render groups inline
+                  const flatContent: React.ReactNode[] = [];
+                  renderGroups.forEach((g, gi) => {
+                    const rendered = innerRenderGroup(g, gi, 0, cardSize, 1);
+                    if (rendered) flatContent.push(...rendered);
                   });
-                  return result;
+                  return flatContent;
                 })()}
                 {dropLineIndex === steps.length && (
                   <div key="end-line" style={{ width: 3, alignSelf: "stretch", background: "#3B82F6", borderRadius: 2, flexShrink: 0, minHeight: 60 }} />
