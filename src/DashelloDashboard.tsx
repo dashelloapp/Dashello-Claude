@@ -5935,7 +5935,7 @@ const sidebarEl = (
                     setInlineView("metric-detail");
                   }}
                   onDelete={() => {
-                if (foundSid) setSections(prev => prev.map(s => s.id === foundSid ? { ...s, metrics: s.metrics.filter(m => m.id !== editingMetricFromModal.id) } : s));
+                if (foundSid && editingMetricFromModal) setSections(prev => prev.map(s => s.id === foundSid ? { ...s, metrics: s.metrics.filter(m => m.id !== editingMetricFromModal!.id) } : s));
                 setEditingMetricFromModal(null); setActiveModal(null); setInlineMetric(null);
                 setViewMode("popup"); viewModeRef.current = "popup";
                 setInlineView(null); setInlineHasUnsaved(false);
@@ -6028,7 +6028,7 @@ const sidebarEl = (
                 setEditingMetricFromModal(null);
               }}
               onDelete={() => {
-                    if (foundSid) setSections(prev => prev.map(s => s.id === foundSid ? { ...s, metrics: s.metrics.filter(m => m.id !== inlineMetric.id) } : s));
+                    if (foundSid && inlineMetric) setSections(prev => prev.map(s => s.id === foundSid ? { ...s, metrics: s.metrics.filter(m => m.id !== inlineMetric!.id) } : s));
                     setInlineView(null); setInlineMetric(null); setInlineHasUnsaved(false);
                     setActiveModal(null); setEditingMetricFromModal(null);
                     setViewMode("popup"); viewModeRef.current = "popup";
