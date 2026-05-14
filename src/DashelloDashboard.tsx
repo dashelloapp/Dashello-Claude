@@ -2278,7 +2278,7 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
                 <div style={{ fontSize: 13, fontWeight: 600, color: "#E85D75", marginBottom: 8 }}>Are you sure you want to delete this metric box?</div>
                 <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
                   <button onClick={() => setShowDeleteConfirm(false)} style={{ padding: "6px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b" }}>Cancel</button>
-                  <button onClick={() => { onDelete?.(); onClose(); }} style={{ padding: "6px 16px", borderRadius: 8, border: "none", background: "#E85D75", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Yes, Delete</button>
+                  <button onClick={() => { onDelete?.(); }} style={{ padding: "6px 16px", borderRadius: 8, border: "none", background: "#E85D75", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Yes, Delete</button>
                 </div>
               </div>
             )}
@@ -5935,11 +5935,11 @@ const sidebarEl = (
                     setInlineView("metric-detail");
                   }}
                   onDelete={() => {
-                if (foundSid && editingMetricFromModal) setSections(prev => prev.map(s => s.id === foundSid ? { ...s, metrics: s.metrics.filter(m => m.id !== editingMetricFromModal!.id) } : s));
-                setEditingMetricFromModal(null); setActiveModal(null); setInlineMetric(null);
-                setViewMode("popup"); viewModeRef.current = "popup";
-                setInlineView(null); setInlineHasUnsaved(false);
-              }}
+                    if (foundSid && inlineMetric) setSections(prev => prev.map(s => s.id === foundSid ? { ...s, metrics: s.metrics.filter(m => m.id !== inlineMetric!.id) } : s));
+                    setInlineView(null); setInlineMetric(null); setInlineHasUnsaved(false);
+                    setActiveModal(null); setEditingMetricFromModal(null);
+                    setViewMode("popup"); viewModeRef.current = "popup";
+                  }}
                   onDuplicate={() => {
                     if (foundSid) {
                       const { id, fiveAccountParentId, ...rest } = inlineMetric;
@@ -6028,11 +6028,11 @@ const sidebarEl = (
                 setEditingMetricFromModal(null);
               }}
               onDelete={() => {
-                    if (foundSid && inlineMetric) setSections(prev => prev.map(s => s.id === foundSid ? { ...s, metrics: s.metrics.filter(m => m.id !== inlineMetric!.id) } : s));
-                    setInlineView(null); setInlineMetric(null); setInlineHasUnsaved(false);
-                    setActiveModal(null); setEditingMetricFromModal(null);
-                    setViewMode("popup"); viewModeRef.current = "popup";
-                  }}
+                if (foundSid && editingMetricFromModal) setSections(prev => prev.map(s => s.id === foundSid ? { ...s, metrics: s.metrics.filter(m => m.id !== editingMetricFromModal!.id) } : s));
+                setEditingMetricFromModal(null); setActiveModal(null); setInlineMetric(null);
+                setInlineView(null); setInlineHasUnsaved(false);
+                setViewMode("popup"); viewModeRef.current = "popup";
+              }}
               onDuplicate={() => {
                 if (foundSid) {
                   const { id, fiveAccountParentId, ...rest } = editingMetricFromModal;
