@@ -60,7 +60,7 @@ interface EquationStep {
   metricIcon?: string;
   metricColor?: MetricColor;
   metricValue?: string;
-  operator?: "+" | "-" | "*" | "/";
+  operator?: "+" | "-" | "*" | "/" | "total-multiply" | "total-divide";
   metricType?: MetricType;
   currencySymbol?: string;
   healthPct?: number | null;
@@ -228,6 +228,18 @@ function runFiveAccountEquation(
 // ─── Equation solver ───────────────────────────────────────────────────────
 function evaluateEquation(steps: EquationStep[], allMetrics: Metric[]): number | null {
   if (steps.length === 0) return null;
+
+  // Handle total-multiply / total-divide: evaluate left and right recursively
+  for (let i = 0; i < steps.length; i++) {
+    const s = steps[i];
+    if (s.type === "operator" && (s.operator === "total-multiply" || s.operator === "total-divide")) {
+      const leftResult = evaluateEquation(steps.slice(0, i), allMetrics);
+      const rightResult = evaluateEquation(steps.slice(i + 1), allMetrics);
+      if (leftResult === null || rightResult === null) return null;
+      return s.operator === "total-multiply" ? leftResult * rightResult : leftResult / rightResult;
+    }
+  }
+
   if (steps.length === 1 && steps[0].type === "metric") {
     const m = allMetrics.find(mm => mm.id === steps[0].metricId);
     if (!m) return null;
@@ -237,7 +249,9 @@ function evaluateEquation(steps: EquationStep[], allMetrics: Metric[]): number |
   const resolved: (number | "+" | "-" | "*" | "/")[] = [];
   for (const step of steps) {
     if (step.type === "operator") {
-      if (step.operator) resolved.push(step.operator);
+      if (step.operator) {
+        if (step.operator === "total-multiply" || step.operator === "total-divide") continue;
+        resolved.push(step.operator as "+" | "-" | "*" | "/");
     } else {
       const m = allMetrics.find(mm => mm.id === step.metricId);
       const val = m ? parseFloat(m.value.replace(/[^0-9.\-]/g, "")) || 0 : 0;
@@ -2260,12 +2274,13 @@ function AddTeamModal({ onClose }: { onClose: () => void }) {
 // METRIC BLOCK
 // ═══════════════════════════════════════════════════════════════════════════
 
-function MetricBlock({ metric, onClick, onDragStart, onDragEnter, onDrop, isDragOver }: {
+function MetricBlock({ metric, onClick, onDragStart, onDragEnter, onDrop, isDragOver, disableDrag }: {
   metric: Metric; onClick: () => void;
   onDragStart: () => void;
   onDragEnter: (e: React.DragEvent) => void;
   onDrop: () => void;
   isDragOver: boolean;
+  disableDrag?: boolean;
 }) {
   const activeColor = resolveColor(metric);
   const s = MS[activeColor];
@@ -2276,11 +2291,7 @@ function MetricBlock({ metric, onClick, onDragStart, onDragEnter, onDrop, isDrag
 
   return (
     <div
-      draggable
-      onDragStart={e => { e.stopPropagation(); onDragStart(); }}
-      onDragEnter={e => { e.preventDefault(); e.stopPropagation(); onDragEnter(e); }}
-      onDragOver={e => { e.preventDefault(); e.stopPropagation(); }}
-      onDrop={e => { e.preventDefault(); e.stopPropagation(); onDrop(); }}
+      {...(disableDrag ? {} : { draggable: true as any, onDragStart: (e: React.DragEvent) => { e.stopPropagation(); onDragStart(); }, onDragEnter: (e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); onDragEnter(e); }, onDragOver: (e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); }, onDrop: (e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); onDrop(); } })}
       onClick={onClick}
       onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
       style={{
@@ -3168,6 +3179,16 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
     }
   };
 
+  const handleAddTotalOperator = (op: "total-multiply" | "total-divide") => {
+    setShowAddMenu(false);
+    setForceSearch(false);
+    setPendingOperator(false);
+    setEditingStepIndex(null);
+    setSearchQuery("");
+    setSteps(prev => [...prev, { type: "operator", operator: op }]);
+    setTimeout(() => searchRef.current?.focus(), 50);
+  };
+
   const handleEditStep = (idx: number) => {
     setEditingStepIndex(idx);
     const step = steps[idx];
@@ -3266,216 +3287,320 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
               }
               return (
               <div style={{ display: "flex", alignItems: "flex-start", flexWrap: "wrap", gap: 6, padding: "14px 18px", background: "#F8FAFC", borderRadius: 12, border: "1px solid #e2e8f0", minHeight: 60, position: "relative" }}>
-                {renderGroups.map((g, gi) => {
-                  const startIdx = g.startIdx;
-                  const lineBefore = dropLineIndex === startIdx;
-                  if (g.type === "fraction" && g.steps) {
-                    const [topMetric, opStep, bottomMetric] = g.steps;
-                    const actualIdx = steps.indexOf(topMetric);
-                    const isEditing = actualIdx >= 0 && editingStepIndex === actualIdx;
-                    const fc = cardSize * 0.8;
-                    const topFullMetric = allMetrics.find(m => m.id === topMetric.metricId);
-                    const bottomFullMetric = allMetrics.find(m => m.id === bottomMetric.metricId);
-                    const topColor = topFullMetric ? resolveColor(topFullMetric) : "gray";
-                    const bottomColor = bottomFullMetric ? resolveColor(bottomFullMetric) : "gray";
-                    const topMS = MS[topColor];
-                    const bottomMS = MS[bottomColor];
-                    const topIsColored = topColor !== "gray";
-                    const bottomIsColored = bottomColor !== "gray";
-                    const renderMiniMetricCard = (eqStep: EquationStep, fullM: Metric | undefined, mColor: MetricColor, mMS: typeof MS.green, isColored: boolean) => {
-                      const hasIcon = !!(eqStep.metricIcon && eqStep.metricIcon !== ICON_NONE);
-                      const txtColor = isColored ? "#fff" : "#4A5568";
-                      return (
-                        <div style={{
-                          width: fc, minHeight: fc, borderRadius: 8,
-                          background: mMS.bg,
-                          padding: "8px 6px", display: "flex", flexDirection: "column",
-                          alignItems: "center", justifyContent: hasIcon ? "space-between" : "center",
-                          gap: 2,
-                        }}>
-                          <div style={{ fontSize: fc * 0.09, fontWeight: 600, color: txtColor, textAlign: "center", lineHeight: 1.1 }}>
-                            {eqStep.metricLabel}
+                {(() => {
+                  // Build visual sections: split renderGroups at total operators
+                  const sections: { type: "seq" | "total-op"; groups?: typeof renderGroups; group?: typeof renderGroups[0] }[] = [];
+                  let wrapNext = false;
+                  for (let ri = 0; ri < renderGroups.length; ri++) {
+                    const g = renderGroups[ri];
+                    const isTotalOp = g.type === "operator" && g.step && (g.step.operator === "total-multiply" || g.step.operator === "total-divide");
+                    if (isTotalOp) {
+                      if (sections.length > 0 && sections[sections.length - 1].type === "seq") sections[sections.length - 1].type = "seq";
+                      sections.push({ type: "total-op", group: g });
+                      wrapNext = true;
+                    } else {
+                      const seq = sections.length > 0 && sections[sections.length - 1].type === "seq" ? sections[sections.length - 1] : null;
+                      if (seq && !wrapNext) {
+                        seq.groups!.push(g);
+                      } else {
+                        sections.push({ type: "seq", groups: [g] });
+                        wrapNext = false;
+                      }
+                    }
+                  }
+                  // Wrap seq blocks that are followed by a total-op
+                  for (let si = 0; si < sections.length; si++) {
+                    if (sections[si].type === "seq" && si + 1 < sections.length && sections[si + 1].type === "total-op") {
+                      sections[si].type = "seq";
+                    }
+                  }
+
+                  const innerRenderGroup = (g: typeof renderGroups[0], gi: number, si: number, sc: number, shrinkScale: number) => {
+                    const startIdx = g.startIdx;
+                    const lineBefore = dropLineIndex === startIdx;
+                    const cs = sc;
+                    const csScale = Math.max(0.6, Math.min(1, cs / 140));
+                    if (g.type === "fraction" && g.steps) {
+                      const [topMetric, opStep, bottomMetric] = g.steps;
+                      const actualIdx = steps.indexOf(topMetric);
+                      const isEditing = actualIdx >= 0 && editingStepIndex === actualIdx;
+                      const fc = cs * 0.8;
+                      const topFullMetric = allMetrics.find(m => m.id === topMetric.metricId);
+                      const bottomFullMetric = allMetrics.find(m => m.id === bottomMetric.metricId);
+                      const topColor = topFullMetric ? resolveColor(topFullMetric) : "gray";
+                      const bottomColor = bottomFullMetric ? resolveColor(bottomFullMetric) : "gray";
+                      const topMS = MS[topColor];
+                      const bottomMS = MS[bottomColor];
+                      const topIsColored = topColor !== "gray";
+                      const bottomIsColored = bottomColor !== "gray";
+                      const renderMiniMetricCard = (eqStep: EquationStep, fullM: Metric | undefined, mColor: MetricColor, mMS: typeof MS.green, isColored: boolean) => {
+                        const hasIcon = !!(eqStep.metricIcon && eqStep.metricIcon !== ICON_NONE);
+                        const txtColor = isColored ? "#fff" : "#4A5568";
+                        return (
+                          <div style={{
+                            width: fc, minHeight: fc, borderRadius: 8,
+                            background: mMS.bg,
+                            padding: "8px 6px", display: "flex", flexDirection: "column",
+                            alignItems: "center", justifyContent: hasIcon ? "space-between" : "center",
+                            gap: 2,
+                          }}>
+                            <div style={{ fontSize: fc * 0.09, fontWeight: 600, color: txtColor, textAlign: "center", lineHeight: 1.1 }}>
+                              {eqStep.metricLabel}
+                            </div>
+                            {hasIcon && (
+                              <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                <IconGlyph name={eqStep.metricIcon!} size={13} color={isColored ? mMS.bg : "#3B82F6"} />
+                              </div>
+                            )}
+                            <div style={{ fontSize: fc * 0.1, fontWeight: 700, color: txtColor, textAlign: "center" }}>
+                              {eqStep.metricValue}
+                            </div>
                           </div>
-                          {hasIcon && (
-                            <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                              <IconGlyph name={eqStep.metricIcon!} size={13} color={isColored ? mMS.bg : "#3B82F6"} />
+                        );
+                      };
+                      return [
+                        lineBefore && (
+                          <div key={`fl-${gi}-${si}`} style={{ width: 3, alignSelf: "stretch", background: "#3B82F6", borderRadius: 2, flexShrink: 0, minHeight: 60 }} />
+                        ),
+                        <div key={`f-${si}-${gi}`}
+                          draggable
+                          onDragStart={e => {
+                            e.dataTransfer.setData("text/plain", "");
+                            e.dataTransfer.effectAllowed = "move";
+                            e.stopPropagation();
+                            dragStepIdxRef.current = actualIdx;
+                            dragCountRef.current = 3;
+                            if (actualIdx >= 0) handleEditStep(actualIdx);
+                            const el = e.currentTarget.cloneNode(true) as HTMLElement;
+                            el.style.cssText = 'position:absolute;top:-999px;left:-999px;transform:scale(0.5);transform-origin:top left;border-radius:12px;overflow:hidden;outline:2px solid #3B82F6;background:#EFF6FF;';
+                            el.style.pointerEvents = 'none';
+                            document.body.appendChild(el);
+                            const r = el.getBoundingClientRect();
+                            e.dataTransfer.setDragImage(el, r.width / 2, r.height / 2);
+                            setTimeout(() => document.body.removeChild(el), 0);
+                          }}
+                          onDragOver={e => { e.preventDefault(); e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); const m = rect.left + rect.width / 2; const idx = e.clientX < m ? actualIdx : actualIdx + 3; setDropLineIndex(idx); dropLineIndexRef.current = idx; }}
+                          onDrop={e => { e.preventDefault(); e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); const m = rect.left + rect.width / 2; const idx = e.clientX < m ? actualIdx : actualIdx + 3; handleStepDrop(idx); }}
+                          onDragEnd={() => { dragStepIdxRef.current = null; dragCountRef.current = 1; setDropLineIndex(null); dropLineIndexRef.current = null; }}
+                          onClick={() => { if (actualIdx >= 0) handleEditStep(actualIdx); }}
+                          style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "flex-start", borderRadius: 12, padding: 2, outline: isEditing ? "2px solid #3B82F6" : "2px solid transparent", background: isEditing ? "#EFF6FF" : "transparent" }}>
+                          {isEditing && (
+                            <div onClick={e => { e.stopPropagation(); if (actualIdx >= 0) { setSteps(prev => { const n = [...prev]; n.splice(actualIdx, 3); return n; }); setEditingStepIndex(null); } }} style={{ position: "absolute", top: 2, right: 2, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#3B82F6", fontSize: 22, fontWeight: 700, lineHeight: 1, zIndex: 10 }}>×</div>
+                          )}
+                          <div style={{ display: "flex", justifyContent: "center", width: "100%", marginBottom: 3 }}>
+                            <div style={{
+                              width: 44 * csScale, height: 44 * csScale, borderRadius: "50%",
+                              background: "#8B5CF6", color: "#fff", fontSize: 20 * csScale, fontWeight: 700,
+                              display: "flex", alignItems: "center", justifyContent: "center"
+                            }}>
+                              {g.groupIdx! + 1}
+                            </div>
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                            {renderMiniMetricCard(topMetric, topFullMetric, topColor, topMS, topIsColored)}
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "4px 0" }}>
+                              <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#3B82F6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700 }}>
+                                {opStep?.operator === "*" ? "×" : "÷"}
+                              </div>
+                            </div>
+                            {renderMiniMetricCard(bottomMetric, bottomFullMetric, bottomColor, bottomMS, bottomIsColored)}
+                          </div>
+                        </div>
+                      ];
+                    }
+                    if (g.type === "metric" && g.step) {
+                      const step = g.step;
+                      const idx = steps.indexOf(step);
+                      const isEditing = editingStepIndex === idx;
+                      const fullMetric = allMetrics.find(m => m.id === step.metricId);
+                      return [
+                        lineBefore && (
+                          <div key={`ml-${gi}-${si}`} style={{ width: 3, alignSelf: "stretch", background: "#3B82F6", borderRadius: 2, flexShrink: 0, minHeight: 60 }} />
+                        ),
+                        <div key={`m-${si}-${gi}`}
+                          draggable
+                          onDragStart={e => {
+                            e.dataTransfer.setData("text/plain", "");
+                            e.dataTransfer.effectAllowed = "move";
+                            e.stopPropagation();
+                            dragStepIdxRef.current = idx;
+                            dragCountRef.current = 1;
+                            handleEditStep(idx);
+                            const el = e.currentTarget.cloneNode(true) as HTMLElement;
+                            el.style.cssText = 'position:absolute;top:-999px;left:-999px;transform:scale(0.5);transform-origin:top left;border-radius:12px;overflow:hidden;outline:2px solid #3B82F6;background:#EFF6FF;';
+                            el.style.pointerEvents = 'none';
+                            document.body.appendChild(el);
+                            const r = el.getBoundingClientRect();
+                            e.dataTransfer.setDragImage(el, r.width / 2, r.height / 2);
+                            setTimeout(() => document.body.removeChild(el), 0);
+                          }}
+                          onDragOver={e => { e.preventDefault(); e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); const m = rect.left + rect.width / 2; const idx2 = e.clientX < m ? idx : idx + 1; setDropLineIndex(idx2); dropLineIndexRef.current = idx2; }}
+                          onDrop={e => { e.preventDefault(); e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); const m = rect.left + rect.width / 2; const idx2 = e.clientX < m ? idx : idx + 1; handleStepDrop(idx2); }}
+                          onDragEnd={() => { dragStepIdxRef.current = null; dragCountRef.current = 1; setDropLineIndex(null); dropLineIndexRef.current = null; }}
+                          onClick={() => handleEditStep(idx)}
+                          style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "flex-start", borderRadius: 12, padding: 2, outline: isEditing ? "2px solid #3B82F6" : "2px solid transparent", background: isEditing ? "#EFF6FF" : "transparent" }}>
+                          {isEditing && (
+                            <div onClick={e => { e.stopPropagation(); handleRemoveStep(idx); }} style={{ position: "absolute", top: 2, right: 2, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#3B82F6", fontSize: 22, fontWeight: 700, lineHeight: 1, zIndex: 10 }}>×</div>
+                          )}
+                          <div style={{ display: "flex", justifyContent: "center", width: "100%", marginBottom: 3 }}>
+                            <div style={{
+                              width: 44 * csScale, height: 44 * csScale, borderRadius: "50%",
+                              background: "linear-gradient(135deg,#3B82F6,#06B6D4)",
+                              color: "#fff", fontSize: 20 * csScale, fontWeight: 700,
+                              display: "flex", alignItems: "center", justifyContent: "center"
+                            }}>
+                              {g.groupIdx! + 1}
+                            </div>
+                          </div>
+                          {fullMetric ? (
+                            <MetricBlock
+                              metric={fullMetric}
+                              onClick={() => handleEditStep(idx)}
+                              onDragStart={() => {}}
+                              onDragEnter={() => {}}
+                              onDrop={() => {}}
+                              isDragOver={false}
+                              disableDrag
+                            />
+                          ) : (
+                            <div style={{ width: 140, minHeight: 140, borderRadius: 12, background: "#F8FAFC", border: "1.5px solid #e2e8f0", padding: "8px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                              <div style={{ fontSize: 12, fontWeight: 600, color: "#1a2332", textAlign: "center" }}>{step.metricLabel ?? "?"}</div>
+                              <div style={{ fontSize: 15, fontWeight: 700, color: "#1a2332", textAlign: "center" }}>{step.metricValue ?? ""}</div>
                             </div>
                           )}
-                          <div style={{ fontSize: fc * 0.1, fontWeight: 700, color: txtColor, textAlign: "center" }}>
-                            {eqStep.metricValue}
-                          </div>
                         </div>
-                      );
-                    };
-                    return [
-                      lineBefore && (
-                        <div key={`line-${gi}`} style={{ width: 3, alignSelf: "stretch", background: "#3B82F6", borderRadius: 2, flexShrink: 0, minHeight: 60 }} />
-                      ),
-                      <div key={gi}
-                        draggable
-                        onDragStart={e => {
-                          e.dataTransfer.setData("text/plain", "");
-                          e.dataTransfer.effectAllowed = "move";
-                          e.stopPropagation();
-                          dragStepIdxRef.current = actualIdx;
-                          dragCountRef.current = 3;
-                          if (actualIdx >= 0) handleEditStep(actualIdx);
-                          const el = e.currentTarget.cloneNode(true) as HTMLElement;
-                          el.style.cssText = 'position:absolute;top:-999px;left:-999px;transform:scale(0.5);transform-origin:top left;border-radius:12px;overflow:hidden;outline:2px solid #3B82F6;background:#EFF6FF;';
-                          el.style.pointerEvents = 'none';
-                          document.body.appendChild(el);
-                          const r = el.getBoundingClientRect();
-                          e.dataTransfer.setDragImage(el, r.width / 2, r.height / 2);
-                          setTimeout(() => document.body.removeChild(el), 0);
-                        }}
-                        onDragOver={e => { e.preventDefault(); e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); const m = rect.left + rect.width / 2; const idx = e.clientX < m ? actualIdx : actualIdx + 3; setDropLineIndex(idx); dropLineIndexRef.current = idx; }}
-                        onDrop={e => { e.preventDefault(); e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); const m = rect.left + rect.width / 2; const idx = e.clientX < m ? actualIdx : actualIdx + 3; handleStepDrop(idx); }}
-                        onDragEnd={() => { dragStepIdxRef.current = null; dragCountRef.current = 1; setDropLineIndex(null); dropLineIndexRef.current = null; }}
-                        onClick={() => { if (actualIdx >= 0) handleEditStep(actualIdx); }}
-                        style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "flex-start", borderRadius: 12, padding: 2, outline: isEditing ? "2px solid #3B82F6" : "2px solid transparent", background: isEditing ? "#EFF6FF" : "transparent" }}>
-                        {isEditing && (
-                          <div onClick={e => { e.stopPropagation(); if (actualIdx >= 0) { setSteps(prev => { const n = [...prev]; n.splice(actualIdx, 3); return n; }); setEditingStepIndex(null); } }} style={{ position: "absolute", top: 2, right: 2, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#3B82F6", fontSize: 22, fontWeight: 700, lineHeight: 1, zIndex: 10 }}>×</div>
-                        )}
-                        <div style={{ display: "flex", justifyContent: "center", width: "100%", marginBottom: 3 }}>
-                          <div style={{
-                            width: 44 * circleScale, height: 44 * circleScale, borderRadius: "50%",
-                            background: "#8B5CF6", color: "#fff", fontSize: 20 * circleScale, fontWeight: 700,
-                            display: "flex", alignItems: "center", justifyContent: "center"
-                          }}>
-                            {g.groupIdx! + 1}
-                          </div>
-                        </div>
-                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                          {renderMiniMetricCard(topMetric, topFullMetric, topColor, topMS, topIsColored)}
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "4px 0" }}>
-                            <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#3B82F6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700 }}>
-                              {opStep?.operator === "*" ? "×" : "÷"}
+                      ];
+                    }
+                    if (g.type === "operator" && g.step) {
+                      const step = g.step;
+                      const idx = steps.indexOf(step);
+                      const isEditing = editingStepIndex === idx;
+                      return [
+                        lineBefore && (
+                          <div key={`ol-${gi}-${si}`} style={{ width: 3, alignSelf: "stretch", background: "#3B82F6", borderRadius: 2, flexShrink: 0, minHeight: 60 }} />
+                        ),
+                        <div key={`o-${si}-${gi}`}
+                          draggable
+                          onDragStart={e => {
+                            e.dataTransfer.setData("text/plain", "");
+                            e.dataTransfer.effectAllowed = "move";
+                            e.stopPropagation();
+                            dragStepIdxRef.current = idx;
+                            dragCountRef.current = 1;
+                            handleEditStep(idx);
+                            const el = e.currentTarget.cloneNode(true) as HTMLElement;
+                            el.style.cssText = 'position:absolute;top:-999px;left:-999px;transform:scale(0.5);transform-origin:top left;border-radius:12px;overflow:hidden;outline:2px solid #3B82F6;background:#EFF6FF;';
+                            el.style.pointerEvents = 'none';
+                            document.body.appendChild(el);
+                            const r = el.getBoundingClientRect();
+                            e.dataTransfer.setDragImage(el, r.width / 2, r.height / 2);
+                            setTimeout(() => document.body.removeChild(el), 0);
+                          }}
+                          onDragOver={e => { e.preventDefault(); e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); const m = rect.left + rect.width / 2; const idx2 = e.clientX < m ? idx : idx + 1; setDropLineIndex(idx2); dropLineIndexRef.current = idx2; }}
+                          onDrop={e => { e.preventDefault(); e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); const m = rect.left + rect.width / 2; const idx2 = e.clientX < m ? idx : idx + 1; handleStepDrop(idx2); }}
+                          onDragEnd={() => { dragStepIdxRef.current = null; dragCountRef.current = 1; setDropLineIndex(null); dropLineIndexRef.current = null; }}
+                          onClick={() => handleEditStep(idx)}
+                          style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "flex-start", borderRadius: 12, padding: 2, outline: isEditing ? "2px solid #3B82F6" : "2px solid transparent", background: isEditing ? "#EFF6FF" : "transparent" }}>
+                          {isEditing && (
+                            <div onClick={e => { e.stopPropagation(); handleRemoveStep(idx); }} style={{ position: "absolute", top: 2, right: 2, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#3B82F6", fontSize: 22, fontWeight: 700, lineHeight: 1, zIndex: 10 }}>×</div>
+                          )}
+                          <div style={{ display: "flex", justifyContent: "center", width: "100%", marginBottom: 3 }}>
+                            <div style={{
+                              width: 44 * csScale, height: 44 * csScale, borderRadius: "50%",
+                              background: "#64748b", color: "#fff", fontSize: 20 * csScale, fontWeight: 700,
+                              display: "flex", alignItems: "center", justifyContent: "center"
+                            }}>
+                              {g.groupIdx! + 1}
                             </div>
                           </div>
-                          {renderMiniMetricCard(bottomMetric, bottomFullMetric, bottomColor, bottomMS, bottomIsColored)}
-                        </div>
-                      </div>
-                    ];
-                  }
-                  if (g.type === "metric" && g.step) {
-                    const step = g.step;
-                    const idx = steps.indexOf(step);
-                    const isEditing = editingStepIndex === idx;
-                    const fullMetric = allMetrics.find(m => m.id === step.metricId);
-                    return [
-                      lineBefore && (
-                        <div key={`line-${gi}`} style={{ width: 3, alignSelf: "stretch", background: "#3B82F6", borderRadius: 2, flexShrink: 0, minHeight: 60 }} />
-                      ),
-                      <div key={gi}
-                        draggable
-                        onDragStart={e => {
-                          e.dataTransfer.setData("text/plain", "");
-                          e.dataTransfer.effectAllowed = "move";
-                          e.stopPropagation();
-                          dragStepIdxRef.current = idx;
-                          dragCountRef.current = 1;
-                          handleEditStep(idx);
-                          const el = e.currentTarget.cloneNode(true) as HTMLElement;
-                          el.style.cssText = 'position:absolute;top:-999px;left:-999px;transform:scale(0.5);transform-origin:top left;border-radius:12px;overflow:hidden;outline:2px solid #3B82F6;background:#EFF6FF;';
-                          el.style.pointerEvents = 'none';
-                          document.body.appendChild(el);
-                          const r = el.getBoundingClientRect();
-                          e.dataTransfer.setDragImage(el, r.width / 2, r.height / 2);
-                          setTimeout(() => document.body.removeChild(el), 0);
-                        }}
-                        onDragOver={e => { e.preventDefault(); e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); const m = rect.left + rect.width / 2; const idx2 = e.clientX < m ? idx : idx + 1; setDropLineIndex(idx2); dropLineIndexRef.current = idx2; }}
-                        onDrop={e => { e.preventDefault(); e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); const m = rect.left + rect.width / 2; const idx2 = e.clientX < m ? idx : idx + 1; handleStepDrop(idx2); }}
-                        onDragEnd={() => { dragStepIdxRef.current = null; dragCountRef.current = 1; setDropLineIndex(null); dropLineIndexRef.current = null; }}
-                        onClick={() => handleEditStep(idx)}
-                        style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "flex-start", borderRadius: 12, padding: 2, outline: isEditing ? "2px solid #3B82F6" : "2px solid transparent", background: isEditing ? "#EFF6FF" : "transparent" }}>
-                        {isEditing && (
-                          <div onClick={e => { e.stopPropagation(); handleRemoveStep(idx); }} style={{ position: "absolute", top: 2, right: 2, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#3B82F6", fontSize: 22, fontWeight: 700, lineHeight: 1, zIndex: 10 }}>×</div>
-                        )}
-                        <div style={{ display: "flex", justifyContent: "center", width: "100%", marginBottom: 3 }}>
-                          <div style={{
-                            width: 44 * circleScale, height: 44 * circleScale, borderRadius: "50%",
-                            background: "linear-gradient(135deg,#3B82F6,#06B6D4)",
-                            color: "#fff", fontSize: 20 * circleScale, fontWeight: 700,
-                            display: "flex", alignItems: "center", justifyContent: "center"
-                          }}>
-                            {g.groupIdx! + 1}
+                          <div style={{ width: 140, minHeight: 140, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            <div style={{
+                              width: 48 * csScale, height: 48 * csScale, borderRadius: "50%",
+                              background: "#3B82F6", color: "#fff",
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              fontSize: 22 * csScale, fontWeight: 700,
+                            }}>
+                              {step.operator === "*" ? "×" : step.operator === "/" ? "÷" : step.operator === "total-multiply" ? "×" : step.operator === "total-divide" ? "÷" : step.operator}
+                            </div>
                           </div>
                         </div>
-                        {fullMetric ? (
-                          <MetricBlock
-                            metric={fullMetric}
-                            onClick={() => handleEditStep(idx)}
-                            onDragStart={() => {}}
-                            onDragEnter={() => {}}
-                            onDrop={() => {}}
-                            isDragOver={false}
-                          />
-                        ) : (
-                          <div style={{ width: 140, minHeight: 140, borderRadius: 12, background: "#F8FAFC", border: "1.5px solid #e2e8f0", padding: "8px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-                            <div style={{ fontSize: 12, fontWeight: 600, color: "#1a2332", textAlign: "center" }}>{step.metricLabel ?? "?"}</div>
-                            <div style={{ fontSize: 15, fontWeight: 700, color: "#1a2332", textAlign: "center" }}>{step.metricValue ?? ""}</div>
+                      ];
+                    }
+                    return null;
+                  };
+
+                  // Render sections
+                  const result: React.ReactNode[] = [];
+                  sections.forEach((sec, si) => {
+                    const shrink = sec.type === "seq" ? 1 : 1;
+                    const sc = cardSize * shrink;
+                    if (sec.type === "total-op" && sec.group) {
+                      const g = sec.group;
+                      const step = g.step!;
+                      const idx = steps.indexOf(step);
+                      const isEditing = editingStepIndex === idx;
+                      const lineIdx = dropLineIndex === g.startIdx;
+                      if (lineIdx) {
+                        result.push(<div key={`tl-${si}`} style={{ width: 3, alignSelf: "stretch", background: "#3B82F6", borderRadius: 2, flexShrink: 0, minHeight: 60 }} />);
+                      }
+                      const opChar = step.operator === "total-multiply" ? "×" : "÷";
+                      result.push(
+                        <div key={`to-${si}`}
+                          onClick={() => handleEditStep(idx)}
+                          draggable
+                          onDragStart={e => {
+                            e.dataTransfer.setData("text/plain", "");
+                            e.dataTransfer.effectAllowed = "move";
+                            e.stopPropagation();
+                            dragStepIdxRef.current = idx;
+                            dragCountRef.current = 1;
+                            handleEditStep(idx);
+                            const el = e.currentTarget.cloneNode(true) as HTMLElement;
+                            el.style.cssText = 'position:absolute;top:-999px;left:-999px;transform:scale(0.5);transform-origin:top left;border-radius:12px;overflow:hidden;outline:2px solid #3B82F6;background:#EFF6FF;';
+                            el.style.pointerEvents = 'none';
+                            document.body.appendChild(el);
+                            const r = el.getBoundingClientRect();
+                            e.dataTransfer.setDragImage(el, r.width / 2, r.height / 2);
+                            setTimeout(() => document.body.removeChild(el), 0);
+                          }}
+                          onDragOver={e => { e.preventDefault(); e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); const m = rect.left + rect.width / 2; const idx2 = e.clientX < m ? idx : idx + 1; setDropLineIndex(idx2); dropLineIndexRef.current = idx2; }}
+                          onDrop={e => { e.preventDefault(); e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); const m = rect.left + rect.width / 2; const idx2 = e.clientX < m ? idx : idx + 1; handleStepDrop(idx2); }}
+                          onDragEnd={() => { dragStepIdxRef.current = null; dragCountRef.current = 1; setDropLineIndex(null); dropLineIndexRef.current = null; }}
+                          style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 4, borderRadius: 12, padding: "6px 10px", outline: isEditing ? "2px solid #3B82F6" : "2px solid transparent", background: isEditing ? "#EFF6FF" : "transparent" }}>
+                          {isEditing && (
+                            <div onClick={e => { e.stopPropagation(); handleRemoveStep(idx); }} style={{ position: "absolute", top: 2, right: 2, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#3B82F6", fontSize: 22, fontWeight: 700, lineHeight: 1, zIndex: 10 }}>×</div>
+                          )}
+                          <span style={{ fontSize: 28, fontWeight: 300, color: "#1a2332", fontFamily: "serif" }}>(</span>
+                          <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#3B82F6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, fontWeight: 700 }}>
+                            {opChar}
                           </div>
-                        )}
-                      </div>
-                    ];
-                  }
-                  if (g.type === "operator" && g.step) {
-                    const step = g.step;
-                    const idx = steps.indexOf(step);
-                    const isEditing = editingStepIndex === idx;
-                    return [
-                      lineBefore && (
-                        <div key={`line-${gi}`} style={{ width: 3, alignSelf: "stretch", background: "#3B82F6", borderRadius: 2, flexShrink: 0, minHeight: 60 }} />
-                      ),
-                      <div key={gi}
-                        draggable
-                        onDragStart={e => {
-                          e.dataTransfer.setData("text/plain", "");
-                          e.dataTransfer.effectAllowed = "move";
-                          e.stopPropagation();
-                          dragStepIdxRef.current = idx;
-                          dragCountRef.current = 1;
-                          handleEditStep(idx);
-                          const el = e.currentTarget.cloneNode(true) as HTMLElement;
-                          el.style.cssText = 'position:absolute;top:-999px;left:-999px;transform:scale(0.5);transform-origin:top left;border-radius:12px;overflow:hidden;outline:2px solid #3B82F6;background:#EFF6FF;';
-                          el.style.pointerEvents = 'none';
-                          document.body.appendChild(el);
-                          const r = el.getBoundingClientRect();
-                          e.dataTransfer.setDragImage(el, r.width / 2, r.height / 2);
-                          setTimeout(() => document.body.removeChild(el), 0);
-                        }}
-                        onDragOver={e => { e.preventDefault(); e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); const m = rect.left + rect.width / 2; const idx2 = e.clientX < m ? idx : idx + 1; setDropLineIndex(idx2); dropLineIndexRef.current = idx2; }}
-                        onDrop={e => { e.preventDefault(); e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); const m = rect.left + rect.width / 2; const idx2 = e.clientX < m ? idx : idx + 1; handleStepDrop(idx2); }}
-                        onDragEnd={() => { dragStepIdxRef.current = null; dragCountRef.current = 1; setDropLineIndex(null); dropLineIndexRef.current = null; }}
-                        onClick={() => handleEditStep(idx)}
-                        style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "flex-start", borderRadius: 12, padding: 2, outline: isEditing ? "2px solid #3B82F6" : "2px solid transparent", background: isEditing ? "#EFF6FF" : "transparent" }}>
-                        {isEditing && (
-                          <div onClick={e => { e.stopPropagation(); handleRemoveStep(idx); }} style={{ position: "absolute", top: 2, right: 2, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#3B82F6", fontSize: 22, fontWeight: 700, lineHeight: 1, zIndex: 10 }}>×</div>
-                        )}
-                        <div style={{ display: "flex", justifyContent: "center", width: "100%", marginBottom: 3 }}>
-                          <div style={{
-                            width: 44 * circleScale, height: 44 * circleScale, borderRadius: "50%",
-                            background: "#64748b", color: "#fff", fontSize: 20 * circleScale, fontWeight: 700,
-                            display: "flex", alignItems: "center", justifyContent: "center"
-                          }}>
-                            {g.groupIdx! + 1}
-                          </div>
+                          <span style={{ fontSize: 28, fontWeight: 300, color: "#1a2332", fontFamily: "serif" }}>)</span>
                         </div>
-                        <div style={{ width: 140, minHeight: 140, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          <div style={{
-                            width: 48 * circleScale, height: 48 * circleScale, borderRadius: "50%",
-                            background: "#3B82F6", color: "#fff",
-                            display: "flex", alignItems: "center", justifyContent: "center",
-                            fontSize: 22 * circleScale, fontWeight: 700,
-                          }}>
-                            {step.operator === "*" ? "×" : step.operator === "/" ? "÷" : step.operator}
+                      );
+                    } else if (sec.type === "seq" && sec.groups) {
+                      const isWrapped = si + 1 < sections.length && sections[si + 1].type === "total-op";
+                      const content = sec.groups.map((g, gi) => innerRenderGroup(g, gi, si, sc, 1));
+                      const firstStartIdx = sec.groups[0]?.startIdx;
+                      const lineBefore = dropLineIndex === firstStartIdx;
+                      if (lineBefore) {
+                        result.push(<div key={`sl-${si}`} style={{ width: 3, alignSelf: "stretch", background: "#3B82F6", borderRadius: 2, flexShrink: 0, minHeight: 60 }} />);
+                      }
+                      if (isWrapped) {
+                        if (si > 0) {
+                          result.push(<div key={`wrap-paren-${si}`} style={{ fontSize: 28, fontWeight: 300, color: "#1a2332", fontFamily: "serif", alignSelf: "center" }}>(</div>);
+                        }
+                        result.push(
+                          <div key={`wrap-${si}`} style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: "8px 12px", border: "2px solid #e2e8f0", borderRadius: 16, background: "#fff", alignItems: "flex-start" }}>
+                            {content}
                           </div>
-                        </div>
-                      </div>
-                    ];
-                  }
-                  return null;
-                })}
+                        );
+                      } else {
+                        result.push(...content);
+                      }
+                    }
+                  });
+                  return result;
+                })()}
                 {dropLineIndex === steps.length && (
                   <div key="end-line" style={{ width: 3, alignSelf: "stretch", background: "#3B82F6", borderRadius: 2, flexShrink: 0, minHeight: 60 }} />
                 )}
@@ -3489,6 +3614,10 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                         onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Add Metric Box</div>
                       <div onClick={() => { setShowAddMenu(false); setForceSearch(false); setPendingOperator(true); setEditingStepIndex(null); setSearchQuery(""); }} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
                         onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Add Math Symbol</div>
+                      <div onClick={() => handleAddTotalOperator("total-multiply")} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
+                        onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Multiply Total</div>
+                      <div onClick={() => handleAddTotalOperator("total-divide")} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
+                        onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Divide Total</div>
                     </div>
                   )}
                 </div>
@@ -3549,7 +3678,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                   <div style={{ display: "flex", flexDirection: "row", gap: 10, overflowX: "auto", flexWrap: "nowrap", padding: "14px 0" }}>
                     {filteredMetrics.slice(0, 12).map(m => (
                       <div key={m.id} style={{ cursor: "pointer", flexShrink: 0 }}>
-                        <MetricBlock metric={m} onClick={() => handleSelectMetric(m)} onDragStart={() => {}} onDragEnter={() => {}} onDrop={() => {}} isDragOver={false} />
+                        <MetricBlock metric={m} onClick={() => handleSelectMetric(m)} onDragStart={() => {}} onDragEnter={() => {}} onDrop={() => {}} isDragOver={false} disableDrag />
                       </div>
                     ))}
                   </div>
@@ -3622,6 +3751,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
               onDragEnter={() => {}}
               onDrop={() => {}}
               isDragOver={false}
+              disableDrag
             />
           </div>
         </div>
