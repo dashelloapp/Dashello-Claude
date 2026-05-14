@@ -2083,14 +2083,6 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
                       <button onClick={openAddRule} style={{ padding: "8px 0", borderRadius: 8, border: "none", background: "#64748b", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Create Color Rule</button>
                     </div>
                     {equationError && <div style={{ fontSize: 11, color: "#E85D75", marginTop: 4, textAlign: "center" }}>{equationError}</div>}
-                    {initial?.equation && initial.equation.steps.length > 0 && (
-                      <div style={{ background: "#F0FDF4", borderRadius: 8, padding: "8px 10px", marginTop: 6, border: "1px solid #c3e6d4" }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: "#0F6E56", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 3 }}>Equation Active</div>
-                        <div style={{ fontSize: 11, color: "#1a2332" }}>
-                          = {initial.equation.steps.map(s => s.type === "operator" ? (s.operator === "*" ? "×" : s.operator === "/" ? "÷" : s.operator) : s.metricLabel).join(" ")}
-                        </div>
-                      </div>
-                    )}
                     {rules.length > 0 && (
                       <div>
                         <SectionLabel>Active Color Rules</SectionLabel>
@@ -3077,6 +3069,8 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
   const [steps, setSteps] = useState<EquationStep[]>(initialEquation?.steps ?? []);
   const [searchQuery, setSearchQuery] = useState("");
   const [editingStepIndex, setEditingStepIndex] = useState<number | null>(null);
+  const [showAddMenu, setShowAddMenu] = useState(false);
+  const addMenuRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   // Derived: whether to show math picker or search based on current state
@@ -3104,6 +3098,17 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
   // Focus search input on mount
   useEffect(() => {
     searchRef.current?.focus();
+  }, []);
+
+  // Close add menu on outside click
+  useEffect(() => {
+    const h = (e: MouseEvent) => {
+      if (addMenuRef.current && !addMenuRef.current.contains(e.target as Node)) {
+        setShowAddMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
   }, []);
 
   const stepsWithParents: { steps: EquationStep[]; parens: number[][] } = { steps, parens: [] };
@@ -3159,11 +3164,6 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
   };
 
   const handleRemoveStep = (idx: number) => {
-    const step = steps[idx];
-    if (step.type === "operator") {
-      setEditingStepIndex(idx);
-      return;
-    }
     setSteps(prev => {
       const next = [...prev];
       next.splice(idx, 1);
@@ -3227,6 +3227,17 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
               }
               return (
               <div style={{ display: "flex", alignItems: "flex-start", flexWrap: "wrap", gap: 6, padding: "14px 18px", background: "#F8FAFC", borderRadius: 12, border: "1px solid #e2e8f0", minHeight: 60 }}>
+                <div style={{ alignSelf: "center", position: "relative" }} ref={addMenuRef}>
+                  <div onClick={() => setShowAddMenu(v => !v)} style={{ width: 36, height: 36, borderRadius: "50%", border: "1.5px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#94a3b8", fontSize: 18, background: "#fff", flexShrink: 0 }}>+</div>
+                  {showAddMenu && (
+                    <div style={{ position: "absolute", left: 0, top: "100%", marginTop: 4, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 50, minWidth: 170, overflow: "hidden" }}>
+                      <div onClick={() => { setShowAddMenu(false); setEditingStepIndex(null); setSearchQuery(""); setTimeout(() => searchRef.current?.focus(), 50); }} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
+                        onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Add Metric Box</div>
+                      <div onClick={() => { setShowAddMenu(false); setSteps(prev => [...prev, { type: "operator", operator: "+" }]); setTimeout(() => searchRef.current?.focus(), 50); }} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
+                        onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Add Math Symbol</div>
+                    </div>
+                  )}
+                </div>
                 {renderGroups.map((g, gi) => {
                   if (g.type === "fraction" && g.steps) {
                     const [topMetric, , bottomMetric] = g.steps;
@@ -3414,7 +3425,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                   />
                 </div>
                 {filteredMetrics.length > 0 && (
-                  <div style={{ display: "flex", flexDirection: "row", gap: 10, overflowX: "auto", flexWrap: "nowrap", paddingBottom: 4 }}>
+                  <div style={{ display: "flex", flexDirection: "row", gap: 10, overflowX: "auto", flexWrap: "nowrap", padding: "14px 0" }}>
                     {filteredMetrics.slice(0, 12).map(m => (
                       <div key={m.id} style={{ cursor: "pointer", flexShrink: 0 }}>
                         <MetricBlock metric={m} onClick={() => handleSelectMetric(m)} onDragStart={() => {}} onDragEnter={() => {}} onDrop={() => {}} isDragOver={false} />
