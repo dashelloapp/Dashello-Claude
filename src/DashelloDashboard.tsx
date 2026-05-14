@@ -3297,6 +3297,40 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
 
   const stepsWithParents: { steps: EquationStep[]; parens: number[][] } = { steps, parens: [] };
 
+  // ── Group-scoped insertion helper ─────────────────────────────────────────
+  // Given a proposed insertion index and the current steps array, returns the
+  // tightest (innermost) valid insertion index — clamped to stay inside the
+  // innermost paren group that contains that position.
+  // If the index is not inside any group it is returned unchanged.
+  const clampToInnermostGroup = (rawIndex: number, stepsArr: EquationStep[]): number => {
+    // Walk through every paren-start and find the innermost one that wraps rawIndex
+    let innermostStart = -1;
+    let innermostEnd = -1;
+    let depth = 0;
+    const stack: number[] = [];
+    for (let i = 0; i < stepsArr.length; i++) {
+      const s = stepsArr[i];
+      if (s.type === "operator" && s.operator === "paren-start") {
+        stack.push(i);
+      } else if (s.type === "operator" && s.operator === "paren-end") {
+        const openIdx = stack.pop();
+        if (openIdx !== undefined) {
+          // This group spans (openIdx, i) exclusive — valid insertion is openIdx+1 .. i
+          if (rawIndex > openIdx && rawIndex <= i) {
+            // rawIndex is inside this group; check if it's tighter than current best
+            if (innermostStart === -1 || openIdx > innermostStart) {
+              innermostStart = openIdx;
+              innermostEnd = i;
+            }
+          }
+        }
+      }
+    }
+    if (innermostStart === -1) return rawIndex; // not inside any group
+    // Clamp: insertion must be strictly inside paren-start+1 .. paren-end
+    return Math.max(innermostStart + 1, Math.min(rawIndex, innermostEnd));
+  };
+
   const handleSelectMetric = (m: Metric) => {
     setPendingOperator(false);
     setForceSearch(false);
@@ -3318,8 +3352,9 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
       });
       setEditingStepIndex(null);
     } else {
-      const insertAt = addAtIndex ?? steps.length;
+      const rawInsert = addAtIndex ?? steps.length;
       setSteps(prev => {
+        const insertAt = clampToInnermostGroup(rawInsert, prev);
         const next = [...prev];
         next.splice(insertAt, 0, step);
         return next;
@@ -3354,14 +3389,14 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
       setEditingStepIndex(null);
       setTimeout(() => searchRef.current?.focus(), 100);
     } else {
-      const insertAt = addAtIndex ?? steps.length;
+      const rawInsert = addAtIndex ?? steps.length;
       setSteps(prev => {
+        const insertAt = clampToInnermostGroup(rawInsert, prev);
         const next = [...prev];
         next.splice(insertAt, 0, { type: "operator", operator: op });
         return next;
       });
       setAddAtIndex(null);
-      // Focus search after picking math
       setTimeout(() => searchRef.current?.focus(), 100);
     }
   };
@@ -3372,8 +3407,9 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
     setPendingOperator(false);
     setEditingStepIndex(null);
     setSearchQuery("");
-    const insertAt = addAtIndex ?? steps.length;
+    const rawInsert = addAtIndex ?? steps.length;
     setSteps(prev => {
+      const insertAt = clampToInnermostGroup(rawInsert, prev);
       const next = [...prev];
       next.splice(insertAt, 0, { type: "operator", operator: op });
       return next;
@@ -3388,8 +3424,9 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
     setPendingOperator(false);
     setEditingStepIndex(null);
     setSearchQuery("");
-    const insertAt = addAtIndex ?? steps.length;
+    const rawInsert = addAtIndex ?? steps.length;
     setSteps(prev => {
+      const insertAt = clampToInnermostGroup(rawInsert, prev);
       const next = [...prev];
       next.splice(insertAt, 0, { type: "number", numberValue: 0 });
       return next;
@@ -3832,11 +3869,11 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                   const renderAddMenu = (insertAt: number, menuKey: string) => (
                     showAddMenu && addAtIndex === insertAt ? (
                       <div key={menuKey} ref={addMenuRef} style={{ position: "absolute", left: 0, top: "100%", marginTop: 4, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 50, minWidth: 170, overflow: "hidden" }}>
-                        <div onClick={e => { e.stopPropagation(); setShowAddMenu(false); setAddAtIndex(null); setForceSearch(true); setPendingOperator(false); setEditingStepIndex(null); setSearchQuery(""); setTimeout(() => searchRef.current?.focus(), 50); }} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
+                        <div onClick={e => { e.stopPropagation(); setShowAddMenu(false); setForceSearch(true); setPendingOperator(false); setEditingStepIndex(null); setSearchQuery(""); setTimeout(() => searchRef.current?.focus(), 50); }} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
                           onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Add Metric</div>
                         <div onClick={e => { e.stopPropagation(); handleAddNumberStep(); }} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
                           onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Add Number</div>
-                        <div onClick={e => { e.stopPropagation(); setShowAddMenu(false); setAddAtIndex(null); setForceSearch(false); setPendingOperator(true); setEditingStepIndex(null); setSearchQuery(""); }} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
+                        <div onClick={e => { e.stopPropagation(); setShowAddMenu(false); setForceSearch(false); setPendingOperator(true); setEditingStepIndex(null); setSearchQuery(""); }} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
                           onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Add Symbol</div>
                         <div style={{ borderTop: "1px solid #e2e8f0", margin: "4px 0" }} />
                         <div onClick={e => { e.stopPropagation(); handleAddTotalOperator("total-divide"); }} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
@@ -5174,6 +5211,7 @@ export default function DashelloDashboard() {
   const [inlineHasUnsaved, setInlineHasUnsaved] = useState(false);
   // "popup" = default modal behaviour; "inline" = expanded in-page view
   const [viewMode, setViewMode] = useState<"popup" | "inline">("popup");
+  const viewModeRef = useRef<"popup" | "inline">("popup");
   const [selectedApp, setSelectedApp] = useState<typeof APPS[0] | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showChat, setShowChat] = useState(false);
@@ -5509,7 +5547,7 @@ export default function DashelloDashboard() {
   const handleClickMetric = (data: MetricModalData, metric: Metric) => {
     setInlineMetric(metric);
     setInlineHasUnsaved(false);
-    if (viewMode === "inline") {
+    if (viewModeRef.current === "inline") {
       setInlineView("metric-detail");
       setActiveModal(null);
     } else {
@@ -5521,7 +5559,7 @@ export default function DashelloDashboard() {
   const handleEditFromModal = () => {
     if (!inlineMetric) return;
     setInlineHasUnsaved(false);
-    if (viewMode === "inline") {
+    if (viewModeRef.current === "inline") {
       setInlineView("metric-settings");
       setActiveModal(null);
     } else {
@@ -5736,7 +5774,7 @@ export default function DashelloDashboard() {
     if (isMobile) setSidebarOpen(false);
     if (p === "home") {
       // Reset to popup mode whenever user navigates back to home
-      setViewMode("popup");
+      setViewMode("popup"); viewModeRef.current = "popup";
       setInlineView(null);
       setInlineMetric(null);
       setInlineHasUnsaved(false);
@@ -5897,9 +5935,11 @@ const sidebarEl = (
                     setInlineView("metric-detail");
                   }}
                   onDelete={() => {
-                    if (foundSid) setSections(prev => prev.map(s => s.id === foundSid ? { ...s, metrics: s.metrics.filter(m => m.id !== inlineMetric.id) } : s));
-                    handleCloseInline();
-                  }}
+                if (foundSid) setSections(prev => prev.map(s => s.id === foundSid ? { ...s, metrics: s.metrics.filter(m => m.id !== editingMetricFromModal.id) } : s));
+                setEditingMetricFromModal(null); setActiveModal(null); setInlineMetric(null);
+                setViewMode("popup"); viewModeRef.current = "popup";
+                setInlineView(null); setInlineHasUnsaved(false);
+              }}
                   onDuplicate={() => {
                     if (foundSid) {
                       const { id, fiveAccountParentId, ...rest } = inlineMetric;
@@ -5950,7 +5990,7 @@ const sidebarEl = (
             onTransfer={handleTransfer}
           />
           <div
-            onClick={() => { setViewMode("inline"); setInlineView("metric-detail"); setActiveModal(null); }}
+            onClick={() => { setViewMode("inline"); viewModeRef.current = "inline"; setInlineView("metric-detail"); setActiveModal(null); }}
             title="Expand to full view"
             style={{
               position: "fixed", bottom: 28, right: 28, zIndex: 3000,
@@ -5988,9 +6028,11 @@ const sidebarEl = (
                 setEditingMetricFromModal(null);
               }}
               onDelete={() => {
-                if (foundSid) setSections(prev => prev.map(s => s.id === foundSid ? { ...s, metrics: s.metrics.filter(m => m.id !== editingMetricFromModal.id) } : s));
-                setEditingMetricFromModal(null); setActiveModal(null); setInlineMetric(null);
-              }}
+                    if (foundSid) setSections(prev => prev.map(s => s.id === foundSid ? { ...s, metrics: s.metrics.filter(m => m.id !== inlineMetric.id) } : s));
+                    setInlineView(null); setInlineMetric(null); setInlineHasUnsaved(false);
+                    setActiveModal(null); setEditingMetricFromModal(null);
+                    setViewMode("popup"); viewModeRef.current = "popup";
+                  }}
               onDuplicate={() => {
                 if (foundSid) {
                   const { id, fiveAccountParentId, ...rest } = editingMetricFromModal;
@@ -6019,7 +6061,7 @@ const sidebarEl = (
               }}
             />
             <div
-              onClick={() => { setViewMode("inline"); setInlineView("metric-settings"); setEditingMetricFromModal(null); setActiveModal(null); }}
+              onClick={() => { setViewMode("inline"); viewModeRef.current = "inline"; setInlineView("metric-settings"); setEditingMetricFromModal(null); setActiveModal(null); }}
               title="Expand to full view"
               style={{
                 position: "fixed", bottom: 28, right: 28, zIndex: 4000,
