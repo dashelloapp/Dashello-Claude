@@ -575,7 +575,7 @@ const PHOSPHOR_CATEGORIES: { label: string; icons: string[] }[] = [
     icons: [
       "ChartLineUp","ChartLineDown","ChartDonut","ChartBarHorizontal","ChartScatter","ChartPolar",
       "ArrowUp","ArrowDown","ArrowRight","ArrowLeft","ArrowUUpRight","ArrowUUpLeft","ArrowsOut","ArrowsIn",
-      "ArrowsClockwise","ArrowsCounterClockwise","ArrowsLeftRight","ArrowsDownUp","Pulse","Activity",
+      "ArrowsClockwise","ArrowsCounterClockwise","ArrowsLeftRight","ArrowsDownUp","Pulse","Gauge",
       "Database","HardDrive","HardDrives","Cloud","CloudArrowUp","CloudArrowDown","CloudCheck","CloudX",
       "MagnifyingGlass","MagnifyingGlassPlus","MagnifyingGlassMinus","Funnel","FunnelSimple","SortAscending","SortDescending",
     ]
@@ -619,15 +619,15 @@ const PHOSPHOR_CATEGORIES: { label: string; icons: string[] }[] = [
     label: "Transit",
     icons: [
       "Car","CarSimple","CarProfile","Taxi","Truck","Van","Motorcycle","Bicycle","Scooter",
-      "Bus","Train","TrainSimple","TrainRegional","Tram","Airplane","AirplaneTakeoff","AirplaneLanding","Helicopter","Boat","Sailboat","RocketLaunch",
-      "MapPin","MapTrifold","Navigation","NavigationArrow","Compass","Path","Road","RoadHorizon","TrafficCone","TrafficSign","TrafficSignal",
+      "Bus","Train","TrainSimple","TrainRegional","Tram","Airplane","AirplaneTakeoff","AirplaneLanding","Rocket","Boat","Sailboat","RocketLaunch",
+      "MapPin","MapTrifold","NavigationArrow","Compass","Path","MapTrifold","RoadHorizon","TrafficCone","TrafficSign","TrafficSignal",
     ]
   },
   {
     label: "Food",
     icons: [
-      "ForkKnife","CookingPot","BowlFood","Bread","Coffee","Hamburger","Pizza","Popcorn","Steak",
-      "BeerBottle","Wine","Knife","Cake","Cookie","OrangeSlice","Lemon","IceCream","AppleLogo",
+      "ForkKnife","CookingPot","BowlFood","Bread","Coffee","Hamburger","Pizza","Popcorn","FishSimple",
+      "BeerBottle","Wine","Knife","Cake","Cookie","OrangeSlice","Orange","IceCream","AppleLogo",
     ]
   },
   {
