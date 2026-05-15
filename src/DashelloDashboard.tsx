@@ -60,7 +60,7 @@ interface EquationStep {
   metricIcon?: string;
   metricColor?: MetricColor;
   metricValue?: string;
-  operator?: "+" | "-" | "*" | "/" | "total-multiply" | "total-divide" | "total-add" | "total-subtract" | "paren-start" | "paren-end";
+  operator?: "+" | "-" | "*" | "/" | "paren-start" | "paren-end";
   metricType?: MetricType;
   currencySymbol?: string;
   healthPct?: number | null;
@@ -254,20 +254,6 @@ function evaluateEquation(steps: EquationStep[], allMetrics: Metric[]): number |
     }
   }
 
-  // Handle total operators: evaluate left and right recursively
-  for (let i = 0; i < steps.length; i++) {
-    const s = steps[i];
-    if (s.type === "operator" && (s.operator === "total-multiply" || s.operator === "total-divide" || s.operator === "total-add" || s.operator === "total-subtract")) {
-      const leftResult = evaluateEquation(steps.slice(0, i), allMetrics);
-      const rightResult = evaluateEquation(steps.slice(i + 1), allMetrics);
-      if (leftResult === null || rightResult === null) return null;
-      if (s.operator === "total-multiply") return leftResult * rightResult;
-      if (s.operator === "total-divide") return rightResult === 0 ? 0 : leftResult / rightResult;
-      if (s.operator === "total-add") return leftResult + rightResult;
-      return leftResult - rightResult;
-    }
-  }
-
   if (steps.length === 1 && steps[0].type === "metric") {
     const m = allMetrics.find(mm => mm.id === steps[0].metricId);
     if (!m) return null;
@@ -281,7 +267,7 @@ function evaluateEquation(steps: EquationStep[], allMetrics: Metric[]): number |
   for (const step of steps) {
     if (step.type === "operator") {
       if (step.operator) {
-        if (step.operator === "total-multiply" || step.operator === "total-divide" || step.operator === "total-add" || step.operator === "total-subtract" || step.operator === "paren-start" || step.operator === "paren-end") continue;
+        if (step.operator === "paren-start" || step.operator === "paren-end") continue;
         resolved.push(step.operator as "+" | "-" | "*" | "/");
       }
     } else if (step.type === "number") {
@@ -357,10 +343,6 @@ function autoParenthesizeSteps(steps: EquationStep[]): { display: string; groupe
       }
       if (s.operator === "*") displayParts.push("×");
       else if (s.operator === "/") displayParts.push("÷");
-      else if (s.operator === "total-multiply") displayParts.push("TOTAL×");
-      else if (s.operator === "total-divide") displayParts.push("TOTAL÷");
-      else if (s.operator === "total-add") displayParts.push("TOTAL+");
-      else if (s.operator === "total-subtract") displayParts.push("TOTAL−");
       else displayParts.push(s.operator ?? "+");
       i++;
     } else if (s.type === "number") {
@@ -383,10 +365,6 @@ function buildEquationPreviewString(steps: EquationStep[], allMetrics: Metric[])
     if (s.type === "operator") {
       if (s.operator === "*") parts.push("×");
       else if (s.operator === "/") parts.push("÷");
-      else if (s.operator === "total-multiply") parts.push("TOTAL×");
-      else if (s.operator === "total-divide") parts.push("TOTAL÷");
-      else if (s.operator === "total-add") parts.push("TOTAL+");
-      else if (s.operator === "total-subtract") parts.push("TOTAL−");
       else if (s.operator === "paren-start") parts.push("(");
       else if (s.operator === "paren-end") parts.push(")");
       else parts.push(s.operator ?? "+");
@@ -423,6 +401,17 @@ function syncSettingsToMetrics(sections: Section[], settings: FiveAccountSetting
       return { ...metric, colorRules: updatedRules };
     })
   }));
+}
+// ─── Sequential step numbering ─────────────────────────────────────────────
+function assignStepNumbers(steps: EquationStep[]): Map<number, number> {
+  const result = new Map<number, number>();
+  let counter = 1;
+  for (let i = 0; i < steps.length; i++) {
+    const s = steps[i];
+    if (s.type === "operator" && (s.operator === "paren-start" || s.operator === "paren-end")) continue;
+    result.set(i, counter++);
+  }
+  return result;
 }
 // ─── Health score calculation ──────────────────────────────────────────────
 type HealthResult = {
@@ -1963,6 +1952,7 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [equationError, setEquationError] = useState("");
+  const [isInline, setIsInline] = useState(false);
 
   // Live formatted preview of the value based on metric type
   const previewValue = formatValue(rawValue || "0", fiveOn ? "financial" : metricType, currency);
@@ -2037,9 +2027,9 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
 
   return (
     <>
-      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000, padding: 16 }}>
+      <div onClick={isInline ? undefined : onClose} style={isInline ? { position: "relative" } : { position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000, padding: 16 }}>
         <div onClick={e => e.stopPropagation()} onKeyDown={e => { if (e.key === "Enter") handleSave(); }}
-          style={{ background: "#fff", borderRadius: 20, width: "100%", maxWidth: 820, maxHeight: "92vh", overflowY: "auto", overflowX: "hidden", boxShadow: "0 24px 64px rgba(0,0,0,0.2)", scrollbarGutter: "stable" } as React.CSSProperties}>
+          style={isInline ? { background: "#fff", borderRadius: 20, width: "100%", overflowY: "auto", overflowX: "hidden", boxShadow: "0 24px 64px rgba(0,0,0,0.2)", scrollbarGutter: "stable" } as React.CSSProperties : { background: "#fff", borderRadius: 20, width: "100%", maxWidth: 820, maxHeight: "92vh", overflowY: "auto", overflowX: "hidden", boxShadow: "0 24px 64px rgba(0,0,0,0.2)", scrollbarGutter: "stable" } as React.CSSProperties}>
 
           {/* Header */}
           <div style={{ padding: "20px 22px 0", display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
@@ -2195,9 +2185,14 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
                               <div style={{ display: "flex", gap: 6 }}>
                                 <button onClick={() => openEditRule(r)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: "#3B82F6", padding: 0 }}>Edit</button>
                                 <button onClick={() => removeRule(r.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: "#E85D75", padding: 0 }}>✕</button>
-                              </div>
-                            </div>
-                          </div>
+          </div>
+          <div style={{ position: "sticky", bottom: 0, display: "flex", justifyContent: "flex-end", padding: "8px 22px", background: "#fff", borderTop: "1px solid #f1f5f9", borderRadius: "0 0 20px 20px" }}>
+            <button onClick={() => setIsInline(v => !v)} style={{ display: "flex", alignItems: "center", gap: 4, padding: "6px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 11, fontWeight: 500, cursor: "pointer", color: "#64748b" }}>
+              {isInline ? "☐ Popup" : "⊞ Inline"}
+            </button>
+          </div>
+        </div>
+      </div>
                         ))}
                       </div>
                     )}
@@ -3371,18 +3366,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
       setSteps(prev => {
         const next = [...prev];
         if (next[editingStepIndex].type === "operator") {
-          const cur = next[editingStepIndex].operator;
-          if (cur === "total-multiply" || cur === "total-divide" || cur === "total-add" || cur === "total-subtract") {
-            const totalMap: Record<string, "total-multiply" | "total-divide" | "total-add" | "total-subtract"> = {
-              "+": "total-add",
-              "-": "total-subtract",
-              "*": "total-multiply",
-              "/": "total-divide",
-            };
-            next[editingStepIndex] = { ...next[editingStepIndex], operator: totalMap[op] ?? op as any };
-          } else {
-            next[editingStepIndex] = { ...next[editingStepIndex], operator: op };
-          }
+          next[editingStepIndex] = { ...next[editingStepIndex], operator: op };
         }
         return next;
       });
@@ -3401,20 +3385,60 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
     }
   };
 
-  const handleAddTotalOperator = (op: "total-multiply" | "total-divide" | "total-add" | "total-subtract") => {
+  const handleAddParentheses = () => {
     setShowAddMenu(false);
     setForceSearch(false);
     setPendingOperator(false);
-    setEditingStepIndex(null);
+    if (editingStepIndex !== null) {
+      setSteps(prev => {
+        const next = [...prev];
+        next.splice(editingStepIndex, 1, { type: "operator", operator: "paren-start" }, { type: "operator", operator: "paren-end" });
+        return next;
+      });
+      setEditingStepIndex(null);
+    } else {
+      const rawInsert = addAtIndex ?? steps.length;
+      setSteps(prev => {
+        const insertAt = clampToInnermostGroup(rawInsert, prev);
+        const next = [...prev];
+        next.splice(insertAt, 0, { type: "operator", operator: "paren-start" }, { type: "operator", operator: "paren-end" });
+        return next;
+      });
+      setAddAtIndex(null);
+    }
     setSearchQuery("");
-    const rawInsert = addAtIndex ?? steps.length;
-    setSteps(prev => {
-      const insertAt = clampToInnermostGroup(rawInsert, prev);
-      const next = [...prev];
-      next.splice(insertAt, 0, { type: "operator", operator: op });
-      return next;
-    });
-    setAddAtIndex(null);
+    setTimeout(() => searchRef.current?.focus(), 50);
+  };
+
+  const handleAddFraction = () => {
+    setShowAddMenu(false);
+    setForceSearch(false);
+    setPendingOperator(false);
+    const fractionSteps: EquationStep[] = [
+      { type: "operator", operator: "paren-start" },
+      { type: "operator", operator: "paren-end" },
+      { type: "operator", operator: "/" },
+      { type: "operator", operator: "paren-start" },
+      { type: "operator", operator: "paren-end" },
+    ];
+    if (editingStepIndex !== null) {
+      setSteps(prev => {
+        const next = [...prev];
+        next.splice(editingStepIndex, 1, ...fractionSteps);
+        return next;
+      });
+      setEditingStepIndex(null);
+    } else {
+      const rawInsert = addAtIndex ?? steps.length;
+      setSteps(prev => {
+        const insertAt = clampToInnermostGroup(rawInsert, prev);
+        const next = [...prev];
+        next.splice(insertAt, 0, ...fractionSteps);
+        return next;
+      });
+      setAddAtIndex(null);
+    }
+    setSearchQuery("");
     setTimeout(() => searchRef.current?.focus(), 50);
   };
 
@@ -3564,9 +3588,6 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                   }
                   renderGroups.push({ type: "paren-group", steps: steps.slice(i, j + 1), groupIdx: renderGroups.length, startIdx: i });
                   i = j + 1;
-                } else if (i + 2 < steps.length && steps[i].type === "metric" && steps[i+1].type === "operator" && (steps[i+1].operator === "/" || steps[i+1].operator === "*") && steps[i+2].type === "metric") {
-                  renderGroups.push({ type: "fraction", steps: [steps[i], steps[i+1], steps[i+2]], groupIdx: renderGroups.length, startIdx: i });
-                  i += 3;
                 } else if (steps[i].type === "number") {
                   renderGroups.push({ type: "number", step: steps[i], groupIdx: renderGroups.length, startIdx: i });
                   i++;
@@ -3575,6 +3596,16 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                   i++;
                 }
               }
+              // Merge paren-group + "/" operator + paren-group into fraction
+              for (let ri = 0; ri < renderGroups.length - 2; ri++) {
+                const a = renderGroups[ri];
+                const b = renderGroups[ri + 1];
+                const c = renderGroups[ri + 2];
+                if (a.type === "paren-group" && b.type === "operator" && b.step?.operator === "/" && c.type === "paren-group") {
+                  renderGroups.splice(ri, 3, { type: "fraction", steps: [...a.steps!, b.step, ...c.steps!], groupIdx: ri, startIdx: a.startIdx });
+                }
+              }
+              const stepNumbers = assignStepNumbers(steps);
               return (
               <div onClick={() => setSelectedGroupStartIdx(null)} style={{ display: "flex", alignItems: "flex-start", flexWrap: "wrap", gap: 6, padding: "14px 18px", background: "#F8FAFC", borderRadius: 12, border: "1px solid #e2e8f0", minHeight: 60, position: "relative" }}>
                 {(() => {
@@ -3584,46 +3615,15 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                     const cs = sc;
                     const csScale = Math.max(0.6, Math.min(1, cs / 140));
                     if (g.type === "fraction" && g.steps) {
-                      const [topMetric, opStep, bottomMetric] = g.steps;
-                      const actualIdx = steps.indexOf(topMetric);
-                      const isEditing = actualIdx >= 0 && (editingStepIndex === actualIdx || editingStepIndex === actualIdx + 2);
-                      const isTopEditing = actualIdx >= 0 && editingStepIndex === actualIdx;
-                      const isBottomEditing = actualIdx >= 0 && editingStepIndex === actualIdx + 2;
-                      const fc = cs * 0.8;
-                      const topFullMetric = allMetrics.find(m => m.id === topMetric.metricId);
-                      const bottomFullMetric = allMetrics.find(m => m.id === bottomMetric.metricId);
-                      const topColor = topFullMetric ? resolveColor(topFullMetric) : "gray";
-                      const bottomColor = bottomFullMetric ? resolveColor(bottomFullMetric) : "gray";
-                      const topMS = MS[topColor];
-                      const bottomMS = MS[bottomColor];
-                      const topIsColored = topColor !== "gray";
-                      const bottomIsColored = bottomColor !== "gray";
-                      const renderMiniMetricCard = (eqStep: EquationStep, fullM: Metric | undefined, mColor: MetricColor, mMS: typeof MS.green, isColored: boolean, isPartEditing: boolean) => {
-                        const hasIcon = !!(eqStep.metricIcon && eqStep.metricIcon !== ICON_NONE);
-                        const txtColor = isColored ? "#fff" : "#4A5568";
-                        return (
-                          <div style={{
-                            width: fc, minHeight: fc, borderRadius: 8,
-                            background: mMS.bg,
-                            padding: "8px 6px", display: "flex", flexDirection: "column",
-                            alignItems: "center", justifyContent: hasIcon ? "space-between" : "center",
-                            gap: 2,
-                            outline: isPartEditing ? "2px solid #3B82F6" : "2px solid transparent",
-                          }}>
-                            <div style={{ fontSize: fc * 0.09, fontWeight: 600, color: txtColor, textAlign: "center", lineHeight: 1.1 }}>
-                              {eqStep.metricLabel}
-                            </div>
-                            {hasIcon && (
-                              <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                                <IconGlyph name={eqStep.metricIcon!} size={13} color={isColored ? mMS.bg : "#3B82F6"} />
-                              </div>
-                            )}
-                            <div style={{ fontSize: fc * 0.1, fontWeight: 700, color: txtColor, textAlign: "center" }}>
-                              {eqStep.metricValue}
-                            </div>
-                          </div>
-                        );
-                      };
+                      const slashIdxInSteps = g.steps.findIndex(s => s.type === "operator" && s.operator === "/");
+                      const numStart = g.startIdx + 1;
+                      const numEnd = g.startIdx + slashIdxInSteps;
+                      const denStart = g.startIdx + slashIdxInSteps + 2;
+                      const denEnd = g.startIdx + g.steps.length - 1;
+                      const actualSlashIdx = g.startIdx + slashIdxInSteps;
+                      const isNumEditing = editingStepIndex !== null && editingStepIndex >= numStart && editingStepIndex < numEnd;
+                      const isDenEditing = editingStepIndex !== null && editingStepIndex >= denStart && editingStepIndex < denEnd;
+                      const isEditing = isNumEditing || isDenEditing || editingStepIndex === actualSlashIdx;
                       return [
                         lineBefore && (
                           <div key={`fl-${gi}-${si}`} style={{ width: 3, alignSelf: "stretch", background: "#3B82F6", borderRadius: 2, flexShrink: 0, minHeight: 60 }} />
@@ -3634,9 +3634,8 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                             e.dataTransfer.setData("text/plain", "");
                             e.dataTransfer.effectAllowed = "move";
                             e.stopPropagation();
-                            dragStepIdxRef.current = actualIdx;
-                            dragCountRef.current = 3;
-                            if (actualIdx >= 0) handleEditStep(actualIdx);
+                            dragStepIdxRef.current = g.startIdx;
+                            dragCountRef.current = g.steps!.length;
                             const el = e.currentTarget.cloneNode(true) as HTMLElement;
                             el.style.cssText = 'position:absolute;top:-999px;left:-999px;transform:scale(0.5);transform-origin:top left;border-radius:12px;overflow:hidden;outline:2px solid #3B82F6;background:#EFF6FF;';
                             el.style.pointerEvents = 'none';
@@ -3645,35 +3644,28 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                             e.dataTransfer.setDragImage(el, r.width / 2, r.height / 2);
                             setTimeout(() => document.body.removeChild(el), 0);
                           }}
-                          onDragOver={e => { e.preventDefault(); e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); const m = rect.left + rect.width / 2; const idx = e.clientX < m ? actualIdx : actualIdx + 3; setDropLineIndex(idx); dropLineIndexRef.current = idx; }}
-                          onDrop={e => { e.preventDefault(); e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); const m = rect.left + rect.width / 2; const idx = e.clientX < m ? actualIdx : actualIdx + 3; handleStepDrop(idx); }}
+                          onDragOver={e => { e.preventDefault(); e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); const m = rect.left + rect.width / 2; const idx = e.clientX < m ? g.startIdx : g.startIdx + g.steps!.length; setDropLineIndex(idx); dropLineIndexRef.current = idx; }}
+                          onDrop={e => { e.preventDefault(); e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); const m = rect.left + rect.width / 2; const idx = e.clientX < m ? g.startIdx : g.startIdx + g.steps!.length; handleStepDrop(idx); }}
                           onDragEnd={() => { dragStepIdxRef.current = null; dragCountRef.current = 1; setDropLineIndex(null); dropLineIndexRef.current = null; }}
-                          onClick={e => { e.stopPropagation(); if (actualIdx >= 0) handleEditStep(actualIdx); }}
+                          onClick={e => { e.stopPropagation(); handleEditStep(actualSlashIdx); }}
                           style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "flex-start", borderRadius: 12, padding: 2, outline: isEditing ? "2px solid #3B82F6" : "2px solid transparent", background: isEditing ? "#EFF6FF" : "transparent" }}>
                           {isEditing && (
-                            <div onClick={e => { e.stopPropagation(); if (actualIdx >= 0) { setSteps(prev => { const n = [...prev]; n.splice(actualIdx, 3); return n; }); setEditingStepIndex(null); } }} style={{ position: "absolute", top: 2, right: 2, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#3B82F6", fontSize: 22, fontWeight: 700, lineHeight: 1, zIndex: 10 }}>×</div>
+                            <div onClick={e => { e.stopPropagation(); setSteps(prev => { const n = [...prev]; n.splice(g.startIdx, g.steps!.length); return n; }); setEditingStepIndex(null); }} style={{ position: "absolute", top: 2, right: 2, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#3B82F6", fontSize: 22, fontWeight: 700, lineHeight: 1, zIndex: 10 }}>×</div>
                           )}
-                          {renderCheckbox(actualIdx, isEditing)}
-                          <div style={{ display: "flex", justifyContent: "center", width: "100%", marginBottom: 3 }}>
-                            <div style={{
-                              width: 44 * csScale, height: 44 * csScale, borderRadius: "50%",
-                              background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 20 * csScale, fontWeight: 700,
-                              display: "flex", alignItems: "center", justifyContent: "center"
-                            }}>
-                              {g.groupIdx! + 1}
+                          {renderCheckbox(actualSlashIdx, isEditing)}
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                            <div style={{ display: "inline-flex", flexWrap: "wrap", gap: 6, padding: "8px 12px", border: "2px solid #e2e8f0", borderRadius: 16, background: "#fff", alignItems: "flex-start" }}
+                              onClick={e => e.stopPropagation()}>
+                              {renderRange(numStart, numEnd)}
+                              {renderPlusButton(numEnd, `fn-${si}-${gi}`)}
                             </div>
-                          </div>
-                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                            <div onClick={e => { e.stopPropagation(); if (actualIdx >= 0) handleEditStep(actualIdx); }} style={{ cursor: "pointer" }}>
-                              {renderMiniMetricCard(topMetric, topFullMetric, topColor, topMS, topIsColored, isTopEditing)}
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                              <div onClick={e => { e.stopPropagation(); handleEditStep(actualSlashIdx); }} style={{ width: 28, height: 28, borderRadius: "50%", background: "#3B82F6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>÷</div>
                             </div>
-                            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "4px 0" }}>
-                              <div onClick={e => { e.stopPropagation(); if (actualIdx >= 0) handleEditStep(actualIdx + 1); }} style={{ width: 28, height: 28, borderRadius: "50%", background: "#3B82F6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-                                {opStep?.operator === "*" ? "×" : "÷"}
-                              </div>
-                            </div>
-                            <div onClick={e => { e.stopPropagation(); if (actualIdx >= 0) handleEditStep(actualIdx + 2); }} style={{ cursor: "pointer" }}>
-                              {renderMiniMetricCard(bottomMetric, bottomFullMetric, bottomColor, bottomMS, bottomIsColored, isBottomEditing)}
+                            <div style={{ display: "inline-flex", flexWrap: "wrap", gap: 6, padding: "8px 12px", border: "2px solid #e2e8f0", borderRadius: 16, background: "#fff", alignItems: "flex-start" }}
+                              onClick={e => e.stopPropagation()}>
+                              {renderRange(denStart, denEnd)}
+                              {renderPlusButton(denEnd, `fd-${si}-${gi}`)}
                             </div>
                           </div>
                         </div>
@@ -3720,7 +3712,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                               background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 20 * csScale, fontWeight: 700,
                               display: "flex", alignItems: "center", justifyContent: "center"
                             }}>
-                              {g.groupIdx! + 1}
+                              {stepNumbers.get(g.startIdx) ?? ""}
                             </div>
                           </div>
                           {fullMetric ? (
@@ -3783,7 +3775,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                               background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 20 * csScale, fontWeight: 700,
                               display: "flex", alignItems: "center", justifyContent: "center"
                             }}>
-                              {g.groupIdx! + 1}
+                              {stepNumbers.get(g.startIdx) ?? ""}
                             </div>
                           </div>
                           <div style={{ width: 140, minHeight: 100, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 12, background: "#F8FAFC", border: "1.5px solid #e2e8f0", padding: "8px" }}>
@@ -3847,7 +3839,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                               background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 20 * csScale, fontWeight: 700,
                               display: "flex", alignItems: "center", justifyContent: "center"
                             }}>
-                              {g.groupIdx! + 1}
+                              {stepNumbers.get(g.startIdx) ?? ""}
                             </div>
                           </div>
                           <div style={{ width: 140, minHeight: 140, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -3857,7 +3849,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                               display: "flex", alignItems: "center", justifyContent: "center",
                               fontSize: 22 * csScale, fontWeight: 700,
                             }}>
-                              {step.operator === "*" ? "×" : step.operator === "/" ? "÷" : step.operator === "total-multiply" ? "×" : step.operator === "total-divide" ? "÷" : step.operator === "total-add" ? "+" : step.operator === "total-subtract" ? "−" : step.operator}
+                              {step.operator === "*" ? "×" : step.operator === "/" ? "÷" : step.operator}
                             </div>
                           </div>
                         </div>
@@ -3870,20 +3862,11 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                     showAddMenu && addAtIndex === insertAt ? (
                       <div key={menuKey} ref={addMenuRef} style={{ position: "absolute", left: 0, top: "100%", marginTop: 4, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 50, minWidth: 170, overflow: "hidden" }}>
                         <div onClick={e => { e.stopPropagation(); setShowAddMenu(false); setForceSearch(true); setPendingOperator(false); setEditingStepIndex(null); setSearchQuery(""); setTimeout(() => searchRef.current?.focus(), 50); }} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
-                          onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Add Metric</div>
+                          onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Metric</div>
                         <div onClick={e => { e.stopPropagation(); handleAddNumberStep(); }} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
-                          onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Add Number</div>
+                          onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Number</div>
                         <div onClick={e => { e.stopPropagation(); setShowAddMenu(false); setForceSearch(false); setPendingOperator(true); setEditingStepIndex(null); setSearchQuery(""); }} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
-                          onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Add Symbol</div>
-                        <div style={{ borderTop: "1px solid #e2e8f0", margin: "4px 0" }} />
-                        <div onClick={e => { e.stopPropagation(); handleAddTotalOperator("total-divide"); }} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
-                          onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Divide Total</div>
-                        <div onClick={e => { e.stopPropagation(); handleAddTotalOperator("total-multiply"); }} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
-                          onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Multiply Total</div>
-                        <div onClick={e => { e.stopPropagation(); handleAddTotalOperator("total-subtract"); }} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
-                          onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Subtract Total</div>
-                        <div onClick={e => { e.stopPropagation(); handleAddTotalOperator("total-add"); }} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
-                          onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Add Total</div>
+                          onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Math</div>
                       </div>
                     ) : null
                   );
@@ -3914,9 +3897,6 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                         }
                         subGroups.push({ type: "paren-group", steps: steps.slice(ri, rj + 1), groupIdx: ri, startIdx: ri });
                         ri = rj + 1;
-                      } else if (ri + 2 < rEnd && steps[ri].type === "metric" && steps[ri+1].type === "operator" && (steps[ri+1].operator === "/" || steps[ri+1].operator === "*") && steps[ri+2].type === "metric") {
-                        subGroups.push({ type: "fraction", steps: [steps[ri], steps[ri+1], steps[ri+2]], groupIdx: ri, startIdx: ri });
-                        ri += 3;
                       } else if (steps[ri].type === "operator" && steps[ri].operator === "paren-end") {
                         ri++;
                       } else if (steps[ri].type === "number") {
@@ -3928,22 +3908,26 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                       }
                     }
                     if (subGroups.length === 0) return [];
+                    // Merge paren-group + "/" + paren-group into fraction
+                    for (let ri = 0; ri < subGroups.length - 2; ri++) {
+                      const a = subGroups[ri];
+                      const b = subGroups[ri + 1];
+                      const c = subGroups[ri + 2];
+                      if (a.type === "paren-group" && b.type === "operator" && b.step?.operator === "/" && c.type === "paren-group") {
+                        subGroups.splice(ri, 3, { type: "fraction", steps: [...a.steps!, b.step, ...c.steps!], groupIdx: ri, startIdx: a.startIdx });
+                      }
+                    }
 
                     const subSections: typeof sections = [];
                     for (let sri = 0; sri < subGroups.length; sri++) {
                       const g = subGroups[sri];
-                      const isTOp = g.type === "operator" && g.step && (g.step.operator === "total-multiply" || g.step.operator === "total-divide" || g.step.operator === "total-add" || g.step.operator === "total-subtract");
-                      if (isTOp) {
-                        subSections.push({ type: "total-op", group: g, endStepIdx: g.startIdx + 1 });
+                      const last = subSections[subSections.length - 1];
+                      const sCnt = g.type === "fraction" || g.type === "paren-group" ? g.steps!.length : 1;
+                      if (last && last.type === "seq") {
+                        last.groups!.push(g);
+                        last.endStepIdx = g.startIdx + sCnt;
                       } else {
-                        const last = subSections[subSections.length - 1];
-                        const sCnt = g.type === "fraction" ? 3 : g.type === "paren-group" ? g.steps!.length : 1;
-                        if (last && last.type === "seq") {
-                          last.groups!.push(g);
-                          last.endStepIdx = g.startIdx + sCnt;
-                        } else {
-                          subSections.push({ type: "seq", groups: [g], endStepIdx: g.startIdx + sCnt });
-                        }
+                        subSections.push({ type: "seq", groups: [g], endStepIdx: g.startIdx + sCnt });
                       }
                     }
 
@@ -4005,74 +3989,21 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                             </div>
                           );
                         }
-                      } else if (sec.type === "total-op" && sec.group) {
-                        const gg = sec.group; const st = gg.step!;
-                        const idx = steps.indexOf(st);
-                        const isEdit = editingStepIndex === idx;
-                        const opC = st.operator === "total-multiply" ? "×" : st.operator === "total-divide" ? "÷" : st.operator === "total-add" ? "+" : "-";
-                        const prevIsSeq2 = ssi > 0 && subSections[ssi - 1].type === "seq" && subSections[ssi - 1].endStepIdx === gg.startIdx;
-                        const lIdx2 = !prevIsSeq2 && dropLineIndex === gg.startIdx;
-                        if (lIdx2) subResult.push(<div key={`rtl-${rStart}-${ssi}`} style={{ width: 3, alignSelf: "stretch", background: "#3B82F6", borderRadius: 2, flexShrink: 0, minHeight: 60 }} />);
-                        subResult.push(
-                          <div key={`rto-${rStart}-${ssi}`}
-                            onClick={e => { e.stopPropagation(); handleEditStep(idx); }}
-                            draggable
-                            onDragStart={e => {
-                              e.dataTransfer.setData("text/plain", "");
-                              e.dataTransfer.effectAllowed = "move";
-                              e.stopPropagation();
-                              dragStepIdxRef.current = idx;
-                              dragCountRef.current = 1;
-                              handleEditStep(idx);
-                              const el = e.currentTarget.cloneNode(true) as HTMLElement;
-                              el.style.cssText = 'position:absolute;top:-999px;left:-999px;transform:scale(0.5);transform-origin:top left;border-radius:12px;overflow:hidden;outline:2px solid #3B82F6;background:#EFF6FF;';
-                              el.style.pointerEvents = 'none';
-                              document.body.appendChild(el);
-                              const r = el.getBoundingClientRect();
-                              e.dataTransfer.setDragImage(el, r.width / 2, r.height / 2);
-                              setTimeout(() => document.body.removeChild(el), 0);
-                            }}
-                            onDragOver={e => { e.preventDefault(); e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); const m = rect.left + rect.width / 2; const idx2 = e.clientX < m ? idx : idx + 1; setDropLineIndex(idx2); dropLineIndexRef.current = idx2; }}
-                            onDrop={e => { e.preventDefault(); e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); const m = rect.left + rect.width / 2; const idx2 = e.clientX < m ? idx : idx + 1; handleStepDrop(idx2); }}
-                            onDragEnd={() => { dragStepIdxRef.current = null; dragCountRef.current = 1; setDropLineIndex(null); dropLineIndexRef.current = null; }}
-                            style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "flex-start", borderRadius: 12, padding: 2, outline: isEdit ? "2px solid #3B82F6" : "2px solid transparent", background: isEdit ? "#EFF6FF" : "transparent" }}>
-                            {isEdit && (
-                              <div onClick={e => { e.stopPropagation(); handleRemoveStep(idx); }} style={{ position: "absolute", top: 2, right: 2, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#3B82F6", fontSize: 22, fontWeight: 700, lineHeight: 1, zIndex: 10 }}>×</div>
-                            )}
-                            {renderCheckbox(idx, isEdit)}
-                            <div style={{ display: "flex", justifyContent: "center", width: "100%", marginBottom: 3 }}>
-                              <div style={{ width: 44 * circleScale, height: 44 * circleScale, borderRadius: "50%", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 20 * circleScale, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                                {gg.groupIdx! + 1}
-                              </div>
-                            </div>
-                            <div style={{ width: cardSize, minHeight: cardSize, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-                              <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#3B82F6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, fontWeight: 700 }}>
-                                {opC}
-                              </div>
-                            </div>
-                          </div>
-                        );
                       }
                     });
                     return subResult;
                   };
 
-                  // Build sections: split at total operators
-                  const sections: { type: "seq" | "total-op"; groups?: typeof renderGroups; group?: typeof renderGroups[0]; endStepIdx: number }[] = [];
+                  const sections: { type: "seq"; groups: typeof renderGroups; endStepIdx: number }[] = [];
                   for (let ri = 0; ri < renderGroups.length; ri++) {
                     const g = renderGroups[ri];
-                    const isTotalOp = g.type === "operator" && g.step && (g.step.operator === "total-multiply" || g.step.operator === "total-divide" || g.step.operator === "total-add" || g.step.operator === "total-subtract");
-                    if (isTotalOp) {
-                      sections.push({ type: "total-op", group: g, endStepIdx: g.startIdx + 1 });
+                    const last = sections[sections.length - 1];
+                    const stepCount = g.type === "fraction" || g.type === "paren-group" ? g.steps!.length : 1;
+                    if (last && last.type === "seq") {
+                      last.groups!.push(g);
+                      last.endStepIdx = g.startIdx + stepCount;
                     } else {
-                      const last = sections[sections.length - 1];
-                      const stepCount = g.type === "fraction" ? 3 : g.type === "paren-group" ? g.steps!.length : 1;
-                      if (last && last.type === "seq") {
-                        last.groups!.push(g);
-                        last.endStepIdx = g.startIdx + stepCount;
-                      } else {
-                        sections.push({ type: "seq", groups: [g], endStepIdx: g.startIdx + stepCount });
-                      }
+                      sections.push({ type: "seq", groups: [g], endStepIdx: g.startIdx + stepCount });
                     }
                   }
 
@@ -4136,66 +4067,8 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                           </div>
                         );
                       }
-                    } else if (sec.type === "total-op" && sec.group) {
-                      const g = sec.group;
-                      const step = g.step!;
-                      const idx = steps.indexOf(step);
-                      const isEditing = editingStepIndex === idx;
-                      const opChar = step.operator === "total-multiply" ? "×" : step.operator === "total-divide" ? "÷" : step.operator === "total-add" ? "+" : "-";
-                      const prevIsSeq = si > 0 && sections[si - 1].type === "seq" && sections[si - 1].endStepIdx === g.startIdx;
-                      const lineIdx = !prevIsSeq && dropLineIndex === g.startIdx;
-                      if (lineIdx) {
-                        result.push(<div key={`tl-${si}`} style={{ width: 3, alignSelf: "stretch", background: "#3B82F6", borderRadius: 2, flexShrink: 0, minHeight: 60 }} />);
-                      }
-                      result.push(
-                        <div key={`to-${si}`}
-                          onClick={e => { e.stopPropagation(); handleEditStep(idx); }}
-                          draggable
-                          onDragStart={e => {
-                            e.dataTransfer.setData("text/plain", "");
-                            e.dataTransfer.effectAllowed = "move";
-                            e.stopPropagation();
-                            dragStepIdxRef.current = idx;
-                            dragCountRef.current = 1;
-                            handleEditStep(idx);
-                            const el = e.currentTarget.cloneNode(true) as HTMLElement;
-                            el.style.cssText = 'position:absolute;top:-999px;left:-999px;transform:scale(0.5);transform-origin:top left;border-radius:12px;overflow:hidden;outline:2px solid #3B82F6;background:#EFF6FF;';
-                            el.style.pointerEvents = 'none';
-                            document.body.appendChild(el);
-                            const r = el.getBoundingClientRect();
-                            e.dataTransfer.setDragImage(el, r.width / 2, r.height / 2);
-                            setTimeout(() => document.body.removeChild(el), 0);
-                          }}
-                          onDragOver={e => { e.preventDefault(); e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); const m = rect.left + rect.width / 2; const idx2 = e.clientX < m ? idx : idx + 1; setDropLineIndex(idx2); dropLineIndexRef.current = idx2; }}
-                          onDrop={e => { e.preventDefault(); e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); const m = rect.left + rect.width / 2; const idx2 = e.clientX < m ? idx : idx + 1; handleStepDrop(idx2); }}
-                          onDragEnd={() => { dragStepIdxRef.current = null; dragCountRef.current = 1; setDropLineIndex(null); dropLineIndexRef.current = null; }}
-                          style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "flex-start", borderRadius: 12, padding: 2, outline: isEditing ? "2px solid #3B82F6" : "2px solid transparent", background: isEditing ? "#EFF6FF" : "transparent" }}>
-                              {isEditing && (
-                                <div onClick={e => { e.stopPropagation(); handleRemoveStep(idx); }} style={{ position: "absolute", top: 2, right: 2, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#3B82F6", fontSize: 22, fontWeight: 700, lineHeight: 1, zIndex: 10 }}>×</div>
-                              )}
-                              {renderCheckbox(idx, isEditing)}
-                              <div style={{ display: "flex", justifyContent: "center", width: "100%", marginBottom: 3 }}>
-                                <div style={{
-                                  width: 44 * circleScale, height: 44 * circleScale, borderRadius: "50%", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 20 * circleScale, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center"
-                                }}>
-                                  {g.groupIdx! + 1}
-                                </div>
-                              </div>
-                              <div style={{ width: cardSize, minHeight: cardSize, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-                                <div style={{
-                                 width: 56, height: 56, borderRadius: "10px",
-                                  background: "#3B82F6", color: "#fff",
-                                  display: "flex", alignItems: "center", justifyContent: "center",
-                                  fontSize: 26, fontWeight: 700,
-                                }}>
-                                  {opChar}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        }
+                    }
                       });
-                      // Far-right plus button
                   // Far-right plus button
                   result.push(renderPlusButton(steps.length, "end"));
                   return result;
@@ -4213,28 +4086,40 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
             {showMathPicker && (
               <div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: "#64748b", marginBottom: 10 }}>Select the math:</div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                  {(() => {
-                    const isFractionOp = editingStepIndex !== null && steps[editingStepIndex]?.type === "operator" && (steps[editingStepIndex]?.operator === "*" || steps[editingStepIndex]?.operator === "/");
-                    return (isFractionOp ? [["*", "Multiply"], ["/", "Divide"]] as const : [["+", "Add"], ["-", "Subtract"], ["*", "Multiply"], ["/", "Divide"]] as const).map(([op, label]) => (
-                    <button
-                      key={op}
-                      onClick={() => handleSelectOperator(op)}
-                      style={{
-                        padding: "14px 0", borderRadius: 16,
-                        border: "2px solid #e2e8f0", background: "#fff",
-                        display: "flex", flexDirection: "column",
-                        alignItems: "center", justifyContent: "center", gap: 4,
-                        cursor: "pointer", fontSize: 24, fontWeight: 700,
-                        color: "#3B82F6", transition: "all 0.15s",
-                      }}
-                      onMouseEnter={e => { e.currentTarget.style.borderColor = "#3B82F6"; e.currentTarget.style.background = "#EFF6FF"; }}
-                      onMouseLeave={e => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.background = "#fff"; }}
-                    >
-                      <span>{op === "*" ? "×" : op === "/" ? "÷" : op}</span>
-                      <span style={{ fontSize: 10, fontWeight: 500, color: "#94a3b8" }}>{label}</span>
-                    </button>
-                  ));})()}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                  <button onClick={() => handleSelectOperator("+")} style={{ padding: "14px 0", borderRadius: 16, border: "2px solid #e2e8f0", background: "#fff", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, cursor: "pointer", fontSize: 24, fontWeight: 700, color: "#3B82F6" }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = "#3B82F6"; e.currentTarget.style.background = "#EFF6FF"; }} onMouseLeave={e => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.background = "#fff"; }}>
+                    <span>+</span>
+                    <span style={{ fontSize: 10, fontWeight: 500, color: "#94a3b8" }}>Add</span>
+                  </button>
+                  <button onClick={() => handleSelectOperator("-")} style={{ padding: "14px 0", borderRadius: 16, border: "2px solid #e2e8f0", background: "#fff", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, cursor: "pointer", fontSize: 24, fontWeight: 700, color: "#3B82F6" }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = "#3B82F6"; e.currentTarget.style.background = "#EFF6FF"; }} onMouseLeave={e => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.background = "#fff"; }}>
+                    <span>−</span>
+                    <span style={{ fontSize: 10, fontWeight: 500, color: "#94a3b8" }}>Subtract</span>
+                  </button>
+                  <button onClick={() => handleSelectOperator("*")} style={{ padding: "14px 0", borderRadius: 16, border: "2px solid #e2e8f0", background: "#fff", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, cursor: "pointer", fontSize: 24, fontWeight: 700, color: "#3B82F6" }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = "#3B82F6"; e.currentTarget.style.background = "#EFF6FF"; }} onMouseLeave={e => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.background = "#fff"; }}>
+                    <span>×</span>
+                    <span style={{ fontSize: 10, fontWeight: 500, color: "#94a3b8" }}>Multiply</span>
+                  </button>
+                  <button onClick={() => handleSelectOperator("/")} style={{ padding: "14px 0", borderRadius: 16, border: "2px solid #e2e8f0", background: "#fff", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, cursor: "pointer", fontSize: 24, fontWeight: 700, color: "#3B82F6" }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = "#3B82F6"; e.currentTarget.style.background = "#EFF6FF"; }} onMouseLeave={e => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.background = "#fff"; }}>
+                    <span>÷</span>
+                    <span style={{ fontSize: 10, fontWeight: 500, color: "#94a3b8" }}>Divide</span>
+                  </button>
+                  <button onClick={() => handleAddParentheses()} style={{ padding: "14px 0", borderRadius: 16, border: "2px solid #e2e8f0", background: "#fff", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, cursor: "pointer", fontSize: 24, fontWeight: 700, color: "#3B82F6" }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = "#3B82F6"; e.currentTarget.style.background = "#EFF6FF"; }} onMouseLeave={e => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.background = "#fff"; }}>
+                    <span style={{ fontSize: 20 }}>( )</span>
+                    <span style={{ fontSize: 10, fontWeight: 500, color: "#94a3b8" }}>Group</span>
+                  </button>
+                  <button onClick={() => handleAddFraction()} style={{ padding: "14px 0", borderRadius: 16, border: "2px solid #e2e8f0", background: "#fff", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, cursor: "pointer", fontSize: 24, fontWeight: 700, color: "#3B82F6" }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = "#3B82F6"; e.currentTarget.style.background = "#EFF6FF"; }} onMouseLeave={e => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.background = "#fff"; }}>
+                    <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1 }}>
+                      <span style={{ padding: "0 4px 2px", borderBottom: "2px solid currentColor", fontSize: 14 }}>□</span>
+                      <span style={{ padding: "2px 4px 0", fontSize: 14 }}>□</span>
+                    </span>
+                    <span style={{ fontSize: 10, fontWeight: 500, color: "#94a3b8" }}>Fraction</span>
+                  </button>
                 </div>
               </div>
             )}
@@ -4245,6 +4130,16 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                     ref={searchRef}
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === "Enter" && steps.length > 0) {
+                        e.preventDefault();
+                        if (e.shiftKey) {
+                          setSteps(prev => [{ type: "operator", operator: "paren-start" }, ...prev, { type: "operator", operator: "paren-end" }, { type: "operator", operator: "/" }, { type: "operator", operator: "paren-start" }, { type: "operator", operator: "paren-end" }]);
+                        } else {
+                          setSteps(prev => [{ type: "operator", operator: "paren-start" }, ...prev, { type: "operator", operator: "paren-end" }]);
+                        }
+                      }
+                    }}
                     placeholder={steps.length === 0 ? "Start typing the name of a metric box..." : "Start typing the next metric box..."}
                     style={{
                       width: "100%", border: "none", outline: "none",
