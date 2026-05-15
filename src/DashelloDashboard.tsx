@@ -898,16 +898,43 @@ function MetricChart({ history, rules, graphType, currentValue }: {
   const cw = W - padL - padR, ch = H - padT - padB;
   const xS = (i: number) => padL + (i / Math.max(points.length - 1, 1)) * cw;
   const yS = (v: number) => padT + ch - ((v - yMin) / (yMax - yMin || 1)) * ch;
-  const colorOf = (v: number) => MS[getColorForValue(v, rules)].bg;
+  const noRules = !rules || rules.length === 0;
+  const colorOf = (v: number) => noRules ? "#3B82F6" : MS[getColorForValue(v, rules)].bg;
 
   if (graphType === "pie") {
+    const defaultPieColors = ["#3B82F6", "#60A5FA", "#93C5FD", "#BFDBFE", "#DBEAFE", "#1E40AF", "#2563EB", "#94A3B8"];
+    const cx = 70, cy = 70, r = 55;
+    let angle = -Math.PI / 2;
+    if (noRules) {
+      const sliceCount = Math.min(points.length, defaultPieColors.length);
+      const pct = 1 / sliceCount;
+      const slices = Array.from({ length: sliceCount }, (_, i) => ({
+        color: defaultPieColors[i], pct, label: `#${i + 1}`
+      }));
+      return (
+        <svg viewBox="0 0 200 140" style={{ width: "100%", height: 140 }}>
+          {slices.map((s, i) => {
+            const a = s.pct * 2 * Math.PI;
+            const x1 = cx + r * Math.cos(angle), y1 = cy + r * Math.sin(angle);
+            const x2 = cx + r * Math.cos(angle + a), y2 = cy + r * Math.sin(angle + a);
+            const d = `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${a > Math.PI ? 1 : 0} 1 ${x2} ${y2} Z`;
+            angle += a;
+            return <path key={i} d={d} fill={s.color} stroke="#fff" strokeWidth={1.5} />;
+          })}
+          {slices.map((s, i) => (
+            <g key={i}>
+              <rect x={135} y={18 + i * 22} width={10} height={10} rx={2} fill={s.color} />
+              <text x={149} y={28 + i * 22} fontSize={9} fill="#64748b">Point {Math.round(s.pct * 100)}%</text>
+            </g>
+          ))}
+        </svg>
+      );
+    }
     const counts: Record<MetricColor, number> = { red: 0, yellow: 0, green: 0, gray: 0 };
     points.forEach(p => counts[getColorForValue(p.value, rules)]++);
     const total = points.length;
     const slices = (["green", "yellow", "red", "gray"] as MetricColor[])
       .map(c => ({ color: c, pct: counts[c] / total })).filter(s => s.pct > 0);
-    const cx = 70, cy = 70, r = 55;
-    let angle = -Math.PI / 2;
     return (
       <svg viewBox="0 0 200 140" style={{ width: "100%", height: 140 }}>
         {slices.map((s, i) => {
@@ -1014,6 +1041,41 @@ function MetricChart({ history, rules, graphType, currentValue }: {
         return <text key={i} x={xS(i)} y={H - 4} textAnchor="middle" fontSize={8} fill="#94a3b8">{`${d.getMonth() + 1}/${d.getDate()}`}</text>;
       })}
     </svg>
+  );
+}
+
+function ExpandableChart({ history, rules, graphType, currentValue }: {
+  history: DataPoint[]; rules: ColorRule[]; graphType: GraphType; currentValue: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <>
+      <div style={{ position: "relative" }}>
+        <MetricChart history={history} rules={rules} graphType={graphType} currentValue={currentValue} />
+        <button onClick={() => setExpanded(true)}
+          style={{ position: "absolute", bottom: 4, right: 4, width: 22, height: 22, borderRadius: 4, border: "none", background: "rgba(255,255,255,0.9)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#64748b", boxShadow: "0 1px 3px rgba(0,0,0,0.12)" }}
+          title="Expand graph">⛶</button>
+      </div>
+      {expanded && <GraphExpandPopUp {...{ history, rules, graphType, currentValue, onClose: () => setExpanded(false) }} />}
+    </>
+  );
+}
+
+function GraphExpandPopUp({ history, rules, graphType, currentValue, onClose }: {
+  history: DataPoint[]; rules: ColorRule[]; graphType: GraphType; currentValue: string; onClose: () => void;
+}) {
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 99999, display: "flex", alignItems: "center", justifyContent: "center" }}
+      onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 16, padding: 28, width: "90vw", maxWidth: 720, maxHeight: "90vh", overflow: "auto", position: "relative" }}>
+        <button onClick={onClose}
+          style={{ position: "absolute", top: 12, right: 16, width: 28, height: 28, borderRadius: "50%", border: "none", background: "#f1f5f9", cursor: "pointer", fontSize: 16, color: "#64748b", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+        <div style={{ fontSize: 15, fontWeight: 700, color: "#1a2332", marginBottom: 20 }}>Graph Detail</div>
+        <div style={{ width: "100%" }}>
+          <MetricChart history={history} rules={rules} graphType={graphType} currentValue={currentValue} />
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1161,6 +1223,10 @@ function TopBarRefreshButton({ onRefresh, lastSyncedAt }: {
   lastSyncedAt?: number | null;
 }) {
   const [state, setState] = useState<"idle" | "spinning" | "done">("idle");
+  const [displaySynced, setDisplaySynced] = useState<number | null>(() => {
+    const stored = localStorage.getItem("lastDashboardSync");
+    return stored ? parseInt(stored, 10) : null;
+  });
 
   const handleClick = async () => {
     if (state === "spinning") return;
@@ -1169,6 +1235,10 @@ function TopBarRefreshButton({ onRefresh, lastSyncedAt }: {
     setState("done");
     setTimeout(() => setState("idle"), 2500);
   };
+
+  useEffect(() => {
+    if (lastSyncedAt) setDisplaySynced(lastSyncedAt);
+  }, [lastSyncedAt]);
 
   const fmtTime = (ts: number) => {
     const d = new Date(ts);
@@ -1191,9 +1261,9 @@ function TopBarRefreshButton({ onRefresh, lastSyncedAt }: {
         </span>
         {state === "done" ? "Synced" : "Refresh Data"}
       </button>
-      {lastSyncedAt && (
+      {displaySynced && (
         <span style={{ fontSize: 10, color: "#94a3b8", fontStyle: "italic" }}>
-          {fmtTime(lastSyncedAt)}
+          Synced {fmtTime(displaySynced)}
         </span>
       )}
     </div>
@@ -1590,7 +1660,7 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
         {/* Chart */}
         <div style={{ border: "1px solid #e2e8f0", borderRadius: 12, padding: "12px 14px", marginBottom: 24 }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332", marginBottom: 8 }}>History</div>
-          <MetricChart history={history} rules={colorRules} graphType={graphType} currentValue={metric?.value ?? data.mainValue} />
+          <ExpandableChart history={history} rules={colorRules} graphType={graphType} currentValue={metric?.value ?? data.mainValue} />
         </div>
 
         <BottomThreeCards data={data} />
@@ -1659,6 +1729,8 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
   );
 
   // ── FINANCIAL / PERCENTAGE / GENERIC ──────────────────────────────────────
+  const txns = data.transactions ?? [];
+
   return (
     <div ref={overlayRef} onClick={e => { if (!inline && e.target === overlayRef.current) onClose(); }}
       style={inline ? { padding: "20px 28px" } : { position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 20 }}>
@@ -1679,26 +1751,33 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
             <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332", marginBottom: 6 }}>Health — N/A</div>
             <button style={{ padding: "6px 18px", borderRadius: 99, border: "1.5px solid #d1d5db", background: "#fff", fontSize: 12, cursor: "pointer" }}>Set A Goal</button>
           </div>}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 22, marginBottom: 26 }}>
-          <div style={{ background: accent, borderRadius: 16, padding: "18px 20px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
-              <div>
-                <div style={{ fontSize: 11, color: statTextColor }}>Amount</div>
-                {metric?.lastSyncedAt && <div style={{ fontSize: 9, color: isColored ? "rgba(255,255,255,0.5)" : "#94a3b8" }}>Synced {new Date(metric.lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>}
-              </div>
-              <button style={{ background: "#fff", border: "none", borderRadius: 20, padding: "3px 12px", fontSize: 11, cursor: "pointer", fontWeight: 600, color: "#1a2332" }}>Filter</button>
+        <div style={{ background: accent, borderRadius: 16, padding: "18px 20px", marginBottom: 22 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
+            <div>
+              <div style={{ fontSize: 11, color: statTextColor }}>Amount</div>
+              {metric?.lastSyncedAt && <div style={{ fontSize: 9, color: isColored ? "rgba(255,255,255,0.5)" : "#94a3b8" }}>Synced {new Date(metric.lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>}
             </div>
-            <div style={{ fontSize: 20, fontWeight: 700, color: statValColor, marginBottom: 12 }}>{data.mainValue}</div>
-            {data.stats.map((s, i) => (
-              <div key={i} style={{ marginBottom: 8 }}>
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ fontSize: 11, color: statTextColor }}>{s.label}</span>
-                  {s.synced && metric?.lastSyncedAt && <span style={{ fontSize: 9, color: isColored ? "rgba(255,255,255,0.5)" : "#94a3b8" }}>Synced {new Date(metric.lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>}
-                </div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: statValColor }}>{s.value}</div>
-              </div>
-            ))}
+            <button style={{ background: "#fff", border: "none", borderRadius: 20, padding: "3px 12px", fontSize: 11, cursor: "pointer", fontWeight: 600, color: "#1a2332" }}>Filter</button>
           </div>
+          <CashBalanceInput value={data.mainValue} currencySymbol={metric?.currencySymbol ?? "$"}
+            statValColor={statValColor} statTextColor={statTextColor} isColored={isColored}
+            onValueChange={onValueChange} siblings={siblings} currentMetricId={metric?.id}
+            onTransfer={onTransfer} />
+          {data.stats.map((s, i) => (
+            <div key={i} style={{ marginBottom: 8 }}>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ fontSize: 11, color: statTextColor }}>{s.label}</span>
+                {s.synced && metric?.lastSyncedAt && <span style={{ fontSize: 9, color: isColored ? "rgba(255,255,255,0.5)" : "#94a3b8" }}>Synced {new Date(metric.lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>}
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: statValColor }}>{s.value}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ marginBottom: 22 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332", marginBottom: 6 }}>Transaction History</div>
+          <TxnTable transactions={txns} />
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 22, marginBottom: 26 }}>
           <div>
             {metric?.equation && metric.equation.steps.length > 0 && metric?.metricType !== "percentage" && metric?.metricType !== "financial" ? (
               <div style={{ background: "#F0FDF4", border: "1px solid #c3e6d4", borderRadius: 10, padding: "12px 14px", marginBottom: 12 }}>
@@ -1728,7 +1807,7 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
               </>
             )}
             <div style={{ border: "1px solid #e2e8f0", borderRadius: 12, padding: "6px 8px" }}>
-              <MetricChart history={history} rules={colorRules} graphType={graphType} currentValue={localValue} />
+              <ExpandableChart history={history} rules={colorRules} graphType={graphType} currentValue={localValue} />
             </div>
           </div>
         </div>
@@ -2035,7 +2114,7 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
           <div style={{ padding: "20px 22px 0", display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
             <input value={label} onChange={e => { setLabel(e.target.value); setEquationError(""); }} placeholder="Metric Box Title"
               style={{ fontSize: 17, fontWeight: 700, border: "none", outline: "none", color: "#1a2332", background: "transparent", flex: 1, minWidth: 0 }} />
-            <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: "50%", border: "1.5px solid #e2e8f0", background: "#f8fafc", fontSize: 18, cursor: "pointer", color: "#94a3b8", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginLeft: 10 }}>×</button>
+            {!isInline && <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: "50%", border: "1.5px solid #e2e8f0", background: "#f8fafc", fontSize: 18, cursor: "pointer", color: "#94a3b8", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginLeft: 10 }}>×</button>}
           </div>
 
           {isSynced && (
@@ -2369,7 +2448,7 @@ function MetricBlock({ metric, onClick, onDragStart, onDragEnter, onDrop, isDrag
       style={{
         width: 140, minHeight: 140, borderRadius: 16, background: s.bg,
         padding: "14px 12px", display: "flex", flexDirection: "column",
-        alignItems: "center", justifyContent: hasIcon ? "space-between" : "center",
+        alignItems: "flex-start", justifyContent: hasIcon ? "space-between" : "flex-start",
         cursor: "pointer", position: "relative", flexShrink: 0,
         transform: hov ? "translateY(-3px)" : "none",
         transition: "transform 0.15s, box-shadow 0.15s, outline 0.1s",
@@ -2377,7 +2456,7 @@ function MetricBlock({ metric, onClick, onDragStart, onDragEnter, onDrop, isDrag
         outline: isDragOver ? "3px dashed #3B82F6" : "3px solid transparent",
       }}
     >
-      <div style={{ fontSize: 12, fontWeight: 600, color: textColor, lineHeight: 1.3, textAlign: "center", width: "100%" }}>
+      <div style={{ fontSize: 12, fontWeight: 600, color: textColor, lineHeight: 1.3, textAlign: "left", width: "100%" }}>
         {metric.label}
       </div>
       {hasIcon && (
@@ -2385,7 +2464,7 @@ function MetricBlock({ metric, onClick, onDragStart, onDragEnter, onDrop, isDrag
           <IconGlyph name={metric.icon} size={22} color={isColored ? s.bg : "#3B82F6"} />
         </div>
       )}
-      <div style={{ fontSize: 15, fontWeight: 700, color: textColor, textAlign: "center", width: "100%" }}>
+      <div style={{ fontSize: 15, fontWeight: 700, color: textColor, textAlign: "left", width: "100%" }}>
         {metric.value}
       </div>
     </div>
@@ -3005,12 +3084,6 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
           <ProfileField label="Full Name" value={localProfile.full_name} onChange={v => setLocalProfile(p => ({ ...p, full_name: v }))} />
           <ProfileField label="Email" value={userEmail} disabled />
           <ProfileField label="Company" value={localProfile.company} onChange={v => setLocalProfile(p => ({ ...p, company: v }))} />
-          <h3 style={{ margin: "16px 0 12px", fontSize: 14, fontWeight: 600, color: "#1a2332" }}>Address</h3>
-          <ProfileField label="Street" value={localProfile.street} onChange={v => setLocalProfile(p => ({ ...p, street: v }))} />
-          <ProfileField label="City" value={localProfile.city} onChange={v => setLocalProfile(p => ({ ...p, city: v }))} />
-          <ProfileField label="State" value={localProfile.state} onChange={v => setLocalProfile(p => ({ ...p, state: v }))} />
-          <ProfileField label="ZIP" value={localProfile.zip} onChange={v => setLocalProfile(p => ({ ...p, zip: v }))} />
-          <ProfileField label="Country" value={localProfile.country} onChange={v => setLocalProfile(p => ({ ...p, country: v }))} />
           <button onClick={handleSave} disabled={saving} style={{ width: "100%", padding: "9px", borderRadius: 8, border: "none", background: saved ? "#4CAF7D" : "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", marginTop: 6 }}>
             {saving ? "Saving..." : saved ? "✓ Saved!" : "Save Changes"}
           </button>
@@ -3548,15 +3621,16 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
         return next;
       });
       setEditingStepIndex(null);
+      setAddAtIndex(editingStepIndex + 1); // auto-focus numerator end
     } else {
       const rawInsert = addAtIndex ?? steps.length;
+      const clampedInsert = clampToInnermostGroup(rawInsert, steps);
       setSteps(prev => {
-        const insertAt = clampToInnermostGroup(rawInsert, prev);
         const next = [...prev];
-        next.splice(insertAt, 0, ...fractionSteps);
+        next.splice(clampedInsert, 0, ...fractionSteps);
         return next;
       });
-      setAddAtIndex(null);
+      setAddAtIndex(clampedInsert + 1); // auto-focus numerator end
     }
     setSearchQuery("");
     setTimeout(() => searchRef.current?.focus(), 50);
@@ -3630,7 +3704,8 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
       const items = next.splice(fromIdx, count);
       let adjustedTo = fromIdx < toStepIdx ? toStepIdx - count : toStepIdx;
       if (count === 1 && toStepIdx === fromIdx + 1) adjustedTo++;
-      next.splice(adjustedTo, 0, ...items);
+      const clampedTo = clampToInnermostGroup(adjustedTo, next);
+      next.splice(clampedTo, 0, ...items);
       return next;
     });
     dragStepIdxRef.current = null;
@@ -3793,7 +3868,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
                             <div style={{ display: "inline-flex", flexWrap: "wrap", gap: 6, padding: "8px 12px", border: "2px solid #e2e8f0", borderRadius: 16, background: "#fff", alignItems: "flex-start", minWidth: `${140 * csScale}px` }}
                               onClick={e => e.stopPropagation()}>
-                              {dropLineIndex === z2 && (
+                              {dropLineIndex === z2 && numEnd === numStart && (
                                 <div style={{ width: 3, alignSelf: "stretch", background: "#3B82F6", borderRadius: 2, flexShrink: 0, minHeight: 60 }} />
                               )}
                               {renderRange(numStart, numEnd)}
@@ -3804,7 +3879,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                             </div>
                             <div style={{ display: "inline-flex", flexWrap: "wrap", gap: 6, padding: "8px 12px", border: "2px solid #e2e8f0", borderRadius: 16, background: "#fff", alignItems: "flex-start", minWidth: `${140 * csScale}px` }}
                               onClick={e => e.stopPropagation()}>
-                              {dropLineIndex === z4 && (
+                              {dropLineIndex === z4 && denEnd === denStart && (
                                 <div style={{ width: 3, alignSelf: "stretch", background: "#3B82F6", borderRadius: 2, flexShrink: 0, minHeight: 60 }} />
                               )}
                               {renderRange(denStart, denEnd)}
@@ -5313,7 +5388,10 @@ export default function DashelloDashboard() {
    
   const [postTransactionPrompt, setPostTransactionPrompt] = useState<PostTransactionPrompt | null>(null);
   const pendingValueChangeRef = useRef<((description?: string) => void) | null>(null);
-  const [lastDashboardSync, setLastDashboardSync] = useState<number | null>(null);
+  const [lastDashboardSync, setLastDashboardSync] = useState<number | null>(() => {
+    const stored = localStorage.getItem("lastDashboardSync");
+    return stored ? parseInt(stored, 10) : null;
+  });
   const [fiveAccountForceOff, setFiveAccountForceOff] = useState(false);
   // Equation builder state
   const [equationBuilderTarget, setEquationBuilderTarget] = useState<{ metricId: string; sectionId: string } | null>(null);
@@ -5580,7 +5658,10 @@ export default function DashelloDashboard() {
     if (savedSections) setSections(savedSections);
     if (savedTasks) setTasksData(savedTasks);
     if (savedGoals) setGoalsData(savedGoals);
-    setLastDashboardSync(Date.now());
+    const now = Date.now();
+    setLastDashboardSync(now);
+    localStorage.setItem("lastDashboardSync", now.toString());
+    setTimeout(() => checkAndResetMetricsRef.current?.(), 100);
   };
 
   const handleRefreshMetric = async () => {
@@ -5613,7 +5694,10 @@ export default function DashelloDashboard() {
         if (updated) setActiveModal(prev => prev ? { ...prev, metric: updated, data: { ...prev.data, mainValue: updated.value, transactions: updated.modal.transactions } } : null);
       }
     }
-    setLastDashboardSync(Date.now());
+    const now = Date.now();
+    setLastDashboardSync(now);
+    localStorage.setItem("lastDashboardSync", now.toString());
+    setTimeout(() => checkAndResetMetricsRef.current?.(), 100);
   };
   
   const handleClickMetric = (data: MetricModalData, metric: Metric) => {
@@ -5779,13 +5863,13 @@ export default function DashelloDashboard() {
   }, []);
 
   // ── Section 7: Auto-reset scheduler ──────────────────────────────────────
+  const checkAndResetMetricsRef = useRef<(() => void) | null>(null);
   useEffect(() => {
     if (!dbReady) return;
     const check = () => {
       const now = Date.now();
       const DAY = 24 * 60 * 60 * 1000;
       const WEEK = 7 * DAY;
-      // Approximate month as 30 days for scheduling
       const MONTH = 30 * DAY;
       let changed = false;
       const next = sections.map(s => ({
@@ -5798,7 +5882,6 @@ export default function DashelloDashboard() {
           else if (m.resetFrequency === "weekly") interval = WEEK;
           else if (m.resetFrequency === "monthly") interval = MONTH;
           if (interval === 0 || now - last < interval) return m;
-          // Time to reset
           changed = true;
           const isFinancial = m.metricType === "financial";
           const currency = m.currencySymbol ?? "$";
@@ -5819,8 +5902,9 @@ export default function DashelloDashboard() {
       }));
       if (changed) setSections(next);
     };
+    checkAndResetMetricsRef.current = check;
     check(); // Run once on mount
-    const id = setInterval(check, 60 * 1000); // Check every minute
+    const id = setInterval(check, 60 * 1000);
     return () => clearInterval(id);
   }, [dbReady, sections]);
   
