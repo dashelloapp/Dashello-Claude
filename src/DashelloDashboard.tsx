@@ -2186,13 +2186,8 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
                                 <button onClick={() => openEditRule(r)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: "#3B82F6", padding: 0 }}>Edit</button>
                                 <button onClick={() => removeRule(r.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: "#E85D75", padding: 0 }}>✕</button>
           </div>
-          <div style={{ position: "sticky", bottom: 0, display: "flex", justifyContent: "flex-end", padding: "8px 22px", background: "#fff", borderTop: "1px solid #f1f5f9", borderRadius: "0 0 20px 20px" }}>
-            <button onClick={() => setIsInline(v => !v)} style={{ display: "flex", alignItems: "center", gap: 4, padding: "6px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 11, fontWeight: 500, cursor: "pointer", color: "#64748b" }}>
-              {isInline ? "☐ Popup" : "⊞ Inline"}
-            </button>
+            </div>
           </div>
-        </div>
-      </div>
                         ))}
                       </div>
                     )}
@@ -2277,6 +2272,11 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
                 </div>
               </div>
             )}
+          </div>
+          <div style={{ position: "sticky", bottom: 0, display: "flex", justifyContent: "flex-end", padding: "8px 22px", background: "#fff", borderTop: "1px solid #f1f5f9", borderRadius: "0 0 20px 20px" }}>
+            <button onClick={() => setIsInline(v => !v)} style={{ display: "flex", alignItems: "center", gap: 4, padding: "6px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 11, fontWeight: 500, cursor: "pointer", color: "#64748b" }}>
+              {isInline ? "☐ Popup" : "⊞ Inline"}
+            </button>
           </div>
         </div>
       </div>
@@ -3182,6 +3182,33 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
     }
   }, [steps, initialEquation]);
 
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.metaKey && e.shiftKey && (e.key === "g" || e.key === "G")) {
+        e.preventDefault();
+        if (checkedOrder.length >= 2) {
+          handleGroupSelected();
+        } else if (editingStepIndex !== null) {
+          handleAddParentheses();
+        } else {
+          handleAddParentheses();
+        }
+      }
+      if (e.metaKey && e.shiftKey && (e.key === "f" || e.key === "F")) {
+        e.preventDefault();
+        if (checkedOrder.length >= 2) {
+          handleFractionSelected();
+        } else if (editingStepIndex !== null) {
+          handleAddFraction();
+        } else {
+          handleAddFraction();
+        }
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [checkedOrder, editingStepIndex, steps]);
+
   const toggleChecked = (idx: number) => {
     setCheckedOrder(prev => {
       if (prev.includes(idx)) return prev.filter(i => i !== idx);
@@ -3211,6 +3238,32 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
       for (const idx of validOrder) {
         next.push(prev[idx]);
       }
+      next.push({ type: "operator", operator: "paren-end" });
+      for (let i = firstPos; i < prev.length; i++) {
+        if (!checkedSet.has(i)) next.push(prev[i]);
+      }
+      return next;
+    });
+    setCheckedOrder([]);
+  };
+
+  const handleFractionSelected = () => {
+    const validOrder = checkedOrder.filter(i => i >= 0 && i < steps.length);
+    if (validOrder.length < 2) return;
+    const checkedSet = new Set(validOrder);
+    const firstPos = validOrder[0];
+    setSteps(prev => {
+      const next: EquationStep[] = [];
+      for (let i = 0; i < firstPos; i++) {
+        if (!checkedSet.has(i)) next.push(prev[i]);
+      }
+      next.push({ type: "operator", operator: "paren-start" });
+      for (const idx of validOrder) {
+        next.push(prev[idx]);
+      }
+      next.push({ type: "operator", operator: "paren-end" });
+      next.push({ type: "operator", operator: "/" });
+      next.push({ type: "operator", operator: "paren-start" });
       next.push({ type: "operator", operator: "paren-end" });
       for (let i = firstPos; i < prev.length; i++) {
         if (!checkedSet.has(i)) next.push(prev[i]);
@@ -3446,8 +3499,6 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
     setShowAddMenu(false);
     setForceSearch(false);
     setPendingOperator(false);
-    setEditingStepIndex(null);
-    setSearchQuery("");
     const rawInsert = addAtIndex ?? steps.length;
     setSteps(prev => {
       const insertAt = clampToInnermostGroup(rawInsert, prev);
@@ -3455,7 +3506,9 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
       next.splice(insertAt, 0, { type: "number", numberValue: 0 });
       return next;
     });
+    setEditingStepIndex(steps.length);
     setAddAtIndex(null);
+    setSearchQuery("");
     setTimeout(() => searchRef.current?.focus(), 50);
   };
 
@@ -3528,7 +3581,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
     onSaveDraft?.({ steps });
   };
 
-  const cardSize = Math.max(80, 140 - steps.length * 4);
+  const cardSize = Math.max(60, 140 - steps.length * 3);
   const circleScale = Math.max(0.6, Math.min(1, cardSize / 140));
 
   // Whether the equation is valid enough to save
@@ -3607,7 +3660,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
               }
               const stepNumbers = assignStepNumbers(steps);
               return (
-              <div onClick={() => setSelectedGroupStartIdx(null)} style={{ display: "flex", alignItems: "flex-start", flexWrap: "wrap", gap: 6, padding: "14px 18px", background: "#F8FAFC", borderRadius: 12, border: "1px solid #e2e8f0", minHeight: 60, position: "relative" }}>
+              <div onClick={() => { setSelectedGroupStartIdx(null); setEditingStepIndex(null); }} style={{ display: "flex", alignItems: "flex-start", flexWrap: "wrap", gap: 6, padding: "14px 18px", background: "#F8FAFC", borderRadius: 12, border: "1px solid #e2e8f0", minHeight: 60, position: "relative" }}>
                 {(() => {
                   const innerRenderGroup = (g: typeof renderGroups[0], gi: number, si: number, sc: number, shrinkScale: number) => {
                     const startIdx = g.startIdx;
@@ -3624,9 +3677,26 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                       const isNumEditing = editingStepIndex !== null && editingStepIndex >= numStart && editingStepIndex < numEnd;
                       const isDenEditing = editingStepIndex !== null && editingStepIndex >= denStart && editingStepIndex < denEnd;
                       const isEditing = isNumEditing || isDenEditing || editingStepIndex === actualSlashIdx;
+                      const z1 = g.startIdx;
+                      const z2 = numStart;
+                      const z3 = actualSlashIdx;
+                      const z4 = denStart;
+                      const z5 = g.startIdx + g.steps!.length;
+                      const dropZone = (e: React.DragEvent) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const x = e.clientX - rect.left;
+                        const y = e.clientY - rect.top;
+                        const w = rect.width;
+                        const h = rect.height;
+                        if (x < w * 0.15) return z1;
+                        if (x > w * 0.85) return z5;
+                        if (y < h * 0.35) return z2;
+                        if (y < h * 0.55) return z3;
+                        return z4;
+                      };
                       return [
-                        lineBefore && (
-                          <div key={`fl-${gi}-${si}`} style={{ width: 3, alignSelf: "stretch", background: "#3B82F6", borderRadius: 2, flexShrink: 0, minHeight: 60 }} />
+                        dropLineIndex === z1 && (
+                          <div key={`fz1-${gi}-${si}`} style={{ width: 3, alignSelf: "stretch", background: "#3B82F6", borderRadius: 2, flexShrink: 0, minHeight: 60 }} />
                         ),
                         <div key={`f-${si}-${gi}`}
                           draggable
@@ -3644,29 +3714,38 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                             e.dataTransfer.setDragImage(el, r.width / 2, r.height / 2);
                             setTimeout(() => document.body.removeChild(el), 0);
                           }}
-                          onDragOver={e => { e.preventDefault(); e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); const m = rect.left + rect.width / 2; const idx = e.clientX < m ? g.startIdx : g.startIdx + g.steps!.length; setDropLineIndex(idx); dropLineIndexRef.current = idx; }}
-                          onDrop={e => { e.preventDefault(); e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); const m = rect.left + rect.width / 2; const idx = e.clientX < m ? g.startIdx : g.startIdx + g.steps!.length; handleStepDrop(idx); }}
+                          onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDropLineIndex(dropZone(e)); dropLineIndexRef.current = dropZone(e); }}
+                          onDrop={e => { e.preventDefault(); e.stopPropagation(); handleStepDrop(dropZone(e)); }}
                           onDragEnd={() => { dragStepIdxRef.current = null; dragCountRef.current = 1; setDropLineIndex(null); dropLineIndexRef.current = null; }}
                           onClick={e => { e.stopPropagation(); handleEditStep(actualSlashIdx); }}
-                          style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "flex-start", borderRadius: 12, padding: 2, outline: isEditing ? "2px solid #3B82F6" : "2px solid transparent", background: isEditing ? "#EFF6FF" : "transparent" }}>
+                          style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "flex-start", borderRadius: 12, padding: 2, minWidth: `${Math.max(180, 140 * csScale)}px`, outline: isEditing ? "2px solid #3B82F6" : "2px solid transparent", background: isEditing ? "#EFF6FF" : "transparent" }}>
                           {isEditing && (
                             <div onClick={e => { e.stopPropagation(); setSteps(prev => { const n = [...prev]; n.splice(g.startIdx, g.steps!.length); return n; }); setEditingStepIndex(null); }} style={{ position: "absolute", top: 2, right: 2, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#3B82F6", fontSize: 22, fontWeight: 700, lineHeight: 1, zIndex: 10 }}>×</div>
                           )}
                           {renderCheckbox(actualSlashIdx, isEditing)}
                           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                            <div style={{ display: "inline-flex", flexWrap: "wrap", gap: 6, padding: "8px 12px", border: "2px solid #e2e8f0", borderRadius: 16, background: "#fff", alignItems: "flex-start" }}
+                            <div style={{ display: "inline-flex", flexWrap: "wrap", gap: 6, padding: "8px 12px", border: "2px solid #e2e8f0", borderRadius: 16, background: "#fff", alignItems: "flex-start", minWidth: `${140 * csScale}px` }}
                               onClick={e => e.stopPropagation()}>
                               {renderRange(numStart, numEnd)}
                               {renderPlusButton(numEnd, `fn-${si}-${gi}`)}
                             </div>
+                            {dropLineIndex === z2 && (
+                              <div style={{ height: 3, width: "80%", background: "#3B82F6", borderRadius: 2 }} />
+                            )}
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-                              <div onClick={e => { e.stopPropagation(); handleEditStep(actualSlashIdx); }} style={{ width: 28, height: 28, borderRadius: "50%", background: "#3B82F6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>÷</div>
+                              <div onClick={e => { e.stopPropagation(); handleEditStep(actualSlashIdx); }} style={{ width: 48 * csScale, height: 48 * csScale, borderRadius: "50%", background: "#3B82F6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 * csScale, fontWeight: 700, cursor: "pointer" }}>÷</div>
                             </div>
-                            <div style={{ display: "inline-flex", flexWrap: "wrap", gap: 6, padding: "8px 12px", border: "2px solid #e2e8f0", borderRadius: 16, background: "#fff", alignItems: "flex-start" }}
+                            {dropLineIndex === z3 && (
+                              <div style={{ height: 3, width: "80%", background: "#3B82F6", borderRadius: 2 }} />
+                            )}
+                            <div style={{ display: "inline-flex", flexWrap: "wrap", gap: 6, padding: "8px 12px", border: "2px solid #e2e8f0", borderRadius: 16, background: "#fff", alignItems: "flex-start", minWidth: `${140 * csScale}px` }}
                               onClick={e => e.stopPropagation()}>
                               {renderRange(denStart, denEnd)}
                               {renderPlusButton(denEnd, `fd-${si}-${gi}`)}
                             </div>
+                            {dropLineIndex === z4 && (
+                              <div style={{ height: 3, width: "80%", background: "#3B82F6", borderRadius: 2 }} />
+                            )}
                           </div>
                         </div>
                       ];
@@ -3738,7 +3817,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                       const step = g.step;
                       const idx = steps.indexOf(step);
                       const isEditing = editingStepIndex === idx;
-                      const numVal = step.numberValue ?? 0;
+                      const numVal = step.numberValue !== undefined ? step.numberValue : "";
                       return [
                         lineBefore && (
                           <div key={`nl-${gi}-${si}`} style={{ width: 3, alignSelf: "stretch", background: "#3B82F6", borderRadius: 2, flexShrink: 0, minHeight: 60 }} />
@@ -3781,19 +3860,20 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                           <div style={{ width: 140, minHeight: 100, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 12, background: "#F8FAFC", border: "1.5px solid #e2e8f0", padding: "8px" }}>
                             {isEditing ? (
                               <input autoFocus type="number" value={numVal}
+                                placeholder="0"
                                 onChange={e => {
-                                  const v = parseFloat(e.target.value);
+                                  const raw = e.target.value;
                                   setSteps(prev => {
                                     const n = [...prev];
-                                    if (n[idx]) n[idx] = { ...n[idx], numberValue: isNaN(v) ? 0 : v };
+                                    if (n[idx]) n[idx] = { ...n[idx], numberValue: raw === "" ? undefined : parseFloat(raw) };
                                     return n;
                                   });
                                 }}
                                 onClick={e => e.stopPropagation()}
-                                style={{ width: "100%", fontFamily: "inherit", fontSize: 20, fontWeight: 700, color: "#1a2332", textAlign: "center", border: "none", background: "transparent", outline: "none", padding: 0 }}
+                                style={{ width: "100%", fontFamily: "inherit", fontSize: 20, fontWeight: 700, color: step.numberValue !== undefined ? "#1a2332" : "#94a3b8", textAlign: "center", border: "none", background: "transparent", outline: "none", padding: 0 }}
                               />
                             ) : (
-                              <div style={{ fontSize: 22, fontWeight: 700, color: "#1a2332" }}>{numVal}</div>
+                              <div style={{ fontSize: 22, fontWeight: 700, color: "#1a2332" }}>{numVal || "0"}</div>
                             )}
                           </div>
                         </div>
@@ -4161,6 +4241,11 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                       </div>
                     ))}
                   </div>
+                )}
+                {steps.length === 0 && (
+                  <button onClick={handleAddNumberStep} style={{ padding: "8px 20px", borderRadius: 8, border: "1px solid #e2e8f0", background: "#fff", color: "#334155", fontSize: 13, fontWeight: 500, cursor: "pointer", marginTop: 12, display: "block" }}>
+                    Start with a Number
+                  </button>
                 )}
                 {searchQuery.trim() && filteredMetrics.length === 0 && (
                   <div style={{ padding: "20px", textAlign: "center", color: "#94a3b8", fontSize: 13 }}>
@@ -5743,9 +5828,23 @@ const sidebarEl = (
                   if (inlineHasUnsaved) {
                     if (!window.confirm("You have unsaved changes. Leave without saving?")) return;
                   }
-                  if (key === "home") { handleCancelEquation(); setInlineView(null); setInlineMetric(null); }
-                  else if (key === "metric-detail") { handleCancelEquation(); }
-                  else if (key === "metric-settings") { handleCancelEquation(); }
+                  if (key === "home") {
+                    handleCancelEquation();
+                    setInlineView(null);
+                    setInlineMetric(null);
+                    setViewMode("popup");
+                    viewModeRef.current = "popup";
+                  } else if (key === "metric-detail") {
+                    handleCancelEquation();
+                    setViewMode("inline");
+                    viewModeRef.current = "inline";
+                    setInlineView("metric-detail");
+                  } else if (key === "metric-settings") {
+                    handleCancelEquation();
+                    setViewMode("inline");
+                    viewModeRef.current = "inline";
+                    setInlineView("metric-settings");
+                  }
                 }}
               />
             )}
