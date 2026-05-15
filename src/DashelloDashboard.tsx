@@ -3172,6 +3172,46 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
   const checkedSteps = new Set(checkedOrder);
   const [selectedGroupStartIdx, setSelectedGroupStartIdx] = useState<number | null>(null);
   const [confirmAction, setConfirmAction] = useState<string | null>(null);
+  const [undoStack, setUndoStack] = useState<EquationStep[][]>([]);
+  const [redoStack, setRedoStack] = useState<EquationStep[][]>([]);
+  const stepsRef = useRef(steps);
+  const ignoreHistory = useRef(false);
+
+  useEffect(() => {
+    if (ignoreHistory.current) {
+      ignoreHistory.current = false;
+      stepsRef.current = steps;
+      return;
+    }
+    if (steps !== stepsRef.current) {
+      setUndoStack(u => {
+        if (u.length > 0 && JSON.stringify(u[0]) === JSON.stringify(stepsRef.current)) return u;
+        return [stepsRef.current, ...u].slice(0, 50);
+      });
+      setRedoStack([]);
+      stepsRef.current = steps;
+    }
+  }, [steps]);
+
+  const handleUndo = useCallback(() => {
+    if (undoStack.length === 0) return;
+    const prev = undoStack[0];
+    setRedoStack(r => [steps, ...r].slice(0, 50));
+    setUndoStack(u => u.slice(1));
+    ignoreHistory.current = true;
+    setEditingStepIndex(null);
+    setSteps(prev);
+  }, [undoStack, steps]);
+
+  const handleRedo = useCallback(() => {
+    if (redoStack.length === 0) return;
+    const next = redoStack[0];
+    setUndoStack(u => [steps, ...u].slice(0, 50));
+    setRedoStack(r => r.slice(1));
+    ignoreHistory.current = true;
+    setEditingStepIndex(null);
+    setSteps(next);
+  }, [redoStack, steps]);
 
   useEffect(() => {
     const hasUnsaved = JSON.stringify(steps) !== JSON.stringify(initialEquation?.steps ?? []);
@@ -3611,6 +3651,10 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                 Group Selected ({checkedOrder.length})
               </button>
             )}
+            <button onClick={handleUndo} disabled={undoStack.length === 0} style={{ width: 32, height: 32, borderRadius: "50%", border: "1.5px solid #e2e8f0", background: undoStack.length === 0 ? "#f8fafc" : "#fff", fontSize: 14, cursor: undoStack.length === 0 ? "not-allowed" : "pointer", color: undoStack.length === 0 ? "#cbd5e1" : "#64748b", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>←</button>
+            <button onClick={handleUndo} disabled={undoStack.length === 0} style={{ width: 32, height: 32, borderRadius: "50%", border: "1.5px solid #e2e8f0", background: undoStack.length === 0 ? "#f8fafc" : "#fff", fontSize: 14, cursor: undoStack.length === 0 ? "not-allowed" : "pointer", color: undoStack.length === 0 ? "#cbd5e1" : "#64748b", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>↺</button>
+            <button onClick={handleRedo} disabled={redoStack.length === 0} style={{ width: 32, height: 32, borderRadius: "50%", border: "1.5px solid #e2e8f0", background: redoStack.length === 0 ? "#f8fafc" : "#fff", fontSize: 14, cursor: redoStack.length === 0 ? "not-allowed" : "pointer", color: redoStack.length === 0 ? "#cbd5e1" : "#64748b", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>→</button>
+            <button onClick={handleRedo} disabled={redoStack.length === 0} style={{ width: 32, height: 32, borderRadius: "50%", border: "1.5px solid #e2e8f0", background: redoStack.length === 0 ? "#f8fafc" : "#fff", fontSize: 14, cursor: redoStack.length === 0 ? "not-allowed" : "pointer", color: redoStack.length === 0 ? "#cbd5e1" : "#64748b", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>↻</button>
             <button onClick={() => {
               if (confirmAction === "reset") { setConfirmAction(null); setSteps(initialEquation?.steps ?? []); setEditingStepIndex(null); }
               else { setConfirmAction("reset"); }
