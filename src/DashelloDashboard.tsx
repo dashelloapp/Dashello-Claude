@@ -626,7 +626,7 @@ const PHOSPHOR_CATEGORIES: { label: string; icons: string[] }[] = [
   {
     label: "Food",
     icons: [
-      "ForkKnife","CookingPot","BowlFood","Bread","Coffee","Hamburger","Pizza","Popcorn",
+      "ForkKnife","CookingPot","BowlFood","Bread","Coffee","Hamburger","Pizza","Popcorn","Steak",
       "BeerBottle","Wine","Knife","Cake","Cookie","OrangeSlice","Lemon","IceCream","AppleLogo",
     ]
   },
