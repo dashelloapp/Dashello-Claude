@@ -2448,7 +2448,7 @@ function MetricBlock({ metric, onClick, onDragStart, onDragEnter, onDrop, isDrag
       style={{
         width: 140, minHeight: 140, borderRadius: 16, background: s.bg,
         padding: "14px 12px", display: "flex", flexDirection: "column",
-        alignItems: "flex-start", justifyContent: hasIcon ? "space-between" : "flex-start",
+        alignItems: "center", justifyContent: hasIcon ? "space-between" : "center",
         cursor: "pointer", position: "relative", flexShrink: 0,
         transform: hov ? "translateY(-3px)" : "none",
         transition: "transform 0.15s, box-shadow 0.15s, outline 0.1s",
@@ -2456,7 +2456,7 @@ function MetricBlock({ metric, onClick, onDragStart, onDragEnter, onDrop, isDrag
         outline: isDragOver ? "3px dashed #3B82F6" : "3px solid transparent",
       }}
     >
-      <div style={{ fontSize: 12, fontWeight: 600, color: textColor, lineHeight: 1.3, textAlign: "left", width: "100%" }}>
+      <div style={{ fontSize: 12, fontWeight: 600, color: textColor, lineHeight: 1.3, textAlign: "center", width: "100%" }}>
         {metric.label}
       </div>
       {hasIcon && (
@@ -2464,7 +2464,7 @@ function MetricBlock({ metric, onClick, onDragStart, onDragEnter, onDrop, isDrag
           <IconGlyph name={metric.icon} size={22} color={isColored ? s.bg : "#3B82F6"} />
         </div>
       )}
-      <div style={{ fontSize: 15, fontWeight: 700, color: textColor, textAlign: "left", width: "100%" }}>
+      <div style={{ fontSize: 15, fontWeight: 700, color: textColor, textAlign: "center", width: "100%" }}>
         {metric.value}
       </div>
     </div>
