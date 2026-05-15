@@ -246,7 +246,7 @@ function evaluateEquation(steps: EquationStep[], allMetrics: Metric[]): number |
         if (innerResult === null) return null;
         const newSteps: EquationStep[] = [
           ...steps.slice(0, parenStart),
-          { type: "metric", metricId: "_paren", metricValue: String(innerResult), metricLabel: String(innerResult) },
+          { type: "number", numberValue: innerResult },
           ...steps.slice(i + 1),
         ];
         return evaluateEquation(newSteps, allMetrics);
@@ -1922,7 +1922,7 @@ const opLabels: RuleOp[] = [">=", "<=", ">", "<", "==", "!=", "between"];
 // METRIC BOX SETTINGS MODAL
 // ═══════════════════════════════════════════════════════════════════════════
 
-function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplicate, onRecreateMissing, onClose, onFiveAccountToggledOn, onFiveAccountToggledOff, onCreateEquation }: {
+function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplicate, onRecreateMissing, onClose, onFiveAccountToggledOn, onFiveAccountToggledOff, onCreateEquation, inline: isInline }: {
   initial?: Metric;
   siblings?: Metric[];
   onSave: (m: Omit<Metric, "id">) => void;
@@ -1933,6 +1933,7 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
   onFiveAccountToggledOn?: () => void;
   onFiveAccountToggledOff?: (disabledMetricLabel: string) => void;
   onCreateEquation?: (formData?: { label: string; icon: string; metricType: MetricType; currencySymbol: string }) => void;
+  inline?: boolean;
 }) {
   const [label, setLabel] = useState(initial?.label ?? "");
   const [rawValue, setRawValue] = useState(() => {
@@ -1952,7 +1953,6 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [equationError, setEquationError] = useState("");
-  const [isInline, setIsInline] = useState(false);
 
   // Live formatted preview of the value based on metric type
   const previewValue = formatValue(rawValue || "0", fiveOn ? "financial" : metricType, currency);
@@ -2273,11 +2273,7 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
               </div>
             )}
           </div>
-          <div style={{ position: "sticky", bottom: 0, display: "flex", justifyContent: "flex-end", padding: "8px 22px", background: "#fff", borderTop: "1px solid #f1f5f9", borderRadius: "0 0 20px 20px" }}>
-            <button onClick={() => setIsInline(v => !v)} style={{ display: "flex", alignItems: "center", gap: 4, padding: "6px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 11, fontWeight: 500, cursor: "pointer", color: "#64748b" }}>
-              {isInline ? "☐ Popup" : "⊞ Inline"}
-            </button>
-          </div>
+          <div style={{ height: 8 }} />
         </div>
       </div>
       {showRuleModal && <AddColorRuleModal existing={editingRule} onSave={saveRule} onClose={() => setShowRuleModal(false)} />}
@@ -3651,9 +3647,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                 Group Selected ({checkedOrder.length})
               </button>
             )}
-            <button onClick={handleUndo} disabled={undoStack.length === 0} style={{ width: 32, height: 32, borderRadius: "50%", border: "1.5px solid #e2e8f0", background: undoStack.length === 0 ? "#f8fafc" : "#fff", fontSize: 14, cursor: undoStack.length === 0 ? "not-allowed" : "pointer", color: undoStack.length === 0 ? "#cbd5e1" : "#64748b", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>←</button>
             <button onClick={handleUndo} disabled={undoStack.length === 0} style={{ width: 32, height: 32, borderRadius: "50%", border: "1.5px solid #e2e8f0", background: undoStack.length === 0 ? "#f8fafc" : "#fff", fontSize: 14, cursor: undoStack.length === 0 ? "not-allowed" : "pointer", color: undoStack.length === 0 ? "#cbd5e1" : "#64748b", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>↺</button>
-            <button onClick={handleRedo} disabled={redoStack.length === 0} style={{ width: 32, height: 32, borderRadius: "50%", border: "1.5px solid #e2e8f0", background: redoStack.length === 0 ? "#f8fafc" : "#fff", fontSize: 14, cursor: redoStack.length === 0 ? "not-allowed" : "pointer", color: redoStack.length === 0 ? "#cbd5e1" : "#64748b", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>→</button>
             <button onClick={handleRedo} disabled={redoStack.length === 0} style={{ width: 32, height: 32, borderRadius: "50%", border: "1.5px solid #e2e8f0", background: redoStack.length === 0 ? "#f8fafc" : "#fff", fontSize: 14, cursor: redoStack.length === 0 ? "not-allowed" : "pointer", color: redoStack.length === 0 ? "#cbd5e1" : "#64748b", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>↻</button>
             <button onClick={() => {
               if (confirmAction === "reset") { setConfirmAction(null); setSteps(initialEquation?.steps ?? []); setEditingStepIndex(null); }
@@ -3723,7 +3717,6 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                       const isEditing = isNumEditing || isDenEditing || editingStepIndex === actualSlashIdx;
                       const z1 = g.startIdx;
                       const z2 = numStart;
-                      const z3 = actualSlashIdx;
                       const z4 = denStart;
                       const z5 = g.startIdx + g.steps!.length;
                       const dropZone = (e: React.DragEvent) => {
@@ -3734,8 +3727,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                         const h = rect.height;
                         if (x < w * 0.15) return z1;
                         if (x > w * 0.85) return z5;
-                        if (y < h * 0.35) return z2;
-                        if (y < h * 0.55) return z3;
+                        if (y < h * 0.5) return z2;
                         return z4;
                       };
                       return [
@@ -3770,26 +3762,23 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
                             <div style={{ display: "inline-flex", flexWrap: "wrap", gap: 6, padding: "8px 12px", border: "2px solid #e2e8f0", borderRadius: 16, background: "#fff", alignItems: "flex-start", minWidth: `${140 * csScale}px` }}
                               onClick={e => e.stopPropagation()}>
+                              {dropLineIndex === z2 && (
+                                <div style={{ width: 3, alignSelf: "stretch", background: "#3B82F6", borderRadius: 2, flexShrink: 0, minHeight: 60 }} />
+                              )}
                               {renderRange(numStart, numEnd)}
                               {renderPlusButton(numEnd, `fn-${si}-${gi}`)}
                             </div>
-                            {dropLineIndex === z2 && (
-                              <div style={{ height: 3, width: "80%", background: "#3B82F6", borderRadius: 2 }} />
-                            )}
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
                               <div onClick={e => { e.stopPropagation(); handleEditStep(actualSlashIdx); }} style={{ width: 48 * csScale, height: 48 * csScale, borderRadius: "50%", background: "#3B82F6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 * csScale, fontWeight: 700, cursor: "pointer" }}>÷</div>
                             </div>
-                            {dropLineIndex === z3 && (
-                              <div style={{ height: 3, width: "80%", background: "#3B82F6", borderRadius: 2 }} />
-                            )}
                             <div style={{ display: "inline-flex", flexWrap: "wrap", gap: 6, padding: "8px 12px", border: "2px solid #e2e8f0", borderRadius: 16, background: "#fff", alignItems: "flex-start", minWidth: `${140 * csScale}px` }}
                               onClick={e => e.stopPropagation()}>
+                              {dropLineIndex === z4 && (
+                                <div style={{ width: 3, alignSelf: "stretch", background: "#3B82F6", borderRadius: 2, flexShrink: 0, minHeight: 60 }} />
+                              )}
                               {renderRange(denStart, denEnd)}
                               {renderPlusButton(denEnd, `fd-${si}-${gi}`)}
                             </div>
-                            {dropLineIndex === z4 && (
-                              <div style={{ height: 3, width: "80%", background: "#3B82F6", borderRadius: 2 }} />
-                            )}
                           </div>
                         </div>
                       ];
@@ -5607,7 +5596,7 @@ export default function DashelloDashboard() {
       if (!window.confirm("You have unsaved changes. Leave without saving?")) return;
       setInlineHasUnsaved(false);
     }
-    if (key === "home") { setInlineView(null); setInlineMetric(null); }
+    if (key === "home") { setViewMode("popup"); viewModeRef.current = "popup"; setInlineView(null); setInlineMetric(null); }
     else if (key === "metric-detail") setInlineView("metric-detail");
     else if (key === "metric-settings") setInlineView("metric-settings");
   };
@@ -5959,6 +5948,7 @@ const sidebarEl = (
             return (
               <div style={{ flex: 1, overflowY: "auto", background: "#fff", padding: "24px 28px 48px" }}>
                 <MetricBoxSettingsModal
+                  inline
                   initial={inlineMetric}
                   siblings={foundSection?.metrics ?? []}
                   onSave={updated => {
