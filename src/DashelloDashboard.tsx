@@ -1653,21 +1653,21 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
 
   if (isCash) return (
     <div ref={overlayRef} onClick={e => { if (!inline && e.target === overlayRef.current) onClose(); }}
-      style={inline ? { padding: "20px 28px" } : { position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 20 }}>
+      style={inline ? { padding: "20px 28px" } : { position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: "clamp(8px,2vw,20px)" }}>
       <div style={inline ? { width: "100%", maxWidth: 900 } : { 
   background: "#fff", 
-  borderRadius: 24, 
+  borderRadius: "clamp(12px,2vw,24px)", 
   width: "100%", 
   maxWidth: 900, 
   maxHeight: "92vh", 
   overflowY: "auto", 
   overflowX: "hidden", 
-  padding: "28px 32px 32px", 
+  padding: "clamp(16px,3vw,32px)", 
   boxShadow: "0 32px 80px rgba(0,0,0,0.2)", 
   scrollbarGutter: "stable" 
 } as React.CSSProperties}>       
         <div style={{ display: "flex", alignItems: "center", marginBottom: 16 }}>
-            <h2 style={{ margin: 0, fontSize: 28, fontWeight: 700, color: "#1a2332", flex: 1 }}>{data.title}</h2>
+            <h2 style={{ margin: 0, fontSize: "clamp(20px,4vw,28px)", fontWeight: 700, color: "#1a2332", flex: 1 }}>{data.title}</h2>
             <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
               {onRefreshSections && <RefreshButton onRefresh={onRefreshSections} lastSyncedAt={metric?.lastSyncedAt} metricId={metric?.id} />}
               {!inline && <><EditBtn /><CloseBtn /></>}
@@ -1822,10 +1822,10 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
   // ── COUNTER ───────────────────────────────────────────────────────────────
  if (isCounter) return (
     <div ref={overlayRef} onClick={e => { if (!inline && e.target === overlayRef.current) onClose(); }}
-      style={inline ? { padding: "20px 28px" } : { position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 20 }}>
-      <div style={inline ? { width: "100%", maxWidth: 780 } : { background: "#fff", borderRadius: 24, width: "100%", maxWidth: 780, maxHeight: "92vh", overflowY: "auto", overflowX: "hidden", padding: "28px 32px 32px", boxShadow: "0 32px 80px rgba(0,0,0,0.2)", scrollbarGutter: "stable" } as React.CSSProperties}>
+      style={inline ? { padding: "20px 28px" } : { position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: "clamp(8px,2vw,20px)" }}>
+      <div style={inline ? { width: "100%", maxWidth: 780 } : { background: "#fff", borderRadius: "clamp(12px,2vw,24px)", width: "100%", maxWidth: 780, maxHeight: "92vh", overflowY: "auto", overflowX: "hidden", padding: "clamp(16px,3vw,32px)", boxShadow: "0 32px 80px rgba(0,0,0,0.2)", scrollbarGutter: "stable" } as React.CSSProperties}>
         <div style={{ display: "flex", alignItems: "center", marginBottom: 24 }}>
-          <h2 style={{ margin: 0, fontSize: 28, fontWeight: 700, color: "#1a2332", flex: 1 }}>{data.title}</h2>
+          <h2 style={{ margin: 0, fontSize: "clamp(20px,4vw,28px)", fontWeight: 700, color: "#1a2332", flex: 1 }}>{data.title}</h2>
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
             {onRefreshSections && <RefreshButton onRefresh={onRefreshSections} lastSyncedAt={metric?.lastSyncedAt} metricId={metric?.id} />}
             {!inline && <><EditBtn /><CloseBtn /></>}
@@ -1884,10 +1884,10 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
 
   return (
     <div ref={overlayRef} onClick={e => { if (!inline && e.target === overlayRef.current) onClose(); }}
-      style={inline ? { padding: "20px 28px" } : { position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 20 }}>
-      <div style={inline ? { width: "100%", maxWidth: 900 } : { background: "#fff", borderRadius: 24, width: "100%", maxWidth: 900, maxHeight: "92vh", overflowY: "auto", padding: "28px 32px 32px", boxShadow: "0 32px 80px rgba(0,0,0,0.2)" }}>
+      style={inline ? { padding: "20px 28px" } : { position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: "clamp(8px,2vw,20px)" }}>
+      <div style={inline ? { width: "100%", maxWidth: 900 } : { background: "#fff", borderRadius: "clamp(12px,2vw,24px)", width: "100%", maxWidth: 900, maxHeight: "92vh", overflowY: "auto", padding: "clamp(16px,3vw,32px)", boxShadow: "0 32px 80px rgba(0,0,0,0.2)" }}>
         <div style={{ display: "flex", alignItems: "center", marginBottom: 16 }}>
-            <h2 style={{ margin: 0, fontSize: 28, fontWeight: 700, color: "#1a2332", flex: 1 }}>{data.title}</h2>
+            <h2 style={{ margin: 0, fontSize: "clamp(20px,4vw,28px)", fontWeight: 700, color: "#1a2332", flex: 1 }}>{data.title}</h2>
             <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
               {onRefreshSections && <RefreshButton onRefresh={onRefreshSections} lastSyncedAt={metric?.lastSyncedAt} metricId={metric?.id} />}
               {!inline && <><EditBtn /><CloseBtn /></>}
@@ -2257,12 +2257,12 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
 
   return (
     <>
-      <div onClick={isInline ? undefined : onClose} style={isInline ? { position: "relative" } : { position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000, padding: 16 }}>
+      <div onClick={isInline ? undefined : onClose} style={isInline ? { position: "relative" } : { position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000, padding: "clamp(8px,2vw,16px)" }}>
         <div onClick={e => e.stopPropagation()} onKeyDown={e => { if (e.key === "Enter") handleSave(); }}
-          style={isInline ? { background: "#fff", width: "100%", overflowY: "auto", overflowX: "hidden", scrollbarGutter: "stable" } as React.CSSProperties : { background: "#fff", borderRadius: 20, width: "100%", maxWidth: 820, maxHeight: "92vh", overflowY: "auto", overflowX: "hidden", boxShadow: "0 24px 64px rgba(0,0,0,0.2)", scrollbarGutter: "stable" } as React.CSSProperties}>
+          style={isInline ? { background: "#fff", width: "100%", overflowY: "auto", overflowX: "hidden", scrollbarGutter: "stable" } as React.CSSProperties : { background: "#fff", borderRadius: "clamp(12px,2vw,20px)", width: "100%", maxWidth: 820, maxHeight: "min(92vh,100dvh)", overflowY: "auto", overflowX: "hidden", boxShadow: "0 24px 64px rgba(0,0,0,0.2)", scrollbarGutter: "stable" } as React.CSSProperties}>
 
           {/* Header */}
-          <div style={{ padding: "20px 22px 0", display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+          <div style={{ padding: "clamp(14px,3vw,20px) clamp(16px,3vw,22px) 0", display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
             <input value={label} onChange={e => { setLabel(e.target.value); setEquationError(""); }} placeholder="Metric Box Title"
               style={{ fontSize: 17, fontWeight: 700, border: "none", outline: "none", color: "#1a2332", background: "transparent", flex: 1, minWidth: 0 }} />
             {!isInline && <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: "50%", border: "1.5px solid #e2e8f0", background: "#f8fafc", fontSize: 18, cursor: "pointer", color: "#94a3b8", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginLeft: 10 }}>×</button>}
@@ -2274,7 +2274,7 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
             </div>
           )}
 
-          <div style={{ padding: "6px 22px 22px" }}>
+          <div style={{ padding: "6px clamp(16px,3vw,22px) clamp(16px,3vw,22px)" }}>
             <div style={{ display: "grid", gridTemplateColumns: "minmax(260px, 1fr) minmax(280px, 1fr)", gap: 24 }}>
 
               {/* LEFT */}
@@ -2747,7 +2747,7 @@ function DashSection({
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
         <div draggable onDragStart={e => { e.stopPropagation(); onSectionDragStart(); }}
           style={{ cursor: "grab", color: "#cbd5e1", fontSize: 15, padding: "0 2px", flexShrink: 0 }} title="Drag to reorder">⠿</div>
-       <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#1a2332" }}>{section.title}</h2>
+       <h2 style={{ margin: 0, fontSize: "clamp(16px,3vw,20px)", fontWeight: 700, color: "#1a2332" }}>{section.title}</h2>
         <div style={{ display: "flex", marginLeft: 2, paddingLeft: 4 }}>
           {section.avatars.map(a => (
             <div key={a} style={{ width: 28, height: 28, borderRadius: "50%", background: "#4C9FE8", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 600, border: "2px solid #fff", marginLeft: -5, flexShrink: 0 }}>{a}</div>
@@ -2972,7 +2972,7 @@ function GoalsPage({ goals, setGoals, sections, onOpenOnboarding, onEditGoal, on
 // ONBOARDING: GOAL CREATION
 // ═══════════════════════════════════════════════════════════════════════════
 
-function GoalOnboarding({ sections, onClose, onCreate }: { sections: Section[]; onClose: () => void; onCreate: (g: Goal) => void }) {
+function GoalOnboarding({ sections, isMobile, onClose, onCreate }: { sections: Section[]; isMobile?: boolean; onClose: () => void; onCreate: (g: Goal) => void }) {
   const [page, setPage] = useState(0);
   const [goalName, setGoalName] = useState("");
   const [dueDate, setDueDate] = useState("");
@@ -3211,8 +3211,8 @@ function GoalOnboarding({ sections, onClose, onCreate }: { sections: Section[]; 
   ];
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.15)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ background: "#fff", borderRadius: 20, width: "min(90vw, 640px)", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 25px 50px rgba(0,0,0,0.15)", padding: "clamp(24px,4vw,40px)" }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: isMobile ? "#fff" : "rgba(0,0,0,0.15)", display: "flex", flexDirection: "column" }}>
+      <div style={{ background: "#fff", flex: 1, overflowY: "auto", width: "100%", padding: isMobile ? "20px 16px" : "clamp(24px,4vw,40px)", borderRadius: isMobile ? 0 : 20, maxWidth: isMobile ? "100%" : 640, margin: isMobile ? 0 : "auto", maxHeight: isMobile ? "100dvh" : "90vh", boxShadow: isMobile ? "none" : "0 25px 50px rgba(0,0,0,0.15)" }}>
         <div style={{ display: "flex", gap: 6, justifyContent: "center", marginBottom: 24 }}>
           {pages.map((_, i) => (
             <div key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: i === page ? "#3B82F6" : i < page ? "#4CAF7D" : "#e2e8f0", transition: "background 0.2s" }} />
@@ -3228,7 +3228,7 @@ function GoalOnboarding({ sections, onClose, onCreate }: { sections: Section[]; 
 // SETTINGS MODAL: GOAL
 // ═══════════════════════════════════════════════════════════════════════════
 
-function GoalSettingsModal({ goal, sections, onSave, onDuplicate, onDelete, onClose }: { goal: Goal; sections: Section[]; onSave: (g: Goal) => void; onDuplicate: (g: Goal) => void; onDelete: (id: string) => void; onClose: () => void }) {
+function GoalSettingsModal({ goal, sections, isMobile, onSave, onDuplicate, onDelete, onClose }: { goal: Goal; sections: Section[]; isMobile?: boolean; onSave: (g: Goal) => void; onDuplicate: (g: Goal) => void; onDelete: (id: string) => void; onClose: () => void }) {
   const [edited, setEdited] = useState<Goal>({ ...goal, steps: [...goal.steps], attachedMetrics: [...goal.attachedMetrics], manualNotes: [...(goal.manualNotes ?? [])] });
   const [searchQuery, setSearchQuery] = useState("");
   const [configMetric, setConfigMetric] = useState<{ sectionLabel: string; metricLabel: string } | null>(null);
@@ -3256,8 +3256,8 @@ function GoalSettingsModal({ goal, sections, onSave, onDuplicate, onDelete, onCl
   const saveGoal = () => { onSave({ ...edited, pct: livePct, barColor: liveBarColor }); onClose(); };
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.15)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ background: "#fff", borderRadius: 20, width: "min(90vw, 640px)", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 25px 50px rgba(0,0,0,0.15)", padding: "clamp(24px,4vw,40px)" }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: isMobile ? "#fff" : "rgba(0,0,0,0.15)", display: "flex", flexDirection: "column" }}>
+      <div style={{ background: "#fff", flex: 1, overflowY: "auto", width: "100%", padding: isMobile ? "20px 16px" : "clamp(24px,4vw,40px)", borderRadius: isMobile ? 0 : 20, maxWidth: isMobile ? "100%" : 640, margin: isMobile ? 0 : "auto", maxHeight: isMobile ? "100dvh" : "90vh", boxShadow: isMobile ? "none" : "0 25px 50px rgba(0,0,0,0.15)" }}>
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
           <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#64748b", padding: 0 }}>×</button>
@@ -5154,7 +5154,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
 // CHAT PANEL
 // ═══════════════════════════════════════════════════════════════════════════
 
-function ChatPanel({ sections, onClose }: { sections: Section[]; onClose: () => void }) {
+function ChatPanel({ sections, onClose, isMobile }: { sections: Section[]; onClose: () => void; isMobile?: boolean }) {
   const channels = ["General", ...sections.map(s => s.title)];
   const [active, setActive] = useState("General");
   const msgs: Record<string, { name: string; time: string; text: string }[]> = {
@@ -5162,7 +5162,7 @@ function ChatPanel({ sections, onClose }: { sections: Section[]; onClose: () => 
   };
   const display = msgs[active] ?? msgs["General"];
   return (
-    <div style={{ position: "fixed", right: 0, top: 0, bottom: 0, width: "clamp(260px,28vw,340px)", background: "#fff", boxShadow: "-4px 0 32px rgba(0,0,0,0.1)", zIndex: 1500, display: "flex", flexDirection: "column" }}>
+    <div style={{ position: "fixed", right: 0, top: 0, bottom: 0, width: isMobile ? "100vw" : "clamp(260px,28vw,340px)", background: "#fff", boxShadow: "-4px 0 32px rgba(0,0,0,0.1)", zIndex: 1500, display: "flex", flexDirection: "column" }}>
       <div style={{ padding: "14px 18px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ fontSize: 15, fontWeight: 700, color: "#1a2332" }}>Chat</div>
         <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#94a3b8" }}>×</button>
@@ -6648,22 +6648,24 @@ const sidebarEl = (
   );
 
   return (
-    <div style={{ display: "flex", height: "100vh", fontFamily: "'Inter',system-ui,sans-serif", background: "#F8FAFC", position: "relative" }}>
+    <>
+    <style>{`@media (max-width:767px){.touch-btn{min-height:44px!important;min-width:44px!important}.touch-btn-sm{min-height:36px!important;min-width:36px!important}.stack-mobile{grid-template-columns:1fr!important}.hide-mobile{display:none!important}}`}</style>
+    <div style={{ display: "flex", height: "100dvh", fontFamily: "'Inter',system-ui,sans-serif", background: "#F8FAFC", position: "relative" }}>
       {isMobile && sidebarOpen && <div onClick={() => setSidebarOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 900 }} />}
       {sidebarOpen && (
         isMobile
           ? <div style={{ position: "fixed", left: 0, top: 0, bottom: 0, width: 240, zIndex: 1000 }}>
             {sidebarEl}
-            <div onClick={() => setSidebarOpen(false)} style={{ position: "absolute", top: 14, right: -44, width: 34, height: 34, borderRadius: "50%", background: "#fff", boxShadow: "0 2px 8px rgba(0,0,0,0.15)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 18, color: "#475569", zIndex: 1001 }}>×</div>
+            <div onClick={() => setSidebarOpen(false)} style={{ position: "absolute", top: 14, right: -44, width: 44, height: 44, borderRadius: "50%", background: "#fff", boxShadow: "0 2px 8px rgba(0,0,0,0.15)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 18, color: "#475569", zIndex: 1001 }}>×</div>
           </div>
           : sidebarEl
       )}
 
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
         {/* Top bar */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "11px clamp(10px,3vw,26px)", borderBottom: "1px solid #E8EDF2", background: "#fff", flexShrink: 0, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 6 : 8, padding: isMobile ? "10px 12px" : "11px clamp(10px,3vw,26px)", borderBottom: "1px solid #E8EDF2", background: "#fff", flexShrink: 0, flexWrap: "wrap" }}>
           {!sidebarOpen && (
-            <div onClick={() => setSidebarOpen(true)} style={{ width: 34, height: 34, borderRadius: "50%", background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", marginRight: 4, flexShrink: 0 }}>
+            <div onClick={() => setSidebarOpen(true)} style={{ width: isMobile ? 44 : 34, height: isMobile ? 44 : 34, borderRadius: "50%", background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", marginRight: 4, flexShrink: 0 }}>
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                 {[0, 1, 2].map(i => <div key={i} style={{ width: 14, height: 2, background: "#475569", borderRadius: 2 }} />)}
               </div>
@@ -6673,7 +6675,7 @@ const sidebarEl = (
             {page === "home" && !inlineView && (
               <div style={{ display: "flex", borderRadius: 8, border: "1px solid #e2e8f0", overflow: "hidden" }}>
                 {["Row", "Column"].map((lbl, i) => (
-                  <div key={lbl} style={{ padding: "5px 13px", fontSize: 12, fontWeight: 500, cursor: "pointer", background: i === 0 ? "#3B82F6" : "#fff", color: i === 0 ? "#fff" : "#94a3b8" }}>{lbl}</div>
+                  <div key={lbl} style={{ padding: isMobile ? "8px 12px" : "5px 13px", fontSize: 12, fontWeight: 500, cursor: "pointer", background: i === 0 ? "#3B82F6" : "#fff", color: i === 0 ? "#fff" : "#94a3b8" }}>{lbl}</div>
                 ))}
               </div>
             )}
@@ -6708,8 +6710,8 @@ const sidebarEl = (
             )}
           </div>
           <div style={{ flex: 1 }} />
-          <div onClick={() => setShowChat(v => !v)} style={{ padding: "6px 16px", borderRadius: 20, border: "1px solid #e2e8f0", fontSize: 12, color: "#64748b", cursor: "pointer", background: showChat ? "#EFF6FF" : "#fff" }}>Chat</div>
-          <div style={{ padding: "7px clamp(10px,2vw,20px)", borderRadius: 8, background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Customize</div>
+          <div onClick={() => setShowChat(v => !v)} style={{ padding: isMobile ? "10px 16px" : "6px 16px", borderRadius: 20, border: "1px solid #e2e8f0", fontSize: 12, color: "#64748b", cursor: "pointer", background: showChat ? "#EFF6FF" : "#fff", whiteSpace: "nowrap" }}>Chat</div>
+          <div style={{ padding: isMobile ? "10px 16px" : "7px clamp(10px,2vw,20px)", borderRadius: 8, background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>Customize</div>
         </div>
 
         {/* Pages */}
@@ -6823,11 +6825,11 @@ const sidebarEl = (
         </div>
       </div>
 
-      {showChat && <ChatPanel sections={sections} onClose={() => setShowChat(false)} />}
+      {showChat && <ChatPanel sections={sections} isMobile={isMobile} onClose={() => setShowChat(false)} />}
 
-      {showGoalOnboarding && <GoalOnboarding sections={sections} onClose={() => setShowGoalOnboarding(false)} onCreate={handleCreateGoal} />}
+      {showGoalOnboarding && <GoalOnboarding sections={sections} isMobile={isMobile} onClose={() => setShowGoalOnboarding(false)} onCreate={handleCreateGoal} />}
 
-      {editingGoal && <GoalSettingsModal goal={editingGoal} sections={sections} onSave={handleSaveGoal} onDuplicate={handleDuplicateGoal} onDelete={handleDeleteGoal} onClose={() => setEditingGoal(null)} />}
+      {editingGoal && <GoalSettingsModal goal={editingGoal} sections={sections} isMobile={isMobile} onSave={handleSaveGoal} onDuplicate={handleDuplicateGoal} onDelete={handleDeleteGoal} onClose={() => setEditingGoal(null)} />}
 
       {/* ── POPUP mode: metric detail modal ── */}
       {viewMode === "popup" && activeModal && (
@@ -6941,5 +6943,6 @@ const sidebarEl = (
       })()}
 
     </div>
+    </>
   );
 }
