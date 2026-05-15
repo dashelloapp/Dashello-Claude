@@ -2029,7 +2029,7 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
     <>
       <div onClick={isInline ? undefined : onClose} style={isInline ? { position: "relative" } : { position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000, padding: 16 }}>
         <div onClick={e => e.stopPropagation()} onKeyDown={e => { if (e.key === "Enter") handleSave(); }}
-          style={isInline ? { background: "#fff", borderRadius: 20, width: "100%", overflowY: "auto", overflowX: "hidden", boxShadow: "0 24px 64px rgba(0,0,0,0.2)", scrollbarGutter: "stable" } as React.CSSProperties : { background: "#fff", borderRadius: 20, width: "100%", maxWidth: 820, maxHeight: "92vh", overflowY: "auto", overflowX: "hidden", boxShadow: "0 24px 64px rgba(0,0,0,0.2)", scrollbarGutter: "stable" } as React.CSSProperties}>
+          style={isInline ? { background: "#fff", width: "100%", overflowY: "auto", overflowX: "hidden", scrollbarGutter: "stable" } as React.CSSProperties : { background: "#fff", borderRadius: 20, width: "100%", maxWidth: 820, maxHeight: "92vh", overflowY: "auto", overflowX: "hidden", boxShadow: "0 24px 64px rgba(0,0,0,0.2)", scrollbarGutter: "stable" } as React.CSSProperties}>
 
           {/* Header */}
           <div style={{ padding: "20px 22px 0", display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
@@ -2438,6 +2438,7 @@ function DashSection({
   section, onAddMetric, onAddMetricById, onRemoveMetric, onUpdateMetric, onRenameSection, onRemoveSection,
   onClickMetric, dragState, onMetricDragStart, onMetricDragEnter, onMetricDrop,
   onSectionDragStart, onSectionDragEnter, onSectionDrop, isSectionDragOver,
+  dragOverTarget,
   onFiveAccountEnabledFromBox, onFiveAccountDisabledFromBox, onOpenEquationBuilder
 }: {
   section: Section;
@@ -2456,6 +2457,7 @@ function DashSection({
   onSectionDragEnter: (e: React.DragEvent) => void;
   onSectionDrop: () => void;
   isSectionDragOver: boolean;
+  dragOverTarget: { targetSid: string; targetMid: string } | null;
   onFiveAccountEnabledFromBox?: () => void;
   onFiveAccountDisabledFromBox?: (sectionId: string, disabledMetricId: string, disabledLabel: string) => void;
   onOpenEquationBuilder?: (sectionId: string, metricId: string, reopenAfterSave?: boolean) => void;
@@ -2464,12 +2466,23 @@ function DashSection({
   const [editingMetric, setEditingMetric] = useState<Metric | null>(null);
   const [showRowModal, setShowRowModal] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const lastContainerTargetRef = useRef<string | null>(null);
 
   // Drop zone for the section itself (when dragging a metric over empty space in section)
   const handleSectionDropZone = (e: React.DragEvent) => {
     e.preventDefault();
-    if (dragState && section.metrics.length === 0) {
+    if (dragState) {
       onMetricDrop(section.id, "__end__");
+    }
+  };
+
+  // Track drag-over for empty space (end-of-section indicator)
+  const handleContainerDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (!dragState) { lastContainerTargetRef.current = null; return; }
+    if (lastContainerTargetRef.current !== "__end__") {
+      lastContainerTargetRef.current = "__end__";
+      onMetricDragEnter(section.id, "__end__");
     }
   };
 
@@ -2522,25 +2535,43 @@ function DashSection({
         <div style={{ width: 28, height: 28, borderRadius: "50%", border: "1.5px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#94a3b8", flexShrink: 0, marginRight: 6 }}>›</div>
         <div
           style={{ display: "flex", gap: 10, flexWrap: "wrap", flex: 1, minHeight: 48 }}
-          onDragOver={e => e.preventDefault()}
+          onDragOver={handleContainerDragOver}
           onDrop={handleSectionDropZone}
         >
-          {section.metrics.map(m => {
-            const isDragOver = dragState?.sourceSid !== section.id || dragState?.sourceMid !== m.id
-              ? false
-              : false; // calculated below
-            const isTarget = dragState && (dragState.sourceSid !== section.id || dragState.sourceMid !== m.id);
-            return (
-              <MetricBlock key={m.id} metric={m}
-                onClick={() => onClickMetric(m.modal, m)}
-                onDragStart={() => onMetricDragStart(section.id, m.id)}
-                onDragEnter={e => { if (dragState && (dragState.sourceSid !== section.id || dragState.sourceMid !== m.id)) onMetricDragEnter(section.id, m.id); }}
-                onDrop={() => onMetricDrop(section.id, m.id)}
-                isDragOver={false}
-              />
+          {(() => {
+            const children: React.ReactNode[] = [];
+
+            // If empty section — show blue line at start
+            if (dragOverTarget?.targetSid === section.id && dragOverTarget.targetMid === "__end__" && section.metrics.length === 0) {
+              children.push(<div key="bl-end" style={{ width: 3, alignSelf: "stretch", background: "#3B82F6", borderRadius: 2, flexShrink: 0, minHeight: 60 }} />);
+            }
+
+            section.metrics.forEach((m, i) => {
+              // Show blue line before this metric if it's the drag target
+              if (dragOverTarget?.targetSid === section.id && dragOverTarget.targetMid === m.id) {
+                children.push(<div key={`bl-${m.id}`} style={{ width: 3, alignSelf: "stretch", background: "#3B82F6", borderRadius: 2, flexShrink: 0, minHeight: 60 }} />);
+              }
+              children.push(
+                <MetricBlock key={m.id} metric={m}
+                  onClick={() => onClickMetric(m.modal, m)}
+                  onDragStart={() => onMetricDragStart(section.id, m.id)}
+                  onDragEnter={e => { lastContainerTargetRef.current = null; if (dragState && (dragState.sourceSid !== section.id || dragState.sourceMid !== m.id)) onMetricDragEnter(section.id, m.id); }}
+                  onDrop={() => onMetricDrop(section.id, m.id)}
+                  isDragOver={false}
+                />
+              );
+            });
+
+            // Show blue line at end for non-empty sections
+            if (dragOverTarget?.targetSid === section.id && dragOverTarget.targetMid === "__end__" && section.metrics.length > 0) {
+              children.push(<div key="bl-end" style={{ width: 3, alignSelf: "stretch", background: "#3B82F6", borderRadius: 2, flexShrink: 0, minHeight: 60 }} />);
+            }
+
+            children.push(
+              <div key="add-btn" onClick={() => setShowAdd(true)} style={{ width: 44, height: 44, borderRadius: "50%", border: "1.5px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#94a3b8", fontSize: 20, alignSelf: "center" }}>+</div>
             );
-          })}
-          <div onClick={() => setShowAdd(true)} style={{ width: 44, height: 44, borderRadius: "50%", border: "1.5px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#94a3b8", fontSize: 20, alignSelf: "center" }}>+</div>
+            return children;
+          })()}
         </div>
       </div>
       <div style={{ height: 1, background: "#f1f5f9", marginTop: 20 }} />
@@ -3766,7 +3797,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                                 <div style={{ width: 3, alignSelf: "stretch", background: "#3B82F6", borderRadius: 2, flexShrink: 0, minHeight: 60 }} />
                               )}
                               {renderRange(numStart, numEnd)}
-                              {renderPlusButton(numEnd, `fn-${si}-${gi}`)}
+                              {renderPlusButton(numEnd - 1, `fn-${si}-${gi}`)}
                             </div>
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
                               <div onClick={e => { e.stopPropagation(); handleEditStep(actualSlashIdx); }} style={{ width: 48 * csScale, height: 48 * csScale, borderRadius: "50%", background: "#3B82F6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 * csScale, fontWeight: 700, cursor: "pointer" }}>÷</div>
@@ -4071,14 +4102,17 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                                   e.dataTransfer.setDragImage(el, r.width / 2, r.height / 2);
                                   setTimeout(() => document.body.removeChild(el), 0);
                                 }}
-                                onDragOver={e => { e.preventDefault(); e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); const m = rect.left + rect.width / 2; const idx = e.clientX < m ? g.startIdx : g.startIdx + g.steps!.length; setDropLineIndex(idx); dropLineIndexRef.current = idx; }}
-                                onDrop={e => { e.preventDefault(); e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); const m = rect.left + rect.width / 2; const idx = e.clientX < m ? g.startIdx : g.startIdx + g.steps!.length; handleStepDrop(idx); }}
+                                onDragOver={e => { e.preventDefault(); e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); const x = e.clientX - rect.left; const w = rect.width; const idx = x < w * 0.15 ? g.startIdx : x > w * 0.85 ? g.startIdx + g.steps!.length : g.startIdx + g.steps!.length - 1; setDropLineIndex(idx); dropLineIndexRef.current = idx; }}
+                                onDrop={e => { e.preventDefault(); e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); const x = e.clientX - rect.left; const w = rect.width; const idx = x < w * 0.15 ? g.startIdx : x > w * 0.85 ? g.startIdx + g.steps!.length : g.startIdx + g.steps!.length - 1; handleStepDrop(idx); }}
                                 onDragEnd={() => { dragStepIdxRef.current = null; dragCountRef.current = 1; setDropLineIndex(null); dropLineIndexRef.current = null; }}
-                                style={{ position: "relative", display: "inline-flex", flexWrap: "wrap", gap: 6, padding: "8px 12px", border: `2px solid ${rpgIsSelected ? "#3B82F6" : "#e2e8f0"}`, borderRadius: 16, background: "#fff", alignItems: "flex-start" }}>
+                                style={{ position: "relative", display: "inline-flex", flexWrap: "wrap", gap: 6, padding: "8px 12px", border: `2px solid ${rpgIsSelected ? "#3B82F6" : "#e2e8f0"}`, borderRadius: 16, background: "#fff", alignItems: "flex-start", minWidth: `${140 * Math.max(0.6, Math.min(1, cardSize / 140))}px`, minHeight: `${140 * Math.max(0.6, Math.min(1, cardSize / 140))}px` }}>
                                 {rpgIsSelected && (
                                   <div onClick={e => { e.stopPropagation(); handleRemoveGroup(g.startIdx); }} style={{ position: "absolute", top: -6, right: -6, width: 24, height: 24, borderRadius: "50%", background: "#3B82F6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 14, fontWeight: 700, zIndex: 20, boxShadow: "0 2px 6px rgba(0,0,0,0.15)" }}>×</div>
                                 )}
                                 {renderRange(g.startIdx + 1, g.startIdx + g.steps!.length - 1)}
+                                {dropLineIndex === g.startIdx + g.steps!.length - 1 && dropLineIndex > g.startIdx && dropLineIndex < g.startIdx + g.steps!.length && (
+                                  <div style={{ width: 3, alignSelf: "stretch", background: "#3B82F6", borderRadius: 2, flexShrink: 0, minHeight: 60 }} />
+                                )}
                                 {renderPlusButton(g.startIdx + g.steps!.length - 1, `rpgp-${rStart}-${ssi}-${ggi}`)}
                               </div>
                             );
@@ -4148,14 +4182,17 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                                 e.dataTransfer.setDragImage(el, r.width / 2, r.height / 2);
                                 setTimeout(() => document.body.removeChild(el), 0);
                               }}
-                              onDragOver={e => { e.preventDefault(); e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); const m = rect.left + rect.width / 2; const idx = e.clientX < m ? g.startIdx : g.startIdx + g.steps!.length; setDropLineIndex(idx); dropLineIndexRef.current = idx; }}
-                              onDrop={e => { e.preventDefault(); e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); const m = rect.left + rect.width / 2; const idx = e.clientX < m ? g.startIdx : g.startIdx + g.steps!.length; handleStepDrop(idx); }}
+                              onDragOver={e => { e.preventDefault(); e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); const x = e.clientX - rect.left; const w = rect.width; const idx = x < w * 0.15 ? g.startIdx : x > w * 0.85 ? g.startIdx + g.steps!.length : g.startIdx + g.steps!.length - 1; setDropLineIndex(idx); dropLineIndexRef.current = idx; }}
+                              onDrop={e => { e.preventDefault(); e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); const x = e.clientX - rect.left; const w = rect.width; const idx = x < w * 0.15 ? g.startIdx : x > w * 0.85 ? g.startIdx + g.steps!.length : g.startIdx + g.steps!.length - 1; handleStepDrop(idx); }}
                               onDragEnd={() => { dragStepIdxRef.current = null; dragCountRef.current = 1; setDropLineIndex(null); dropLineIndexRef.current = null; }}
-                              style={{ position: "relative", display: "inline-flex", flexWrap: "wrap", gap: 6, padding: "8px 12px", border: `2px solid ${pgIsSelected ? "#3B82F6" : "#e2e8f0"}`, borderRadius: 16, background: "#fff", alignItems: "flex-start" }}>
+                              style={{ position: "relative", display: "inline-flex", flexWrap: "wrap", gap: 6, padding: "8px 12px", border: `2px solid ${pgIsSelected ? "#3B82F6" : "#e2e8f0"}`, borderRadius: 16, background: "#fff", alignItems: "flex-start", minWidth: `${140 * Math.max(0.6, Math.min(1, cardSize / 140))}px`, minHeight: `${140 * Math.max(0.6, Math.min(1, cardSize / 140))}px` }}>
                               {pgIsSelected && (
                                 <div onClick={e => { e.stopPropagation(); handleRemoveGroup(g.startIdx); }} style={{ position: "absolute", top: -6, right: -6, width: 24, height: 24, borderRadius: "50%", background: "#3B82F6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 14, fontWeight: 700, zIndex: 20, boxShadow: "0 2px 6px rgba(0,0,0,0.15)" }}>×</div>
                               )}
                               {renderRange(g.startIdx + 1, g.startIdx + g.steps!.length - 1)}
+                              {dropLineIndex === g.startIdx + g.steps!.length - 1 && dropLineIndex > g.startIdx && dropLineIndex < g.startIdx + g.steps!.length && (
+                                <div style={{ width: 3, alignSelf: "stretch", background: "#3B82F6", borderRadius: 2, flexShrink: 0, minHeight: 60 }} />
+                              )}
                               {renderPlusButton(g.startIdx + g.steps!.length - 1, `pgp-${si}-${gi}`)}
                             </div>
                           );
@@ -5053,6 +5090,7 @@ function HomePage({ sections, setSections, onClickMetric, onSectionRemoved, onFi
   const dragSectionRef = useRef<string | null>(null);
   const [dragMetricState, setDragMetricState] = useState<{ sourceSid: string; sourceMid: string } | null>(null);
   const [dragOverSid, setDragOverSid] = useState<string | null>(null);
+  const [dragOverTarget, setDragOverTarget] = useState<{ targetSid: string; targetMid: string } | null>(null);
   const [showAddRow, setShowAddRow] = useState(false);
 
   const addSection = (name: string) => setSections(p => [...p, { id: crypto.randomUUID(), title: name, avatars: [], metrics: [] }]);
@@ -5076,14 +5114,37 @@ function HomePage({ sections, setSections, onClickMetric, onSectionRemoved, onFi
     setDragMetricState({ sourceSid: sid, sourceMid: mid });
   }, []);
 
-  // Metric drag enter on a target metric
+  // Metric drag enter on a target metric — set visual target only, don't reorder
   const handleMetricDragEnter = useCallback((targetSid: string, targetMid: string) => {
     if (!dragMetricRef.current) return;
     const { sourceSid, sourceMid } = dragMetricRef.current;
-    if (sourceSid === targetSid && sourceMid === targetMid) return;
+    if (sourceSid === targetSid && sourceMid === targetMid) {
+      setDragOverTarget(null);
+      return;
+    }
+    setDragOverTarget({ targetSid, targetMid });
+  }, []);
+
+  // Metric drop — reorder using the visual target, then clear state
+  const handleMetricDrop = useCallback((targetSid: string, targetMid: string) => {
+    if (!dragMetricRef.current) {
+      setDragMetricState(null);
+      setDragOverTarget(null);
+      setDragOverSid(null);
+      return;
+    }
+    const { sourceSid, sourceMid } = dragMetricRef.current;
+
+    // If dragging to same position, just clear
+    if (sourceSid === targetSid && sourceMid === targetMid) {
+      dragMetricRef.current = null;
+      setDragMetricState(null);
+      setDragOverTarget(null);
+      setDragOverSid(null);
+      return;
+    }
 
     setSections(prev => {
-      // Find the moving metric
       const sourceSec = prev.find(s => s.id === sourceSid);
       if (!sourceSec) return prev;
       const movingMetric = sourceSec.metrics.find(m => m.id === sourceMid);
@@ -5094,9 +5155,12 @@ function HomePage({ sections, setSections, onClickMetric, onSectionRemoved, onFi
         s.id === sourceSid ? { ...s, metrics: s.metrics.filter(m => m.id !== sourceMid) } : s
       );
 
-      // Insert before target
+      // Insert in target section
       return withoutSource.map(s => {
         if (s.id !== targetSid) return s;
+        if (targetMid === "__end__") {
+          return { ...s, metrics: [...s.metrics, movingMetric] };
+        }
         const targetIdx = s.metrics.findIndex(m => m.id === targetMid);
         if (targetIdx === -1) return { ...s, metrics: [...s.metrics, movingMetric] };
         const newMetrics = [...s.metrics];
@@ -5105,17 +5169,11 @@ function HomePage({ sections, setSections, onClickMetric, onSectionRemoved, onFi
       });
     });
 
-    // Update drag source to new position
-    dragMetricRef.current = { sourceSid: targetSid, sourceMid };
-    setDragMetricState({ sourceSid: targetSid, sourceMid });
-  }, [setSections]);
-
-  // Metric drop — just clear state (position already set by dragEnter)
-  const handleMetricDrop = useCallback((targetSid: string, targetMid: string) => {
     dragMetricRef.current = null;
     setDragMetricState(null);
+    setDragOverTarget(null);
     setDragOverSid(null);
-  }, []);
+  }, [setSections]);
 
   // Section drag
   const handleSectionDragStart = useCallback((sid: string) => {
@@ -5165,6 +5223,7 @@ function HomePage({ sections, setSections, onClickMetric, onSectionRemoved, onFi
           onSectionDragEnter={e => handleSectionDragEnter(e, s.id)}
           onSectionDrop={() => handleSectionDrop(s.id)}
           isSectionDragOver={dragOverSid === s.id}
+          dragOverTarget={dragOverTarget}
           onFiveAccountEnabledFromBox={onFiveAccountEnabledFromBox}
           onFiveAccountDisabledFromBox={onFiveAccountDisabledFromBox}
           onOpenEquationBuilder={onOpenEquationBuilder}
