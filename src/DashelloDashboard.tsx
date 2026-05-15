@@ -264,6 +264,7 @@ function evaluateEquation(steps: EquationStep[], allMetrics: Metric[]): number |
   }
 
   const resolved: (number | "+" | "-" | "*" | "/")[] = [];
+  const lastIsValue = () => resolved.length > 0 && typeof resolved[resolved.length - 1] === "number";
   for (const step of steps) {
     if (step.type === "operator") {
       if (step.operator) {
@@ -271,8 +272,10 @@ function evaluateEquation(steps: EquationStep[], allMetrics: Metric[]): number |
         resolved.push(step.operator as "+" | "-" | "*" | "/");
       }
     } else if (step.type === "number") {
+      if (lastIsValue()) resolved.push("*");
       resolved.push(step.numberValue ?? 0);
     } else {
+      if (lastIsValue()) resolved.push("*");
       const m = allMetrics.find(mm => mm.id === step.metricId);
       const val = m ? parseFloat(m.value.replace(/[^0-9.\-]/g, "")) || 0 : 0;
       resolved.push(val);
@@ -1720,7 +1723,7 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
           </SectionCard>
           <SectionCard>
             <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332", marginBottom: 6 }}>History</div>
-            <MetricChart history={history} rules={colorRules} graphType={graphType} currentValue={localValue} />
+            <ExpandableChart history={history} rules={colorRules} graphType={graphType} currentValue={localValue} />
           </SectionCard>
         </div>
         <BottomThreeCards data={data} />
@@ -3246,7 +3249,7 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
 // EQUATION BUILDER PAGE
 // ═══════════════════════════════════════════════════════════════════════════
 
-function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetricId, onSave, onSaveDraft, onCancel }: {
+function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetricId, onSave, onSaveDraft, onCancel, onDirty }: {
   allMetrics: Metric[];
   sections: Section[];
   initialEquation?: EquationConfig;
@@ -3254,6 +3257,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
   onSave: (equation: EquationConfig) => void;
   onSaveDraft?: (equation: EquationConfig) => void;
   onCancel: () => void;
+  onDirty?: () => void;
 }) {
   const [steps, setSteps] = useState<EquationStep[]>(initialEquation?.steps ?? []);
   const [searchQuery, setSearchQuery] = useState("");
@@ -3274,6 +3278,13 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
   const [confirmAction, setConfirmAction] = useState<string | null>(null);
   const [undoStack, setUndoStack] = useState<EquationStep[][]>([]);
   const [redoStack, setRedoStack] = useState<EquationStep[][]>([]);
+  const stepsChangedRef = useRef(false);
+
+  // Track dirty state
+  useEffect(() => {
+    if (stepsChangedRef.current && onDirty) onDirty();
+    stepsChangedRef.current = true;
+  }, [steps]);
   const stepsRef = useRef(steps);
   const ignoreHistory = useRef(false);
 
@@ -3541,13 +3552,13 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
       setEditingStepIndex(null);
     } else {
       const rawInsert = addAtIndex ?? steps.length;
+      const clampedInsert = clampToInnermostGroup(rawInsert, steps);
       setSteps(prev => {
-        const insertAt = clampToInnermostGroup(rawInsert, prev);
         const next = [...prev];
-        next.splice(insertAt, 0, step);
+        next.splice(clampedInsert, 0, step);
         return next;
       });
-      setAddAtIndex(null);
+      setAddAtIndex(clampedInsert + 1);
     }
     setSearchQuery("");
   };
@@ -3567,13 +3578,13 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
       setTimeout(() => searchRef.current?.focus(), 100);
     } else {
       const rawInsert = addAtIndex ?? steps.length;
+      const clampedInsert = clampToInnermostGroup(rawInsert, steps);
       setSteps(prev => {
-        const insertAt = clampToInnermostGroup(rawInsert, prev);
         const next = [...prev];
-        next.splice(insertAt, 0, { type: "operator", operator: op });
+        next.splice(clampedInsert, 0, { type: "operator", operator: op });
         return next;
       });
-      setAddAtIndex(null);
+      setAddAtIndex(clampedInsert + 1);
       setTimeout(() => searchRef.current?.focus(), 100);
     }
   };
@@ -3585,7 +3596,12 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
     if (editingStepIndex !== null) {
       setSteps(prev => {
         const next = [...prev];
-        next.splice(editingStepIndex, 1, { type: "operator", operator: "paren-start" }, { type: "operator", operator: "paren-end" });
+        const existing = next[editingStepIndex];
+        if (existing) {
+          next.splice(editingStepIndex, 1, { type: "operator", operator: "paren-start" }, existing, { type: "operator", operator: "paren-end" });
+        } else {
+          next.splice(editingStepIndex, 0, { type: "operator", operator: "paren-start" }, { type: "operator", operator: "paren-end" });
+        }
         return next;
       });
       setEditingStepIndex(null);
@@ -3641,14 +3657,14 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
     setForceSearch(false);
     setPendingOperator(false);
     const rawInsert = addAtIndex ?? steps.length;
+    const clampedInsert = clampToInnermostGroup(rawInsert, steps);
     setSteps(prev => {
-      const insertAt = clampToInnermostGroup(rawInsert, prev);
       const next = [...prev];
-      next.splice(insertAt, 0, { type: "number", numberValue: 0 });
+      next.splice(clampedInsert, 0, { type: "number", numberValue: 0 });
       return next;
     });
-    setEditingStepIndex(steps.length);
-    setAddAtIndex(null);
+    setEditingStepIndex(clampedInsert);
+    setAddAtIndex(clampedInsert + 1);
     setSearchQuery("");
     setTimeout(() => searchRef.current?.focus(), 50);
   };
@@ -3760,7 +3776,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
               else { setConfirmAction("reset"); }
             }} style={{ padding: "6px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: confirmAction === "reset" ? "#E85D75" : "#64748b", fontWeight: confirmAction === "reset" ? 600 : 400 }}>{confirmAction === "reset" ? "Confirm Reset?" : "Reset"}</button>
             <button onClick={() => {
-              if (confirmAction === "delete") { setConfirmAction(null); setSteps([]); setEditingStepIndex(null); }
+              if (confirmAction === "delete") { setConfirmAction(null); setSteps([]); setEditingStepIndex(null); onSave({ steps: [] }); }
               else { setConfirmAction("delete"); }
             }} style={{ padding: "6px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: confirmAction === "delete" ? "#E85D75" : "#64748b", fontWeight: confirmAction === "delete" ? 600 : 400 }}>{confirmAction === "delete" ? "Confirm Delete?" : "Delete Equation"}</button>
             <button onClick={onCancel} style={{ padding: "6px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b" }}>Cancel</button>
@@ -5438,6 +5454,7 @@ export default function DashelloDashboard() {
     // Return to metric-settings inline view
     setPage("home");
     pageBeforeEquationRef.current = "home";
+    setInlineHasUnsaved(false);
     // Find the metric and restore inline settings view
     setSections(prev => {
       const metric = prev.flatMap(s => s.metrics).find(m => m.id === metricId);
@@ -5480,6 +5497,7 @@ export default function DashelloDashboard() {
     setEquationBuilderTarget(null);
     setPage("home");
     pageBeforeEquationRef.current = "home";
+    setInlineHasUnsaved(false);
   }, [equationBuilderTarget]);
 
   const handleCancelEquation = useCallback(() => {
@@ -5488,6 +5506,7 @@ export default function DashelloDashboard() {
     reopenMetricAfterEquationRef.current = null;
     setPage("home");
     pageBeforeEquationRef.current = "home";
+    setInlineHasUnsaved(false);
     // Return to metric-settings inline view
     if (target) {
       setSections(prev => {
@@ -6006,10 +6025,6 @@ const sidebarEl = (
                   }
                   if (key === "home") {
                     handleCancelEquation();
-                    setInlineView(null);
-                    setInlineMetric(null);
-                    setViewMode("popup");
-                    viewModeRef.current = "popup";
                   } else if (key === "metric-detail") {
                     handleCancelEquation();
                     setViewMode("inline");
@@ -6017,9 +6032,6 @@ const sidebarEl = (
                     setInlineView("metric-detail");
                   } else if (key === "metric-settings") {
                     handleCancelEquation();
-                    setViewMode("inline");
-                    viewModeRef.current = "inline";
-                    setInlineView("metric-settings");
                   }
                 }}
               />
@@ -6055,6 +6067,7 @@ const sidebarEl = (
               onSave={handleSaveEquation}
               onSaveDraft={handleSaveDraftEquation}
               onCancel={handleCancelEquation}
+              onDirty={() => setInlineHasUnsaved(true)}
             />
           )}
           {/* Inline metric detail view — renders in page flow, no overlay */}
@@ -6064,7 +6077,7 @@ const sidebarEl = (
             const siblings = sectionContaining?.metrics ?? [];
             return (
               <div style={{ flex: 1, overflowY: "auto", background: "#fff" }}>
-                <MetricModal
+                <MetricModal key={liveMetric.id + '-' + (liveMetric.graphType ?? 'linear') + '-' + (liveMetric.colorRules?.length ?? 0) + '-' + (liveMetric.lastSyncedAt ?? 0)}
                   data={liveMetric.modal}
                   metric={liveMetric}
                   onClose={handleCloseInline}
@@ -6145,7 +6158,7 @@ const sidebarEl = (
       {/* ── POPUP mode: metric detail modal ── */}
       {viewMode === "popup" && activeModal && (
         <>
-          <MetricModal
+          <MetricModal key={activeModal.metric.id + '-' + (activeModal.metric.graphType ?? 'linear') + '-' + (activeModal.metric.colorRules?.length ?? 0) + '-' + (activeModal.metric.lastSyncedAt ?? 0)}
             data={activeModal.data}
             metric={activeModal.metric}
             onClose={() => { setActiveModal(null); setInlineMetric(null); }}
