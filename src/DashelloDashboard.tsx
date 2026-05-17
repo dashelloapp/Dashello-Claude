@@ -5373,23 +5373,23 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
         {/* Header — fixed */}
         <div style={{ padding: isMobile ? "12px 16px" : "18px 24px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, flexWrap: "wrap", gap: 6 }}>
           <h2 style={{ margin: 0, fontSize: isMobile ? 16 : 20, fontWeight: 700, color: "#1a2332" }}>Create Equation</h2>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, overflowX: "auto", whiteSpace: "nowrap", flexShrink: 0, scrollbarWidth: "none", msOverflowStyle: "none" }}>
             {checkedOrder.length >= 2 && (
-              <button onClick={handleGroupSelected} style={{ padding: "6px 16px", borderRadius: 8, border: "none", background: "#3B82F6", fontSize: 12, cursor: "pointer", color: "#fff", fontWeight: 600 }}>
+              <button onClick={handleGroupSelected} style={{ padding: "6px 16px", borderRadius: 8, border: "none", background: "#3B82F6", fontSize: 12, cursor: "pointer", color: "#fff", fontWeight: 600, flexShrink: 0 }}>
                 Group Selected ({checkedOrder.length})
               </button>
             )}
-            <button onClick={handleUndo} disabled={undoStack.length === 0} style={{ width: 32, height: 32, borderRadius: "50%", border: "1.5px solid #e2e8f0", background: undoStack.length === 0 ? "#f8fafc" : "#fff", fontSize: 14, cursor: undoStack.length === 0 ? "not-allowed" : "pointer", color: undoStack.length === 0 ? "#cbd5e1" : "#64748b", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>↺</button>
-            <button onClick={handleRedo} disabled={redoStack.length === 0} style={{ width: 32, height: 32, borderRadius: "50%", border: "1.5px solid #e2e8f0", background: redoStack.length === 0 ? "#f8fafc" : "#fff", fontSize: 14, cursor: redoStack.length === 0 ? "not-allowed" : "pointer", color: redoStack.length === 0 ? "#cbd5e1" : "#64748b", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>↻</button>
+            <button onClick={handleUndo} disabled={undoStack.length === 0} style={{ width: 32, height: 32, borderRadius: "50%", border: "1.5px solid #e2e8f0", background: undoStack.length === 0 ? "#f8fafc" : "#fff", fontSize: 14, cursor: undoStack.length === 0 ? "not-allowed" : "pointer", color: undoStack.length === 0 ? "#cbd5e1" : "#64748b", display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>↺</button>
+            <button onClick={handleRedo} disabled={redoStack.length === 0} style={{ width: 32, height: 32, borderRadius: "50%", border: "1.5px solid #e2e8f0", background: redoStack.length === 0 ? "#f8fafc" : "#fff", fontSize: 14, cursor: redoStack.length === 0 ? "not-allowed" : "pointer", color: redoStack.length === 0 ? "#cbd5e1" : "#64748b", display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>↻</button>
             <button onClick={() => {
               if (confirmAction === "reset") { setConfirmAction(null); setSteps(initialEquation?.steps ?? []); setEditingStepIndex(null); }
               else { setConfirmAction("reset"); }
-            }} style={{ padding: "6px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: confirmAction === "reset" ? "#E85D75" : "#64748b", fontWeight: confirmAction === "reset" ? 600 : 400 }}>{confirmAction === "reset" ? "Confirm Reset?" : "Reset"}</button>
+            }} style={{ padding: "6px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: confirmAction === "reset" ? "#E85D75" : "#64748b", fontWeight: confirmAction === "reset" ? 600 : 400, flexShrink: 0 }}>{confirmAction === "reset" ? "Confirm Reset?" : "Reset"}</button>
             <button onClick={() => {
               if (confirmAction === "delete") { setConfirmAction(null); setSteps([]); setEditingStepIndex(null); onSave({ steps: [] }); }
               else { setConfirmAction("delete"); }
-            }} style={{ padding: "6px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: confirmAction === "delete" ? "#E85D75" : "#64748b", fontWeight: confirmAction === "delete" ? 600 : 400 }}>{confirmAction === "delete" ? "Confirm Delete?" : "Delete Equation"}</button>
-            <button onClick={onCancel} style={{ padding: "6px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+            }} style={{ padding: "6px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: confirmAction === "delete" ? "#E85D75" : "#64748b", fontWeight: confirmAction === "delete" ? 600 : 400, flexShrink: 0 }}>{confirmAction === "delete" ? "Confirm Delete?" : "Delete Equation"}</button>
+            <button onClick={onCancel} style={{ padding: "6px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b", flexShrink: 0 }}>Cancel</button>
           </div>
         </div>
 
@@ -7001,7 +7001,7 @@ function BreadcrumbNav({ items, onNavigate }: {
   onNavigate: (key: string) => void;
 }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13, overflowX: "auto", whiteSpace: "nowrap", flexShrink: 0, scrollbarWidth: "none", msOverflowStyle: "none" }}>
       {items.map((item, i) => (
         <Fragment key={item.key}>
           {i > 0 && <span style={{ color: "#cbd5e1", fontWeight: 400, fontSize: 12 }}>/</span>}
@@ -7826,7 +7826,7 @@ const sidebarEl = (
                 ))}
               </div>
             ) : null}
-            {(page === "home" || page === "goals" || page === "integrations" || page === "tasks") && <TopBarRefreshButton isMobile={isMobile} onRefresh={handleRefreshAll} lastSyncedAt={lastDashboardSync} />}
+            {!isMobile && (page === "home" || page === "goals" || page === "integrations" || page === "tasks") && <TopBarRefreshButton isMobile={isMobile} onRefresh={handleRefreshAll} lastSyncedAt={lastDashboardSync} />}
             {(page === "home" && inlineView) && (
               <BreadcrumbNav items={getBreadcrumbItems()} onNavigate={handleBreadcrumbNavigate} />
             )}
@@ -7858,14 +7858,17 @@ const sidebarEl = (
           </div>
           <div style={{ flex: 1 }} />
           {isMobile ? (
-            <div style={{ position: "relative" }}>
-              <div onClick={() => setShowMobileMenu(v => !v)} style={{ width: 34, height: 34, borderRadius: "50%", border: "1.5px solid #e2e8f0", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 14, color: "#64748b" }}>‹</div>
-              {showMobileMenu && (
-                <div style={{ position: "absolute", top: 40, right: 0, zIndex: 100, background: "#fff", borderRadius: 12, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", minWidth: 140, overflow: "hidden" }}>
-                  <div onClick={() => { setShowChat(v => !v); setShowMobileMenu(false); }} style={{ padding: "10px 16px", fontSize: 13, color: "#64748b", cursor: "pointer", borderBottom: "1px solid #f1f5f9" }}>Chat</div>
-                  <div onClick={() => { setPage("integrations"); setShowMobileMenu(false); }} style={{ padding: "10px 16px", fontSize: 13, color: "#64748b", cursor: "pointer" }}>Customize</div>
-                </div>
-              )}
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              {(page === "home" || page === "goals" || page === "integrations" || page === "tasks") && <TopBarRefreshButton isMobile={isMobile} onRefresh={handleRefreshAll} lastSyncedAt={lastDashboardSync} />}
+              <div style={{ position: "relative" }}>
+                <div onClick={() => setShowMobileMenu(v => !v)} style={{ width: 34, height: 34, borderRadius: "50%", border: "1.5px solid #e2e8f0", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 14, color: "#64748b" }}>‹</div>
+                {showMobileMenu && (
+                  <div style={{ position: "absolute", top: 40, right: 0, zIndex: 100, background: "#fff", borderRadius: 12, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", minWidth: 140, overflow: "hidden" }}>
+                    <div onClick={() => { setShowChat(v => !v); setShowMobileMenu(false); }} style={{ padding: "10px 16px", fontSize: 13, color: "#64748b", cursor: "pointer", borderBottom: "1px solid #f1f5f9" }}>Chat</div>
+                    <div onClick={() => { setPage("integrations"); setShowMobileMenu(false); }} style={{ padding: "10px 16px", fontSize: 13, color: "#64748b", cursor: "pointer" }}>Customize</div>
+                  </div>
+                )}
+              </div>
             </div>
           ) : (
             <>
