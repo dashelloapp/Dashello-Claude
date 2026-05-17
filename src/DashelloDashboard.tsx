@@ -2937,16 +2937,19 @@ function GoalsPage({ goals, setGoals, sections, viewMode, onOpenOnboarding, onEd
           {!isCompact && (
             <>
               {g.type === "equation" && g.steps?.length > 0 && (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 12, marginBottom: 8 }}>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12, marginBottom: 8 }}>
                   {g.steps.map((s, si) => {
                     const m = findMetricByLabel(sections, s.sectionLabel, s.metricLabel);
                     const met = evaluateGoalStep(s, sections);
+                    if (!m) return null;
                     return (
-                      <div key={si} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 6, background: met ? "#ECFDF5" : "#FEF2F2", fontSize: 11, fontWeight: 500, color: met ? "#059669" : "#DC2626" }}>
-                        <span>{si + 1}.</span>
-                        <span>{m?.label ?? s.metricLabel}</span>
-                        <span style={{ opacity: 0.6 }}>{formatTarget(s.target)}</span>
-                        <span style={{ display: "flex", alignItems: "center" }}>{met ? <IconGlyph name="CheckCircle" size={12} color="#059669" weight="fill" /> : <IconGlyph name="XCircle" size={12} color="#DC2626" weight="fill" />}</span>
+                      <div key={si} style={{ position: "relative" }}>
+                        <MetricBlock metric={m} onClick={() => {}} onDragStart={() => {}} onDragEnter={() => {}} onDrop={() => {}} isDragOver={false} />
+                        <div style={{ position: "absolute", top: 4, left: 4, width: 22, height: 22, borderRadius: "50%", background: "#3B82F6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, zIndex: 2 }}>{si + 1}</div>
+                        <div style={{ position: "absolute", bottom: 4, right: 4, display: "flex", alignItems: "center", gap: 2, padding: "2px 6px", borderRadius: 99, background: met ? "rgba(76,175,125,0.85)" : "rgba(220,38,38,0.85)", color: "#fff", fontSize: 10, fontWeight: 600 }}>
+                          <span>{formatTarget(s.target)}</span>
+                          {met ? <IconGlyph name="CheckCircle" size={10} color="#fff" weight="fill" /> : <IconGlyph name="XCircle" size={10} color="#fff" weight="fill" />}
+                        </div>
                       </div>
                     );
                   })}
