@@ -917,7 +917,7 @@ function makeModal(label: string, value: string, color: MetricColor, extra?: Par
   return {
    type: "generic", title: label, color, healthPct: null, mainValue: value, syncTime: "",
     stats: [{ label: "Value", value }],
-    projections: [], suggestions: [], nextActions: [{ avatar: "AJ" }, { avatar: "BK" }], ...extra
+    projections: [], suggestions: [], nextActions: [], ...extra
   };
 }
 
@@ -1090,7 +1090,7 @@ function BottomThreeCards({ data, metricId, tasks, setTasks, userEmail, orgMembe
   const [showAddAction, setShowAddAction] = useState(false);
   const [actionText, setActionText] = useState("");
   const [actionAssignee, setActionAssignee] = useState(userEmail || "");
-  const linkedTasks = metricId && tasks ? tasks.filter(t => t.linkedMetricId === metricId) : [];
+  const linkedTasks = metricId && tasks ? tasks.filter(t => t.linkedMetricId === metricId && !t.done) : [];
   const handleAddAction = () => {
     if (!actionText.trim() || !setTasks || !userEmail) return;
     setTasks(prev => [...prev, {
@@ -1120,20 +1120,22 @@ function BottomThreeCards({ data, metricId, tasks, setTasks, userEmail, orgMembe
       </SectionCard>
       <SectionCard>
         <div style={{ display: "inline-block", background: "#3B82F6", color: "#fff", borderRadius: 99, padding: "5px 14px", fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Next Actions</div>
-        {data.nextActions.map((a, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-            <div style={{ width: 20, height: 20, borderRadius: "50%", border: "1.5px solid #4CAF7D", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: "#4CAF7D" }}>✓</div>
-            {a.label ? <span style={{ fontSize: 13, color: "#1a2332", flex: 1 }}>{a.label}</span> : <div style={{ flex: 1, height: 7, borderRadius: 99, background: "#e2e8f0" }} />}
-            <Av initials={a.avatar} />
-          </div>
-        ))}
-        {linkedTasks.map(t => (
-          <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-            <div onClick={() => toggleLinked(t.id)} style={{ width: 18, height: 18, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 9 }}>{t.done ? "✓" : ""}</div>
-            <span style={{ fontSize: 12, color: "#1a2332", flex: 1, textDecoration: t.done ? "line-through" : "none", minWidth: 0 }}>{t.text}</span>
-            <span style={{ fontSize: 10, color: "#94a3b8", whiteSpace: "nowrap" }}>{t.assignedTo ? t.assignedTo.split("@")[0] : ""}</span>
-          </div>
-        ))}
+        {linkedTasks.map(t => {
+          const assigneeMember = (orgMembers || []).find(m => m.email === t.assignedTo);
+          return (
+            <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <div onClick={() => toggleLinked(t.id)} style={{ width: 18, height: 18, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 9 }}>{t.done ? "✓" : ""}</div>
+              <span style={{ fontSize: 12, color: "#1a2332", flex: 1, textDecoration: t.done ? "line-through" : "none", minWidth: 0 }}>{t.text}</span>
+              {assigneeMember ? (
+                assigneeMember.avatarUrl
+                  ? <img src={assigneeMember.avatarUrl} alt="" style={{ width: 22, height: 22, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+                  : <div style={{ width: 22, height: 22, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: "#94a3b8", flexShrink: 0 }}>
+                      {(assigneeMember.name?.[0] || assigneeMember.email[0] || "?").toUpperCase()}
+                    </div>
+              ) : null}
+            </div>
+          );
+        })}
         {showAddAction ? (
           <div style={{ marginTop: 8 }}>
             <input value={actionText} onChange={e => setActionText(e.target.value)} placeholder="New action..."
@@ -1156,7 +1158,7 @@ function BottomThreeCards({ data, metricId, tasks, setTasks, userEmail, orgMembe
             <span style={{ fontSize: 14 }}>+</span> Add Task
           </div>
         )}
-        {data.nextActions.length === 0 && linkedTasks.length === 0 && !showAddAction && <div style={{ fontSize: 12, color: "#cbd5e1", fontStyle: "italic" }}>No actions yet</div>}
+        {linkedTasks.length === 0 && !showAddAction && <div style={{ fontSize: 12, color: "#cbd5e1", fontStyle: "italic" }}>No actions yet</div>}
       </SectionCard>
     </div>
   );
@@ -3242,7 +3244,7 @@ function GoalsPage({ goals, setGoals, sections, viewMode, onOpenOnboarding, onEd
                 <SectionCard>
                   <div style={{ display: "inline-block", background: "#3B82F6", color: "#fff", borderRadius: 99, padding: "5px 14px", fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Next Actions</div>
                   {(() => {
-                    const linked = (tasks || []).filter(t => t.linkedGoalId === g.id);
+                    const linked = (tasks || []).filter(t => t.linkedGoalId === g.id && !t.done);
                     if (linked.length === 0) return <div style={{ fontSize: 12, color: "#cbd5e1", fontStyle: "italic" }}>No actions yet</div>;
                     return linked.map(t => (
                       <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
@@ -3910,11 +3912,40 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
   onViewTeamMember: (m: OrgMember) => void;
 }) {
   const [showAdd, setShowAdd] = useState(false);
-  const toggle = (id: string) => setTasks(tasks.map(t => t.id === id ? { ...t, done: !t.done } : t));
+  const [taskFilter, setTaskFilter] = useState<"current" | "completed">("current");
+  const [menuTaskId, setMenuTaskId] = useState<string | null>(null);
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
+  const [inlineAddText, setInlineAddText] = useState("");
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuTaskId(null); };
+    document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h);
+  }, []);
+
+  const toggle = (id: string) => {
+    setTasks(tasks.map(t => t.id === id ? { ...t, done: !t.done } : t));
+    setMenuTaskId(null);
+  };
   const myTasks = tasks.filter(t => t.assignedTo === userEmail);
-  const doneCount = myTasks.filter(t => t.done).length;
+  const currentTasks = myTasks.filter(t => !t.done);
+  const completedTasks = myTasks.filter(t => t.done);
+  const doneCount = completedTasks.length;
   const totalCount = myTasks.length;
   const pct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
+  const displayedTasks = taskFilter === "current" ? currentTasks : completedTasks;
+
+  const handleInlineAdd = (e: React.KeyboardEvent) => {
+    if (e.key !== "Enter" || !inlineAddText.trim()) return;
+    setTasks(prev => [...prev, {
+      id: crypto.randomUUID(), text: inlineAddText.trim(), done: false,
+      assignedTo: userEmail, createdBy: userEmail, createdAt: new Date().toISOString(),
+    }]);
+    setInlineAddText("");
+  };
+
+  const getMemberByEmail = (email: string) => orgMembers.find(m => m.email === email);
 
   const teamMembersWithTasks = orgMembers
     .filter(m => m.status === "active")
@@ -3955,34 +3986,106 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
             <div style={{ height: 8, borderRadius: 99, background: "#e2e8f0", marginBottom: 16, overflow: "hidden" }}>
               <div style={{ width: `${pct}%`, height: "100%", borderRadius: 99, background: "#4CAF7D", transition: "width 0.3s" }} />
             </div>
+            {/* Filter tabs */}
+            <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+              <div onClick={() => setTaskFilter("current")} style={{ padding: "5px 14px", borderRadius: 20, fontSize: 12, fontWeight: 500, cursor: "pointer", background: taskFilter === "current" ? "#3B82F6" : "#f1f5f9", color: taskFilter === "current" ? "#fff" : "#64748b" }}>
+                Current ({currentTasks.length})
+              </div>
+              <div onClick={() => setTaskFilter("completed")} style={{ padding: "5px 14px", borderRadius: 20, fontSize: 12, fontWeight: 500, cursor: "pointer", background: taskFilter === "completed" ? "#3B82F6" : "#f1f5f9", color: taskFilter === "completed" ? "#fff" : "#64748b" }}>
+                Completed ({completedTasks.length})
+              </div>
+            </div>
             {/* Task list */}
             <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 4 }}>
-              {myTasks.length === 0 && (
-                <div style={{ fontSize: 12, color: "#cbd5e1", fontStyle: "italic", padding: "12px 0", textAlign: "center" }}>No tasks assigned to you yet.</div>
+              {displayedTasks.length === 0 && (
+                <div style={{ fontSize: 12, color: "#cbd5e1", fontStyle: "italic", padding: "12px 0", textAlign: "center" }}>
+                  {taskFilter === "current" ? "No current tasks. Add one below!" : "No completed tasks yet."}
+                </div>
               )}
-              {myTasks.map(t => (
-                <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8, background: t.done ? "#f8fafc" : "#fff", border: "1px solid #f1f5f9", opacity: t.done ? 0.6 : 1 }}>
-                  <div onClick={() => toggle(t.id)} style={{ width: 20, height: 20, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 11 }}>{t.done ? "✓" : ""}</div>
-                  <div style={{ flex: 1, fontSize: 13, color: "#1a2332", textDecoration: t.done ? "line-through" : "none", minWidth: 0 }}>{t.text}</div>
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, flexShrink: 0 }}>
-                    {t.dueDate && <div style={{ fontSize: 11, color: "#94a3b8", whiteSpace: "nowrap" }}>{t.dueDate}</div>}
-                    <div style={{ display: "flex", gap: 6 }}>
-                      {t.linkedMetricId && (
-                        <span onClick={() => onViewMetric(t.linkedMetricId!)} style={{ fontSize: 10, color: "#3B82F6", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}>
-                          View Metric →
-                        </span>
+              {displayedTasks.map(t => {
+                const assigneeMember = getMemberByEmail(t.assignedTo);
+                const isEditing = editingTaskId === t.id;
+                return (
+                  <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8, background: t.done ? "#f8fafc" : "#fff", border: "1px solid #f1f5f9", opacity: t.done ? 0.6 : 1 }}>
+                    <div onClick={() => toggle(t.id)} style={{ width: 20, height: 20, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 11 }}>{t.done ? "✓" : ""}</div>
+                    {isEditing ? (
+                      <input value={editText} onChange={e => setEditText(e.target.value)}
+                        onBlur={() => { if (editText.trim()) setTasks(prev => prev.map(x => x.id === t.id ? { ...x, text: editText.trim() } : x)); setEditingTaskId(null); }}
+                        onKeyDown={e => { if (e.key === "Enter") { if (editText.trim()) setTasks(prev => prev.map(x => x.id === t.id ? { ...x, text: editText.trim() } : x)); setEditingTaskId(null); } }}
+                        autoFocus style={{ flex: 1, padding: "4px 8px", borderRadius: 6, border: "1.5px solid #3B82F6", fontSize: 13, outline: "none" }} />
+                    ) : (
+                      <div onClick={() => { setEditingTaskId(t.id); setEditText(t.text); setMenuTaskId(null); }} style={{ flex: 1, fontSize: 13, color: "#1a2332", textDecoration: t.done ? "line-through" : "none", minWidth: 0, cursor: "text" }}>{t.text}</div>
+                    )}
+                    <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, position: "relative" }}>
+                      {t.dueDate && <div style={{ fontSize: 11, color: "#94a3b8", whiteSpace: "nowrap" }}>{t.dueDate}</div>}
+                      {(t.linkedMetricId || t.linkedGoalId) && (
+                        <div style={{ display: "flex", gap: 4 }}>
+                          {t.linkedMetricId && <span onClick={() => onViewMetric(t.linkedMetricId!)} style={{ fontSize: 10, color: "#3B82F6", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}>M</span>}
+                          {t.linkedGoalId && <span onClick={() => onViewGoal(t.linkedGoalId!)} style={{ fontSize: 10, color: "#7B68EE", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}>G</span>}
+                        </div>
                       )}
-                      {t.linkedGoalId && (
-                        <span onClick={() => onViewGoal(t.linkedGoalId!)} style={{ fontSize: 10, color: "#7B68EE", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}>
-                          View Goal →
-                        </span>
+                      {/* Three-dot menu or profile photo */}
+                      {menuTaskId === t.id ? (
+                        <div ref={menuRef} style={{ position: "relative" }}>
+                          <div style={{ position: "absolute", top: 22, right: 0, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 100, minWidth: 160, overflow: "hidden" }}>
+                            <div style={{ padding: "8px 12px", fontSize: 11, fontWeight: 600, color: "#64748b", borderBottom: "1px solid #f1f5f9" }}>Assign To</div>
+                            {orgMembers.filter(m => m.status === "active").map(m => (
+                              <div key={m.id} onClick={() => { setTasks(prev => prev.map(x => x.id === t.id ? { ...x, assignedTo: m.email } : x)); setMenuTaskId(null); }}
+                                style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 12px", cursor: "pointer", background: t.assignedTo === m.email ? "#EFF6FF" : "transparent" }}
+                                onMouseEnter={e => e.currentTarget.style.background = "#f8fafc"}
+                                onMouseLeave={e => e.currentTarget.style.background = t.assignedTo === m.email ? "#EFF6FF" : "transparent"}>
+                                {m.avatarUrl ? <img src={m.avatarUrl} alt="" style={{ width: 20, height: 20, borderRadius: "50%", objectFit: "cover" }} />
+                                  : <div style={{ width: 20, height: 20, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 700, color: "#94a3b8" }}>{(m.name?.[0] || m.email[0] || "?").toUpperCase()}</div>}
+                                <span style={{ fontSize: 12, color: "#1a2332", flex: 1 }}>{m.name || m.email.split("@")[0]}</span>
+                                {t.assignedTo === m.email && <span style={{ fontSize: 11, color: "#3B82F6" }}>✓</span>}
+                              </div>
+                            ))}
+                            <div style={{ borderTop: "1px solid #f1f5f9" }}>
+                              <div style={{ padding: "8px 12px", fontSize: 11, fontWeight: 600, color: "#64748b" }}>Due Date</div>
+                              <div style={{ padding: "0 12px 8px" }}>
+                                <input type="date" value={t.dueDate || ""} onChange={e => { setTasks(prev => prev.map(x => x.id === t.id ? { ...x, dueDate: e.target.value || undefined } : x)); setMenuTaskId(null); }}
+                                  style={{ width: "100%", padding: "5px 8px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 11, outline: "none", boxSizing: "border-box" }} />
+                              </div>
+                            </div>
+                            <div onClick={() => { setTasks(prev => prev.filter(x => x.id !== t.id)); setMenuTaskId(null); }}
+                              style={{ padding: "9px 12px", fontSize: 12, cursor: "pointer", color: "#E85D75", borderTop: "1px solid #f1f5f9" }}
+                              onMouseEnter={e => e.currentTarget.style.background = "#fff5f5"}
+                              onMouseLeave={e => e.currentTarget.style.background = "transparent"}>Delete</div>
+                          </div>
+                        </div>
+                      ) : assigneeMember ? (
+                        <div style={{ position: "relative" }}>
+                          <div onClick={() => { setMenuTaskId(t.id); }} style={{ cursor: "pointer" }}>
+                            {assigneeMember.avatarUrl
+                              ? <img src={assigneeMember.avatarUrl} alt="" style={{ width: 24, height: 24, borderRadius: "50%", objectFit: "cover" }} />
+                              : <div style={{ width: 24, height: 24, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#94a3b8" }}>
+                                  {(assigneeMember.name?.[0] || assigneeMember.email[0] || "?").toUpperCase()}
+                                </div>
+                            }
+                          </div>
+                        </div>
+                      ) : (
+                        <div onClick={() => setMenuTaskId(t.id)} style={{ width: 24, height: 24, borderRadius: "50%", background: "#F1F5F9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 11, color: "#94a3b8" }}>···</div>
                       )}
                     </div>
                   </div>
+                );
+              })}
+              {/* Inline add */}
+              {showAdd && (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px" }}>
+                  <div style={{ width: 20, height: 20, borderRadius: "50%", border: "1.5px solid #d1d5db", flexShrink: 0 }} />
+                  <input value={inlineAddText} onChange={e => setInlineAddText(e.target.value)} onKeyDown={handleInlineAdd}
+                    placeholder="Type task and press Enter..."
+                    autoFocus
+                    onBlur={() => { if (!inlineAddText.trim()) setShowAdd(false); }}
+                    style={{ flex: 1, padding: "6px 8px", borderRadius: 6, border: "1.5px solid #3B82F6", fontSize: 13, outline: "none" }} />
+                  <div onClick={() => { if (inlineAddText.trim()) { handleInlineAdd({ key: "Enter" } as any); } else { setShowAdd(false); } }}
+                    style={{ fontSize: 11, color: "#3B82F6", cursor: "pointer", fontWeight: 600 }}>Done</div>
                 </div>
-              ))}
+              )}
             </div>
-            <div onClick={() => setShowAdd(true)} style={{ display: "flex", alignItems: "center", gap: 8, color: "#94a3b8", fontSize: 13, cursor: "pointer", padding: "8px 0 0", borderTop: "1px solid #f1f5f9", marginTop: 10 }}>
+            <div onClick={() => { setShowAdd(true); setTaskFilter("current"); }} style={{ display: "flex", alignItems: "center", gap: 8, color: "#94a3b8", fontSize: 13, cursor: "pointer", padding: "8px 0 0", borderTop: "1px solid #f1f5f9", marginTop: 10 }}>
               <div style={{ width: 24, height: 24, borderRadius: "50%", border: "1.5px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, color: "#94a3b8" }}>+</div>
               Add New Task
             </div>
@@ -4054,77 +4157,10 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
           ))}
         </div>
       </div>
-
-      {/* Add Task Modal */}
-      {showAdd && (
-        <AddTaskModal
-          userEmail={userEmail}
-          orgMembers={orgMembers}
-          onSave={(newTask) => {
-            setTasks(prev => [...prev, newTask]);
-            setShowAdd(false);
-          }}
-          onClose={() => setShowAdd(false)}
-        />
-      )}
     </div>
   );
 }
 
-// ── ADD TASK MODAL ──────────────────────────────────────────────────────────
-function AddTaskModal({ userEmail, orgMembers, onSave, onClose }: {
-  userEmail: string; orgMembers: OrgMember[];
-  onSave: (task: Task) => void; onClose: () => void;
-}) {
-  const [text, setText] = useState("");
-  const [dueDate, setDueDate] = useState("");
-  const [assignee, setAssignee] = useState(userEmail);
-  const handleSave = () => {
-    if (!text.trim()) return;
-    onSave({
-      id: crypto.randomUUID(),
-      text: text.trim(),
-      done: false,
-      dueDate: dueDate || undefined,
-      assignedTo: assignee,
-      createdBy: userEmail,
-      createdAt: new Date().toISOString(),
-    });
-  };
-  return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000, padding: 16 }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 20, padding: "28px", width: "100%", maxWidth: 400, boxShadow: "0 24px 64px rgba(0,0,0,0.18)" }}>
-        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4 }}>
-          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#94a3b8", padding: 0, lineHeight: 1 }}>×</button>
-        </div>
-        <h3 style={{ margin: "0 0 16px", fontSize: 18, fontWeight: 700, color: "#1a2332" }}>New Task</h3>
-        <input value={text} onChange={e => setText(e.target.value)} placeholder="Task description"
-          style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none", boxSizing: "border-box", marginBottom: 12 }} />
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>Due Date</div>
-            <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)}
-              style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", boxSizing: "border-box" }} />
-          </div>
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>Assign To</div>
-            <select value={assignee} onChange={e => setAssignee(e.target.value)}
-              style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", background: "#fff", boxSizing: "border-box" }}>
-              <option value={userEmail}>Me ({userEmail})</option>
-              {orgMembers.filter(m => m.status === "active" && m.email !== userEmail).map(m => (
-                <option key={m.id} value={m.email}>{m.name || m.email}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <button onClick={handleSave} disabled={!text.trim()}
-          style={{ width: "100%", padding: "10px 0", borderRadius: 8, border: "none", background: text.trim() ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0", color: text.trim() ? "#fff" : "#94a3b8", fontSize: 13, fontWeight: 600, cursor: text.trim() ? "pointer" : "not-allowed" }}>
-          Add Task
-        </button>
-      </div>
-    </div>
-  );
-}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PAGE: INTEGRATIONS
