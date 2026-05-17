@@ -37,12 +37,34 @@ async function saveOrgData(userId: string, payload: any) {
 async function inviteTeamMember(email: string, orgId: string, level: OrgPermissionLevel, invitedByName: string) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.access_token) throw new Error("Not authenticated");
-  const res = await supabase.functions.invoke("invite-member", {
-    body: { email, orgId, level, invitedByName },
-  });
-  if (res.error) throw new Error(res.error.message || "Invite failed");
-  return res.data;
+  try {
+    const res = await supabase.functions.invoke("invite-member", {
+      body: { email, orgId, level, invitedByName },
+    });
+    if (res.error) throw new Error(res.error.message || "Invite failed");
+    return res.data;
+  } catch (err: any) {
+    throw new Error(err.message || "Failed to reach the invite service. Make sure the edge function is deployed.");
+  }
 }
+
+// ─── Permission helpers ──────────────────────────────────────────────────────
+function filterSectionsByPermissions(sections: Section[], perms: TeamPermissions): Section[] {
+  // Filter sections based on allowedSectionIds
+  let filtered = perms.allowedSectionIds === null
+    ? sections
+    : sections.filter(s => perms.allowedSectionIds!.includes(s.id));
+  // Filter metrics within each section based on metricOverrides
+  if (perms.metricOverrides) {
+    filtered = filtered.map(s => {
+      const override = perms.metricOverrides!.find(m => m.sectionId === s.id);
+      if (!override || override.allowedMetricIds === null) return s;
+      return { ...s, metrics: s.metrics.filter(m => override!.allowedMetricIds!.includes(m.id)) };
+    });
+  }
+  return filtered;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2607,20 +2629,23 @@ function EditAddRowModal({ initial, onSave, onClose }: { initial?: string; onSav
 // ADD TEAM MODAL
 // ═══════════════════════════════════════════════════════════════════════════
 
-function AddTeamModal({ orgId, orgs, setOrgs, orgMembers, setOrgMembers, teamRows, setTeamRows, invitedByName, onClose }: {
+const LEVEL_ORDER: OrgPermissionLevel[] = ["viewer", "editor", "admin", "owner"];
+
+function AddTeamModal({ orgId, orgs, setOrgs, orgMembers, setOrgMembers, teamRows, setTeamRows, invitedByName, onClose, currentUserLevel }: {
   orgId: string; orgs: Org[]; setOrgs: React.Dispatch<React.SetStateAction<Org[]>>;
   orgMembers: OrgMember[]; setOrgMembers: React.Dispatch<React.SetStateAction<OrgMember[]>>;
   teamRows: TeamRow[]; setTeamRows: React.Dispatch<React.SetStateAction<TeamRow[]>>;
-  invitedByName?: string; onClose: () => void;
+  invitedByName?: string; onClose: () => void; currentUserLevel: OrgPermissionLevel;
 }) {
-  const [rows, setRows] = useState([{ email: "", level: "viewer" as OrgPermissionLevel }]);
+  const allowedLevels = LEVEL_ORDER.slice(0, LEVEL_ORDER.indexOf(currentUserLevel) + 1);
+  const [rows, setRows] = useState([{ email: "", level: allowedLevels[0] as OrgPermissionLevel }]);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState<string[]>([]);
 
   const update = (i: number, f: "email" | "level", v: string) => setRows(p => p.map((r, j) => j === i ? { ...r, [f]: v } : r));
 
-  const addRow = () => setRows(p => [...p, { email: "", level: "viewer" as OrgPermissionLevel }]);
+  const addRow = () => setRows(p => [...p, { email: "", level: allowedLevels[0] as OrgPermissionLevel }]);
 
   const handleKeyDown = (e: React.KeyboardEvent, i: number) => {
     if (e.key === "Enter" && rows[i].email.trim()) {
@@ -2681,12 +2706,11 @@ function AddTeamModal({ orgId, orgs, setOrgs, orgMembers, setOrgMembers, teamRow
           <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10, marginBottom: 10, alignItems: "center" }}>
             <input data-team-email-input value={r.email} onChange={e => update(i, "email", e.target.value)} onKeyDown={e => handleKeyDown(e, i)} placeholder="Email"
               style={{ padding: "8px 11px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none" }} />
-            <select value={r.level} onChange={e => update(i, "level", e.target.value)}
+             <select value={r.level} onChange={e => update(i, "level", e.target.value)}
               style={{ padding: "7px 9px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", background: "#fff" }}>
-              <option value="owner">Owner</option>
-              <option value="admin">Admin</option>
-              <option value="editor">Editor</option>
-              <option value="viewer">Viewer</option>
+              {allowedLevels.map(l => (
+                <option key={l} value={l}>{l.charAt(0).toUpperCase() + l.slice(1)}</option>
+              ))}
             </select>
           </div>
         ))}
@@ -3927,15 +3951,19 @@ function AppDetailPage({ app, onBack }: { app: typeof APPS[0]; onBack: () => voi
 // PAGE: TEAM
 // ═══════════════════════════════════════════════════════════════════════════
 
-function TeamPage({ sections, orgMembers, teamRows, setTeamRows, teamPermissions, setTeamPermissions, currentUserLevel, userEmail, onOpenInvite }: {
+function TeamPage({ sections, orgMembers, teamRows, setTeamRows, teamPermissions, setTeamPermissions, currentUserLevel, userEmail, onOpenInvite, onPreviewMember, onExitPreviewSave, previewFromSave }: {
   sections: Section[]; orgMembers: OrgMember[]; teamRows: TeamRow[];
   setTeamRows: React.Dispatch<React.SetStateAction<TeamRow[]>>;
   teamPermissions: TeamPermissions[]; setTeamPermissions: React.Dispatch<React.SetStateAction<TeamPermissions[]>>;
   currentUserLevel: OrgPermissionLevel; userEmail: string; onOpenInvite: () => void;
+  onPreviewMember?: (member: OrgMember, perms: TeamPermissions) => void;
+  onExitPreviewSave?: () => void;
+  previewFromSave?: boolean;
 }) {
   const [showAddTeam, setShowAddTeam] = useState(false);
   const [editingTeam, setEditingTeam] = useState<TeamRow | null>(null);
   const [permModalTeam, setPermModalTeam] = useState<TeamRow | null>(null);
+  const [permModalMember, setPermModalMember] = useState<OrgMember | null>(null);
   const isManager = currentUserLevel === "owner" || currentUserLevel === "admin";
 
   // Drag state for reordering team rows
@@ -4052,6 +4080,40 @@ function TeamPage({ sections, orgMembers, teamRows, setTeamRows, teamPermissions
         </div>
       )}
 
+      {/* Member list for Owner/Admin */}
+      {isManager && orgMembers.filter(m => m.status === "active").length > 0 && (
+        <div style={{ marginTop: 20, marginBottom: 12 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>Members</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {orgMembers.filter(m => m.status === "active").map(member => {
+              const memberPerms = teamPermissions[0] ?? null;
+              return (
+                <div key={member.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "#fff", borderRadius: 12, border: "1px solid #f1f5f9" }}>
+                  <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#4C9FE8", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
+                    {(member.name?.[0] || member.email[0] || "?").toUpperCase()}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "#1a2332", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{member.name || member.email}</div>
+                    <div style={{ fontSize: 11, color: "#64748b", textTransform: "capitalize" }}>{member.level}</div>
+                  </div>
+                  {previewFromSave ? (
+                    <button onClick={onExitPreviewSave}
+                      style={{ padding: "6px 14px", borderRadius: 8, border: "1.5px solid #3B82F6", background: "#fff", color: "#3B82F6", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+                      Go Back
+                    </button>
+                  ) : (
+                    <button onClick={() => setPermModalMember(member)}
+                      style={{ padding: "6px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", color: "#475569", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+                      Edit Permissions
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Editor/Viewer view — show own team card */}
       {!isManager && orgMembers.filter(m => m.email === userEmail).length > 0 && (
         <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 12 }}>
@@ -4098,6 +4160,25 @@ function TeamPage({ sections, orgMembers, teamRows, setTeamRows, teamPermissions
             setPermModalTeam(null);
           }}
           onClose={() => setPermModalTeam(null)}
+        />
+      )}
+
+      {/* Member permissions modal */}
+      {permModalMember && (
+        <MemberPermissionsModal
+          member={permModalMember}
+          sections={sections}
+          initialPerms={teamPermissions[0] ?? null}
+          onSave={(perms) => {
+            setTeamPermissions([perms]);
+            setPermModalMember(null);
+          }}
+          onViewAs={(perms) => {
+            setTeamPermissions([perms]);
+            setPermModalMember(null);
+            onPreviewMember?.(permModalMember, perms);
+          }}
+          onClose={() => setPermModalMember(null)}
         />
       )}
     </div>
@@ -4243,6 +4324,111 @@ function TeamPermissionsModal({ teamName, sections, initialPermissions, onSave, 
           style={{ width: "100%", padding: "10px 0", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer", marginTop: 8 }}>
           Save Permissions
         </button>
+      </div>
+    </div>
+  );
+}
+
+// ── MEMBER PERMISSIONS MODAL (with "View as" preview) ─────────────────────────
+function MemberPermissionsModal({ member, sections, initialPerms, onSave, onViewAs, onClose }: {
+  member: OrgMember; sections: Section[];
+  initialPerms: TeamPermissions | null;
+  onSave: (perms: TeamPermissions) => void;
+  onViewAs: (perms: TeamPermissions) => void;
+  onClose: () => void;
+}) {
+  const [allowedSectionIds, setAllowedSectionIds] = useState<string[] | null>(initialPerms?.allowedSectionIds ?? null);
+  const [metricOverrides, setMetricOverrides] = useState<{ sectionId: string; allowedMetricIds: string[] | null }[] | null>(initialPerms?.metricOverrides ?? null);
+
+  const toggleSection = (sid: string, on: boolean) => {
+    setAllowedSectionIds(prev => {
+      if (prev === null) return on ? null : [sid];
+      if (on) return [...prev, sid];
+      return prev.filter(id => id !== sid);
+    });
+  };
+  const isSectionAllowed = (sid: string) => allowedSectionIds === null || allowedSectionIds.includes(sid);
+
+  const toggleMetric = (sid: string, mid: string, on: boolean) => {
+    setMetricOverrides(prev => {
+      const current = prev ?? [];
+      const existing = current.find(m => m.sectionId === sid);
+      if (on) {
+        if (!existing) return current;
+        const updated = existing.allowedMetricIds === null ? null : (existing.allowedMetricIds.includes(mid) ? existing.allowedMetricIds : [...existing.allowedMetricIds, mid]);
+        if (updated === null) return current.filter(m => m.sectionId !== sid);
+        return current.map(m => m.sectionId === sid ? { ...m, allowedMetricIds: updated } : m);
+      }
+      const allIds = sections.find(s => s.id === sid)?.metrics.map(m => m.id) ?? [];
+      if (existing?.allowedMetricIds === null) {
+        return [...current.filter(m => m.sectionId !== sid), { sectionId: sid, allowedMetricIds: allIds.filter(id => id !== mid) }];
+      }
+      const currentAllowed = existing?.allowedMetricIds ?? allIds;
+      const filtered = currentAllowed.filter(id => id !== mid);
+      if (filtered.length === allIds.length) return current.filter(m => m.sectionId !== sid);
+      return current.map(m => m.sectionId === sid ? { ...m, allowedMetricIds: filtered } : m);
+    });
+  };
+  const isMetricAllowed = (sid: string, mid: string) => {
+    if (!isSectionAllowed(sid)) return false;
+    if (!metricOverrides) return true;
+    const override = metricOverrides.find(m => m.sectionId === sid);
+    if (!override || override.allowedMetricIds === null) return true;
+    return override.allowedMetricIds.includes(mid);
+  };
+
+  const currentPerms: TeamPermissions = { teamId: initialPerms?.teamId ?? "", allowedSectionIds, metricOverrides };
+
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000, padding: 16 }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 20, padding: "24px", width: "100%", maxWidth: 520, boxShadow: "0 20px 60px rgba(0,0,0,0.18)", overflowY: "auto", maxHeight: "90vh" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#4C9FE8", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: "#fff" }}>
+              {(member.name?.[0] || member.email[0] || "?").toUpperCase()}
+            </div>
+            <div>
+              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#1a2332" }}>{member.name || member.email}</h3>
+              <div style={{ fontSize: 11, color: "#64748b", textTransform: "capitalize" }}>{member.level}</div>
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#94a3b8" }}>×</button>
+        </div>
+        <p style={{ fontSize: 12, color: "#94a3b8", marginBottom: 16 }}>Select which rows and metric boxes this member can access.</p>
+
+        {sections.map(section => (
+          <div key={section.id} style={{ marginBottom: 12, border: "1px solid #f1f5f9", borderRadius: 10, overflow: "hidden" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "#f8fafc", borderBottom: isSectionAllowed(section.id) ? "1px solid #f1f5f9" : "none" }}>
+              <input type="checkbox" checked={isSectionAllowed(section.id)} onChange={e => toggleSection(section.id, e.target.checked)}
+                style={{ accentColor: "#3B82F6", width: 16, height: 16, cursor: "pointer", flexShrink: 0 }} />
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#1a2332", flex: 1 }}>{section.title}</span>
+              <span style={{ fontSize: 11, color: "#94a3b8" }}>{section.metrics.length} box{section.metrics.length !== 1 ? "es" : ""}</span>
+            </div>
+            {isSectionAllowed(section.id) && section.metrics.length > 0 && (
+              <div style={{ padding: "6px 14px 10px 38px" }}>
+                {section.metrics.map(m => (
+                  <label key={m.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", cursor: "pointer" }}>
+                    <input type="checkbox" checked={isMetricAllowed(section.id, m.id)}
+                      onChange={e => toggleMetric(section.id, m.id, e.target.checked)}
+                      style={{ accentColor: "#3B82F6", width: 14, height: 14, cursor: "pointer", flexShrink: 0 }} />
+                    <span style={{ fontSize: 12, color: "#475569" }}>{m.label}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+
+        <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
+          <button onClick={() => { onViewAs(currentPerms); }}
+            style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "1.5px solid #3B82F6", background: "#fff", color: "#3B82F6", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
+            View as {member.name || member.email}
+          </button>
+          <button onClick={() => { onSave(currentPerms); }}
+            style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
+            Save Permissions
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -6406,7 +6592,7 @@ const NAV: { icon: string; label: string; page: Page; comingSoon?: boolean }[] =
   { icon: "CheckSquare", label: "Tasks", page: "tasks", comingSoon: true },
   { icon: "Notebook", label: "Playbooks", page: "playbooks", comingSoon: true },
   { icon: "Plugs", label: "Integrations", page: "integrations", comingSoon: true },
-  { icon: "Users", label: "Team", page: "team", comingSoon: true },
+  { icon: "Users", label: "Team", page: "team" },
   { icon: "Gear", label: "Settings", page: "settings" },
 ];
 
@@ -6439,7 +6625,7 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
           {/* Org switcher */}
           <div ref={orgDropdownRef} style={{ position: "relative", display: "inline-block", marginTop: 2 }}>
             <div onClick={onToggleOrgDropdown} style={{ fontSize: 14, fontWeight: 400, color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, opacity: 0.85 }}>
-              <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 160 }}>to {activeOrg?.name ?? "your dashboard"}</span>
+              <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 160 }}>to {activeOrg?.isPersonal ? "your dashboard" : activeOrg?.name}</span>
               <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ flexShrink: 0, transform: showOrgDropdown ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>
                 <path d="M2 4L5 7L8 4" stroke="rgba(255,255,255,0.85)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
@@ -6501,10 +6687,10 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
 })()}
       </div>
       <div style={{ padding: "14px 18px", borderTop: "1px solid rgba(255,255,255,0.15)", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, flexShrink: 0 }}>
+        <img src="https://dashello.co/wp-content/uploads/2023/08/White-Logo-Full.png" alt="Dashello" style={{ height: 26, objectFit: "contain", maxWidth: "80%" }} />
         {(currentUserLevel === "owner" || currentUserLevel === "admin") && (
           <button onClick={onOpenInviteModal} style={{ width: "100%", padding: "10px 0", borderRadius: 12, border: "none", background: "#fff", color: "#3B82F6", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Invite Team Members</button>
         )}
-        <img src="https://dashello.co/wp-content/uploads/2023/08/White-Logo-Full.png" alt="Dashello" style={{ height: 26, objectFit: "contain", maxWidth: "80%" }} />
         <button onClick={() => supabase.auth.signOut()} style={{ width: "100%", padding: "10px 0", borderRadius: 12, border: "2px solid rgba(255,255,255,0.6)", background: "transparent", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Sign Out</button>
       </div>
     </aside>
@@ -6740,6 +6926,9 @@ export default function DashelloDashboard() {
   const [teamRows, setTeamRows] = useState<TeamRow[]>([]);
   const [teamPermissions, setTeamPermissions] = useState<TeamPermissions[]>([]);
   const [showOrgDropdown, setShowOrgDropdown] = useState(false);
+  const [previewMember, setPreviewMember] = useState<OrgMember | null>(null);
+  const [previewPerms, setPreviewPerms] = useState<TeamPermissions | null>(null);
+  const [previewFromSave, setPreviewFromSave] = useState(false);
   const [profile, setProfile] = useState({
     full_name: "", company: "", street: "", city: "", state: "", zip: "", country: "",
     avatar_url: "", five_account_enabled: false,
@@ -6940,7 +7129,7 @@ export default function DashelloDashboard() {
         const firstName = profile.full_name?.split(" ")[0] ?? "My";
         const personalOrg: Org = {
           id: crypto.randomUUID(),
-          name: `${firstName}'s Dashboard`,
+          name: `Your Dashboard`,
           isPersonal: true,
           createdAt: new Date().toISOString(),
         };
@@ -7415,6 +7604,13 @@ const currentUserLevel: OrgPermissionLevel = (() => {
   return "owner";
 })();
 
+// Preview mode
+const previewLevel = previewMember?.level ?? null;
+const previewSections = previewMember && previewPerms
+  ? filterSectionsByPermissions(sections, previewPerms)
+  : null;
+const isPreviewMode = previewMember !== null;
+
 const sidebarEl = (
   <Sidebar active={page} onNav={handleNav} onClose={() => setSidebarOpen(false)}
     isMobile={isMobile} avatarUrl={profile.avatar_url}
@@ -7451,6 +7647,25 @@ const sidebarEl = (
 
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
         {/* Top bar */}
+        {isPreviewMode ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px clamp(10px,3vw,26px)", borderBottom: "1px solid #E8EDF2", background: "#FFFBEB", flexShrink: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
+              <div style={{ padding: "3px 10px", borderRadius: 6, background: "#F59E0B", color: "#fff", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.04 }}>Preview Mode</div>
+              <span style={{ fontSize: 13, color: "#92400E" }}>Viewing as <strong>{previewMember?.name || previewMember?.email}</strong></span>
+              {previewLevel && <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 99, background: "#FDE68A", color: "#92400E", textTransform: "capitalize" }}>{previewLevel}</span>}
+            </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <button onClick={() => { setPreviewMember(null); setPreviewPerms(null); }}
+                style={{ padding: "6px 14px", borderRadius: 8, border: "1.5px solid #D97706", background: "#fff", color: "#92400E", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                Exit Preview
+              </button>
+              <button onClick={() => { setPreviewFromSave(true); setPreviewMember(null); setPreviewPerms(null); setPage("team"); }}
+                style={{ padding: "6px 16px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                Save & Exit
+              </button>
+            </div>
+          </div>
+        ) : (
         <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 6 : 8, padding: isMobile ? "10px 12px" : "11px clamp(10px,3vw,26px)", borderBottom: "1px solid #E8EDF2", background: "#fff", flexShrink: 0, flexWrap: "wrap" }}>
           {!sidebarOpen && (
             <div onClick={() => setSidebarOpen(true)} style={{ width: isMobile ? 44 : 34, height: isMobile ? 44 : 34, borderRadius: "50%", background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", marginRight: 4, flexShrink: 0 }}>
@@ -7518,19 +7733,20 @@ const sidebarEl = (
             </>
           )}
         </div>
+        )}
 
         {/* Pages */}
         <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-          {page === "home" && !inlineView && <HomePage sections={sections} setSections={setSections} onClickMetric={handleClickMetric} onSectionRemoved={handleRemoveSectionWithFiveAccountCheck}
+          {page === "home" && !inlineView && <HomePage sections={isPreviewMode && previewSections ? previewSections : sections} setSections={setSections} onClickMetric={handleClickMetric} onSectionRemoved={handleRemoveSectionWithFiveAccountCheck}
             onFiveAccountEnabledFromBox={handleFiveAccountEnabledFromBox}
             onFiveAccountDisabledFromBox={handleFiveAccountDisabledFromBox}
             onOpenEquationBuilder={handleOpenEquationBuilder}
             orgMembers={orgMembers} />}
-          {page === "goals" && <div style={{ flex: 1, overflowY: "auto" }}><GoalsPage goals={goalsData} setGoals={setGoalsData} sections={sections} viewMode={goalsViewMode} onOpenOnboarding={() => setShowGoalOnboarding(true)} onEditGoal={handleEditGoal} onDuplicateGoal={handleDuplicateGoal} /></div>}
+          {page === "goals" && <div style={{ flex: 1, overflowY: "auto" }}><GoalsPage goals={goalsData} setGoals={setGoalsData} sections={isPreviewMode && previewSections ? previewSections : sections} viewMode={goalsViewMode} onOpenOnboarding={() => setShowGoalOnboarding(true)} onEditGoal={handleEditGoal} onDuplicateGoal={handleDuplicateGoal} /></div>}
           {page === "tasks" && <div style={{ flex: 1, overflowY: "auto" }}><TasksPage tasks={tasksData} setTasks={setTasksData} /></div>}
           {page === "integrations" && <div style={{ flex: 1, overflowY: "auto" }}><IntegrationsPage onSelectApp={a => { setSelectedApp(a); setPage("app-detail"); }} /></div>}
           {page === "app-detail" && selectedApp && <div style={{ flex: 1, overflowY: "auto" }}><AppDetailPage app={selectedApp} onBack={() => setPage("integrations")} /></div>}
-          {page === "team" && <div style={{ flex: 1, overflowY: "auto" }}><TeamPage sections={sections} orgMembers={orgMembers} teamRows={teamRows} setTeamRows={setTeamRows} teamPermissions={teamPermissions} setTeamPermissions={setTeamPermissions} currentUserLevel={currentUserLevel} userEmail={userEmail} onOpenInvite={() => setShowInviteModal(true)} /></div>}
+          {page === "team" && <div style={{ flex: 1, overflowY: "auto" }}><TeamPage sections={isPreviewMode && previewSections ? previewSections : sections} orgMembers={orgMembers} teamRows={teamRows} setTeamRows={setTeamRows} teamPermissions={teamPermissions} setTeamPermissions={setTeamPermissions} currentUserLevel={currentUserLevel} userEmail={userEmail} onOpenInvite={() => setShowInviteModal(true)} onPreviewMember={(member, perms) => { setPreviewMember(member); setPreviewPerms(perms); setPage("home"); }} onExitPreviewSave={() => { setPreviewFromSave(false); }} previewFromSave={previewFromSave} /></div>}
           {page === "settings" && <div style={{ flex: 1, overflowY: "auto" }}><SettingsPage userId={userId!} userEmail={userEmail} profile={profile} forceDisableFiveAccount={fiveAccountForceOff} onForceDisableAcknowledged={() => setFiveAccountForceOff(false)} onProfileSaved={p => setProfile(p)} onFiveAccountCreated={handleFiveAccountCreated} onFiveAccountDisabled={handleGlobalFiveAccountDisabled} fiveAccountSettings={fiveAccountSettings} onFiveAccountSettingsChange={handleUpdateSettings} currentUserLevel={currentUserLevel} /></div>}
           {page === "playbooks" && <PlaybooksPage userId={userId} />}
           {page === "equation-builder" && equationBuilderTarget && (
@@ -7657,7 +7873,7 @@ const sidebarEl = (
 
       {editingGoal && <GoalSettingsModal goal={editingGoal} sections={sections} isMobile={isMobile} onSave={handleSaveGoal} onDuplicate={handleDuplicateGoal} onDelete={handleDeleteGoal} onClose={() => setEditingGoal(null)} />}
 
-      {showInviteModal && <AddTeamModal orgId={activeOrg?.id ?? ""} orgs={orgs} setOrgs={setOrgs} orgMembers={orgMembers} setOrgMembers={setOrgMembers} teamRows={teamRows} setTeamRows={setTeamRows} invitedByName={profile.full_name} onClose={() => setShowInviteModal(false)} />}
+      {showInviteModal && <AddTeamModal orgId={activeOrg?.id ?? ""} orgs={orgs} setOrgs={setOrgs} orgMembers={orgMembers} setOrgMembers={setOrgMembers} teamRows={teamRows} setTeamRows={setTeamRows} invitedByName={profile.full_name} onClose={() => setShowInviteModal(false)} currentUserLevel={currentUserLevel} />}
 
       {/* ── POPUP mode: metric detail modal ── */}
       {viewMode === "popup" && activeModal && (() => (
