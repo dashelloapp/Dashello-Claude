@@ -5950,21 +5950,21 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
           {!isMobile && <div onClick={onClose} style={{ position: "absolute", right: 0, width: 26, height: 26, borderRadius: "50%", border: "1.5px solid rgba(255,255,255,0.4)", background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#fff", fontSize: 14 }}>‹</div>}
         </div>
         <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 13, fontWeight: 400, color: "#fff" }}>{firstName ? `Welcome ${firstName}` : "Welcome"}</div>
+          <div style={{ fontSize: 14, fontWeight: 400, color: "#fff" }}>{firstName ? `Welcome ${firstName} to your dashboard` : "Welcome"}</div>
         </div>
       </div>
-      <nav style={{ flex: 1, padding: "8px 12px" }}>
+      <nav style={{ flex: 1, padding: "6px 12px" }}>
         {NAV.map(item => {
           const isActive = active === item.page;
           return (
             <div key={item.label} onClick={() => { if (!item.comingSoon) onNav(item.page); }}
-              style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderRadius: 99, marginBottom: 4,
+              style={{ display: "flex", alignItems: "center", gap: 9, padding: "9px 12px", borderRadius: 99, marginBottom: 3,
                 cursor: item.comingSoon ? "default" : "pointer",
                 background: isActive ? "rgba(255,255,255,0.15)" : "transparent",
-                border: isActive ? "2px solid rgba(255,255,255,0.8)" : "2px solid transparent",
-                color: "#fff", fontSize: 16, fontWeight: isActive ? 600 : 400,
+                border: isActive ? "1.5px solid rgba(255,255,255,0.8)" : "1.5px solid transparent",
+                color: "#fff", fontSize: 12, fontWeight: isActive ? 600 : 400,
                 transition: "all 0.15s", opacity: item.comingSoon ? 0.55 : 1 }}>
-              <IconGlyph name={item.icon} size={28} color="#fff" />
+              <IconGlyph name={item.icon} size={21} color="#fff" />
               <span style={{ whiteSpace: "nowrap" }}>{item.label}</span>
               {item.comingSoon && <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 99, background: "rgba(255,255,255,0.2)", color: "rgba(255,255,255,0.7)", marginLeft: "auto", whiteSpace: "nowrap" }}>Soon</span>}
             </div>
