@@ -4027,6 +4027,30 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
     setTransferringFrom(null);
   };
 
+  const [addMemberTeamId, setAddMemberTeamId] = useState<string | null>(null);
+  const [addMemberEmail, setAddMemberEmail] = useState("");
+  const [addMemberLevel, setAddMemberLevel] = useState<OrgPermissionLevel>("viewer");
+
+  const handleAddExistingMember = (memberId: string) => {
+    if (!addMemberTeamId) return;
+    setOrgMembers(prev => prev.map(m => m.id === memberId ? { ...m, teamId: addMemberTeamId! } : m));
+    setAddMemberTeamId(null);
+  };
+
+  const handleInviteNewMemberToTeam = async () => {
+    if (!addMemberTeamId || !addMemberEmail.trim()) return;
+    try {
+      await inviteTeamMember(addMemberEmail.trim(), "", addMemberLevel, "A team member");
+      setOrgMembers(prev => [...prev, {
+        id: crypto.randomUUID(), email: addMemberEmail.trim(), name: "", avatarUrl: "",
+        level: addMemberLevel, status: "invited" as const, teamId: addMemberTeamId,
+      }]);
+      setAddMemberTeamId(null); setAddMemberEmail(""); setAddMemberLevel("viewer");
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
   const sortedTeams = [...teamRows].sort((a, b) => a.order - b.order);
 
   const MEMBER_COLORS: Record<string, string> = { owner: "#F5A623", admin: "#7B68EE", editor: "#48C78E", viewer: "#4C9FE8" };
@@ -4073,118 +4097,133 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
         </div>
       )}
 
-      {/* Team rows with member cards */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 16 }}>
-        {sortedTeams.map(team => {
-          const membersInTeam = orgMembers.filter(m => m.teamId === team.id && m.status === "active");
-          const pendingInTeam = orgMembers.filter(m => m.teamId === team.id && m.status === "invited");
-          return (
-            <div key={team.id}
-              onDragEnter={isManager ? (e) => handleTeamDragEnter(e, team.id) : undefined}
-              onDragOver={isManager ? (e) => e.preventDefault() : undefined}
-              onDrop={isManager ? () => handleTeamDrop(team.id) : undefined}
-              style={{
-                background: "#fff", borderRadius: 14, border: "1px solid #f1f5f9",
-                outline: dragOverTeamId === team.id ? "2px dashed #3B82F6" : "none",
-                position: "relative",
-              }}
-            >
-              <div style={{ borderRadius: 14, overflow: "hidden" }}>
-                {/* Team header */}
-                <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 18px" }}>
-                  {isManager && (
-                    <div draggable onDragStart={() => handleTeamDragStart(team.id)}
-                      style={{ cursor: "grab", color: "#cbd5e1", fontSize: 15, padding: "0 4px", flexShrink: 0 }}>⠿</div>
-                  )}
-                  <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 14, fontWeight: 600, flexShrink: 0 }}>👥</div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: "#1a2332" }}>{team.name}</div>
-                    <div style={{ fontSize: 11, color: "#94a3b8" }}>
-                      {membersInTeam.length} member{membersInTeam.length !== 1 ? "s" : ""}
-                      {pendingInTeam.length > 0 && ` · ${pendingInTeam.length} pending`}
-                    </div>
-                  </div>
-                  {isManager && (
-                    <TeamRowMenu
-                      onEditPermissions={() => setPermModalTeam(team)}
-                      onRename={() => setEditingTeam(team)}
-                      onDelete={() => deleteTeam(team.id)}
-                    />
-                  )}
-                </div>
+      {/* Team rows - dashboard-style */}
+      {sortedTeams.map(team => {
+        const membersInTeam = orgMembers.filter(m => m.teamId === team.id && m.status === "active");
+        const pendingInTeam = orgMembers.filter(m => m.teamId === team.id && m.status === "invited");
+        return (
+          <div key={team.id}
+            onDragEnter={isManager ? (e) => handleTeamDragEnter(e, team.id) : undefined}
+            onDragOver={isManager ? (e) => e.preventDefault() : undefined}
+            onDrop={isManager ? () => handleTeamDrop(team.id) : undefined}
+            style={{
+              marginBottom: 28,
+              position: "relative",
+              borderRadius: 8,
+              outline: dragOverTeamId === team.id ? "2px dashed #3B82F6" : "none",
+              padding: dragOverTeamId === team.id ? "4px" : "0",
+            }}
+          >
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+              {isManager && (
+                <div draggable onDragStart={() => handleTeamDragStart(team.id)}
+                  style={{ cursor: "grab", color: "#cbd5e1", fontSize: 15, padding: "0 2px", flexShrink: 0 }}>⠿</div>
+              )}
+              <h2 style={{ margin: 0, fontSize: "clamp(16px,3vw,20px)", fontWeight: 700, color: "#1a2332" }}>
+                {team.name}{team.order === 0 ? <span style={{ fontSize: "clamp(11px,2vw,13px)", fontWeight: 400, color: "#94a3b8" }}> (Default)</span> : ""}
+              </h2>
+              <div style={{ flex: 1 }} />
+              {isManager && (
+                <TeamRowMenu
+                  isDefault={team.order === 0}
+                  onEditPermissions={() => setPermModalTeam(team)}
+                  onRename={() => setEditingTeam(team)}
+                  onDelete={() => deleteTeam(team.id)}
+                />
+              )}
+            </div>
 
-                {/* Member cards — metric-box style */}
-                {(membersInTeam.length > 0 || pendingInTeam.length > 0) && (
-                  <div style={{ padding: "0 18px 18px", display: "flex", flexWrap: "wrap", gap: 12 }}>
-                    {membersInTeam.map(member => {
-                      const bgColor = MEMBER_COLORS[member.level] || "#4C9FE8";
-                      const isOwner = member.level === "owner";
-                      const isSelf = member.email === userEmail;
-                      return (
-                        <div key={member.id}
-                          onClick={() => setMemberDetail(member)}
-                          onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = "0 10px 28px rgba(0,0,0,0.15)"; }}
-                          onMouseLeave={e => { e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.06)"; }}
-                          style={{
-                            width: 140, minHeight: 140, borderRadius: 16, background: bgColor,
-                            padding: "14px 10px", display: "flex", flexDirection: "column",
-                            alignItems: "center", justifyContent: "space-between",
-                            cursor: "pointer", flexShrink: 0,
-                            transition: "transform 0.15s, box-shadow 0.15s",
-                            boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-                            position: "relative",
-                          }}
-                        >
-                          <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.85)", textTransform: "uppercase", letterSpacing: 0.5, textAlign: "center", width: "100%" }}>
-                            {isOwner ? "Owner" : member.level}
-                          </div>
-                          <div style={{ width: 48, height: 48, borderRadius: "50%", background: "rgba(255,255,255,0.25)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
-                            {(member.name?.[0] || member.email[0] || "?").toUpperCase()}
-                          </div>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", textAlign: "center", width: "100%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                            {member.name || member.email.split("@")[0]}
-                          </div>
-                          {isSelf && (
-                            <div style={{ position: "absolute", top: 6, right: 6, background: "rgba(255,255,255,0.3)", borderRadius: 99, padding: "1px 7px", fontSize: 9, fontWeight: 700, color: "#fff" }}>
-                              YOU
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-
-                    {/* Pending members */}
-                    {pendingInTeam.map(member => (
-                      <div key={member.id}
-                        style={{
-                          width: 140, minHeight: 140, borderRadius: 16,
-                          padding: "14px 10px", display: "flex", flexDirection: "column",
-                          alignItems: "center", justifyContent: "center", gap: 8,
-                          flexShrink: 0, background: "#f8fafc", border: "2px dashed #e2e8f0",
-                        }}
-                      >
-                        <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 700, color: "#94a3b8" }}>
-                          {(member.email[0] || "?").toUpperCase()}
-                        </div>
-                        <div style={{ fontSize: 11, fontWeight: 600, color: "#94a3b8", textAlign: "center", width: "100%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                          {member.email.split("@")[0]}
-                        </div>
-                        <div style={{ fontSize: 9, color: "#94a3b8" }}>Pending</div>
-                        {isManager && (
-                          <div onClick={(e) => { e.stopPropagation(); handleResendInvite(member); }}
-                            style={{ fontSize: 10, color: "#3B82F6", cursor: "pointer", fontWeight: 600 }}>
-                            Resend Invite
-                          </div>
-                        )}
+            {/* Member cards row with plus button */}
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", flex: 1, minHeight: 48 }}>
+                {membersInTeam.map(member => {
+                  const levelColor = MEMBER_COLORS[member.level] || "#4C9FE8";
+                  const isOwner = member.level === "owner";
+                  const isSelf = member.email === userEmail;
+                  return (
+                    <div key={member.id}
+                      onClick={() => setMemberDetail(member)}
+                      onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = "0 10px 28px rgba(0,0,0,0.15)"; }}
+                      onMouseLeave={e => { e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.06)"; }}
+                      style={{
+                        width: 140, minHeight: 140, borderRadius: 16, background: "#f1f5f9",
+                        padding: "14px 10px", display: "flex", flexDirection: "column",
+                        alignItems: "center", justifyContent: "flex-start", gap: 10,
+                        cursor: "pointer", flexShrink: 0,
+                        transition: "transform 0.15s, box-shadow 0.15s",
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+                        position: "relative",
+                      }}
+                    >
+                      <div style={{ fontSize: 10, fontWeight: 700, color: levelColor, textTransform: "uppercase", letterSpacing: 0.5, textAlign: "center", width: "100%" }}>
+                        {isOwner ? "Owner" : member.level}
                       </div>
-                    ))}
+                      {member.avatarUrl ? (
+                        <img src={member.avatarUrl} alt="" style={{ width: 48, height: 48, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+                      ) : (
+                        <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 700, color: "#94a3b8", flexShrink: 0 }}>
+                          {(member.name?.[0] || member.email[0] || "?").toUpperCase()}
+                        </div>
+                      )}
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "#1a2332", textAlign: "center", width: "100%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {member.name || member.email.split("@")[0]}
+                      </div>
+                      {isSelf && (
+                        <div style={{ background: levelColor, borderRadius: 99, padding: "2px 8px", fontSize: 9, fontWeight: 700, color: "#fff", marginTop: -4 }}>
+                          YOU
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* Pending members */}
+                {pendingInTeam.map(member => (
+                  <div key={member.id}
+                    style={{
+                      width: 140, minHeight: 140, borderRadius: 16,
+                      padding: "14px 10px", display: "flex", flexDirection: "column",
+                      alignItems: "center", justifyContent: "center", gap: 8,
+                      flexShrink: 0, background: "#f8fafc", border: "2px dashed #e2e8f0",
+                    }}
+                  >
+                    <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 700, color: "#94a3b8" }}>
+                      {(member.email[0] || "?").toUpperCase()}
+                    </div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: "#94a3b8", textAlign: "center", width: "100%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {member.email.split("@")[0]}
+                    </div>
+                    <div style={{ fontSize: 9, color: "#94a3b8" }}>Pending</div>
+                    {isManager && (
+                      <div onClick={(e) => { e.stopPropagation(); handleResendInvite(member); }}
+                        style={{ fontSize: 10, color: "#3B82F6", cursor: "pointer", fontWeight: 600 }}>
+                        Resend Invite
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                {/* Plus button to add member */}
+                {isManager && (
+                  <div key="add-member-btn" onClick={() => setAddMemberTeamId(team.id)}
+                    style={{
+                      width: 44, height: 44, borderRadius: "50%",
+                      border: "1.5px solid #e2e8f0",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      cursor: "pointer", color: "#94a3b8", fontSize: 20,
+                      alignSelf: "center",
+                    }}>+
                   </div>
                 )}
               </div>
             </div>
-          );
-        })}
-      </div>
+
+            {/* Separator */}
+            <div style={{ height: 1, background: "#f1f5f9", marginTop: 20 }} />
+          </div>
+        );
+      })}
 
       {/* Add team button */}
       {isManager && (
@@ -4198,6 +4237,9 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
       {memberDetail && (() => {
         const bgColor = MEMBER_COLORS[memberDetail.level] || "#4C9FE8";
         const { allowedSections, metricCount } = computeMemberAccess(memberDetail);
+        const isSelf = memberDetail.email === userEmail;
+        const otherActiveMembers = orgMembers.filter(m => m.id !== memberDetail.id && m.status === "active");
+        const sortedTeamsList = [...teamRows].sort((a, b) => a.order - b.order);
         return (
           <div onClick={() => setMemberDetail(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000, padding: 16 }}>
             <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 20, padding: "32px", width: "100%", maxWidth: 380, boxShadow: "0 24px 64px rgba(0,0,0,0.18)", textAlign: "center", maxHeight: "90vh", overflowY: "auto" }}>
@@ -4216,11 +4258,50 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
                   <strong>Metrics:</strong> {metricCount}
                 </div>
               </div>
-              <div style={{ display: "flex", gap: 10 }}>
-                {isManager && !(memberDetail.email === userEmail) && memberDetail.level !== "owner" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {/* Owner self-view: Transfer Ownership */}
+                {isSelf && memberDetail.level === "owner" && currentUserLevel === "owner" && (
+                  <button onClick={() => { setTransferringFrom(memberDetail); setMemberDetail(null); }}
+                    disabled={otherActiveMembers.length === 0}
+                    style={{
+                      width: "100%", padding: "10px 0", borderRadius: 8,
+                      border: "1.5px solid #E8A317", background: "#fff",
+                      color: otherActiveMembers.length === 0 ? "#cbd5e1" : "#E8A317",
+                      fontSize: 13, fontWeight: 600, cursor: otherActiveMembers.length === 0 ? "not-allowed" : "pointer",
+                    }}>
+                    Transfer Ownership{otherActiveMembers.length === 0 ? " (no other members)" : ""}
+                  </button>
+                )}
+
+                {/* Admin/Owner viewing non-self, non-owner: Edit Permissions */}
+                {isManager && !isSelf && memberDetail.level !== "owner" && (
                   <button onClick={() => { setPermModalMember(memberDetail); setMemberDetail(null); }}
-                    style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "1.5px solid #3B82F6", background: "#fff", color: "#3B82F6", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                    style={{ width: "100%", padding: "10px 0", borderRadius: 8, border: "1.5px solid #3B82F6", background: "#fff", color: "#3B82F6", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
                     Edit Permissions
+                  </button>
+                )}
+
+                {/* Admin/Owner viewing non-self, non-owner: Change Team */}
+                {isManager && !isSelf && memberDetail.level !== "owner" && sortedTeamsList.length > 1 && (
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <select value={memberDetail.teamId} onChange={e => {
+                      setOrgMembers(prev => prev.map(m => m.id === memberDetail.id ? { ...m, teamId: e.target.value } : m));
+                      setMemberDetail(null);
+                    }}
+                      style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", background: "#fff" }}>
+                      {sortedTeamsList.map(t => (
+                        <option key={t.id} value={t.id}>{t.name}</option>
+                      ))}
+                    </select>
+                    <span style={{ fontSize: 11, color: "#94a3b8", whiteSpace: "nowrap" }}>Change Team</span>
+                  </div>
+                )}
+
+                {/* Admin/Owner viewing non-self, non-owner: Delete */}
+                {isManager && !isSelf && memberDetail.level !== "owner" && (
+                  <button onClick={() => { setOrgMembers(prev => prev.filter(m => m.id !== memberDetail.id)); setMemberDetail(null); }}
+                    style={{ width: "100%", padding: "10px 0", borderRadius: 8, border: "1.5px solid #E85D75", background: "#fff", color: "#E85D75", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                    Delete Member
                   </button>
                 )}
               </div>
@@ -4255,6 +4336,62 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
           </div>
         </div>
       )}
+
+      {/* Add member to team modal */}
+      {addMemberTeamId && (() => {
+        const team = teamRows.find(t => t.id === addMemberTeamId);
+        const membersNotInTeam = orgMembers.filter(m => m.teamId !== addMemberTeamId && m.status === "active");
+        return (
+          <div onClick={() => setAddMemberTeamId(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000, padding: 16 }}>
+            <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 20, padding: "28px", width: "100%", maxWidth: 400, boxShadow: "0 24px 64px rgba(0,0,0,0.18)", maxHeight: "90vh", overflowY: "auto" }}>
+              <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4 }}>
+                <button onClick={() => setAddMemberTeamId(null)} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#94a3b8", padding: 0, lineHeight: 1 }}>×</button>
+              </div>
+              <h3 style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 700, color: "#1a2332" }}>Add to {team?.name || "Team"}</h3>
+              <p style={{ margin: "0 0 18px", fontSize: 12, color: "#94a3b8" }}>Select an existing member or invite a new one.</p>
+
+              {membersNotInTeam.length > 0 && (
+                <>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>Existing Members</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 18 }}>
+                    {membersNotInTeam.map(m => (
+                      <div key={m.id} onClick={() => handleAddExistingMember(m.id)}
+                        style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 10, border: "1px solid #e2e8f0", cursor: "pointer", background: "#fff" }}
+                        onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
+                        onMouseLeave={e => (e.currentTarget.style.background = "#fff")}>
+                        <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#94a3b8", flexShrink: 0 }}>
+                          {(m.name?.[0] || m.email[0] || "?").toUpperCase()}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332" }}>{m.name || m.email.split("@")[0]}</div>
+                          <div style={{ fontSize: 11, color: "#64748b", textTransform: "capitalize" }}>{m.level}</div>
+                        </div>
+                        <div style={{ fontSize: 11, color: "#3B82F6", fontWeight: 600 }}>Add</div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              <div style={{ borderTop: "1px solid #e2e8f0", paddingTop: 16 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>Invite New Member</div>
+                <input value={addMemberEmail} onChange={e => setAddMemberEmail(e.target.value)} placeholder="Email"
+                  style={{ width: "100%", padding: "8px 11px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none", boxSizing: "border-box", marginBottom: 8 }} />
+                <select value={addMemberLevel} onChange={e => setAddMemberLevel(e.target.value as OrgPermissionLevel)}
+                  style={{ width: "100%", padding: "7px 9px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", background: "#fff", marginBottom: 10 }}>
+                  {LEVEL_ORDER.slice(0, LEVEL_ORDER.indexOf(currentUserLevel) + 1).map(l => (
+                    <option key={l} value={l}>{l.charAt(0).toUpperCase() + l.slice(1)}</option>
+                  ))}
+                </select>
+                <button onClick={handleInviteNewMemberToTeam}
+                  style={{ width: "100%", padding: "9px 0", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                  Send Invite
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Add team modal */}
       {showAddTeam && <EditAddRowModal onSave={(name) => { addTeam(name); setShowAddTeam(false); }} onClose={() => setShowAddTeam(false)} />}
@@ -4313,7 +4450,7 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
 }
 
 // ── TEAM ROW MENU (mini version of RowMenu) ──────────────────────────────────
-function TeamRowMenu({ onEditPermissions, onRename, onDelete }: { onEditPermissions: () => void; onRename: () => void; onDelete: () => void; }) {
+function TeamRowMenu({ isDefault, onEditPermissions, onRename, onDelete }: { isDefault?: boolean; onEditPermissions: () => void; onRename: () => void; onDelete: () => void; }) {
   const [open, setOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -4329,10 +4466,10 @@ function TeamRowMenu({ onEditPermissions, onRename, onDelete }: { onEditPermissi
   return (
     <div ref={ref} style={{ position: "relative" }}>
       <div style={{ position: "absolute", top: 30, right: 0, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 100, minWidth: 170, overflow: "hidden" }}>
-        <div onClick={() => { setOpen(false); onEditPermissions(); }}
-          style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
-          onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
-          onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Edit Permissions</div>
+        <div onClick={() => { if (!isDefault) { setOpen(false); onEditPermissions(); } }}
+          style={{ padding: "9px 14px", fontSize: 13, cursor: isDefault ? "not-allowed" : "pointer", color: isDefault ? "#94a3b8" : "#1a2332" }}
+          onMouseEnter={e => { if (!isDefault) e.currentTarget.style.background = "#f8fafc"; }}
+          onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}>Edit Permissions{isDefault ? " (locked)" : ""}</div>
         <div onClick={() => { setOpen(false); onRename(); }}
           style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
           onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
