@@ -20,6 +20,29 @@ async function refreshMetricFromSupabase(userId: string, metricId: string, secti
   if (!data?.data) return sections;
   return data.data as Section[];
 }
+
+// ─── Org helpers ───────────────────────────────────────────────────────────
+async function loadOrgData(userId: string) {
+  const { data } = await supabase.from("organizations").select("data").eq("user_id", userId).maybeSingle();
+  return data?.data ?? null;
+}
+async function saveOrgData(userId: string, payload: any) {
+  const { data: existing } = await supabase.from("organizations").select("id").eq("user_id", userId).maybeSingle();
+  if (existing) {
+    await supabase.from("organizations").update({ data: payload, updated_at: new Date().toISOString() }).eq("user_id", userId);
+  } else {
+    await supabase.from("organizations").insert({ user_id: userId, data: payload });
+  }
+}
+async function inviteTeamMember(email: string, orgId: string, level: OrgPermissionLevel, invitedByName: string) {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error("Not authenticated");
+  const res = await supabase.functions.invoke("invite-member", {
+    body: { email, orgId, level, invitedByName },
+  });
+  if (res.error) throw new Error(res.error.message || "Invite failed");
+  return res.data;
+}
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
 // ═══════════════════════════════════════════════════════════════════════════
@@ -35,6 +58,32 @@ type GoalSubType = "counter" | "financial" | "percentage";
 type GoalStatus = "active" | "drafted" | "completed";
 type GoalTrackingMode = "average" | "off" | "direct" | "health_over_time";
 type FiveAccountMode = "one-business" | "business-and-personal" | "five-separate";
+type OrgPermissionLevel = "owner" | "admin" | "editor" | "viewer";
+
+interface Org {
+  id: string;
+  name: string;
+  isPersonal: boolean;
+  createdAt: string;
+}
+interface OrgMember {
+  id: string;
+  email: string;
+  name: string;
+  avatarUrl: string;
+  level: OrgPermissionLevel;
+  status: "invited" | "active";
+}
+interface TeamRow {
+  id: string;
+  name: string;
+  order: number;
+}
+interface TeamPermissions {
+  teamId: string;
+  allowedSectionIds: string[] | null;
+  metricOverrides: { sectionId: string; allowedMetricIds: string[] | null }[] | null;
+}
 
 interface GoalTarget {
   type: GoalTargetType;
@@ -2558,32 +2607,106 @@ function EditAddRowModal({ initial, onSave, onClose }: { initial?: string; onSav
 // ADD TEAM MODAL
 // ═══════════════════════════════════════════════════════════════════════════
 
-function AddTeamModal({ onClose }: { onClose: () => void }) {
-  const [members, setMembers] = useState([{ email: "", access: "View" }]);
-  const update = (i: number, f: "email" | "access", v: string) => setMembers(p => p.map((m, j) => j === i ? { ...m, [f]: v } : m));
+function AddTeamModal({ orgId, orgs, setOrgs, orgMembers, setOrgMembers, teamRows, setTeamRows, invitedByName, onClose }: {
+  orgId: string; orgs: Org[]; setOrgs: React.Dispatch<React.SetStateAction<Org[]>>;
+  orgMembers: OrgMember[]; setOrgMembers: React.Dispatch<React.SetStateAction<OrgMember[]>>;
+  teamRows: TeamRow[]; setTeamRows: React.Dispatch<React.SetStateAction<TeamRow[]>>;
+  invitedByName?: string; onClose: () => void;
+}) {
+  const [rows, setRows] = useState([{ email: "", level: "viewer" as OrgPermissionLevel }]);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState<string[]>([]);
+
+  const update = (i: number, f: "email" | "level", v: string) => setRows(p => p.map((r, j) => j === i ? { ...r, [f]: v } : r));
+
+  const addRow = () => setRows(p => [...p, { email: "", level: "viewer" as OrgPermissionLevel }]);
+
+  const handleKeyDown = (e: React.KeyboardEvent, i: number) => {
+    if (e.key === "Enter" && rows[i].email.trim()) {
+      e.preventDefault();
+      // If last row and email is filled, add new row
+      if (i === rows.length - 1 && rows[i].email.trim()) {
+        addRow();
+        // Focus the new input after render
+        setTimeout(() => {
+          const inputs = document.querySelectorAll<HTMLInputElement>('[data-team-email-input]');
+          const last = inputs[inputs.length - 1];
+          last?.focus();
+        }, 0);
+      }
+    }
+  };
+
+  const handleSubmit = async () => {
+    const valid = rows.filter(r => r.email.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r.email.trim()));
+    if (valid.length === 0) { setError("Enter at least one valid email address"); return; }
+    setError("");
+    setSending(true);
+
+    const newMembers: OrgMember[] = [];
+    for (const row of valid) {
+      try {
+        await inviteTeamMember(row.email.trim(), orgId, row.level, invitedByName ?? "A team member");
+        newMembers.push({
+          id: crypto.randomUUID(),
+          email: row.email.trim(),
+          name: "",
+          avatarUrl: "",
+          level: row.level,
+          status: "invited" as const,
+        });
+        setSuccess(prev => [...prev, row.email.trim()]);
+      } catch (err: any) {
+        setError(err.message || `Failed to invite ${row.email}`);
+      }
+    }
+
+    if (newMembers.length > 0) {
+      setOrgMembers(prev => [...prev, ...newMembers]);
+    }
+
+    setSending(false);
+  };
+
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000, padding: 16 }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 20, padding: "28px", width: "100%", maxWidth: 460, boxShadow: "0 24px 64px rgba(0,0,0,0.18)" }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 20, padding: "28px", width: "100%", maxWidth: 520, boxShadow: "0 24px 64px rgba(0,0,0,0.18)", overflowY: "auto", maxHeight: "90vh" }}>
         <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 6 }}>
           <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#94a3b8" }}>×</button>
         </div>
         <h2 style={{ margin: "0 0 6px", fontSize: 20, fontWeight: 700, color: "#1a2332", textAlign: "center" }}>Add your team</h2>
-        <p style={{ margin: "0 0 20px", fontSize: 12, color: "#94a3b8", textAlign: "center" }}>Set permission levels for each team member.</p>
-        {members.map((m, i) => (
+        <p style={{ margin: "0 0 20px", fontSize: 12, color: "#94a3b8", textAlign: "center" }}>Set permission levels for each team member and give access for different metrics only to the people that need to see them.</p>
+        {rows.map((r, i) => (
           <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10, marginBottom: 10, alignItems: "center" }}>
-            <input value={m.email} onChange={e => update(i, "email", e.target.value)} placeholder="Email"
+            <input data-team-email-input value={r.email} onChange={e => update(i, "email", e.target.value)} onKeyDown={e => handleKeyDown(e, i)} placeholder="Email"
               style={{ padding: "8px 11px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none" }} />
-            <select value={m.access} onChange={e => update(i, "access", e.target.value)}
+            <select value={r.level} onChange={e => update(i, "level", e.target.value)}
               style={{ padding: "7px 9px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", background: "#fff" }}>
-              {["View", "Edit", "Admin"].map(a => <option key={a}>{a}</option>)}
+              <option value="owner">Owner</option>
+              <option value="admin">Admin</option>
+              <option value="editor">Editor</option>
+              <option value="viewer">Viewer</option>
             </select>
           </div>
         ))}
-        <button onClick={() => setMembers(p => [...p, { email: "", access: "View" }])}
-          style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "#3B82F6", padding: "3px 0", marginBottom: 16, display: "flex", alignItems: "center", gap: 4 }}>
+        <button onClick={addRow}
+          style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "#3B82F6", padding: "3px 0", marginBottom: 6, display: "flex", alignItems: "center", gap: 4 }}>
           + Add more
         </button>
-        <button onClick={onClose} style={{ width: "100%", padding: "11px 0", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Add</button>
+
+        {error && <div style={{ marginBottom: 10, padding: "8px 12px", background: "#fef2f2", borderRadius: 8, fontSize: 12, color: "#dc2626" }}>{error}</div>}
+
+        {success.length > 0 && (
+          <div style={{ marginBottom: 10, padding: "8px 12px", background: "#f0fdf4", borderRadius: 8, fontSize: 12, color: "#15803d" }}>
+            Invited: {success.join(", ")}
+          </div>
+        )}
+
+        <button onClick={handleSubmit} disabled={sending}
+          style={{ width: "100%", padding: "11px 0", borderRadius: 8, border: "none", background: sending ? "#94a3b8" : "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: sending ? "default" : "pointer" }}>
+          {sending ? "Sending..." : "Add"}
+        </button>
       </div>
     </div>
   );
@@ -2677,6 +2800,31 @@ function RowMenu({ onRename, onDelete, onClose }: { onRename: () => void; onDele
   );
 }
 
+// ── HOVER AVATAR ──────────────────────────────────────────────────────────────
+function HoverAvatar({ name, level, size = 28 }: { name: string; level: OrgPermissionLevel; size?: number }) {
+  const [hover, setHover] = useState(false);
+  const colors = ["#4C9FE8", "#7B68EE", "#48C78E", "#F5A623", "#E85D75"];
+  const initial = (name?.[0] || "?").toUpperCase();
+  const colorIdx = name ? name.charCodeAt(0) % 5 : 0;
+  return (
+    <div style={{ position: "relative", display: "inline-flex", marginLeft: -5 }}
+      onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
+      <div style={{ width: size, height: size, borderRadius: "50%", background: colors[colorIdx], color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: size * 0.38, fontWeight: 600, border: `2px solid #fff`, flexShrink: 0, cursor: "pointer" }}>
+        {initial}
+      </div>
+      {hover && (
+        <div style={{ position: "absolute", bottom: "100%", left: "50%", transform: "translateX(-50%)", marginBottom: 6, zIndex: 500, background: "#fff", borderRadius: 10, boxShadow: "0 4px 16px rgba(0,0,0,0.15)", padding: "8px 12px", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ width: 32, height: 32, borderRadius: "50%", background: colors[colorIdx], display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{initial}</div>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332" }}>{name}</div>
+            <div style={{ fontSize: 11, color: "#64748b", textTransform: "capitalize" }}>{level}</div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // DASHBOARD SECTION — with robust drag-drop
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2686,7 +2834,8 @@ function DashSection({
   onClickMetric, dragState, onMetricDragStart, onMetricDragEnter, onMetricDrop,
   onSectionDragStart, onSectionDragEnter, onSectionDrop, isSectionDragOver,
   dragOverTarget,
-  onFiveAccountEnabledFromBox, onFiveAccountDisabledFromBox, onOpenEquationBuilder
+  onFiveAccountEnabledFromBox, onFiveAccountDisabledFromBox, onOpenEquationBuilder,
+  orgMembers,
 }: {
   section: Section;
   onAddMetric: (sid: string, m: Omit<Metric, "id">) => void;
@@ -2708,6 +2857,7 @@ function DashSection({
   onFiveAccountEnabledFromBox?: () => void;
   onFiveAccountDisabledFromBox?: (sectionId: string, disabledMetricId: string, disabledLabel: string) => void;
   onOpenEquationBuilder?: (sectionId: string, metricId: string, reopenAfterSave?: boolean) => void;
+  orgMembers?: OrgMember[];
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [editingMetric, setEditingMetric] = useState<Metric | null>(null);
@@ -2766,8 +2916,8 @@ function DashSection({
           style={{ cursor: "grab", color: "#cbd5e1", fontSize: 15, padding: "0 2px", flexShrink: 0 }} title="Drag to reorder">⠿</div>
        <h2 style={{ margin: 0, fontSize: "clamp(16px,3vw,20px)", fontWeight: 700, color: "#1a2332" }}>{section.title}</h2>
         <div style={{ display: "flex", marginLeft: 2, paddingLeft: 4 }}>
-          {section.avatars.map(a => (
-            <div key={a} style={{ width: 28, height: 28, borderRadius: "50%", background: "#4C9FE8", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 600, border: "2px solid #fff", marginLeft: -5, flexShrink: 0 }}>{a}</div>
+          {(orgMembers && orgMembers.length > 0 ? orgMembers.filter(m => m.status === "active") : section.avatars.map(a => ({ id: a, name: a, level: "viewer" as OrgPermissionLevel, email: "", avatarUrl: "" }))).map(member => (
+            <HoverAvatar key={member.id || member.name} name={member.name || member.email} level={member.level} size={28} />
           ))}
         </div>
         <div style={{ position: "relative" }}>
@@ -3016,7 +3166,7 @@ function GoalsPage({ goals, setGoals, sections, viewMode, onOpenOnboarding, onEd
   return (
     <div style={{ padding: "clamp(16px,4vw,32px)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24, flexWrap: "wrap" }}>
-        <h1 style={{ margin: 0, fontSize: "clamp(20px,4vw,26px)", fontWeight: 700, color: "#1a2332" }}>Company Goals</h1>
+        <h1 style={{ margin: 0, fontSize: "clamp(20px,4vw,26px)", fontWeight: 700, color: "#1a2332" }}>Goals</h1>
         <button onClick={onOpenOnboarding} style={{ padding: "7px 18px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", marginLeft: "auto" }}>⊕ Add Goal</button>
       </div>
       {renderSection("active", "Active", active)}
@@ -3777,43 +3927,323 @@ function AppDetailPage({ app, onBack }: { app: typeof APPS[0]; onBack: () => voi
 // PAGE: TEAM
 // ═══════════════════════════════════════════════════════════════════════════
 
-function TeamPage() {
-  const [showInvite, setShowInvite] = useState(false);
-  const members = [
-    { name: "Alex Johnson", role: "Owner", initials: "AJ", email: "alex@company.com", tasks: 12, color: "#4C9FE8" },
-    { name: "Beth Kim", role: "Marketing", initials: "BK", email: "beth@company.com", tasks: 8, color: "#7B68EE" },
-    { name: "Chris Lee", role: "Sales", initials: "CL", email: "chris@company.com", tasks: 15, color: "#48C78E" },
-    { name: "Dana Miller", role: "Finance", initials: "DM", email: "dana@company.com", tasks: 5, color: "#F5A623" },
-    { name: "Emma Nash", role: "Operations", initials: "EN", email: "emma@company.com", tasks: 9, color: "#E85D75" },
-    { name: "Frank Owen", role: "Dev", initials: "FO", email: "frank@company.com", tasks: 11, color: "#06B6D4" },
-  ];
+function TeamPage({ sections, orgMembers, teamRows, setTeamRows, teamPermissions, setTeamPermissions, currentUserLevel, userEmail, onOpenInvite }: {
+  sections: Section[]; orgMembers: OrgMember[]; teamRows: TeamRow[];
+  setTeamRows: React.Dispatch<React.SetStateAction<TeamRow[]>>;
+  teamPermissions: TeamPermissions[]; setTeamPermissions: React.Dispatch<React.SetStateAction<TeamPermissions[]>>;
+  currentUserLevel: OrgPermissionLevel; userEmail: string; onOpenInvite: () => void;
+}) {
+  const [showAddTeam, setShowAddTeam] = useState(false);
+  const [editingTeam, setEditingTeam] = useState<TeamRow | null>(null);
+  const [permModalTeam, setPermModalTeam] = useState<TeamRow | null>(null);
+  const isManager = currentUserLevel === "owner" || currentUserLevel === "admin";
+
+  // Drag state for reordering team rows
+  const dragTeamRef = useRef<string | null>(null);
+  const [dragOverTeamId, setDragOverTeamId] = useState<string | null>(null);
+
+  const handleTeamDragStart = (id: string) => { dragTeamRef.current = id; };
+  const handleTeamDragEnter = (e: React.DragEvent, id: string) => { e.preventDefault(); if (dragTeamRef.current && dragTeamRef.current !== id) setDragOverTeamId(id); };
+  const handleTeamDrop = (id: string) => {
+    if (!dragTeamRef.current || dragTeamRef.current === id) { dragTeamRef.current = null; setDragOverTeamId(null); return; }
+    setTeamRows(prev => {
+      const arr = [...prev];
+      const fi = arr.findIndex(t => t.id === dragTeamRef.current);
+      const ti = arr.findIndex(t => t.id === id);
+      if (fi === -1 || ti === -1) return prev;
+      const [moved] = arr.splice(fi, 1);
+      arr.splice(ti, 0, moved);
+      return arr.map((t, i) => ({ ...t, order: i }));
+    });
+    dragTeamRef.current = null; setDragOverTeamId(null);
+  };
+
+  const addTeam = (name: string) => {
+    setTeamRows(prev => [...prev, { id: crypto.randomUUID(), name, order: prev.length }]);
+  };
+  const renameTeam = (id: string, name: string) => {
+    setTeamRows(prev => prev.map(t => t.id === id ? { ...t, name } : t));
+  };
+  const deleteTeam = (id: string) => {
+    setTeamRows(prev => prev.filter(t => t.id !== id));
+  };
+
+  // Show only the team the current user belongs to (or first team for managers)
+  const visibleTeams = isManager ? teamRows : teamRows.filter(t => orgMembers.some(m => m.email === userEmail && m.status === "active" && t.name === orgMembers.find(mm => mm.email === userEmail)?.level));
+
+  const memberCount = orgMembers.filter(m => m.status === "active").length;
+
   return (
     <div style={{ padding: "clamp(16px,4vw,32px)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24, flexWrap: "wrap" }}>
-        <h1 style={{ margin: 0, fontSize: "clamp(20px,4vw,26px)", fontWeight: 700, color: "#1a2332" }}>Team <span style={{ fontSize: 12, color: "#94a3b8", fontWeight: 400 }}>(Coming Soon)</span></h1>
-        <button onClick={() => setShowInvite(true)} style={{ padding: "7px 18px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", marginLeft: "auto" }}>+ Invite Member</button>
+        <h1 style={{ margin: 0, fontSize: "clamp(20px,4vw,26px)", fontWeight: 700, color: "#1a2332" }}>Team</h1>
+        {isManager && (
+          <button onClick={onOpenInvite} style={{ padding: "7px 18px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", marginLeft: "auto" }}>+ Add Team Member</button>
+        )}
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(200px,1fr))", gap: 14, marginBottom: 24, opacity: 0.35, pointerEvents: "none", filter: "grayscale(0.7)", userSelect: "none" }}>
-        {members.map((m, i) => (
-          <div key={i} style={{ background: "#fff", borderRadius: 14, padding: 18, border: "1px solid #f1f5f9", textAlign: "center" }}>
-            <div style={{ width: 52, height: 52, borderRadius: "50%", background: m.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 700, color: "#fff", margin: "0 auto 10px" }}>{m.initials}</div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "#1a2332" }}>{m.name}</div>
-            <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 6 }}>{m.role}</div>
-            <div style={{ fontSize: 11, color: "#3B82F6", marginBottom: 8 }}>{m.email}</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: "#1a2332" }}>{m.tasks}</div>
-            <div style={{ fontSize: 10, color: "#94a3b8" }}>Tasks</div>
+
+      {visibleTeams.length === 0 && isManager && (
+        <div style={{ textAlign: "center", padding: 40, color: "#94a3b8", fontSize: 14 }}>
+          No teams yet. Create one below.
+        </div>
+      )}
+
+      {/* Team rows */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 16 }}>
+        {(isManager ? teamRows : visibleTeams).map(team => {
+          const membersInTeam = orgMembers.filter(m => {
+            if (team.name === orgMembers.find(mm => mm.email === userEmail)?.level) return true;
+            return false;
+          });
+          const teamMemberAvatars = orgMembers.filter(m => m.status === "active").slice(0, 5);
+          return (
+            <div key={team.id}
+              onDragEnter={isManager ? (e) => handleTeamDragEnter(e, team.id) : undefined}
+              onDragOver={isManager ? (e) => e.preventDefault() : undefined}
+              onDrop={isManager ? () => handleTeamDrop(team.id) : undefined}
+              style={{
+                display: "flex", alignItems: "center", gap: 12,
+                padding: "14px 18px", borderRadius: 14, background: "#fff",
+                border: "1px solid #f1f5f9",
+                outline: dragOverTeamId === team.id ? "2px dashed #3B82F6" : "none",
+                opacity: isManager ? 1 : 0.85,
+                cursor: isManager ? "default" : "default",
+              }}
+            >
+              {isManager && (
+                <div draggable onDragStart={() => handleTeamDragStart(team.id)}
+                  style={{ cursor: "grab", color: "#cbd5e1", fontSize: 15, padding: "0 4px", flexShrink: 0 }} title="Drag to reorder">⠿</div>
+              )}
+              <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 14, fontWeight: 600, flexShrink: 0 }}>👥</div>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#1a2332" }}>{team.name}</div>
+                  <div style={{ fontSize: 11, color: "#94a3b8" }}>
+                    {orgMembers.filter(m => m.status === "active").length} member{orgMembers.filter(m => m.status === "active").length !== 1 ? "s" : ""}
+                    {orgMembers.filter(m => m.status === "invited").length > 0 && ` · ${orgMembers.filter(m => m.status === "invited").length} pending`}
+                  </div>
+                </div>
+              </div>
+              {/* Member avatars */}
+              <div style={{ display: "flex", marginLeft: "auto", paddingRight: 4 }}>
+                {teamMemberAvatars.map((m, i) => (
+                  <div key={m.id || i} style={{ width: 28, height: 28, borderRadius: "50%", background: ["#4C9FE8","#7B68EE","#48C78E","#F5A623","#E85D75"][i % 5], color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 600, border: "2px solid #fff", marginLeft: -5, flexShrink: 0, position: "relative" }} title={`${m.name || m.email} · ${m.level}`}>
+                    {(m.name?.[0] || m.email[0] || "?").toUpperCase()}
+                  </div>
+                ))}
+              </div>
+              {isManager && (
+                <TeamRowMenu
+                  onEditPermissions={() => setPermModalTeam(team)}
+                  onRename={() => setEditingTeam(team)}
+                  onDelete={() => deleteTeam(team.id)}
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Add team button (Owner/Admin only) */}
+      {isManager && (
+        <div onClick={() => setShowAddTeam(true)} style={{ display: "flex", alignItems: "center", gap: 8, color: "#94a3b8", fontSize: 13, cursor: "pointer", padding: "6px 0" }}>
+          <div style={{ width: 26, height: 26, borderRadius: "50%", border: "1.5px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, color: "#94a3b8" }}>+</div>
+          Add Team
+        </div>
+      )}
+
+      {/* Editor/Viewer view — show own team card */}
+      {!isManager && orgMembers.filter(m => m.email === userEmail).length > 0 && (
+        <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Your Team</div>
+          {orgMembers.filter(m => m.email === userEmail).map(member => (
+            <div key={member.id} style={{ background: "#fff", borderRadius: 14, padding: 18, border: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: 14 }}>
+              <div style={{ width: 44, height: 44, borderRadius: "50%", background: "#4C9FE8", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
+                {(member.name?.[0] || member.email[0] || "?").toUpperCase()}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#1a2332" }}>{member.name || member.email}</div>
+                <div style={{ fontSize: 11, color: "#64748b", textTransform: "capitalize" }}>{member.level}</div>
+              </div>
+              <button disabled style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #e2e8f0", background: "#f8fafc", color: "#cbd5e1", fontSize: 11, cursor: "not-allowed", fontWeight: 600 }}>Chat</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Add team modal */}
+      {showAddTeam && <EditAddRowModal onSave={(name) => { addTeam(name); setShowAddTeam(false); }} onClose={() => setShowAddTeam(false)} />}
+
+      {/* Edit team name modal */}
+      {editingTeam && (
+        <EditAddRowModal initial={editingTeam.name} onSave={(name) => { renameTeam(editingTeam.id, name); setEditingTeam(null); }} onClose={() => setEditingTeam(null)} />
+      )}
+
+      {/* Permissions modal */}
+      {permModalTeam && (
+        <TeamPermissionsModal
+          teamName={permModalTeam.name}
+          sections={sections}
+          initialPermissions={teamPermissions.find(p => p.teamId === permModalTeam.id) ?? { teamId: permModalTeam.id, allowedSectionIds: null, metricOverrides: null }}
+          onSave={(perms) => {
+            setTeamPermissions(prev => {
+              const existing = prev.findIndex(p => p.teamId === perms.teamId);
+              if (existing >= 0) {
+                const next = [...prev];
+                next[existing] = perms;
+                return next;
+              }
+              return [...prev, perms];
+            });
+            setPermModalTeam(null);
+          }}
+          onClose={() => setPermModalTeam(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── TEAM ROW MENU (mini version of RowMenu) ──────────────────────────────────
+function TeamRowMenu({ onEditPermissions, onRename, onDelete }: { onEditPermissions: () => void; onRename: () => void; onDelete: () => void; }) {
+  const [open, setOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h);
+  }, []);
+
+  if (!open) {
+    return <div onClick={() => setOpen(true)} style={{ width: 26, height: 26, borderRadius: "50%", background: "#F1F5F9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 13, color: "#94a3b8", flexShrink: 0 }}>···</div>;
+  }
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <div style={{ position: "absolute", top: 30, right: 0, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 100, minWidth: 170, overflow: "hidden" }}>
+        <div onClick={() => { setOpen(false); onEditPermissions(); }}
+          style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
+          onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
+          onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Edit Permissions</div>
+        <div onClick={() => { setOpen(false); onRename(); }}
+          style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
+          onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
+          onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Edit Name</div>
+        {!confirmDelete
+          ? <div onClick={() => setConfirmDelete(true)}
+              style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#E85D75" }}
+              onMouseEnter={e => (e.currentTarget.style.background = "#fff5f5")}
+              onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Delete Team</div>
+          : <div style={{ padding: "10px 14px", borderTop: "1px solid #f1f5f9" }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#E85D75", marginBottom: 8 }}>Delete this team?</div>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button onClick={() => setConfirmDelete(false)}
+                  style={{ flex: 1, padding: "5px 0", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 11, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+                <button onClick={() => { onDelete(); setOpen(false); }}
+                  style={{ flex: 1, padding: "5px 0", borderRadius: 6, border: "none", background: "#E85D75", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Delete</button>
+              </div>
+            </div>}
+      </div>
+    </div>
+  );
+}
+
+// ── TEAM PERMISSIONS MODAL ────────────────────────────────────────────────────
+function TeamPermissionsModal({ teamName, sections, initialPermissions, onSave, onClose }: {
+  teamName: string; sections: Section[];
+  initialPermissions: TeamPermissions;
+  onSave: (perms: TeamPermissions) => void; onClose: () => void;
+}) {
+  const [allowedSectionIds, setAllowedSectionIds] = useState<string[] | null>(initialPermissions.allowedSectionIds);
+  const [metricOverrides, setMetricOverrides] = useState<{ sectionId: string; allowedMetricIds: string[] | null }[] | null>(initialPermissions.metricOverrides);
+
+  const toggleSection = (sid: string, on: boolean) => {
+    setAllowedSectionIds(prev => {
+      if (prev === null) {
+        // Currently all allowed — switch to only this one
+        return on ? null : sections.filter(s => s.id === sid).map(s => s.id);
+      }
+      if (on) return [...prev, sid];
+      return prev.filter(id => id !== sid);
+    });
+  };
+
+  const isSectionAllowed = (sid: string) => allowedSectionIds === null || allowedSectionIds.includes(sid);
+
+  const toggleMetric = (sid: string, mid: string, on: boolean) => {
+    setMetricOverrides(prev => {
+      const current = prev ?? [];
+      const existing = current.find(m => m.sectionId === sid);
+      if (on) {
+        // Remove metric from exclusion list
+        if (!existing) return current;
+        const updatedMetrics = existing.allowedMetricIds === null ? null : (existing.allowedMetricIds.includes(mid) ? existing.allowedMetricIds : [...existing.allowedMetricIds, mid]);
+        if (updatedMetrics === null) {
+          return current.filter(m => m.sectionId !== sid);
+        }
+        return current.map(m => m.sectionId === sid ? { ...m, allowedMetricIds: updatedMetrics } : m);
+      }
+      // Disallow specific metric
+      if (existing?.allowedMetricIds === null) {
+        // Currently all allowed — switch to exclude this one
+        const allOtherIds = sections.find(s => s.id === sid)?.metrics.filter(m => m.id !== mid).map(m => m.id) ?? [];
+        return [...current.filter(m => m.sectionId !== sid), { sectionId: sid, allowedMetricIds: allOtherIds }];
+      }
+      const currentAllowed = existing?.allowedMetricIds ?? sections.find(s => s.id === sid)?.metrics.map(m => m.id) ?? [];
+      const filtered = currentAllowed.filter(id => id !== mid);
+      if (filtered.length === (sections.find(s => s.id === sid)?.metrics.length ?? 0)) {
+        return current.filter(m => m.sectionId !== sid);
+      }
+      return current.map(m => m.sectionId === sid ? { ...m, allowedMetricIds: filtered } : m);
+    });
+  };
+
+  const isMetricAllowed = (sid: string, mid: string) => {
+    if (!isSectionAllowed(sid)) return false;
+    if (metricOverrides === null) return true;
+    const override = metricOverrides.find(m => m.sectionId === sid);
+    if (!override) return true;
+    if (override.allowedMetricIds === null) return true;
+    return override.allowedMetricIds.includes(mid);
+  };
+
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000, padding: 16 }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 20, padding: "24px", width: "100%", maxWidth: 520, boxShadow: "0 20px 60px rgba(0,0,0,0.18)", overflowY: "auto", maxHeight: "90vh" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+          <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#1a2332" }}>Permissions for {teamName}</h3>
+          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#94a3b8" }}>×</button>
+        </div>
+        <p style={{ fontSize: 12, color: "#94a3b8", marginBottom: 16 }}>Select which rows and metric boxes this team can access.</p>
+
+        {sections.map(section => (
+          <div key={section.id} style={{ marginBottom: 14, border: "1px solid #f1f5f9", borderRadius: 10, overflow: "hidden" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "#f8fafc", borderBottom: isSectionAllowed(section.id) ? "1px solid #f1f5f9" : "none" }}>
+              <input type="checkbox" checked={isSectionAllowed(section.id)} onChange={e => toggleSection(section.id, e.target.checked)}
+                style={{ accentColor: "#3B82F6", width: 16, height: 16, cursor: "pointer", flexShrink: 0 }} />
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#1a2332", flex: 1 }}>{section.title}</span>
+              <span style={{ fontSize: 11, color: "#94a3b8" }}>{section.metrics.length} box{section.metrics.length !== 1 ? "es" : ""}</span>
+            </div>
+            {isSectionAllowed(section.id) && section.metrics.length > 0 && (
+              <div style={{ padding: "6px 14px 10px 38px" }}>
+                {section.metrics.map(m => (
+                  <label key={m.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", cursor: "pointer" }}>
+                    <input type="checkbox" checked={isMetricAllowed(section.id, m.id)}
+                      onChange={e => toggleMetric(section.id, m.id, e.target.checked)}
+                      style={{ accentColor: "#3B82F6", width: 14, height: 14, cursor: "pointer", flexShrink: 0 }} />
+                    <span style={{ fontSize: 12, color: "#475569" }}>{m.label}</span>
+                  </label>
+                ))}
+              </div>
+            )}
           </div>
         ))}
+
+        <button onClick={() => { onSave({ teamId: initialPermissions.teamId, allowedSectionIds, metricOverrides }); }}
+          style={{ width: "100%", padding: "10px 0", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer", marginTop: 8 }}>
+          Save Permissions
+        </button>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 12 }}>
-        {[{ color: "green" as MetricColor, label: "Team", value: "6 members" }, { color: "yellow" as MetricColor, label: "Open Tasks", value: "60" }, { color: "gray" as MetricColor, label: "Completed", value: "2 this week" }].map((b, i) => (
-          <div key={i} style={{ background: MS[b.color].bg, borderRadius: 14, padding: 18 }}>
-            <div style={{ fontSize: 12, color: MS[b.color].text, opacity: 0.8 }}>{b.label}</div>
-            <div style={{ fontSize: 20, fontWeight: 700, color: MS[b.color].text, marginTop: 3 }}>{b.value}</div>
-          </div>
-        ))}
-      </div>
-      {showInvite && <AddTeamModal onClose={() => setShowInvite(false)} />}
     </div>
   );
 }
@@ -3832,7 +4262,7 @@ function ProfileField({ label, value, onChange, disabled }: { label: string; val
   );
 }
 
-function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisableFiveAccount, onForceDisableAcknowledged, onProfileSaved, onFiveAccountCreated, onFiveAccountDisabled, fiveAccountSettings, onFiveAccountSettingsChange }: {
+function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisableFiveAccount, onForceDisableAcknowledged, onProfileSaved, onFiveAccountCreated, onFiveAccountDisabled, fiveAccountSettings, onFiveAccountSettingsChange, currentUserLevel }: {
   userId: string; userEmail: string; profile: any;
   forceDisableFiveAccount?: boolean;
   onForceDisableAcknowledged?: () => void;
@@ -3841,6 +4271,7 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
   onFiveAccountDisabled?: () => void;
   fiveAccountSettings: FiveAccountSettings;
   onFiveAccountSettingsChange: (s: FiveAccountSettings) => void;
+  currentUserLevel?: OrgPermissionLevel;
 }) {
   const [localProfile, setLocalProfile] = useState({
   full_name: "", company: "", street: "", city: "", state: "", zip: "", country: "",
@@ -3949,7 +4380,7 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
           <h3 style={{ margin: "0 0 12px", fontSize: 14, fontWeight: 600, color: "#1a2332" }}>Account</h3>
           <ProfileField label="Full Name" value={localProfile.full_name} onChange={v => setLocalProfile(p => ({ ...p, full_name: v }))} />
           <ProfileField label="Email" value={userEmail} disabled />
-          <ProfileField label="Company" value={localProfile.company} onChange={v => setLocalProfile(p => ({ ...p, company: v }))} />
+          <ProfileField label="Company" value={localProfile.company} onChange={currentUserLevel === "owner" || !currentUserLevel ? v => setLocalProfile(p => ({ ...p, company: v })) : undefined} disabled={currentUserLevel !== "owner" && currentUserLevel !== undefined} />
           <button onClick={handleSave} disabled={saving} style={{ width: "100%", padding: "9px", borderRadius: 8, border: "none", background: saved ? "#4CAF7D" : "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", marginTop: 6 }}>
             {saving ? "Saving..." : saved ? "✓ Saved!" : "Save Changes"}
           </button>
@@ -3957,7 +4388,8 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
 
         {/* Plan + Preferences */}
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          {/* Plans — grayed out */}
+          {/* Plan — owner only */}
+          {(currentUserLevel === "owner" || !currentUserLevel) && (
           <div style={{ background: "#fff", borderRadius: 14, padding: 20, border: "1px solid #f1f5f9", opacity: 0.55, pointerEvents: "none" as const }}>
             <h3 style={{ margin: "0 0 14px", fontSize: 14, fontWeight: 600, color: "#94a3b8" }}>Plan</h3>
             {[{ name: "Free", features: "3 rows, 10 metrics" }, { name: "Pro", features: "Unlimited rows, integrations" }, { name: "Business", features: "Team access, all apps" }].map(p => (
@@ -3972,6 +4404,7 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
               </div>
             ))}
           </div>
+          )}
 
           {/* Preferences */}
           <div style={{ background: "#fff", borderRadius: 14, padding: 20, border: "1px solid #f1f5f9" }}>
@@ -5977,11 +6410,20 @@ const NAV: { icon: string; label: string; page: Page; comingSoon?: boolean }[] =
   { icon: "Gear", label: "Settings", page: "settings" },
 ];
 
-function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, health }: {
+function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, health, activeOrg, orgs, showOrgDropdown, onToggleOrgDropdown, onSwitchOrg, currentUserLevel, onOpenInviteModal }: {
   active: Page; onNav: (p: Page) => void; onClose: () => void;
   isMobile: boolean; avatarUrl?: string; firstName?: string;
   health: HealthResult;
+  activeOrg: Org | null; orgs: Org[]; showOrgDropdown: boolean;
+  onToggleOrgDropdown: () => void; onSwitchOrg: (org: Org) => void;
+  currentUserLevel: OrgPermissionLevel; onOpenInviteModal: () => void;
 }) {
+  const orgDropdownRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (orgDropdownRef.current && !orgDropdownRef.current.contains(e.target as Node)) { if (showOrgDropdown) onToggleOrgDropdown(); } };
+    document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h);
+  }, [showOrgDropdown, onToggleOrgDropdown]);
+
   return (
     <aside style={{ width: 240, flexShrink: 0, background: "linear-gradient(135deg,#3B82F6,#06B6D4)", display: "flex", flexDirection: "column", boxShadow: "2px 0 12px rgba(0,0,0,0.06)", height: "100dvh" } as React.CSSProperties}>
       <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none", display: "flex", flexDirection: "column" }}>
@@ -5992,9 +6434,29 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
           </div>
           {!isMobile && <div onClick={onClose} style={{ position: "absolute", right: 0, width: 26, height: 26, borderRadius: "50%", border: "1.5px solid rgba(255,255,255,0.4)", background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#fff", fontSize: 14 }}>‹</div>}
         </div>
-        <div style={{ textAlign: "center" }}>
+        <div style={{ textAlign: "center", width: "100%" }}>
           <div style={{ fontSize: 14, fontWeight: 400, color: "#fff" }}>{firstName ? `Welcome ${firstName}` : "Welcome"}</div>
-          <div style={{ fontSize: 14, fontWeight: 400, color: "#fff" }}>to your dashboard</div>
+          {/* Org switcher */}
+          <div ref={orgDropdownRef} style={{ position: "relative", display: "inline-block", marginTop: 2 }}>
+            <div onClick={onToggleOrgDropdown} style={{ fontSize: 14, fontWeight: 400, color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, opacity: 0.85 }}>
+              <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 160 }}>to {activeOrg?.name ?? "your dashboard"}</span>
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ flexShrink: 0, transform: showOrgDropdown ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>
+                <path d="M2 4L5 7L8 4" stroke="rgba(255,255,255,0.85)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+            {showOrgDropdown && (
+              <div style={{ position: "absolute", top: 28, left: "50%", transform: "translateX(-50%)", zIndex: 110, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.15)", border: "1px solid #e2e8f0", minWidth: 180, overflow: "hidden" }}>
+                {orgs.map(org => (
+                  <div key={org.id} onClick={() => onSwitchOrg(org)}
+                    style={{ padding: "10px 14px", fontSize: 13, cursor: "pointer", color: activeOrg?.id === org.id ? "#3B82F6" : "#1a2332", fontWeight: activeOrg?.id === org.id ? 600 : 400, background: activeOrg?.id === org.id ? "#EFF6FF" : "transparent", borderBottom: "1px solid #f1f5f9", textAlign: "left" }}
+                    onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
+                    onMouseLeave={e => (e.currentTarget.style.background = activeOrg?.id === org.id ? "#EFF6FF" : "transparent")}>
+                    {org.name}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
       <nav style={{ flex: 1, padding: "6px 12px" }}>
@@ -6039,6 +6501,9 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
 })()}
       </div>
       <div style={{ padding: "14px 18px", borderTop: "1px solid rgba(255,255,255,0.15)", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, flexShrink: 0 }}>
+        {(currentUserLevel === "owner" || currentUserLevel === "admin") && (
+          <button onClick={onOpenInviteModal} style={{ width: "100%", padding: "10px 0", borderRadius: 12, border: "none", background: "#fff", color: "#3B82F6", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Invite Team Members</button>
+        )}
         <img src="https://dashello.co/wp-content/uploads/2023/08/White-Logo-Full.png" alt="Dashello" style={{ height: 26, objectFit: "contain", maxWidth: "80%" }} />
         <button onClick={() => supabase.auth.signOut()} style={{ width: "100%", padding: "10px 0", borderRadius: 12, border: "2px solid rgba(255,255,255,0.6)", background: "transparent", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Sign Out</button>
       </div>
@@ -6050,7 +6515,7 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
 // HOME PAGE — robust drag-drop
 // ═══════════════════════════════════════════════════════════════════════════
 
-function HomePage({ sections, setSections, onClickMetric, onSectionRemoved, onFiveAccountEnabledFromBox, onFiveAccountDisabledFromBox, onOpenEquationBuilder }: {
+function HomePage({ sections, setSections, onClickMetric, onSectionRemoved, onFiveAccountEnabledFromBox, onFiveAccountDisabledFromBox, onOpenEquationBuilder, orgMembers }: {
   sections: Section[];
   setSections: React.Dispatch<React.SetStateAction<Section[]>>;
   onClickMetric: (data: MetricModalData, metric: Metric) => void;
@@ -6058,6 +6523,7 @@ function HomePage({ sections, setSections, onClickMetric, onSectionRemoved, onFi
   onFiveAccountEnabledFromBox?: () => void;
   onFiveAccountDisabledFromBox?: (sectionId: string, disabledMetricId: string, disabledLabel: string) => void;
   onOpenEquationBuilder?: (sectionId: string, metricId: string, reopenAfterSave?: boolean) => void;
+  orgMembers?: OrgMember[];
 }) {
   // Drag state stored in ref so it's always current in event handlers
   const dragMetricRef = useRef<{ sourceSid: string; sourceMid: string } | null>(null);
@@ -6201,6 +6667,7 @@ function HomePage({ sections, setSections, onClickMetric, onSectionRemoved, onFi
           onFiveAccountEnabledFromBox={onFiveAccountEnabledFromBox}
           onFiveAccountDisabledFromBox={onFiveAccountDisabledFromBox}
           onOpenEquationBuilder={onOpenEquationBuilder}
+          orgMembers={orgMembers}
         />
       ))}
       <div onClick={() => setShowAddRow(true)} style={{ display: "flex", alignItems: "center", gap: 8, color: "#94a3b8", fontSize: 13, cursor: "pointer", padding: "6px 0" }}>
@@ -6262,10 +6729,17 @@ export default function DashelloDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showChat, setShowChat] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState("");
   const [dbReady, setDbReady] = useState(false);
+  const [orgs, setOrgs] = useState<Org[]>([]);
+  const [activeOrg, setActiveOrg] = useState<Org | null>(null);
+  const [orgMembers, setOrgMembers] = useState<OrgMember[]>([]);
+  const [teamRows, setTeamRows] = useState<TeamRow[]>([]);
+  const [teamPermissions, setTeamPermissions] = useState<TeamPermissions[]>([]);
+  const [showOrgDropdown, setShowOrgDropdown] = useState(false);
   const [profile, setProfile] = useState({
     full_name: "", company: "", street: "", city: "", state: "", zip: "", country: "",
     avatar_url: "", five_account_enabled: false,
@@ -6441,14 +6915,40 @@ export default function DashelloDashboard() {
   useEffect(() => {
     if (!userId) return;
     async function load() {
-      const [savedSections, savedTasks, savedGoals] = await Promise.all([
+      const [savedSections, savedTasks, savedGoals, savedOrgs] = await Promise.all([
         loadUserData("sections", userId!),
         loadUserData("tasks", userId!),
         loadUserData("goals", userId!),
+        loadOrgData(userId!),
       ]);
       if (savedSections) setSections(savedSections);
       if (savedTasks) setTasksData(savedTasks);
       if (savedGoals) setGoalsData(savedGoals);
+
+      // Load org data
+      if (savedOrgs?.orgs?.length) {
+        setOrgs(savedOrgs.orgs);
+        setOrgMembers(savedOrgs.members ?? []);
+        setTeamRows(savedOrgs.teams ?? []);
+        setTeamPermissions(savedOrgs.permissions ?? []);
+        // Restore or default to personal org
+        const saved = localStorage.getItem("activeOrgId");
+        const target = savedOrgs.orgs.find((o: Org) => o.id === saved) ?? savedOrgs.orgs.find((o: Org) => o.isPersonal);
+        if (target) setActiveOrg(target);
+      } else {
+        // Auto-create personal org
+        const firstName = profile.full_name?.split(" ")[0] ?? "My";
+        const personalOrg: Org = {
+          id: crypto.randomUUID(),
+          name: `${firstName}'s Dashboard`,
+          isPersonal: true,
+          createdAt: new Date().toISOString(),
+        };
+        setOrgs([personalOrg]);
+        setActiveOrg(personalOrg);
+        saveOrgData(userId!, { orgs: [personalOrg], members: [], teams: [], permissions: [] });
+      }
+
       const { data: prof } = await supabase.from("profiles").select("*").eq("id", userId!).maybeSingle();
       if (prof) setProfile({
   full_name: prof.full_name ?? "", company: prof.company ?? "",
@@ -6469,6 +6969,11 @@ export default function DashelloDashboard() {
   useEffect(() => { if (userId && dbReady) saveUserData("sections", userId, sections); }, [sections, userId, dbReady]);
   useEffect(() => { if (userId && dbReady) saveUserData("tasks", userId, tasksData); }, [tasksData, userId, dbReady]);
   useEffect(() => { if (userId && dbReady) saveUserData("goals", userId, goalsData); }, [goalsData, userId, dbReady]);
+  useEffect(() => {
+    if (userId && dbReady && orgs.length) {
+      saveOrgData(userId!, { orgs, members: orgMembers, teams: teamRows, permissions: teamPermissions });
+    }
+  }, [orgs, orgMembers, teamRows, teamPermissions, userId, dbReady]);
 
   // Auto-create tasks when goals hit 100%
   useEffect(() => {
@@ -6867,18 +7372,61 @@ export default function DashelloDashboard() {
     }
   };
 
- const health = calculateHealth(
-  sections,
-  profile.health_green_multiplier,
-  profile.health_yellow_multiplier,
-  profile.health_red_multiplier
+  const handleSwitchOrg = useCallback(async (org: Org) => {
+    setShowOrgDropdown(false);
+    if (org.id === activeOrg?.id) return;
+    localStorage.setItem("activeOrgId", org.id);
+    setActiveOrg(org);
+    setDbReady(false);
+    // Reload data from correct source
+    if (org.isPersonal) {
+      const [savedSections, savedTasks, savedGoals] = await Promise.all([
+        loadUserData("sections", userId!),
+        loadUserData("tasks", userId!),
+        loadUserData("goals", userId!),
+      ]);
+      if (savedSections) setSections(savedSections); else setSections([]);
+      if (savedTasks) setTasksData(savedTasks); else setTasksData([]);
+      if (savedGoals) setGoalsData(savedGoals); else setGoalsData([]);
+    } else {
+      // Company org — starts with empty dashboard
+      setSections([]);
+      setTasksData([]);
+      setGoalsData([]);
+    }
+    setDbReady(true);
+    setPage("home");
+  }, [userId, activeOrg]);
+
+  const health = calculateHealth(
+   sections,
+   profile.health_green_multiplier,
+   profile.health_yellow_multiplier,
+   profile.health_red_multiplier
 );
+
+// Determine current user's permission level
+const currentUserLevel: OrgPermissionLevel = (() => {
+  if (!activeOrg?.isPersonal) {
+    // In a company org, find this user's membership
+    const me = orgMembers.find(m => m.email === userEmail);
+    if (me) return me.level;
+  }
+  return "owner";
+})();
 
 const sidebarEl = (
   <Sidebar active={page} onNav={handleNav} onClose={() => setSidebarOpen(false)}
     isMobile={isMobile} avatarUrl={profile.avatar_url}
     firstName={profile.full_name?.split(" ")[0] ?? ""}
-    health={health} />
+    health={health}
+    activeOrg={activeOrg}
+    orgs={orgs}
+    showOrgDropdown={showOrgDropdown}
+    onToggleOrgDropdown={() => setShowOrgDropdown(v => !v)}
+    onSwitchOrg={handleSwitchOrg}
+    currentUserLevel={currentUserLevel}
+    onOpenInviteModal={() => setShowInviteModal(true)} />
 );
 
   if (!dbReady) return (
@@ -6976,13 +7524,14 @@ const sidebarEl = (
           {page === "home" && !inlineView && <HomePage sections={sections} setSections={setSections} onClickMetric={handleClickMetric} onSectionRemoved={handleRemoveSectionWithFiveAccountCheck}
             onFiveAccountEnabledFromBox={handleFiveAccountEnabledFromBox}
             onFiveAccountDisabledFromBox={handleFiveAccountDisabledFromBox}
-            onOpenEquationBuilder={handleOpenEquationBuilder} />}
+            onOpenEquationBuilder={handleOpenEquationBuilder}
+            orgMembers={orgMembers} />}
           {page === "goals" && <div style={{ flex: 1, overflowY: "auto" }}><GoalsPage goals={goalsData} setGoals={setGoalsData} sections={sections} viewMode={goalsViewMode} onOpenOnboarding={() => setShowGoalOnboarding(true)} onEditGoal={handleEditGoal} onDuplicateGoal={handleDuplicateGoal} /></div>}
           {page === "tasks" && <div style={{ flex: 1, overflowY: "auto" }}><TasksPage tasks={tasksData} setTasks={setTasksData} /></div>}
           {page === "integrations" && <div style={{ flex: 1, overflowY: "auto" }}><IntegrationsPage onSelectApp={a => { setSelectedApp(a); setPage("app-detail"); }} /></div>}
           {page === "app-detail" && selectedApp && <div style={{ flex: 1, overflowY: "auto" }}><AppDetailPage app={selectedApp} onBack={() => setPage("integrations")} /></div>}
-          {page === "team" && <div style={{ flex: 1, overflowY: "auto" }}><TeamPage /></div>}
-          {page === "settings" && <div style={{ flex: 1, overflowY: "auto" }}><SettingsPage userId={userId!} userEmail={userEmail} profile={profile} forceDisableFiveAccount={fiveAccountForceOff} onForceDisableAcknowledged={() => setFiveAccountForceOff(false)} onProfileSaved={p => setProfile(p)} onFiveAccountCreated={handleFiveAccountCreated} onFiveAccountDisabled={handleGlobalFiveAccountDisabled} fiveAccountSettings={fiveAccountSettings} onFiveAccountSettingsChange={handleUpdateSettings} /></div>}
+          {page === "team" && <div style={{ flex: 1, overflowY: "auto" }}><TeamPage sections={sections} orgMembers={orgMembers} teamRows={teamRows} setTeamRows={setTeamRows} teamPermissions={teamPermissions} setTeamPermissions={setTeamPermissions} currentUserLevel={currentUserLevel} userEmail={userEmail} onOpenInvite={() => setShowInviteModal(true)} /></div>}
+          {page === "settings" && <div style={{ flex: 1, overflowY: "auto" }}><SettingsPage userId={userId!} userEmail={userEmail} profile={profile} forceDisableFiveAccount={fiveAccountForceOff} onForceDisableAcknowledged={() => setFiveAccountForceOff(false)} onProfileSaved={p => setProfile(p)} onFiveAccountCreated={handleFiveAccountCreated} onFiveAccountDisabled={handleGlobalFiveAccountDisabled} fiveAccountSettings={fiveAccountSettings} onFiveAccountSettingsChange={handleUpdateSettings} currentUserLevel={currentUserLevel} /></div>}
           {page === "playbooks" && <PlaybooksPage userId={userId} />}
           {page === "equation-builder" && equationBuilderTarget && (
             <EquationBuilderPage
@@ -7107,6 +7656,8 @@ const sidebarEl = (
       {showGoalOnboarding && <GoalOnboarding sections={sections} isMobile={isMobile} onClose={() => setShowGoalOnboarding(false)} onCreate={handleCreateGoal} />}
 
       {editingGoal && <GoalSettingsModal goal={editingGoal} sections={sections} isMobile={isMobile} onSave={handleSaveGoal} onDuplicate={handleDuplicateGoal} onDelete={handleDeleteGoal} onClose={() => setEditingGoal(null)} />}
+
+      {showInviteModal && <AddTeamModal orgId={activeOrg?.id ?? ""} orgs={orgs} setOrgs={setOrgs} orgMembers={orgMembers} setOrgMembers={setOrgMembers} teamRows={teamRows} setTeamRows={setTeamRows} invitedByName={profile.full_name} onClose={() => setShowInviteModal(false)} />}
 
       {/* ── POPUP mode: metric detail modal ── */}
       {viewMode === "popup" && activeModal && (() => (
