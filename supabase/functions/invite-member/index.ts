@@ -8,7 +8,6 @@ serve(async (req) => {
     "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
   };
 
-  // Handle CORS preflight and health check
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -19,19 +18,10 @@ serve(async (req) => {
   }
 
   try {
-    console.log("invite-member called, method:", req.method);
-    const { email, orgId, level, invitedByName } = await req.json();
-    console.log("body:", { email, orgId, level, invitedByName });
-    console.log("SUPABASE_URL set:", !!Deno.env.get("SUPABASE_URL"));
-    console.log("SUPABASE_SERVICE_ROLE_KEY set:", !!Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"));
+    const { email, invitedByName } = await req.json();
 
-    if (!email || !orgId || !level) {
-      return new Response(JSON.stringify({ error: "Missing required fields: email, orgId, level" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
-    const validLevels = ["owner", "admin", "editor", "viewer"];
-    if (!validLevels.includes(level)) {
-      return new Response(JSON.stringify({ error: "Invalid level. Must be one of: " + validLevels.join(", ") }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    if (!email) {
+      return new Response(JSON.stringify({ error: "Missing required field: email" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -42,7 +32,7 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
 
-    // Verify the caller has permission (owner or admin in the org)
+    // Verify caller is authenticated
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Missing Authorization header" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -51,68 +41,26 @@ serve(async (req) => {
     const token = authHeader.replace("Bearer ", "");
     const { data: { user: caller }, error: callerError } = await supabase.auth.getUser(token);
     if (callerError || !caller) {
-      return new Response(JSON.stringify({ error: "Unauthorized: " + (callerError?.message || "Invalid token") }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const { data: membership } = await supabase
-      .from("org_members")
-      .select("level")
-      .eq("org_id", orgId)
-      .eq("user_id", caller.id)
-      .maybeSingle();
-    if (!membership) {
-      // First time this user acts on this org — auto-provision as owner
-      const { error: insErr } = await supabase
-        .from("org_members")
-        .insert({ org_id: orgId, user_id: caller.id, level: "owner", status: "active" });
-      if (insErr) throw insErr;
-    }
-    // Anyone who is a member can invite (level restrictions are enforced client-side)
-
-    // First try to find if user already exists
+    // Check if user already exists in auth
     const { data: { users } } = await supabase.auth.admin.listUsers();
     const existingUser = users?.find(u => u.email === email);
 
     if (existingUser) {
-      // User already exists — just add them to the org
-      const { error: insertError } = await supabase
-        .from("org_members")
-        .upsert({ org_id: orgId, user_id: existingUser.id, level, status: "active" }, { onConflict: "org_id,user_id" });
-      if (insertError) throw insertError;
-      return new Response(JSON.stringify({ success: true, alreadyUser: true, userId: existingUser.id }), {
+      return new Response(JSON.stringify({ success: true, alreadyUser: true }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // New user — send invite
+    // Send invite email
     const { data: invite, error: inviteError } = await supabase.auth.admin.inviteUserByEmail(email, {
       redirectTo: "https://app.dashello.co",
       data: { invited_by: invitedByName ?? caller.user_metadata?.full_name ?? "A team member" },
     });
 
-    if (inviteError) {
-      // If invite fails but user exists in auth (edge case), still try to add
-      const { data: { users: retryUsers } } = await supabase.auth.admin.listUsers();
-      const retryUser = retryUsers?.find(u => u.email === email);
-      if (retryUser) {
-        const { error: insertError } = await supabase
-          .from("org_members")
-          .upsert({ org_id: orgId, user_id: retryUser.id, level, status: "active" }, { onConflict: "org_id,user_id" });
-        if (insertError) throw insertError;
-        return new Response(JSON.stringify({ success: true, alreadyUser: true, userId: retryUser.id }), {
-          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      throw inviteError;
-    }
-
-    // New user invited — insert membership as invited
-    if (invite?.user?.id) {
-      const { error: insertError } = await supabase
-        .from("org_members")
-        .insert({ org_id: orgId, user_id: invite.user.id, level, status: "invited" });
-      if (insertError) throw insertError;
-    }
+    if (inviteError) throw inviteError;
 
     return new Response(JSON.stringify({ success: true, userId: invite?.user?.id }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
