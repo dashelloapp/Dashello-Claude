@@ -5941,7 +5941,8 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
   health: HealthResult;
 }) {
   return (
-    <aside style={{ width: 240, flexShrink: 0, background: "linear-gradient(135deg,#3B82F6,#06B6D4)", display: "flex", flexDirection: "column", boxShadow: "2px 0 12px rgba(0,0,0,0.06)", height: "100%", minHeight: "100vh", overflowY: "auto", scrollbarWidth: "none" } as React.CSSProperties}>
+    <aside style={{ width: 240, flexShrink: 0, background: "linear-gradient(135deg,#3B82F6,#06B6D4)", display: "flex", flexDirection: "column", boxShadow: "2px 0 12px rgba(0,0,0,0.06)", height: "100dvh" } as React.CSSProperties}>
+      <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none", display: "flex", flexDirection: "column" }}>
       <div style={{ padding: "28px 18px 20px", display: "flex", flexDirection: "column", alignItems: "center" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", position: "relative", marginBottom: 12 }}>
           <div style={{ width: 56, height: 56, borderRadius: "50%", background: "rgba(255,255,255,0.2)", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>
@@ -5993,7 +5994,8 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
     </div>
   );
 })()}
-      <div style={{ padding: "14px 18px", borderTop: "1px solid rgba(255,255,255,0.15)", display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+      </div>
+      <div style={{ padding: "14px 18px", borderTop: "1px solid rgba(255,255,255,0.15)", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, flexShrink: 0 }}>
         <img src="https://dashello.co/wp-content/uploads/2023/08/White-Logo-Full.png" alt="Dashello" style={{ height: 26, objectFit: "contain", maxWidth: "80%" }} />
         <button onClick={() => supabase.auth.signOut()} style={{ width: "100%", padding: "10px 0", borderRadius: 12, border: "2px solid rgba(255,255,255,0.6)", background: "transparent", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Sign Out</button>
       </div>
@@ -6876,7 +6878,7 @@ const sidebarEl = (
                 ))}
               </div>
             ) : null}
-            <TopBarRefreshButton onRefresh={handleRefreshAll} lastSyncedAt={lastDashboardSync} />
+            {(page === "home" || page === "goals" || page === "integrations" || page === "tasks") && <TopBarRefreshButton onRefresh={handleRefreshAll} lastSyncedAt={lastDashboardSync} />}
             {(page === "home" && inlineView) && (
               <BreadcrumbNav items={getBreadcrumbItems()} onNavigate={handleBreadcrumbNavigate} />
             )}
