@@ -3346,7 +3346,7 @@ function GoalsPage({ goals, setGoals, sections, viewMode, onOpenOnboarding, onEd
                   })()}
                 </SectionCard>
               </div>
-            </>
+            </div>
           )}
         </div>
         {goalExpandActions === g.id && (
