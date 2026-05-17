@@ -66,9 +66,8 @@ serve(async (req) => {
         .from("org_members")
         .insert({ org_id: orgId, user_id: caller.id, level: "owner", status: "active" });
       if (insErr) throw insErr;
-    } else if (membership.level !== "owner" && membership.level !== "admin") {
-      return new Response(JSON.stringify({ error: "Only owners and admins can invite members" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
+    // Anyone who is a member can invite (level restrictions are enforced client-side)
 
     // First try to find if user already exists
     const { data: { users } } = await supabase.auth.admin.listUsers();
