@@ -3394,6 +3394,22 @@ function GoalSettingsModal({ goal, sections, isMobile, onSave, onDuplicate, onDe
   const [configVal2, setConfigVal2] = useState("");
   const [configPct, setConfigPct] = useState("");
 
+  const goalRef = useRef(goal);
+  const hasUnsaved = JSON.stringify(edited) !== JSON.stringify(goalRef.current);
+
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (hasUnsaved) { e.preventDefault(); e.returnValue = ""; }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [hasUnsaved]);
+
+  const handleClose = () => {
+    if (hasUnsaved && !window.confirm("You have unsaved changes. Leave without saving?")) return;
+    onClose();
+  };
+
   const allMetrics = sections.flatMap(s => s.metrics.map(m => ({ sectionLabel: s.title, metricLabel: m.label, value: m.value, color: resolveColor(m) })));
   const filteredMetrics = searchQuery.trim() ? allMetrics.filter(m => m.metricLabel.toLowerCase().includes(searchQuery.toLowerCase())) : [];
 
@@ -3462,7 +3478,7 @@ function GoalSettingsModal({ goal, sections, isMobile, onSave, onDuplicate, onDe
       <div style={{ background: "#fff", flex: 1, overflowY: "auto", width: "100%", padding: isMobile ? "20px 16px" : "clamp(24px,4vw,40px)", borderRadius: isMobile ? 0 : 20, maxWidth: isMobile ? "100%" : 640, margin: isMobile ? 0 : "auto", maxHeight: isMobile ? "100dvh" : "90vh", boxShadow: isMobile ? "none" : "0 25px 50px rgba(0,0,0,0.15)" }}>
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
-          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#64748b", padding: 0 }}>×</button>
+          <button onClick={handleClose} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#64748b", padding: 0 }}>×</button>
           <div style={{ fontSize: 18, fontWeight: 700, color: "#1a2332", flex: 1 }}>Goal Settings</div>
         </div>
 
@@ -3579,7 +3595,7 @@ function GoalSettingsModal({ goal, sections, isMobile, onSave, onDuplicate, onDe
 
         {/* Save */}
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 20 }}>
-          <button onClick={onClose} style={{ padding: "10px 24px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 13, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+          <button onClick={handleClose} style={{ padding: "10px 24px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 13, cursor: "pointer", color: "#64748b" }}>Cancel</button>
           <button onClick={saveGoal} style={{ padding: "10px 24px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Save</button>
         </div>
 
@@ -5951,7 +5967,8 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
           {!isMobile && <div onClick={onClose} style={{ position: "absolute", right: 0, width: 26, height: 26, borderRadius: "50%", border: "1.5px solid rgba(255,255,255,0.4)", background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#fff", fontSize: 14 }}>‹</div>}
         </div>
         <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 14, fontWeight: 400, color: "#fff" }}>{firstName ? `Welcome ${firstName} to your dashboard` : "Welcome"}</div>
+          <div style={{ fontSize: 14, fontWeight: 400, color: "#fff" }}>{firstName ? `Welcome ${firstName}` : "Welcome"}</div>
+          <div style={{ fontSize: 14, fontWeight: 400, color: "#fff" }}>to your dashboard</div>
         </div>
       </div>
       <nav style={{ flex: 1, padding: "6px 12px" }}>
