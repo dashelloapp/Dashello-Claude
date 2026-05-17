@@ -102,6 +102,7 @@ interface OrgMember {
   avatarUrl: string;
   level: OrgPermissionLevel;
   status: "invited" | "active";
+  teamId?: string;
 }
 interface TeamRow {
   id: string;
@@ -2645,22 +2646,23 @@ function AddTeamModal({ orgId, orgs, setOrgs, orgMembers, setOrgMembers, teamRow
   invitedByName?: string; onClose: () => void; currentUserLevel: OrgPermissionLevel;
 }) {
   const allowedLevels = LEVEL_ORDER.slice(0, LEVEL_ORDER.indexOf(currentUserLevel) + 1);
-  const [rows, setRows] = useState([{ email: "", level: allowedLevels[0] as OrgPermissionLevel }]);
+  const sortedTeams = [...teamRows].sort((a, b) => a.order - b.order);
+  const topTeamId = sortedTeams[0]?.id ?? "";
+  const showTeamDropdown = sortedTeams.length > 1;
+  const [rows, setRows] = useState([{ email: "", level: allowedLevels[0] as OrgPermissionLevel, teamId: topTeamId }]);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState<string[]>([]);
 
-  const update = (i: number, f: "email" | "level", v: string) => setRows(p => p.map((r, j) => j === i ? { ...r, [f]: v } : r));
+  const update = (i: number, f: "email" | "level" | "teamId", v: string) => setRows(p => p.map((r, j) => j === i ? { ...r, [f]: v } : r));
 
-  const addRow = () => setRows(p => [...p, { email: "", level: allowedLevels[0] as OrgPermissionLevel }]);
+  const addRow = () => setRows(p => [...p, { email: "", level: allowedLevels[0] as OrgPermissionLevel, teamId: topTeamId }]);
 
   const handleKeyDown = (e: React.KeyboardEvent, i: number) => {
     if (e.key === "Enter" && rows[i].email.trim()) {
       e.preventDefault();
-      // If last row and email is filled, add new row
       if (i === rows.length - 1 && rows[i].email.trim()) {
         addRow();
-        // Focus the new input after render
         setTimeout(() => {
           const inputs = document.querySelectorAll<HTMLInputElement>('[data-team-email-input]');
           const last = inputs[inputs.length - 1];
@@ -2687,6 +2689,7 @@ function AddTeamModal({ orgId, orgs, setOrgs, orgMembers, setOrgMembers, teamRow
           avatarUrl: "",
           level: row.level,
           status: "invited" as const,
+          teamId: row.teamId || topTeamId,
         });
         setSuccess(prev => [...prev, row.email.trim()]);
       } catch (err: any) {
@@ -2708,9 +2711,9 @@ function AddTeamModal({ orgId, orgs, setOrgs, orgMembers, setOrgMembers, teamRow
           <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#94a3b8" }}>×</button>
         </div>
         <h2 style={{ margin: "0 0 6px", fontSize: 20, fontWeight: 700, color: "#1a2332", textAlign: "center" }}>Add your team</h2>
-        <p style={{ margin: "0 0 20px", fontSize: 12, color: "#94a3b8", textAlign: "center" }}>Set permission levels for each team member and give access for different metrics only to the people that need to see them.</p>
+        <p style={{ margin: "0 0 20px", fontSize: 12, color: "#94a3b8", textAlign: "center" }}>Invite team members and assign them to a team.</p>
         {rows.map((r, i) => (
-          <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10, marginBottom: 10, alignItems: "center" }}>
+          <div key={i} style={{ display: "grid", gridTemplateColumns: showTeamDropdown ? "1fr auto auto" : "1fr auto", gap: 8, marginBottom: 10, alignItems: "center" }}>
             <input data-team-email-input value={r.email} onChange={e => update(i, "email", e.target.value)} onKeyDown={e => handleKeyDown(e, i)} placeholder="Email"
               style={{ padding: "8px 11px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none" }} />
              <select value={r.level} onChange={e => update(i, "level", e.target.value)}
@@ -2719,6 +2722,14 @@ function AddTeamModal({ orgId, orgs, setOrgs, orgMembers, setOrgMembers, teamRow
                 <option key={l} value={l}>{l.charAt(0).toUpperCase() + l.slice(1)}</option>
               ))}
             </select>
+            {showTeamDropdown && (
+              <select value={r.teamId} onChange={e => update(i, "teamId", e.target.value)}
+                style={{ padding: "7px 9px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", background: "#fff" }}>
+                {sortedTeams.map(t => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+            )}
           </div>
         ))}
         <button onClick={addRow}
@@ -3958,9 +3969,9 @@ function AppDetailPage({ app, onBack }: { app: typeof APPS[0]; onBack: () => voi
 // PAGE: TEAM
 // ═══════════════════════════════════════════════════════════════════════════
 
-function TeamPage({ sections, orgMembers, teamRows, setTeamRows, teamPermissions, setTeamPermissions, currentUserLevel, userEmail, onOpenInvite, onPreviewMember, onExitPreviewSave, previewFromSave }: {
-  sections: Section[]; orgMembers: OrgMember[]; teamRows: TeamRow[];
-  setTeamRows: React.Dispatch<React.SetStateAction<TeamRow[]>>;
+function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, teamPermissions, setTeamPermissions, currentUserLevel, userEmail, onOpenInvite, onPreviewMember, onExitPreviewSave, previewFromSave }: {
+  sections: Section[]; orgMembers: OrgMember[]; setOrgMembers: React.Dispatch<React.SetStateAction<OrgMember[]>>;
+  teamRows: TeamRow[]; setTeamRows: React.Dispatch<React.SetStateAction<TeamRow[]>>;
   teamPermissions: TeamPermissions[]; setTeamPermissions: React.Dispatch<React.SetStateAction<TeamPermissions[]>>;
   currentUserLevel: OrgPermissionLevel; userEmail: string; onOpenInvite: () => void;
   onPreviewMember?: (member: OrgMember, perms: TeamPermissions) => void;
@@ -3971,9 +3982,9 @@ function TeamPage({ sections, orgMembers, teamRows, setTeamRows, teamPermissions
   const [editingTeam, setEditingTeam] = useState<TeamRow | null>(null);
   const [permModalTeam, setPermModalTeam] = useState<TeamRow | null>(null);
   const [permModalMember, setPermModalMember] = useState<OrgMember | null>(null);
+  const [transferringFrom, setTransferringFrom] = useState<OrgMember | null>(null);
   const isManager = currentUserLevel === "owner" || currentUserLevel === "admin";
 
-  // Drag state for reordering team rows
   const dragTeamRef = useRef<string | null>(null);
   const [dragOverTeamId, setDragOverTeamId] = useState<string | null>(null);
 
@@ -3994,7 +4005,9 @@ function TeamPage({ sections, orgMembers, teamRows, setTeamRows, teamPermissions
   };
 
   const addTeam = (name: string) => {
-    setTeamRows(prev => [...prev, { id: crypto.randomUUID(), name, order: prev.length }]);
+    const newId = crypto.randomUUID();
+    setTeamRows(prev => [...prev, { id: newId, name, order: prev.length }]);
+    setTeamPermissions(prev => [...prev, { teamId: newId, allowedSectionIds: null, metricOverrides: null }]);
   };
   const renameTeam = (id: string, name: string) => {
     setTeamRows(prev => prev.map(t => t.id === id ? { ...t, name } : t));
@@ -4002,11 +4015,17 @@ function TeamPage({ sections, orgMembers, teamRows, setTeamRows, teamPermissions
   const deleteTeam = (id: string) => {
     setTeamRows(prev => prev.filter(t => t.id !== id));
   };
+  const handleTransferOwnership = (toMemberId: string) => {
+    if (!transferringFrom) return;
+    setOrgMembers(prev => prev.map(m => {
+      if (m.id === transferringFrom.id) return { ...m, level: "admin" as OrgPermissionLevel };
+      if (m.id === toMemberId) return { ...m, level: "owner" as OrgPermissionLevel };
+      return m;
+    }));
+    setTransferringFrom(null);
+  };
 
-  // Show only the team the current user belongs to (or first team for managers)
-  const visibleTeams = isManager ? teamRows : teamRows.filter(t => orgMembers.some(m => m.email === userEmail && m.status === "active" && t.name === orgMembers.find(mm => mm.email === userEmail)?.level));
-
-  const memberCount = orgMembers.filter(m => m.status === "active").length;
+  const sortedTeams = [...teamRows].sort((a, b) => a.order - b.order);
 
   return (
     <div style={{ padding: "clamp(16px,4vw,32px)" }}>
@@ -4017,69 +4036,94 @@ function TeamPage({ sections, orgMembers, teamRows, setTeamRows, teamPermissions
         )}
       </div>
 
-      {visibleTeams.length === 0 && isManager && (
+      {sortedTeams.length === 0 && isManager && (
         <div style={{ textAlign: "center", padding: 40, color: "#94a3b8", fontSize: 14 }}>
           No teams yet. Create one below.
         </div>
       )}
 
-      {/* Team rows */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 16 }}>
-        {(isManager ? teamRows : visibleTeams).map(team => {
-          const membersInTeam = orgMembers.filter(m => {
-            if (team.name === orgMembers.find(mm => mm.email === userEmail)?.level) return true;
-            return false;
-          });
-          const teamMemberAvatars = orgMembers.filter(m => m.status === "active").slice(0, 5);
+      {/* Team rows with member cards */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 16 }}>
+        {sortedTeams.map(team => {
+          const membersInTeam = orgMembers.filter(m => m.teamId === team.id && m.status === "active");
+          const pendingCount = orgMembers.filter(m => m.teamId === team.id && m.status === "invited").length;
           return (
             <div key={team.id}
               onDragEnter={isManager ? (e) => handleTeamDragEnter(e, team.id) : undefined}
               onDragOver={isManager ? (e) => e.preventDefault() : undefined}
               onDrop={isManager ? () => handleTeamDrop(team.id) : undefined}
               style={{
-                display: "flex", alignItems: "center", gap: 12,
-                padding: "14px 18px", borderRadius: 14, background: "#fff",
-                border: "1px solid #f1f5f9",
+                background: "#fff", borderRadius: 14, border: "1px solid #f1f5f9",
                 outline: dragOverTeamId === team.id ? "2px dashed #3B82F6" : "none",
-                opacity: isManager ? 1 : 0.85,
-                cursor: isManager ? "default" : "default",
+                overflow: "hidden",
               }}
             >
-              {isManager && (
-                <div draggable onDragStart={() => handleTeamDragStart(team.id)}
-                  style={{ cursor: "grab", color: "#cbd5e1", fontSize: 15, padding: "0 4px", flexShrink: 0 }} title="Drag to reorder">⠿</div>
-              )}
-              <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+              {/* Team header */}
+              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 18px" }}>
+                {isManager && (
+                  <div draggable onDragStart={() => handleTeamDragStart(team.id)}
+                    style={{ cursor: "grab", color: "#cbd5e1", fontSize: 15, padding: "0 4px", flexShrink: 0 }}>⠿</div>
+                )}
                 <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 14, fontWeight: 600, flexShrink: 0 }}>👥</div>
-                <div>
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 14, fontWeight: 700, color: "#1a2332" }}>{team.name}</div>
                   <div style={{ fontSize: 11, color: "#94a3b8" }}>
-                    {orgMembers.filter(m => m.status === "active").length} member{orgMembers.filter(m => m.status === "active").length !== 1 ? "s" : ""}
-                    {orgMembers.filter(m => m.status === "invited").length > 0 && ` · ${orgMembers.filter(m => m.status === "invited").length} pending`}
+                    {membersInTeam.length} member{membersInTeam.length !== 1 ? "s" : ""}
+                    {pendingCount > 0 && ` · ${pendingCount} pending`}
                   </div>
                 </div>
+                {isManager && (
+                  <TeamRowMenu
+                    onEditPermissions={() => setPermModalTeam(team)}
+                    onRename={() => setEditingTeam(team)}
+                    onDelete={() => deleteTeam(team.id)}
+                  />
+                )}
               </div>
-              {/* Member avatars */}
-              <div style={{ display: "flex", marginLeft: "auto", paddingRight: 4 }}>
-                {teamMemberAvatars.map((m, i) => (
-                  <div key={m.id || i} style={{ width: 28, height: 28, borderRadius: "50%", background: ["#4C9FE8","#7B68EE","#48C78E","#F5A623","#E85D75"][i % 5], color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 600, border: "2px solid #fff", marginLeft: -5, flexShrink: 0, position: "relative" }} title={`${m.name || m.email} · ${m.level}`}>
-                    {(m.name?.[0] || m.email[0] || "?").toUpperCase()}
-                  </div>
-                ))}
-              </div>
-              {isManager && (
-                <TeamRowMenu
-                  onEditPermissions={() => setPermModalTeam(team)}
-                  onRename={() => setEditingTeam(team)}
-                  onDelete={() => deleteTeam(team.id)}
-                />
+
+              {/* Member cards inside the team */}
+              {membersInTeam.length > 0 && (
+                <div style={{ padding: "0 18px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
+                  {membersInTeam.map(member => {
+                    const isOwner = member.level === "owner";
+                    const isSelf = member.email === userEmail;
+                    return (
+                      <div key={member.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: "#f8fafc", borderRadius: 10 }}>
+                        <div style={{ width: 36, height: 36, borderRadius: "50%", background: isOwner ? "#F5A623" : "#4C9FE8", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
+                          {(member.name?.[0] || member.email[0] || "?").toUpperCase()}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 14, fontWeight: 600, color: "#1a2332", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{member.name || member.email}</div>
+                          <div style={{ fontSize: 11, color: "#64748b", textTransform: "capitalize" }}>{isOwner ? "Owner" : member.level}</div>
+                        </div>
+                        {isSelf && (
+                          <div style={{ padding: "6px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#f8fafc", color: "#94a3b8", fontSize: 11, fontWeight: 600 }}>
+                            You
+                          </div>
+                        )}
+                        {isManager && !isSelf && isOwner && (
+                          <button onClick={() => setTransferringFrom(member)}
+                            style={{ padding: "6px 14px", borderRadius: 8, border: "1.5px solid #F5A623", background: "#fff", color: "#B8860B", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+                            Transfer Ownership
+                          </button>
+                        )}
+                        {isManager && !isSelf && !isOwner && (
+                          <button onClick={() => setPermModalMember(member)}
+                            style={{ padding: "6px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", color: "#475569", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+                            Edit Permissions
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               )}
             </div>
           );
         })}
       </div>
 
-      {/* Add team button (Owner/Admin only) */}
+      {/* Add team button */}
       {isManager && (
         <div onClick={() => setShowAddTeam(true)} style={{ display: "flex", alignItems: "center", gap: 8, color: "#94a3b8", fontSize: 13, cursor: "pointer", padding: "6px 0" }}>
           <div style={{ width: 26, height: 26, borderRadius: "50%", border: "1.5px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, color: "#94a3b8" }}>+</div>
@@ -4087,56 +4131,30 @@ function TeamPage({ sections, orgMembers, teamRows, setTeamRows, teamPermissions
         </div>
       )}
 
-      {/* Member list for Owner/Admin */}
-      {isManager && orgMembers.filter(m => m.status === "active").length > 0 && (
-        <div style={{ marginTop: 20, marginBottom: 12 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>Members</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {orgMembers.filter(m => m.status === "active").map(member => {
-              const memberPerms = teamPermissions[0] ?? null;
-              return (
-                <div key={member.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "#fff", borderRadius: 12, border: "1px solid #f1f5f9" }}>
-                  <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#4C9FE8", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
-                    {(member.name?.[0] || member.email[0] || "?").toUpperCase()}
+      {/* Transfer Ownership Modal */}
+      {transferringFrom && (
+        <div onClick={() => setTransferringFrom(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000, padding: 16 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 20, padding: "28px", width: "100%", maxWidth: 400, boxShadow: "0 24px 64px rgba(0,0,0,0.18)" }}>
+            <h3 style={{ margin: "0 0 16px", fontSize: 18, fontWeight: 700, color: "#1a2332" }}>Transfer Ownership</h3>
+            <p style={{ fontSize: 13, color: "#64748b", marginBottom: 16 }}>Select a team member to become the new owner. You will become an admin.</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {orgMembers.filter(m => m.id !== transferringFrom.id && m.status === "active").map(m => (
+                <div key={m.id} onClick={() => handleTransferOwnership(m.id)}
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 10, border: "1px solid #e2e8f0", cursor: "pointer", background: "#fff" }}
+                  onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
+                  onMouseLeave={e => (e.currentTarget.style.background = "#fff")}>
+                  <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#4C9FE8", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
+                    {(m.name?.[0] || m.email[0] || "?").toUpperCase()}
                   </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: "#1a2332", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{member.name || member.email}</div>
-                    <div style={{ fontSize: 11, color: "#64748b", textTransform: "capitalize" }}>{member.level}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332" }}>{m.name || m.email}</div>
+                    <div style={{ fontSize: 11, color: "#64748b", textTransform: "capitalize" }}>{m.level}</div>
                   </div>
-                  {previewFromSave ? (
-                    <button onClick={onExitPreviewSave}
-                      style={{ padding: "6px 14px", borderRadius: 8, border: "1.5px solid #3B82F6", background: "#fff", color: "#3B82F6", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
-                      Go Back
-                    </button>
-                  ) : (
-                    <button onClick={() => setPermModalMember(member)}
-                      style={{ padding: "6px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", color: "#475569", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
-                      Edit Permissions
-                    </button>
-                  )}
                 </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Editor/Viewer view — show own team card */}
-      {!isManager && orgMembers.filter(m => m.email === userEmail).length > 0 && (
-        <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 12 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Your Team</div>
-          {orgMembers.filter(m => m.email === userEmail).map(member => (
-            <div key={member.id} style={{ background: "#fff", borderRadius: 14, padding: 18, border: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: 14 }}>
-              <div style={{ width: 44, height: 44, borderRadius: "50%", background: "#4C9FE8", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
-                {(member.name?.[0] || member.email[0] || "?").toUpperCase()}
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: "#1a2332" }}>{member.name || member.email}</div>
-                <div style={{ fontSize: 11, color: "#64748b", textTransform: "capitalize" }}>{member.level}</div>
-              </div>
-              <button disabled style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #e2e8f0", background: "#f8fafc", color: "#cbd5e1", fontSize: 11, cursor: "not-allowed", fontWeight: 600 }}>Chat</button>
+              ))}
             </div>
-          ))}
+            <button onClick={() => setTransferringFrom(null)} style={{ marginTop: 16, width: "100%", padding: "10px 0", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", color: "#64748b", fontSize: 13, cursor: "pointer" }}>Cancel</button>
+          </div>
         </div>
       )}
 
@@ -4157,11 +4175,7 @@ function TeamPage({ sections, orgMembers, teamRows, setTeamRows, teamPermissions
           onSave={(perms) => {
             setTeamPermissions(prev => {
               const existing = prev.findIndex(p => p.teamId === perms.teamId);
-              if (existing >= 0) {
-                const next = [...prev];
-                next[existing] = perms;
-                return next;
-              }
+              if (existing >= 0) { const next = [...prev]; next[existing] = perms; return next; }
               return [...prev, perms];
             });
             setPermModalTeam(null);
@@ -4175,13 +4189,21 @@ function TeamPage({ sections, orgMembers, teamRows, setTeamRows, teamPermissions
         <MemberPermissionsModal
           member={permModalMember}
           sections={sections}
-          initialPerms={teamPermissions[0] ?? null}
+          initialPerms={teamPermissions.find(p => p.teamId === permModalMember.teamId) ?? null}
           onSave={(perms) => {
-            setTeamPermissions([perms]);
+            setTeamPermissions(prev => {
+              const existing = prev.findIndex(p => p.teamId === perms.teamId);
+              if (existing >= 0) { const next = [...prev]; next[existing] = perms; return next; }
+              return [...prev, perms];
+            });
             setPermModalMember(null);
           }}
           onViewAs={(perms) => {
-            setTeamPermissions([perms]);
+            setTeamPermissions(prev => {
+              const existing = prev.findIndex(p => p.teamId === perms.teamId);
+              if (existing >= 0) { const next = [...prev]; next[existing] = perms; return next; }
+              return [...prev, perms];
+            });
             setPermModalMember(null);
             onPreviewMember?.(permModalMember, perms);
           }}
@@ -7133,16 +7155,30 @@ export default function DashelloDashboard() {
         if (target) setActiveOrg(target);
       } else {
         // Auto-create personal org
-        const firstName = profile.full_name?.split(" ")[0] ?? "My";
         const personalOrg: Org = {
           id: crypto.randomUUID(),
           name: `Your Dashboard`,
           isPersonal: true,
           createdAt: new Date().toISOString(),
         };
+        const defaultTeamId = crypto.randomUUID();
+        const defaultTeam: TeamRow = { id: defaultTeamId, name: "Your Team", order: 0 };
+        const ownerName = userEmail.split("@")[0] || "Me";
+        const ownerMember: OrgMember = {
+          id: crypto.randomUUID(),
+          email: userEmail,
+          name: ownerName,
+          avatarUrl: "",
+          level: "owner",
+          status: "active",
+          teamId: defaultTeamId,
+        };
         setOrgs([personalOrg]);
         setActiveOrg(personalOrg);
-        saveOrgData(userId!, { orgs: [personalOrg], members: [], teams: [], permissions: [] });
+        setTeamRows([defaultTeam]);
+        setOrgMembers([ownerMember]);
+        setTeamPermissions([{ teamId: defaultTeamId, allowedSectionIds: null, metricOverrides: null }]);
+        saveOrgData(userId!, { orgs: [personalOrg], members: [ownerMember], teams: [defaultTeam], permissions: [{ teamId: defaultTeamId, allowedSectionIds: null, metricOverrides: null }] });
       }
 
       const { data: prof } = await supabase.from("profiles").select("*").eq("id", userId!).maybeSingle();
@@ -7753,7 +7789,7 @@ const sidebarEl = (
           {page === "tasks" && <div style={{ flex: 1, overflowY: "auto" }}><TasksPage tasks={tasksData} setTasks={setTasksData} /></div>}
           {page === "integrations" && <div style={{ flex: 1, overflowY: "auto" }}><IntegrationsPage onSelectApp={a => { setSelectedApp(a); setPage("app-detail"); }} /></div>}
           {page === "app-detail" && selectedApp && <div style={{ flex: 1, overflowY: "auto" }}><AppDetailPage app={selectedApp} onBack={() => setPage("integrations")} /></div>}
-          {page === "team" && <div style={{ flex: 1, overflowY: "auto" }}><TeamPage sections={isPreviewMode && previewSections ? previewSections : sections} orgMembers={orgMembers} teamRows={teamRows} setTeamRows={setTeamRows} teamPermissions={teamPermissions} setTeamPermissions={setTeamPermissions} currentUserLevel={currentUserLevel} userEmail={userEmail} onOpenInvite={() => setShowInviteModal(true)} onPreviewMember={(member, perms) => { setPreviewMember(member); setPreviewPerms(perms); setPage("home"); }} onExitPreviewSave={() => { setPreviewFromSave(false); }} previewFromSave={previewFromSave} /></div>}
+          {page === "team" && <div style={{ flex: 1, overflowY: "auto" }}><TeamPage sections={isPreviewMode && previewSections ? previewSections : sections} orgMembers={orgMembers} setOrgMembers={setOrgMembers} teamRows={teamRows} setTeamRows={setTeamRows} teamPermissions={teamPermissions} setTeamPermissions={setTeamPermissions} currentUserLevel={currentUserLevel} userEmail={userEmail} onOpenInvite={() => setShowInviteModal(true)} onPreviewMember={(member, perms) => { setPreviewMember(member); setPreviewPerms(perms); setPage("home"); }} onExitPreviewSave={() => { setPreviewFromSave(false); }} previewFromSave={previewFromSave} /></div>}
           {page === "settings" && <div style={{ flex: 1, overflowY: "auto" }}><SettingsPage userId={userId!} userEmail={userEmail} profile={profile} forceDisableFiveAccount={fiveAccountForceOff} onForceDisableAcknowledged={() => setFiveAccountForceOff(false)} onProfileSaved={p => setProfile(p)} onFiveAccountCreated={handleFiveAccountCreated} onFiveAccountDisabled={handleGlobalFiveAccountDisabled} fiveAccountSettings={fiveAccountSettings} onFiveAccountSettingsChange={handleUpdateSettings} currentUserLevel={currentUserLevel} /></div>}
           {page === "playbooks" && <PlaybooksPage userId={userId} />}
           {page === "equation-builder" && equationBuilderTarget && (
