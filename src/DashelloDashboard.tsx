@@ -198,6 +198,17 @@ interface Transaction { date: string; description: string; credit?: number; debi
 interface StatRow { label: string; value: string; synced?: boolean; }
 interface ProjRow { label: string; sub: string; value: string; }
 interface NextAction { label?: string; avatar?: string; }
+interface Task {
+  id: string;
+  text: string;
+  done: boolean;
+  dueDate?: string;
+  assignedTo: string;
+  createdBy: string;
+  linkedMetricId?: string;
+  linkedGoalId?: string;
+  createdAt: string;
+}
 
 interface MetricModalData {
   type: "cashflow" | "leads" | "emails" | "invoices" | "website" | "generic";
@@ -1071,7 +1082,27 @@ function TxnTable({ transactions }: { transactions: Transaction[] }) {
 // BOTTOM THREE CARDS
 // ═══════════════════════════════════════════════════════════════════════════
 
-function BottomThreeCards({ data }: { data: MetricModalData }) {
+function BottomThreeCards({ data, metricId, tasks, setTasks, userEmail, orgMembers }: {
+  data: MetricModalData; metricId?: string;
+  tasks?: Task[]; setTasks?: React.Dispatch<React.SetStateAction<Task[]>>;
+  userEmail?: string; orgMembers?: OrgMember[];
+}) {
+  const [showAddAction, setShowAddAction] = useState(false);
+  const [actionText, setActionText] = useState("");
+  const [actionAssignee, setActionAssignee] = useState(userEmail || "");
+  const linkedTasks = metricId && tasks ? tasks.filter(t => t.linkedMetricId === metricId) : [];
+  const handleAddAction = () => {
+    if (!actionText.trim() || !setTasks || !userEmail) return;
+    setTasks(prev => [...prev, {
+      id: crypto.randomUUID(), text: actionText.trim(), done: false, assignedTo: actionAssignee || userEmail,
+      createdBy: userEmail, linkedMetricId: metricId, createdAt: new Date().toISOString(),
+    }]);
+    setActionText(""); setShowAddAction(false);
+  };
+  const toggleLinked = (id: string) => {
+    if (!setTasks) return;
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, done: !t.done } : t));
+  };
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 16 }}>
       <SectionCard>
@@ -1096,7 +1127,36 @@ function BottomThreeCards({ data }: { data: MetricModalData }) {
             <Av initials={a.avatar} />
           </div>
         ))}
-        {data.nextActions.length === 0 && <div style={{ fontSize: 12, color: "#cbd5e1", fontStyle: "italic" }}>No actions yet</div>}
+        {linkedTasks.map(t => (
+          <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <div onClick={() => toggleLinked(t.id)} style={{ width: 18, height: 18, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 9 }}>{t.done ? "✓" : ""}</div>
+            <span style={{ fontSize: 12, color: "#1a2332", flex: 1, textDecoration: t.done ? "line-through" : "none", minWidth: 0 }}>{t.text}</span>
+            <span style={{ fontSize: 10, color: "#94a3b8", whiteSpace: "nowrap" }}>{t.assignedTo ? t.assignedTo.split("@")[0] : ""}</span>
+          </div>
+        ))}
+        {showAddAction ? (
+          <div style={{ marginTop: 8 }}>
+            <input value={actionText} onChange={e => setActionText(e.target.value)} placeholder="New action..."
+              style={{ width: "100%", padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", boxSizing: "border-box", marginBottom: 6 }} />
+            <div style={{ display: "flex", gap: 6 }}>
+              <select value={actionAssignee} onChange={e => setActionAssignee(e.target.value)}
+                style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 11, outline: "none", background: "#fff" }}>
+                <option value={userEmail}>Me</option>
+                {(orgMembers || []).filter(m => m.status === "active" && m.email !== userEmail).map(m => (
+                  <option key={m.id} value={m.email}>{m.name || m.email.split("@")[0]}</option>
+                ))}
+              </select>
+              <button onClick={handleAddAction} disabled={!actionText.trim()}
+                style={{ padding: "5px 14px", borderRadius: 6, border: "none", background: actionText.trim() ? "#3B82F6" : "#e2e8f0", color: "#fff", fontSize: 11, fontWeight: 600, cursor: actionText.trim() ? "pointer" : "not-allowed" }}>Add</button>
+              <button onClick={() => setShowAddAction(false)} style={{ padding: "5px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 11, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+            </div>
+          </div>
+        ) : (
+          <div onClick={() => setShowAddAction(true)} style={{ fontSize: 12, color: "#3B82F6", cursor: "pointer", fontWeight: 600, marginTop: 6, display: "flex", alignItems: "center", gap: 4 }}>
+            <span style={{ fontSize: 14 }}>+</span> Add Task
+          </div>
+        )}
+        {data.nextActions.length === 0 && linkedTasks.length === 0 && !showAddAction && <div style={{ fontSize: 12, color: "#cbd5e1", fontStyle: "italic" }}>No actions yet</div>}
       </SectionCard>
     </div>
   );
@@ -1664,7 +1724,7 @@ function CashBalanceInput({ value, currencySymbol, statValColor, statTextColor, 
     </div>
   );
 }
-function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onRefreshSections, siblings, onTransfer, onResyncEquation, inline }: {
+function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onRefreshSections, siblings, onTransfer, onResyncEquation, inline, tasks, setTasks, userEmail, orgMembers }: {
   data: MetricModalData; metric?: Metric;
   onClose: () => void; onEdit?: () => void; onValueChange?: (v: string, description?: string) => void;
   userId?: string; onRefreshSections?: () => Promise<void>;
@@ -1672,6 +1732,8 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
   onTransfer?: (toMetricId: string, amount: number, description: string) => void;
   onResyncEquation?: () => void;
   inline?: boolean;
+  tasks?: Task[]; setTasks?: React.Dispatch<React.SetStateAction<Task[]>>;
+  userEmail?: string; orgMembers?: OrgMember[];
 }) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const [localValue, setLocalValue] = useState(data.mainValue);
@@ -1905,7 +1967,7 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
           <ExpandableChart history={history} rules={colorRules} graphType={graphType} currentValue={metric?.value ?? data.mainValue} />
         </div>
 
-        <BottomThreeCards data={data} />
+        <BottomThreeCards data={data} metricId={metric?.id} tasks={tasks} setTasks={setTasks} userEmail={userEmail} orgMembers={orgMembers} />
       </div>
     </div>
   );
@@ -1965,7 +2027,7 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
             <ExpandableChart history={history} rules={colorRules} graphType={graphType} currentValue={localValue} />
           </SectionCard>
         </div>
-        <BottomThreeCards data={data} />
+        <BottomThreeCards data={data} metricId={metric?.id} tasks={tasks} setTasks={setTasks} userEmail={userEmail} orgMembers={orgMembers} />
       </div>
     </div>
   );
@@ -2058,7 +2120,7 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
             </div>
           </div>
         </div>
-        <BottomThreeCards data={data} />
+        <BottomThreeCards data={data} metricId={metric?.id} tasks={tasks} setTasks={setTasks} userEmail={userEmail} orgMembers={orgMembers} />
       </div>
     </div>
   );
@@ -3073,10 +3135,12 @@ function DashSection({
 // PAGE: GOALS
 // ═══════════════════════════════════════════════════════════════════════════
 
-function GoalsPage({ goals, setGoals, sections, viewMode, onOpenOnboarding, onEditGoal, onDuplicateGoal }: {
+function GoalsPage({ goals, setGoals, sections, viewMode, onOpenOnboarding, onEditGoal, onDuplicateGoal, tasks, setTasks, userEmail, orgMembers }: {
   goals: Goal[]; setGoals: (g: Goal[]) => void; sections: Section[];
   viewMode: "row" | "expanded";
   onOpenOnboarding: () => void; onEditGoal: (g: Goal) => void; onDuplicateGoal: (g: Goal) => void;
+  tasks?: Task[]; setTasks?: React.Dispatch<React.SetStateAction<Task[]>>;
+  userEmail?: string; orgMembers?: OrgMember[];
 }) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({ active: false, drafted: false, completed: false });
   const [confirmComplete, setConfirmComplete] = useState<Goal | null>(null);
@@ -3177,7 +3241,18 @@ function GoalsPage({ goals, setGoals, sections, viewMode, onOpenOnboarding, onEd
                 </SectionCard>
                 <SectionCard>
                   <div style={{ display: "inline-block", background: "#3B82F6", color: "#fff", borderRadius: 99, padding: "5px 14px", fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Next Actions</div>
-                  <div style={{ fontSize: 12, color: "#cbd5e1", fontStyle: "italic" }}>No actions yet</div>
+                  {(() => {
+                    const linked = (tasks || []).filter(t => t.linkedGoalId === g.id);
+                    if (linked.length === 0) return <div style={{ fontSize: 12, color: "#cbd5e1", fontStyle: "italic" }}>No actions yet</div>;
+                    return linked.map(t => (
+                      <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                        <div onClick={(e) => { e.stopPropagation(); if (setTasks) setTasks(prev => prev.map(x => x.id === t.id ? { ...x, done: !x.done } : x)); }}
+                          style={{ width: 18, height: 18, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 9 }}>{t.done ? "✓" : ""}</div>
+                        <span style={{ fontSize: 12, color: "#1a2332", flex: 1, textDecoration: t.done ? "line-through" : "none", minWidth: 0 }}>{t.text}</span>
+                        <span style={{ fontSize: 10, color: "#94a3b8", whiteSpace: "nowrap" }}>{t.assignedTo ? t.assignedTo.split("@")[0] : ""}</span>
+                      </div>
+                    ));
+                  })()}
                 </SectionCard>
               </div>
             </>
@@ -3827,56 +3902,225 @@ function GoalSettingsModal({ goal, sections, isMobile, onSave, onDuplicate, onDe
 // PAGE: TASKS
 // ═══════════════════════════════════════════════════════════════════════════
 
-function TasksPage({ tasks, setTasks }: { tasks: any[]; setTasks: (t: any[]) => void }) {
-  const [filter, setFilter] = useState<"all" | "active" | "completed">("all");
-  const toggle = (id: string) => setTasks(tasks.map((x: any) => x.id === id ? { ...x, done: !x.done } : x));
-  const filtered = tasks.filter(t => filter === "all" ? true : filter === "active" ? !t.done : t.done);
+function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections, goals, onViewMetric, onViewGoal, onViewTeamMember }: {
+  tasks: Task[]; setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
+  userEmail: string; orgMembers: OrgMember[]; teamRows: TeamRow[];
+  sections: Section[]; goals: Goal[];
+  onViewMetric: (id: string) => void; onViewGoal: (id: string) => void;
+  onViewTeamMember: (m: OrgMember) => void;
+}) {
+  const [showAdd, setShowAdd] = useState(false);
+  const toggle = (id: string) => setTasks(tasks.map(t => t.id === id ? { ...t, done: !t.done } : t));
+  const myTasks = tasks.filter(t => t.assignedTo === userEmail);
+  const doneCount = myTasks.filter(t => t.done).length;
+  const totalCount = myTasks.length;
+  const pct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
+
+  const teamMembersWithTasks = orgMembers
+    .filter(m => m.status === "active")
+    .map(m => ({ member: m, memberTasks: tasks.filter(t => t.assignedTo === m.email) }))
+    .filter(x => x.memberTasks.length > 0);
+
+  const suggestedTasks = sections.flatMap(s =>
+    s.metrics
+      .filter(m => m.modal?.suggestions?.length)
+      .flatMap(m => m.modal!.suggestions.map((sg: string) => ({ text: sg, metricId: m.id, sectionId: s.id })))
+  );
+
+  const addSuggestedTask = (text: string) => {
+    setTasks(prev => [...prev, {
+      id: crypto.randomUUID(), text, done: false, assignedTo: userEmail,
+      createdBy: userEmail, createdAt: new Date().toISOString(),
+    }]);
+  };
+
   return (
-    <div style={{ padding: "clamp(16px,4vw,32px)" }}>
+    <div style={{ padding: "clamp(16px,4vw,32px)", height: "100%", display: "flex", flexDirection: "column" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24, flexWrap: "wrap" }}>
-        <h1 style={{ margin: 0, fontSize: "clamp(20px,4vw,26px)", fontWeight: 700, color: "#1a2332" }}>Tasks <span style={{ fontSize: 12, color: "#94a3b8", fontWeight: 400 }}>(Coming Soon)</span></h1>
-        <button style={{ padding: "7px 18px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", marginLeft: "auto" }}>+ Add Task</button>
+        <h1 style={{ margin: 0, fontSize: "clamp(20px,4vw,26px)", fontWeight: 700, color: "#1a2332" }}>Tasks</h1>
+        <div style={{ marginLeft: "auto" }} />
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0,2fr) minmax(180px,1fr)", gap: 20, opacity: 0.35, pointerEvents: "none", filter: "grayscale(0.7)", userSelect: "none" }}>
-        <div>
-          <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-            {(["all", "active", "completed"] as const).map(f => (
-              <div key={f} onClick={() => setFilter(f)} style={{ padding: "5px 14px", borderRadius: 20, fontSize: 12, fontWeight: 500, cursor: "pointer", background: filter === f ? "#3B82F6" : "#f1f5f9", color: filter === f ? "#fff" : "#64748b", textTransform: "capitalize" }}>
-                {f}{f === "all" ? ` (${tasks.length})` : ""}
-              </div>
-            ))}
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, flex: 1, minHeight: 0 }}>
+        {/* ── Left Column ── */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 20, minHeight: 0 }}>
+          {/* Your Tasks */}
+          <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #f1f5f9", padding: "20px", display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+              <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#1a2332", flex: 1 }}>Your Tasks</h2>
+              <div style={{ fontSize: 12, color: "#94a3b8" }}>Overall Progress</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#4CAF7D" }}>{doneCount}/{totalCount}</div>
+            </div>
+            {/* Progress bar */}
+            <div style={{ height: 8, borderRadius: 99, background: "#e2e8f0", marginBottom: 16, overflow: "hidden" }}>
+              <div style={{ width: `${pct}%`, height: "100%", borderRadius: 99, background: "#4CAF7D", transition: "width 0.3s" }} />
+            </div>
+            {/* Task list */}
+            <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 4 }}>
+              {myTasks.length === 0 && (
+                <div style={{ fontSize: 12, color: "#cbd5e1", fontStyle: "italic", padding: "12px 0", textAlign: "center" }}>No tasks assigned to you yet.</div>
+              )}
+              {myTasks.map(t => (
+                <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8, background: t.done ? "#f8fafc" : "#fff", border: "1px solid #f1f5f9", opacity: t.done ? 0.6 : 1 }}>
+                  <div onClick={() => toggle(t.id)} style={{ width: 20, height: 20, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 11 }}>{t.done ? "✓" : ""}</div>
+                  <div style={{ flex: 1, fontSize: 13, color: "#1a2332", textDecoration: t.done ? "line-through" : "none", minWidth: 0 }}>{t.text}</div>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, flexShrink: 0 }}>
+                    {t.dueDate && <div style={{ fontSize: 11, color: "#94a3b8", whiteSpace: "nowrap" }}>{t.dueDate}</div>}
+                    <div style={{ display: "flex", gap: 6 }}>
+                      {t.linkedMetricId && (
+                        <span onClick={() => onViewMetric(t.linkedMetricId!)} style={{ fontSize: 10, color: "#3B82F6", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}>
+                          View Metric →
+                        </span>
+                      )}
+                      {t.linkedGoalId && (
+                        <span onClick={() => onViewGoal(t.linkedGoalId!)} style={{ fontSize: 10, color: "#7B68EE", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}>
+                          View Goal →
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div onClick={() => setShowAdd(true)} style={{ display: "flex", alignItems: "center", gap: 8, color: "#94a3b8", fontSize: 13, cursor: "pointer", padding: "8px 0 0", borderTop: "1px solid #f1f5f9", marginTop: 10 }}>
+              <div style={{ width: 24, height: 24, borderRadius: "50%", border: "1.5px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, color: "#94a3b8" }}>+</div>
+              Add New Task
+            </div>
           </div>
-          {filtered.map(t => (
-            <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: "#fff", borderRadius: 10, marginBottom: 6, border: "1px solid #f1f5f9", opacity: t.done ? 0.6 : 1 }}>
-              <div onClick={() => toggle(t.id)} style={{ width: 20, height: 20, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 11 }}>{t.done ? "✓" : ""}</div>
-              <div style={{ flex: 1, fontSize: 13, color: "#1a2332", textDecoration: t.done ? "line-through" : "none" }}>{t.text}</div>
-              <div style={{ fontSize: 11, color: "#94a3b8" }}>Due {t.due}</div>
-              <Av initials={t.assignee} size={26} />
+
+          {/* Suggested Tasks */}
+          <div style={{ background: "linear-gradient(135deg,#EFF6FF,#F0FDF4)", borderRadius: 16, border: "1px solid #e2e8f0", padding: "20px", flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#1a2332", marginBottom: 4 }}>Suggested Tasks ✦</div>
+            <div style={{ fontSize: 11, color: "#64748b", marginBottom: 12, lineHeight: 1.5 }}>
+              These AI tasks are from the metric boxes you have access to. They recommend next steps for your business based on your data to increase the health score of your business.
+            </div>
+            <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
+              {suggestedTasks.length === 0 && (
+                <div style={{ fontSize: 12, color: "#cbd5e1", fontStyle: "italic", padding: "12px 0", textAlign: "center" }}>No AI suggestions yet. Use metric boxes to generate them.</div>
+              )}
+              {suggestedTasks.slice(0, 10).map((st, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "#fff", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+                  <div onClick={() => addSuggestedTask(st.text)} style={{ width: 24, height: 24, borderRadius: "50%", border: "1.5px solid #3B82F6", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#3B82F6", fontSize: 14, flexShrink: 0, background: "#EFF6FF" }}>+</div>
+                  <div style={{ flex: 1, fontSize: 12, color: "#1a2332", minWidth: 0 }}>{st.text}</div>
+                  <span onClick={() => onViewMetric(st.metricId)} style={{ fontSize: 10, color: "#3B82F6", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap", flexShrink: 0 }}>
+                    View Metrics →
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* ── Right Column: Team Tasks ── */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, minHeight: 0, overflowY: "auto" }}>
+          <h2 style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 700, color: "#1a2332" }}>Team Tasks</h2>
+          {teamMembersWithTasks.length === 0 && (
+            <div style={{ fontSize: 12, color: "#cbd5e1", fontStyle: "italic", padding: 20, textAlign: "center" }}>No team tasks yet.</div>
+          )}
+          {teamMembersWithTasks.map(({ member, memberTasks }) => (
+            <div key={member.id} style={{ background: "#fff", borderRadius: 14, border: "1px solid #f1f5f9", padding: "16px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                {member.avatarUrl ? (
+                  <img src={member.avatarUrl} alt="" style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+                ) : (
+                  <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#94a3b8", flexShrink: 0 }}>
+                    {(member.name?.[0] || member.email[0] || "?").toUpperCase()}
+                  </div>
+                )}
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#1a2332" }}>{member.name || member.email.split("@")[0]}</div>
+                <div style={{ flex: 1 }} />
+                <div style={{ fontSize: 10, fontWeight: 600, color: "#fff", background: "#3B82F6", borderRadius: 99, padding: "2px 10px", whiteSpace: "nowrap" }}>Next Actions</div>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                {memberTasks.slice(0, 3).map(t => (
+                  <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 6, background: t.done ? "#f8fafc" : "#fff", border: "1px solid #f1f5f9", opacity: t.done ? 0.6 : 1 }}>
+                    <div onClick={() => toggle(t.id)} style={{ width: 16, height: 16, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 8 }}>{t.done ? "✓" : ""}</div>
+                    <div style={{ flex: 1, fontSize: 12, color: "#1a2332", textDecoration: t.done ? "line-through" : "none", minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.text}</div>
+                    {t.dueDate && <div style={{ fontSize: 10, color: "#94a3b8", whiteSpace: "nowrap", flexShrink: 0 }}>{t.dueDate}</div>}
+                  </div>
+                ))}
+                {memberTasks.length > 3 && (
+                  <div onClick={() => onViewTeamMember(member)} style={{ fontSize: 11, color: "#3B82F6", cursor: "pointer", fontWeight: 600, padding: "6px 0 0", textAlign: "center", borderTop: "1px solid #f1f5f9", marginTop: 4 }}>
+                    View All ({memberTasks.length} tasks) →
+                  </div>
+                )}
+                {memberTasks.length <= 3 && memberTasks.length > 0 && (
+                  <div onClick={() => onViewTeamMember(member)} style={{ fontSize: 11, color: "#3B82F6", cursor: "pointer", fontWeight: 600, padding: "4px 0 0", textAlign: "center" }}>
+                    View All →
+                  </div>
+                )}
+              </div>
             </div>
           ))}
         </div>
-        <div>
-          <SectionCard title="Suggested Tasks ✦">
-            <div style={{ fontSize: 10, color: "#94a3b8", marginBottom: 10 }}>Based on your dashboard metrics</div>
-            {["Close 5 more calls", "Send 13 invoices", "Add $3,500 from Overhead"].map((t, i) => (
-              <div key={i} style={{ display: "flex", gap: 8, padding: "8px 10px", background: "#fff", borderRadius: 8, marginBottom: 6, border: "1px solid #f1f5f9" }}>
-                <span style={{ fontSize: 16, color: "#94a3b8", cursor: "pointer" }}>⊕</span>
-                <span style={{ fontSize: 12, color: "#1a2332" }}>{t}</span>
-              </div>
-            ))}
-          </SectionCard>
-          <div style={{ marginTop: 12 }}>
-            <SectionCard>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#1a2332", marginBottom: 10 }}>Task Summary</div>
-              {[["Total", tasks.length], ["Completed", tasks.filter(t => t.done).length], ["Pending", tasks.filter(t => !t.done).length]].map(([l, v]) => (
-                <div key={l as string} style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                  <span style={{ fontSize: 12, color: "#64748b" }}>{l}</span>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: "#1a2332" }}>{v}</span>
-                </div>
+      </div>
+
+      {/* Add Task Modal */}
+      {showAdd && (
+        <AddTaskModal
+          userEmail={userEmail}
+          orgMembers={orgMembers}
+          onSave={(newTask) => {
+            setTasks(prev => [...prev, newTask]);
+            setShowAdd(false);
+          }}
+          onClose={() => setShowAdd(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── ADD TASK MODAL ──────────────────────────────────────────────────────────
+function AddTaskModal({ userEmail, orgMembers, onSave, onClose }: {
+  userEmail: string; orgMembers: OrgMember[];
+  onSave: (task: Task) => void; onClose: () => void;
+}) {
+  const [text, setText] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [assignee, setAssignee] = useState(userEmail);
+  const handleSave = () => {
+    if (!text.trim()) return;
+    onSave({
+      id: crypto.randomUUID(),
+      text: text.trim(),
+      done: false,
+      dueDate: dueDate || undefined,
+      assignedTo: assignee,
+      createdBy: userEmail,
+      createdAt: new Date().toISOString(),
+    });
+  };
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000, padding: 16 }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 20, padding: "28px", width: "100%", maxWidth: 400, boxShadow: "0 24px 64px rgba(0,0,0,0.18)" }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4 }}>
+          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#94a3b8", padding: 0, lineHeight: 1 }}>×</button>
+        </div>
+        <h3 style={{ margin: "0 0 16px", fontSize: 18, fontWeight: 700, color: "#1a2332" }}>New Task</h3>
+        <input value={text} onChange={e => setText(e.target.value)} placeholder="Task description"
+          style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none", boxSizing: "border-box", marginBottom: 12 }} />
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>Due Date</div>
+            <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)}
+              style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", boxSizing: "border-box" }} />
+          </div>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>Assign To</div>
+            <select value={assignee} onChange={e => setAssignee(e.target.value)}
+              style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", background: "#fff", boxSizing: "border-box" }}>
+              <option value={userEmail}>Me ({userEmail})</option>
+              {orgMembers.filter(m => m.status === "active" && m.email !== userEmail).map(m => (
+                <option key={m.id} value={m.email}>{m.name || m.email}</option>
               ))}
-            </SectionCard>
+            </select>
           </div>
         </div>
+        <button onClick={handleSave} disabled={!text.trim()}
+          style={{ width: "100%", padding: "10px 0", borderRadius: 8, border: "none", background: text.trim() ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0", color: text.trim() ? "#fff" : "#94a3b8", fontSize: 13, fontWeight: 600, cursor: text.trim() ? "pointer" : "not-allowed" }}>
+          Add Task
+        </button>
       </div>
     </div>
   );
@@ -3970,7 +4214,7 @@ function AppDetailPage({ app, onBack }: { app: typeof APPS[0]; onBack: () => voi
 // PAGE: TEAM
 // ═══════════════════════════════════════════════════════════════════════════
 
-function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, teamPermissions, setTeamPermissions, currentUserLevel, userEmail, onOpenInvite, onPreviewMember, onExitPreviewSave, previewFromSave }: {
+function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, teamPermissions, setTeamPermissions, currentUserLevel, userEmail, onOpenInvite, onPreviewMember, onExitPreviewSave, previewFromSave, pendingMemberDetail, onClearPendingMember, tasks, setTasks }: {
   sections: Section[]; orgMembers: OrgMember[]; setOrgMembers: React.Dispatch<React.SetStateAction<OrgMember[]>>;
   teamRows: TeamRow[]; setTeamRows: React.Dispatch<React.SetStateAction<TeamRow[]>>;
   teamPermissions: TeamPermissions[]; setTeamPermissions: React.Dispatch<React.SetStateAction<TeamPermissions[]>>;
@@ -3978,6 +4222,9 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
   onPreviewMember?: (member: OrgMember, perms: TeamPermissions) => void;
   onExitPreviewSave?: () => void;
   previewFromSave?: boolean;
+  pendingMemberDetail?: OrgMember | null;
+  onClearPendingMember?: () => void;
+  tasks?: Task[]; setTasks?: React.Dispatch<React.SetStateAction<Task[]>>;
 }) {
   const [showAddTeam, setShowAddTeam] = useState(false);
   const [editingTeam, setEditingTeam] = useState<TeamRow | null>(null);
@@ -3985,6 +4232,12 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
   const [permModalMember, setPermModalMember] = useState<OrgMember | null>(null);
   const [transferringFrom, setTransferringFrom] = useState<OrgMember | null>(null);
   const [memberDetail, setMemberDetail] = useState<OrgMember | null>(null);
+  useEffect(() => {
+    if (pendingMemberDetail) {
+      setMemberDetail(pendingMemberDetail);
+      onClearPendingMember?.();
+    }
+  }, [pendingMemberDetail]);
   const isManager = currentUserLevel === "owner" || currentUserLevel === "admin";
 
   const dragTeamRef = useRef<string | null>(null);
@@ -4258,6 +4511,20 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
                   <strong>Metrics:</strong> {metricCount}
                 </div>
               </div>
+              {/* Tasks section */}
+              {(tasks || []).filter(t => t.assignedTo === memberDetail.email).length > 0 && (
+                <div style={{ textAlign: "left", background: "#f8fafc", borderRadius: 12, padding: "14px 16px", marginBottom: 18 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>Tasks</div>
+                  {(tasks || []).filter(t => t.assignedTo === memberDetail.email).map(t => (
+                    <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                      <div onClick={(e) => { e.stopPropagation(); if (setTasks) setTasks(prev => prev.map(x => x.id === t.id ? { ...x, done: !x.done } : x)); }}
+                        style={{ width: 16, height: 16, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 8 }}>{t.done ? "✓" : ""}</div>
+                      <span style={{ fontSize: 12, color: "#1a2332", flex: 1, textDecoration: t.done ? "line-through" : "none", minWidth: 0 }}>{t.text}</span>
+                      {t.dueDate && <span style={{ fontSize: 10, color: "#94a3b8", whiteSpace: "nowrap" }}>{t.dueDate}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {/* Owner self-view: Transfer Ownership */}
                 {isSelf && memberDetail.level === "owner" && currentUserLevel === "owner" && (
@@ -6853,7 +7120,7 @@ function PlaybooksPage({ userId }: { userId: string | null }) {
 const NAV: { icon: string; label: string; page: Page; comingSoon?: boolean }[] = [
   { icon: "House", label: "Home", page: "home" },
   { icon: "Target", label: "Goals", page: "goals" },
-  { icon: "CheckSquare", label: "Tasks", page: "tasks", comingSoon: true },
+  { icon: "CheckSquare", label: "Tasks", page: "tasks" },
   { icon: "Notebook", label: "Playbooks", page: "playbooks", comingSoon: true },
   { icon: "Plugs", label: "Integrations", page: "integrations", comingSoon: true },
   { icon: "Users", label: "Team", page: "team" },
@@ -7222,6 +7489,9 @@ export default function DashelloDashboard() {
   const [fiveAccountForceOff, setFiveAccountForceOff] = useState(false);
   // Equation builder state
   const [equationBuilderTarget, setEquationBuilderTarget] = useState<{ metricId: string; sectionId: string } | null>(null);
+  const [viewMetricId, setViewMetricId] = useState<string | null>(null);
+  const [viewGoalId, setViewGoalId] = useState<string | null>(null);
+  const [pendingMemberDetail, setPendingMemberDetail] = useState<OrgMember | null>(null);
   
   // Track where to return after equation builder closes
   const pageBeforeEquationRef = useRef<Page>("home");
@@ -7336,15 +7606,7 @@ export default function DashelloDashboard() {
 
   // (reopen effect removed - equation builder returns directly to metric-settings inline view)
 
-  const [tasksData, setTasksData] = useState([
-    { id: "1", text: "Review Q3 financials", done: false, assignee: "AJ", due: "Mar 15" },
-    { id: "2", text: "Follow up with 5 leads", done: true, assignee: "BK", due: "Mar 12" },
-    { id: "3", text: "Update marketing report", done: false, assignee: "CL", due: "Mar 18" },
-    { id: "4", text: "Team standup notes", done: true, assignee: "AJ", due: "Mar 11" },
-    { id: "5", text: "Invoice client #4821", done: false, assignee: "DM", due: "Mar 20" },
-    { id: "6", text: "Send 34 quotes", done: false, assignee: "BK", due: "Mar 22" },
-    { id: "7", text: "Add $9,756 to Tax account", done: false, assignee: "AJ", due: "Mar 14" },
-  ]);
+  const [tasksData, setTasksData] = useState<Task[]>([]);
 
   const [goalsData, setGoalsData] = useState<Goal[]>([]);
   const [goalsViewMode, setGoalsViewMode] = useState<"row" | "expanded">("row");
@@ -7453,7 +7715,7 @@ export default function DashelloDashboard() {
         if (pct >= 100) {
           const taskText = `Complete your goal: ${g.label}`;
           if (!next.some(t => t.text === taskText)) {
-            next.push({ id: crypto.randomUUID(), text: taskText, done: false, assignee: "AJ", due: g.due || "" });
+            next.push({ id: crypto.randomUUID(), text: taskText, done: false, assignedTo: "AJ", dueDate: g.due || "", createdBy: "", linkedGoalId: g.id, createdAt: new Date().toISOString() });
             changed = true;
           }
         }
@@ -7461,6 +7723,30 @@ export default function DashelloDashboard() {
       return changed ? next : prev;
     });
   }, [goalsData, sections]);
+
+  // Navigate to metric detail when requested from tasks page
+  useEffect(() => {
+    if (!viewMetricId) return;
+    for (const section of sections) {
+      const metric = section.metrics.find(m => m.id === viewMetricId);
+      if (metric) {
+        setPage("home");
+        setInlineMetric(metric);
+        setInlineView("metric-detail");
+        setViewMode("inline");
+        viewModeRef.current = "inline";
+        break;
+      }
+    }
+    setViewMetricId(null);
+  }, [viewMetricId, sections]);
+
+  useEffect(() => {
+    if (!viewGoalId) return;
+    setPage("goals");
+    setGoalsViewMode("expanded");
+    setViewGoalId(null);
+  }, [viewGoalId]);
 
   // Mobile
   useEffect(() => {
@@ -8023,11 +8309,11 @@ const sidebarEl = (
             onFiveAccountDisabledFromBox={handleFiveAccountDisabledFromBox}
             onOpenEquationBuilder={handleOpenEquationBuilder}
             orgMembers={orgMembers} />}
-          {page === "goals" && <div style={{ flex: 1, overflowY: "auto" }}><GoalsPage goals={goalsData} setGoals={setGoalsData} sections={isPreviewMode && previewSections ? previewSections : sections} viewMode={goalsViewMode} onOpenOnboarding={() => setShowGoalOnboarding(true)} onEditGoal={handleEditGoal} onDuplicateGoal={handleDuplicateGoal} /></div>}
-          {page === "tasks" && <div style={{ flex: 1, overflowY: "auto" }}><TasksPage tasks={tasksData} setTasks={setTasksData} /></div>}
+          {page === "goals" && <div style={{ flex: 1, overflowY: "auto" }}><GoalsPage goals={goalsData} setGoals={setGoalsData} sections={isPreviewMode && previewSections ? previewSections : sections} viewMode={goalsViewMode} onOpenOnboarding={() => setShowGoalOnboarding(true)} onEditGoal={handleEditGoal} onDuplicateGoal={handleDuplicateGoal} tasks={tasksData} setTasks={setTasksData} userEmail={userEmail} orgMembers={orgMembers} /></div>}
+          {page === "tasks" && <div style={{ flex: 1, overflowY: "auto" }}><TasksPage tasks={tasksData} setTasks={setTasksData} userEmail={userEmail} orgMembers={orgMembers} teamRows={teamRows} sections={sections} goals={goalsData} onViewMetric={id => setViewMetricId(id)} onViewGoal={id => setViewGoalId(id)} onViewTeamMember={m => { setPendingMemberDetail(m); setPage("team"); }} /></div>}
           {page === "integrations" && <div style={{ flex: 1, overflowY: "auto" }}><IntegrationsPage onSelectApp={a => { setSelectedApp(a); setPage("app-detail"); }} /></div>}
           {page === "app-detail" && selectedApp && <div style={{ flex: 1, overflowY: "auto" }}><AppDetailPage app={selectedApp} onBack={() => setPage("integrations")} /></div>}
-          {page === "team" && <div style={{ flex: 1, overflowY: "auto" }}><TeamPage sections={isPreviewMode && previewSections ? previewSections : sections} orgMembers={orgMembers} setOrgMembers={setOrgMembers} teamRows={teamRows} setTeamRows={setTeamRows} teamPermissions={teamPermissions} setTeamPermissions={setTeamPermissions} currentUserLevel={currentUserLevel} userEmail={userEmail} onOpenInvite={() => setShowInviteModal(true)} onPreviewMember={(member, perms) => { setPreviewMember(member); setPreviewPerms(perms); setPage("home"); }} onExitPreviewSave={() => { setPreviewFromSave(false); }} previewFromSave={previewFromSave} /></div>}
+          {page === "team" && <div style={{ flex: 1, overflowY: "auto" }}><TeamPage sections={isPreviewMode && previewSections ? previewSections : sections} orgMembers={orgMembers} setOrgMembers={setOrgMembers} teamRows={teamRows} setTeamRows={setTeamRows} teamPermissions={teamPermissions} setTeamPermissions={setTeamPermissions} currentUserLevel={currentUserLevel} userEmail={userEmail} onOpenInvite={() => setShowInviteModal(true)} onPreviewMember={(member, perms) => { setPreviewMember(member); setPreviewPerms(perms); setPage("home"); }} onExitPreviewSave={() => { setPreviewFromSave(false); }} previewFromSave={previewFromSave} pendingMemberDetail={pendingMemberDetail} onClearPendingMember={() => setPendingMemberDetail(null)} tasks={tasksData} setTasks={setTasksData} /></div>}
           {page === "settings" && <div style={{ flex: 1, overflowY: "auto" }}><SettingsPage userId={userId!} userEmail={userEmail} profile={profile} forceDisableFiveAccount={fiveAccountForceOff} onForceDisableAcknowledged={() => setFiveAccountForceOff(false)} onProfileSaved={p => setProfile(p)} onFiveAccountCreated={handleFiveAccountCreated} onFiveAccountDisabled={handleGlobalFiveAccountDisabled} fiveAccountSettings={fiveAccountSettings} onFiveAccountSettingsChange={handleUpdateSettings} currentUserLevel={currentUserLevel} /></div>}
           {page === "playbooks" && <PlaybooksPage userId={userId} />}
           {page === "equation-builder" && equationBuilderTarget && (
@@ -8086,6 +8372,10 @@ const sidebarEl = (
                       return resynced;
                     });
                   }}
+                  tasks={tasksData}
+                  setTasks={setTasksData}
+                  userEmail={userEmail}
+                  orgMembers={orgMembers}
                   inline
                 />
               </div>
@@ -8192,6 +8482,10 @@ const sidebarEl = (
                 return resynced;
               });
             }}
+            tasks={tasksData}
+            setTasks={setTasksData}
+            userEmail={userEmail}
+            orgMembers={orgMembers}
           />
           {!isMobile && (
             <div onClick={() => { setViewMode("inline"); viewModeRef.current = "inline"; setInlineView("metric-detail"); setActiveModal(null); }}
