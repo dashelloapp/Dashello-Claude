@@ -1378,9 +1378,10 @@ function RefreshButton({ onRefresh, lastSyncedAt, metricId }: {
   );
 }
 
-function TopBarRefreshButton({ onRefresh, lastSyncedAt }: {
+function TopBarRefreshButton({ onRefresh, lastSyncedAt, isMobile }: {
   onRefresh: () => Promise<void>;
   lastSyncedAt?: number | null;
+  isMobile?: boolean;
 }) {
   const [state, setState] = useState<"idle" | "spinning" | "done">("idle");
   const [displaySynced, setDisplaySynced] = useState<number | null>(() => {
@@ -1408,20 +1409,21 @@ function TopBarRefreshButton({ onRefresh, lastSyncedAt }: {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
       <button onClick={handleClick} style={{
-        display: "flex", alignItems: "center", gap: 5,
-        padding: "4px 10px", borderRadius: 7, border: "1px solid #e2e8f0",
+        display: "flex", alignItems: "center", justifyContent: "center", gap: isMobile ? 0 : 5,
+        width: isMobile ? 36 : undefined, height: isMobile ? 36 : undefined,
+        padding: isMobile ? 0 : "4px 10px", borderRadius: isMobile ? "50%" : 7, border: "1px solid #e2e8f0",
         background: state === "done" ? "#F0FDF4" : "#f8fafc",
         borderColor: state === "done" ? "#4CAF7D" : "#e2e8f0",
         cursor: "pointer", fontSize: 11, fontWeight: 500,
         color: state === "done" ? "#4CAF7D" : "#64748b",
         transition: "all 0.2s"
       }}>
-        <span style={{ display: "inline-block", fontSize: 13, animation: state === "spinning" ? "spin 0.7s linear infinite" : "none" }}>
+        <span style={{ display: "inline-block", fontSize: isMobile ? 16 : 13, animation: state === "spinning" ? "spin 0.7s linear infinite" : "none" }}>
           {state === "done" ? "✓" : "↻"}
         </span>
-        {state === "done" ? "Synced" : "Refresh Data"}
+        {!isMobile && (state === "done" ? "Synced" : "Refresh Data")}
       </button>
-      {displaySynced && (
+      {!isMobile && displaySynced && (
         <span style={{ fontSize: 10, color: "#94a3b8", fontStyle: "italic" }}>
           Synced {fmtTime(displaySynced)}
         </span>
@@ -2290,7 +2292,7 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
           )}
 
           <div style={{ padding: "6px clamp(16px,3vw,22px) clamp(16px,3vw,22px)" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "minmax(260px, 1fr) minmax(280px, 1fr)", gap: 24 }}>
+            <div className="stack-mobile" style={{ display: "grid", gridTemplateColumns: "minmax(260px, 1fr) minmax(280px, 1fr)", gap: 24 }}>
 
               {/* LEFT */}
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -2915,11 +2917,6 @@ function GoalsPage({ goals, setGoals, sections, viewMode, onOpenOnboarding, onEd
             </div>
             <span style={{ flex: 1, fontSize: 15, fontWeight: 600, color: "#1a2332", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.label}</span>
             {g.due && <span style={{ fontSize: 12, color: "#94a3b8", whiteSpace: "nowrap" }}>{g.due}</span>}
-            {!isCompact && g.subType && (
-              <span style={{ display: "flex", alignItems: "center", gap: 2, fontSize: 11, padding: "2px 8px", borderRadius: 99, background: "#eef2ff", color: "#4f46e5", fontWeight: 600 }}>
-                {g.subType === "financial" ? <IconGlyph name="CurrencyDollar" size={12} color="#4f46e5" /> : g.subType === "percentage" ? <IconGlyph name="Percent" size={12} color="#4f46e5" /> : <IconGlyph name="Hash" size={12} color="#4f46e5" />}
-              </span>
-            )}
             <div onClick={() => onEditGoal(g)} style={{ width: 32, height: 32, borderRadius: 8, background: "#f8fafc", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }} title="Edit goal settings">
               <IconGlyph name="PencilSimple" size={16} color="#64748b" />
             </div>
@@ -6915,7 +6912,7 @@ const sidebarEl = (
                 ))}
               </div>
             ) : null}
-            {(page === "home" || page === "goals" || page === "integrations" || page === "tasks") && <TopBarRefreshButton onRefresh={handleRefreshAll} lastSyncedAt={lastDashboardSync} />}
+            {(page === "home" || page === "goals" || page === "integrations" || page === "tasks") && <TopBarRefreshButton isMobile={isMobile} onRefresh={handleRefreshAll} lastSyncedAt={lastDashboardSync} />}
             {(page === "home" && inlineView) && (
               <BreadcrumbNav items={getBreadcrumbItems()} onNavigate={handleBreadcrumbNavigate} />
             )}
@@ -6947,7 +6944,7 @@ const sidebarEl = (
           </div>
           <div style={{ flex: 1 }} />
           <div onClick={() => setShowChat(v => !v)} style={{ padding: isMobile ? "10px 16px" : "6px 16px", borderRadius: 20, border: "1px solid #e2e8f0", fontSize: 12, color: "#64748b", cursor: "pointer", background: showChat ? "#EFF6FF" : "#fff", whiteSpace: "nowrap" }}>Chat</div>
-          <div style={{ padding: isMobile ? "10px 16px" : "7px clamp(10px,2vw,20px)", borderRadius: 8, background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>Customize</div>
+          <div onClick={() => setPage("integrations")} style={{ padding: isMobile ? "10px 16px" : "7px clamp(10px,2vw,20px)", borderRadius: 8, background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>Customize</div>
         </div>
 
         {/* Pages */}
@@ -7087,8 +7084,8 @@ const sidebarEl = (
       {editingGoal && <GoalSettingsModal goal={editingGoal} sections={sections} isMobile={isMobile} onSave={handleSaveGoal} onDuplicate={handleDuplicateGoal} onDelete={handleDeleteGoal} onClose={() => setEditingGoal(null)} />}
 
       {/* ── POPUP mode: metric detail modal ── */}
-      {viewMode === "popup" && activeModal && (
-        <>
+      {viewMode === "popup" && activeModal && (() => (
+        <div style={{ position: "relative" }}>
           <MetricModal key={activeModal.metric.id + '-' + (activeModal.metric.graphType ?? 'linear') + '-' + (activeModal.metric.colorRules?.length ?? 0) + '-' + (activeModal.metric.lastSyncedAt ?? 0)}
             data={activeModal.data}
             metric={activeModal.metric}
@@ -7123,26 +7120,19 @@ const sidebarEl = (
               });
             }}
           />
-          <div
-            onClick={() => { setViewMode("inline"); viewModeRef.current = "inline"; setInlineView("metric-detail"); setActiveModal(null); }}
-            title="Expand to full view"
-            style={{
-              position: "fixed", bottom: 28, right: 28, zIndex: 3000,
-              width: 44, height: 44, borderRadius: 12,
-              background: "linear-gradient(135deg,#3B82F6,#06B6D4)",
-              boxShadow: "0 4px 16px rgba(59,130,246,0.45)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              cursor: "pointer", transition: "transform 0.15s",
-            }}
-            onMouseEnter={e => (e.currentTarget.style.transform = "scale(1.1)")}
-            onMouseLeave={e => (e.currentTarget.style.transform = "scale(1)")}
-          >
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-              <path d="M3 11.5V15H6.5M15 6.5V3H11.5M3 6.5V3H6.5M15 11.5V15H11.5" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </div>
-        </>
-      )}
+          {!isMobile && (
+            <div onClick={() => { setViewMode("inline"); viewModeRef.current = "inline"; setInlineView("metric-detail"); setActiveModal(null); }}
+              title="Expand to full view"
+              style={{ position: "absolute", top: 96, right: 28, zIndex: 10, width: 30, height: 30, borderRadius: 8,
+                background: "linear-gradient(135deg,#3B82F6,#06B6D4)", boxShadow: "0 2px 8px rgba(59,130,246,0.35)",
+                display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+              <svg width="14" height="14" viewBox="0 0 18 18" fill="none">
+                <path d="M3 11.5V15H6.5M15 6.5V3H11.5M3 6.5V3H6.5M15 11.5V15H11.5" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+          )}
+        </div>
+      ))()}
 
       {/* ── POPUP mode: metric settings modal ── */}
       {viewMode === "popup" && editingMetricFromModal && (() => {
@@ -7150,7 +7140,7 @@ const sidebarEl = (
         for (const s of sections) { if (s.metrics.find(m => m.id === editingMetricFromModal.id)) { foundSid = s.id; break; } }
         const foundSection = sections.find(s => s.id === foundSid);
         return (
-          <>
+          <div style={{ position: "relative" }}>
             <MetricBoxSettingsModal
               initial={editingMetricFromModal}
               siblings={foundSection?.metrics ?? []}
@@ -7194,25 +7184,18 @@ const sidebarEl = (
                 setEditingMetricFromModal(null);
               }}
             />
-            <div
-              onClick={() => { setViewMode("inline"); viewModeRef.current = "inline"; setInlineView("metric-settings"); setEditingMetricFromModal(null); setActiveModal(null); }}
-              title="Expand to full view"
-              style={{
-                position: "fixed", bottom: 28, right: 28, zIndex: 4000,
-                width: 44, height: 44, borderRadius: 12,
-                background: "linear-gradient(135deg,#3B82F6,#06B6D4)",
-                boxShadow: "0 4px 16px rgba(59,130,246,0.45)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                cursor: "pointer", transition: "transform 0.15s",
-              }}
-              onMouseEnter={e => (e.currentTarget.style.transform = "scale(1.1)")}
-              onMouseLeave={e => (e.currentTarget.style.transform = "scale(1)")}
-            >
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                <path d="M3 11.5V15H6.5M15 6.5V3H11.5M3 6.5V3H6.5M15 11.5V15H11.5" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </div>
-          </>
+            {!isMobile && (
+              <div onClick={() => { setViewMode("inline"); viewModeRef.current = "inline"; setInlineView("metric-settings"); setEditingMetricFromModal(null); setActiveModal(null); }}
+                title="Expand to full view"
+                style={{ position: "absolute", top: 96, right: 28, zIndex: 10, width: 30, height: 30, borderRadius: 8,
+                  background: "linear-gradient(135deg,#3B82F6,#06B6D4)", boxShadow: "0 2px 8px rgba(59,130,246,0.35)",
+                  display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                <svg width="14" height="14" viewBox="0 0 18 18" fill="none">
+                  <path d="M3 11.5V15H6.5M15 6.5V3H11.5M3 6.5V3H6.5M15 11.5V15H11.5" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
+            )}
+          </div>
         );
       })()}
 
