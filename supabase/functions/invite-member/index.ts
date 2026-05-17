@@ -18,7 +18,7 @@ serve(async (req) => {
   }
 
   try {
-    const { email, invitedByName } = await req.json();
+    const { email, orgName, invitedByName } = await req.json();
 
     if (!email) {
       return new Response(JSON.stringify({ error: "Missing required field: email" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -44,23 +44,21 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Check if user already exists in auth
-    const { data: { users } } = await supabase.auth.admin.listUsers();
-    const existingUser = users?.find(u => u.email === email);
+    const displayName = orgName || "Dashello";
+    const inviterName = invitedByName || caller.user_metadata?.full_name || caller.email || "A team member";
 
-    if (existingUser) {
-      return new Response(JSON.stringify({ success: true, alreadyUser: true }), {
-        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Send invite email
+    // Always send the invite email — Supabase handles existing users gracefully
     const { data: invite, error: inviteError } = await supabase.auth.admin.inviteUserByEmail(email, {
       redirectTo: "https://app.dashello.co",
-      data: { invited_by: invitedByName ?? caller.user_metadata?.full_name ?? "A team member" },
+      data: {
+        org_name: displayName,
+        invited_by: inviterName,
+      },
     });
 
-    if (inviteError) throw inviteError;
+    if (inviteError) {
+      throw inviteError;
+    }
 
     return new Response(JSON.stringify({ success: true, userId: invite?.user?.id }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },

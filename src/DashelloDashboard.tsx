@@ -34,12 +34,12 @@ async function saveOrgData(userId: string, payload: any) {
     await supabase.from("organizations").insert({ user_id: userId, data: payload });
   }
 }
-async function inviteTeamMember(email: string, orgId: string, level: OrgPermissionLevel, invitedByName: string) {
+async function inviteTeamMember(email: string, orgId: string, level: OrgPermissionLevel, invitedByName: string, orgName?: string) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.access_token) throw new Error("Not authenticated");
   try {
     const res = await supabase.functions.invoke("invite-member", {
-      body: { email, orgId, level, invitedByName },
+      body: { email, orgId, level, invitedByName, orgName },
     });
     if (res.error) {
       let msg = res.error.message;
@@ -2649,6 +2649,7 @@ function AddTeamModal({ orgId, orgs, setOrgs, orgMembers, setOrgMembers, teamRow
   const sortedTeams = [...teamRows].sort((a, b) => a.order - b.order);
   const topTeamId = sortedTeams[0]?.id ?? "";
   const showTeamDropdown = sortedTeams.length > 1;
+  const activeOrgName = orgs.find(o => o.id === orgId)?.name;
   const [rows, setRows] = useState([{ email: "", level: allowedLevels[0] as OrgPermissionLevel, teamId: topTeamId }]);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
@@ -2681,7 +2682,7 @@ function AddTeamModal({ orgId, orgs, setOrgs, orgMembers, setOrgMembers, teamRow
     const newMembers: OrgMember[] = [];
     for (const row of valid) {
       try {
-        await inviteTeamMember(row.email.trim(), orgId, row.level, invitedByName ?? "A team member");
+        await inviteTeamMember(row.email.trim(), orgId, row.level, invitedByName ?? "A team member", activeOrgName);
         newMembers.push({
           id: crypto.randomUUID(),
           email: row.email.trim(),
