@@ -1583,12 +1583,13 @@ function CashBalanceInput({ value, currencySymbol, statValColor, statTextColor, 
     </div>
   );
 }
-function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onRefreshSections, siblings, onTransfer, inline }: {
+function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onRefreshSections, siblings, onTransfer, onResyncEquation, inline }: {
   data: MetricModalData; metric?: Metric;
   onClose: () => void; onEdit?: () => void; onValueChange?: (v: string, description?: string) => void;
   userId?: string; onRefreshSections?: () => Promise<void>;
   siblings?: Metric[];
   onTransfer?: (toMetricId: string, amount: number, description: string) => void;
+  onResyncEquation?: () => void;
   inline?: boolean;
 }) {
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -1939,32 +1940,37 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 22, marginBottom: 26 }}>
           <div>
-            {metric?.equation && metric.equation.steps.length > 0 && metric?.metricType !== "percentage" && metric?.metricType !== "financial" ? (
-              <div style={{ background: "#F0FDF4", border: "1px solid #c3e6d4", borderRadius: 10, padding: "12px 14px", marginBottom: 12 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#0F6E56", marginBottom: 4 }}>= Equation Active</div>
-                <div style={{ fontSize: 12, color: "#1a2332", marginBottom: 6 }}>
-                  {buildEquationPreviewString(metric.equation.steps, [metric]) || "Equation set"}
-                </div>
-                <div style={{ fontSize: 11, color: "#64748b" }}>This value is automatically computed. Edit the equation in metric settings.</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332", marginBottom: 8 }}>Manually Adjust Metric</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+              <button onClick={() => handleIncrement(-1)} style={{ width: 30, height: 30, borderRadius: "50%", border: "1.5px solid #d1d5db", background: "none", fontSize: 18, cursor: "pointer", color: "#9CA3AF" }}>−</button>
+              <div>
+                {isEditingValue
+                  ? <input value={localValue} onChange={e => setLocalValue(e.target.value)} onBlur={handleValueSave} onKeyDown={e => { if (e.key === "Enter") handleValueSave(); }} autoFocus
+                    style={{ fontSize: 26, fontWeight: 700, color: "#1a2332", border: "none", borderBottom: "2px solid #3B82F6", outline: "none", width: 130, background: "transparent" }} />
+                  : <div onClick={() => setIsEditingValue(true)} style={{ fontSize: 26, fontWeight: 700, color: "#1a2332", cursor: "text" }} title="Click to edit">{localValue}</div>}
+                {metric?.lastSyncedAt
+                  ? <div style={{ fontSize: 10, color: "#94a3b8", fontStyle: "italic" }}>{`Synced ${new Date(metric.lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}</div>
+                  : null
+                }
               </div>
-            ) : (
-              <>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332", marginBottom: 8 }}>Manually Adjust Metric</div>
-                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-                  <button onClick={() => handleIncrement(-1)} style={{ width: 30, height: 30, borderRadius: "50%", border: "1.5px solid #d1d5db", background: "none", fontSize: 18, cursor: "pointer", color: "#9CA3AF" }}>−</button>
-                  <div>
-                    {isEditingValue
-                      ? <input value={localValue} onChange={e => setLocalValue(e.target.value)} onBlur={handleValueSave} onKeyDown={e => { if (e.key === "Enter") handleValueSave(); }} autoFocus
-                        style={{ fontSize: 26, fontWeight: 700, color: "#1a2332", border: "none", borderBottom: "2px solid #3B82F6", outline: "none", width: 130, background: "transparent" }} />
-                      : <div onClick={() => setIsEditingValue(true)} style={{ fontSize: 26, fontWeight: 700, color: "#1a2332", cursor: "text" }} title="Click to edit">{localValue}</div>}
-                    {metric?.lastSyncedAt
-                      ? <div style={{ fontSize: 10, color: "#94a3b8", fontStyle: "italic" }}>{`Synced ${new Date(metric.lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}</div>
-                      : null
-                    }
-                  </div>
-                  <button onClick={() => handleIncrement(1)} style={{ width: 30, height: 30, borderRadius: "50%", border: "1.5px solid #d1d5db", background: "none", fontSize: 18, cursor: "pointer", color: "#9CA3AF" }}>+</button>
+              <button onClick={() => handleIncrement(1)} style={{ width: 30, height: 30, borderRadius: "50%", border: "1.5px solid #d1d5db", background: "none", fontSize: 18, cursor: "pointer", color: "#9CA3AF" }}>+</button>
+            </div>
+            {metric?.equation && metric.equation.steps.length > 0 && (
+              metric?.outOfSync ? (
+                <div style={{ background: "#FFF5F5", border: "1.5px solid #E85D75", borderRadius: 10, padding: "10px 14px", marginBottom: 12 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#E85D75", marginBottom: 4 }}>⚠ Out of Sync</div>
+                  <div style={{ fontSize: 11, color: "#475569", marginBottom: 8, lineHeight: 1.4 }}>Value was manually edited and may not match equation output.</div>
+                  <button onClick={onResyncEquation} style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#E85D75", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Re-sync with equation</button>
                 </div>
-              </>
+              ) : (
+                <div style={{ background: "#F0FDF4", border: "1px solid #c3e6d4", borderRadius: 10, padding: "12px 14px", marginBottom: 12 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "#0F6E56", marginBottom: 4 }}>= Equation Active</div>
+                  <div style={{ fontSize: 12, color: "#1a2332", marginBottom: 6 }}>
+                    {buildEquationPreviewString(metric.equation.steps, [metric]) || "Equation set"}
+                  </div>
+                  <div style={{ fontSize: 11, color: "#64748b" }}>This value is automatically computed. Edit the equation in metric settings.</div>
+                </div>
+              )
             )}
             <div style={{ border: "1px solid #e2e8f0", borderRadius: 12, padding: "6px 8px" }}>
               <ExpandableChart history={history} rules={colorRules} graphType={graphType} currentValue={localValue} />
@@ -5935,54 +5941,61 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
   health: HealthResult;
 }) {
   return (
-    <aside style={{ width: 240, flexShrink: 0, background: "#fff", display: "flex", flexDirection: "column", boxShadow: "2px 0 12px rgba(0,0,0,0.06)", height: "100%", minHeight: "100vh", overflowY: "auto", scrollbarWidth: "none" } as React.CSSProperties}>
-      <style>{`.nav-item:hover{background:#f1f5f9 !important}`}</style>
-      <div style={{ padding: "24px 18px 18px", borderBottom: "1px solid #f1f5f9", display: "flex", flexDirection: "column", alignItems: "center" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", position: "relative", marginBottom: 10 }}>
-          <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#e2e8f0", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>
-            {avatarUrl ? <img src={avatarUrl} alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ color: "#94a3b8" }}>👤</span>}
+    <aside style={{ width: 240, flexShrink: 0, background: "linear-gradient(135deg,#3B82F6,#06B6D4)", display: "flex", flexDirection: "column", boxShadow: "2px 0 12px rgba(0,0,0,0.06)", height: "100%", minHeight: "100vh", overflowY: "auto", scrollbarWidth: "none" } as React.CSSProperties}>
+      <div style={{ padding: "28px 18px 20px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", position: "relative", marginBottom: 12 }}>
+          <div style={{ width: 56, height: 56, borderRadius: "50%", background: "rgba(255,255,255,0.2)", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>
+            {avatarUrl ? <img src={avatarUrl} alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ color: "#fff" }}>👤</span>}
           </div>
-          {!isMobile && <div onClick={onClose} style={{ position: "absolute", right: 0, width: 26, height: 26, borderRadius: "50%", border: "1.5px solid #e2e8f0", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#94a3b8", fontSize: 14 }}>‹</div>}
+          {!isMobile && <div onClick={onClose} style={{ position: "absolute", right: 0, width: 26, height: 26, borderRadius: "50%", border: "1.5px solid rgba(255,255,255,0.4)", background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#fff", fontSize: 14 }}>‹</div>}
         </div>
         <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: "#1a2332" }}>{firstName ? `Welcome ${firstName}` : "Welcome"}</div>
-          <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 1 }}>to your dashboard</div>
+          <div style={{ fontSize: 13, fontWeight: 400, color: "#fff" }}>{firstName ? `Welcome ${firstName}` : "Welcome"}</div>
         </div>
       </div>
-      <nav style={{ flex: 1, padding: "10px 10px" }}>
-        {NAV.map(item => (
-          <div key={item.label} className="nav-item" onClick={() => { if (!item.comingSoon) onNav(item.page); }} style={{ display: "flex", alignItems: "center", gap: 9, padding: "9px 11px", borderRadius: 9, marginBottom: 2, cursor: item.comingSoon ? "default" : "pointer", background: active === item.page ? "#EFF6FF" : "transparent", color: item.comingSoon ? "#cbd5e1" : active === item.page ? "#3B82F6" : "#475569", fontSize: 13, fontWeight: active === item.page ? 600 : 400, transition: "background 0.15s", opacity: item.comingSoon ? 0.55 : 1 }}>
-            <IconGlyph name={item.icon} size={14} color={item.comingSoon ? "#cbd5e1" : active === item.page ? "#3B82F6" : "#475569"} />
-            <span style={{ whiteSpace: "nowrap" }}>{item.label}</span>
-            {item.comingSoon && <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 99, background: "#f1f5f9", color: "#94a3b8", marginLeft: "auto", whiteSpace: "nowrap" }}>Soon</span>}
-          </div>
-        ))}
+      <nav style={{ flex: 1, padding: "8px 12px" }}>
+        {NAV.map(item => {
+          const isActive = active === item.page;
+          return (
+            <div key={item.label} onClick={() => { if (!item.comingSoon) onNav(item.page); }}
+              style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderRadius: 99, marginBottom: 4,
+                cursor: item.comingSoon ? "default" : "pointer",
+                background: isActive ? "rgba(255,255,255,0.15)" : "transparent",
+                border: isActive ? "2px solid rgba(255,255,255,0.8)" : "2px solid transparent",
+                color: "#fff", fontSize: 16, fontWeight: isActive ? 600 : 400,
+                transition: "all 0.15s", opacity: item.comingSoon ? 0.55 : 1 }}>
+              <IconGlyph name={item.icon} size={28} color="#fff" />
+              <span style={{ whiteSpace: "nowrap" }}>{item.label}</span>
+              {item.comingSoon && <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 99, background: "rgba(255,255,255,0.2)", color: "rgba(255,255,255,0.7)", marginLeft: "auto", whiteSpace: "nowrap" }}>Soon</span>}
+            </div>
+          );
+        })}
       </nav>
       {health.hasData && (() => {
   const barColors = { green: "#4CAF7D", yellow: "#F5A623", red: "#E85D75" };
   return (
     <div style={{ padding: "0 18px 14px" }}>
-      <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 6, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.7)", marginBottom: 6, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <span>Health</span>
-        <span style={{ color: "#1a2332", fontWeight: 700 }}>{health.score}%</span>
+        <span style={{ color: "#fff", fontWeight: 700 }}>{health.score}%</span>
       </div>
-      <div style={{ width: "100%", height: 32, background: "#f1f5f9", borderRadius: 99, overflow: "hidden" }}>
+      <div style={{ width: "100%", height: 32, background: "rgba(255,255,255,0.2)", borderRadius: 99, overflow: "hidden" }}>
         <div style={{
           width: `${health.score}%`, height: "100%",
           background: barColors[health.barColor], borderRadius: 99,
           transition: "width 400ms ease, background 300ms ease"
         }} />
       </div>
-      <div style={{ fontSize: 9, color: "#94a3b8", marginTop: 4, textAlign: "center" }}>
+      <div style={{ fontSize: 9, color: "rgba(255,255,255,0.6)", marginTop: 4, textAlign: "center" }}>
         {health.counts.green}G · {health.counts.yellow}Y · {health.counts.red}R
         {health.counts.gray > 0 ? ` · ${health.counts.gray} unmatched` : ""}
       </div>
     </div>
   );
 })()}
-      <div style={{ padding: "14px 18px", borderTop: "1px solid #f1f5f9", display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-        <img src="https://dashello.co/wp-content/uploads/2023/08/Logo.png" alt="Dashello" style={{ height: 26, objectFit: "contain", maxWidth: "80%" }} />
-        <button onClick={() => supabase.auth.signOut()} style={{ width: "100%", padding: "7px 0", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "transparent", color: "#94a3b8", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Sign Out</button>
+      <div style={{ padding: "14px 18px", borderTop: "1px solid rgba(255,255,255,0.15)", display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+        <img src="https://dashello.co/wp-content/uploads/2023/08/White-Logo-Full.png" alt="Dashello" style={{ height: 26, objectFit: "contain", maxWidth: "80%" }} />
+        <button onClick={() => supabase.auth.signOut()} style={{ width: "100%", padding: "10px 0", borderRadius: 12, border: "2px solid rgba(255,255,255,0.6)", background: "transparent", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Sign Out</button>
       </div>
     </aside>
   );
@@ -6461,9 +6474,10 @@ export default function DashelloDashboard() {
             ...m.modal,
             transactions: [...(m.modal.transactions ?? []), newTxn],
           } : m.modal;
+          const hasEq = !!(activeMetric.equation && activeMetric.equation.steps.length > 0);
           return {
-            ...m, value: newValue, history: [...(m.history ?? []), newPoint].slice(-50),
-            lastSyncedAt: now, outOfSync: false, modal: updatedModal,
+                ...m, value: newValue, history: [...(m.history ?? []), newPoint].slice(-50),
+            lastSyncedAt: now, outOfSync: hasEq, modal: updatedModal,
           };
         });
 
@@ -6946,6 +6960,25 @@ const sidebarEl = (
                   onRefreshSections={handleRefreshMetric}
                   siblings={siblings}
                   onTransfer={handleTransfer}
+                  onResyncEquation={() => {
+                    setSections(prev => {
+                      const allMetrics = prev.flatMap(s => s.metrics);
+                      const tm = allMetrics.find(m => m.id === liveMetric.id);
+                      if (!tm?.equation || tm.equation.steps.length === 0) return prev;
+                      const result = evaluateEquation(tm.equation.steps, allMetrics);
+                      if (result === null) return prev;
+                      const formatted = formatEquationResult(result, tm.equation.steps, allMetrics);
+                      const resynced = prev.map(s => ({
+                        ...s,
+                        metrics: s.metrics.map(m =>
+                          m.id === liveMetric.id ? { ...m, value: formatted, outOfSync: false, lastSyncedAt: Date.now(), modal: { ...m.modal, mainValue: formatted } } : m
+                        ),
+                      }));
+                      const updated = resynced.flatMap(s => s.metrics).find(m => m.id === liveMetric.id);
+                      if (updated) setInlineMetric(updated);
+                      return resynced;
+                    });
+                  }}
                   inline
                 />
               </div>
@@ -7031,6 +7064,25 @@ const sidebarEl = (
             onRefreshSections={handleRefreshMetric}
             siblings={sections.find(s => s.metrics.some(m => m.id === activeModal.metric.id))?.metrics ?? []}
             onTransfer={handleTransfer}
+            onResyncEquation={() => {
+              setSections(prev => {
+                const allMetrics = prev.flatMap(s => s.metrics);
+                const tm = allMetrics.find(m => m.id === activeModal.metric.id);
+                if (!tm?.equation || tm.equation.steps.length === 0) return prev;
+                const result = evaluateEquation(tm.equation.steps, allMetrics);
+                if (result === null) return prev;
+                const formatted = formatEquationResult(result, tm.equation.steps, allMetrics);
+                const resynced = prev.map(s => ({
+                  ...s,
+                  metrics: s.metrics.map(m =>
+                    m.id === activeModal.metric.id ? { ...m, value: formatted, outOfSync: false, lastSyncedAt: Date.now(), modal: { ...m.modal, mainValue: formatted } } : m
+                  ),
+                }));
+                const updated = resynced.flatMap(s => s.metrics).find(m => m.id === activeModal.metric.id);
+                if (updated) setActiveModal(prev => prev ? { ...prev, metric: updated, data: { ...prev.data, mainValue: updated.value, transactions: updated.modal.transactions } } : null);
+                return resynced;
+              });
+            }}
           />
           <div
             onClick={() => { setViewMode("inline"); viewModeRef.current = "inline"; setInlineView("metric-detail"); setActiveModal(null); }}
