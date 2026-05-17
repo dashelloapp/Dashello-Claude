@@ -41,7 +41,10 @@ async function inviteTeamMember(email: string, orgId: string, level: OrgPermissi
     const res = await supabase.functions.invoke("invite-member", {
       body: { email, orgId, level, invitedByName },
     });
-    if (res.error) throw new Error(res.error.message || "Invite failed");
+    if (res.error) {
+      const msg = res.data?.error || res.error.message || "Invite failed";
+      throw new Error(msg);
+    }
     return res.data;
   } catch (err: any) {
     throw new Error(err.message || "Failed to reach the invite service. Make sure the edge function is deployed.");
