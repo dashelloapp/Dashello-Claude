@@ -2971,22 +2971,25 @@ function GoalsPage({ goals, setGoals, sections, viewMode, onOpenOnboarding, onEd
               )}
 
               {/* Goal-level projections, suggestions, next actions */}
-              {g.attachedMetrics?.length > 0 && (
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginTop: 16 }}>
-                  <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #f1f5f9", padding: 14 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "#1a2332", marginBottom: 4 }}>Projections</div>
-                    <div style={{ fontSize: 11, color: "#94a3b8", fontStyle: "italic" }}>Coming Soon</div>
-                  </div>
-                  <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #f1f5f9", padding: 14 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "#1a2332", marginBottom: 4 }}>Suggestions</div>
-                    <div style={{ fontSize: 11, color: "#94a3b8", fontStyle: "italic" }}>Coming Soon</div>
-                  </div>
-                  <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #f1f5f9", padding: 14 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "#1a2332", marginBottom: 4 }}>Next Actions</div>
-                    <div style={{ fontSize: 11, color: "#94a3b8", fontStyle: "italic" }}>Coming Soon</div>
-                  </div>
-                </div>
-              )}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 16, marginTop: 16 }}>
+                <SectionCard>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: "#1a2332", marginBottom: 8 }}>Projections</div>
+                  <div style={{ fontSize: 12, color: "#94a3b8", fontStyle: "italic", marginBottom: 10 }}>Coming Soon</div>
+                  {[1, 2, 3].map(i => <div key={i} style={{ height: 8, borderRadius: 99, background: "#e2e8f0", marginBottom: 8, width: `${70 - i * 10}%`, opacity: 0.4 }} />)}
+                </SectionCard>
+                <SectionCard>
+                  <div style={{ display: "inline-block", background: "#3B82F6", color: "#fff", borderRadius: 99, padding: "5px 14px", fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Suggestions</div>
+                  <div style={{ fontSize: 12, color: "#94a3b8", fontStyle: "italic", marginBottom: 10 }}>Coming Soon</div>
+                  {[1, 2, 3].map(i => <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, opacity: 0.4 }}>
+                    <div style={{ width: 20, height: 20, borderRadius: "50%", border: "1.5px solid #d1d5db", flexShrink: 0 }} />
+                    <div style={{ height: 7, borderRadius: 99, background: "#e2e8f0", flex: 1 }} />
+                  </div>)}
+                </SectionCard>
+                <SectionCard>
+                  <div style={{ display: "inline-block", background: "#3B82F6", color: "#fff", borderRadius: 99, padding: "5px 14px", fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Next Actions</div>
+                  <div style={{ fontSize: 12, color: "#cbd5e1", fontStyle: "italic" }}>No actions yet</div>
+                </SectionCard>
+              </div>
             </>
           )}
         </div>
