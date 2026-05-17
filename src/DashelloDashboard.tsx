@@ -4112,7 +4112,7 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
 // EQUATION BUILDER PAGE
 // ═══════════════════════════════════════════════════════════════════════════
 
-function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetricId, onSave, onSaveDraft, onCancel, onDirty }: {
+function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetricId, onSave, onSaveDraft, onCancel, onDirty, isMobile }: {
   allMetrics: Metric[];
   sections: Section[];
   initialEquation?: EquationConfig;
@@ -4121,6 +4121,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
   onSaveDraft?: (equation: EquationConfig) => void;
   onCancel: () => void;
   onDirty?: () => void;
+  isMobile?: boolean;
 }) {
   const [steps, setSteps] = useState<EquationStep[]>(initialEquation?.steps ?? []);
   const [searchQuery, setSearchQuery] = useState("");
@@ -4620,12 +4621,12 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
   })();
 
   return (
-    <div style={{ flex: 1, display: "flex", background: "#fff", height: "100%" }}>
-      {/* Left panel ~75% */}
-      <div style={{ flex: 3, display: "flex", flexDirection: "column", minWidth: 0, borderRight: targetMetric && steps.length > 0 ? "1px solid #e2e8f0" : "none" }}>
+    <div style={{ flex: 1, display: isMobile ? "flex" : "flex", flexDirection: isMobile ? "column" : "row", background: "#fff", height: "100%" }}>
+      {/* Left panel ~75% (full width on mobile) */}
+      <div style={{ flex: isMobile ? "none" : 3, display: "flex", flexDirection: "column", minWidth: 0, borderRight: !isMobile && targetMetric && steps.length > 0 ? "1px solid #e2e8f0" : "none", maxHeight: isMobile ? "none" : undefined }}>
         {/* Header — fixed */}
-        <div style={{ padding: "18px 24px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#1a2332" }}>Create Equation</h2>
+        <div style={{ padding: isMobile ? "12px 16px" : "18px 24px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, flexWrap: "wrap", gap: 6 }}>
+          <h2 style={{ margin: 0, fontSize: isMobile ? 16 : 20, fontWeight: 700, color: "#1a2332" }}>Create Equation</h2>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             {checkedOrder.length >= 2 && (
               <button onClick={handleGroupSelected} style={{ padding: "6px 16px", borderRadius: 8, border: "none", background: "#3B82F6", fontSize: 12, cursor: "pointer", color: "#fff", fontWeight: 600 }}>
@@ -4647,7 +4648,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
         </div>
 
         {/* Scrollable middle area */}
-        <div style={{ flex: 1, padding: "24px 32px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 20 }}>
+        <div style={{ flex: 1, padding: isMobile ? "16px" : "24px 32px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 20 }}>
           {/* Steps preview */}
           <div>
             {steps.length > 0 && (() => {
@@ -5288,31 +5289,50 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
         </div>
 
         {/* Save — fixed */}
-        <div style={{ borderTop: "1px solid #e2e8f0", padding: "16px 24px", flexShrink: 0, background: "#F8FAFC", display: "flex", justifyContent: "flex-end", gap: 8 }}>
+        {isMobile && targetMetric && steps.length > 0 && (
+          <div style={{ borderTop: "1px solid #e2e8f0", padding: "12px 16px", background: "#F8FAFC" }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>
+              Final Output
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <span style={{ fontSize: 20, fontWeight: 300, color: "#1a2332", fontFamily: "serif", lineHeight: 1 }}>=</span>
+              <MetricBlock
+                metric={{
+                  id: targetMetric.id, label: targetMetric.label, icon: targetMetric.icon,
+                  color: targetMetric.color, value: liveFormatted ?? "...",
+                  metricType: targetMetric.metricType, currencySymbol: targetMetric.currencySymbol,
+                  modal: targetMetric.modal, history: targetMetric.history, equation: targetMetric.equation,
+                }}
+                onClick={() => {}} onDragStart={() => {}} onDragEnter={() => {}} onDrop={() => {}} isDragOver={false} disableDrag
+              />
+            </div>
+          </div>
+        )}
+        <div style={{ borderTop: "1px solid #e2e8f0", padding: isMobile ? "12px 16px" : "16px 24px", flexShrink: 0, background: "#F8FAFC", display: "flex", justifyContent: "flex-end", gap: 8 }}>
           {onSaveDraft && (
             <button onClick={handleSaveDraft}
               style={{
-                padding: "12px 24px", borderRadius: 8, border: "1.5px solid #3B82F6",
+                padding: isMobile ? "10px 18px" : "12px 24px", borderRadius: 8, border: "1.5px solid #3B82F6",
                 background: "#fff", color: "#3B82F6",
-                fontSize: 14, fontWeight: 600, cursor: "pointer",
+                fontSize: isMobile ? 13 : 14, fontWeight: 600, cursor: "pointer",
               }}>
               Save Draft
             </button>
           )}
           <button onClick={handleSave} disabled={!equationValid}
             style={{
-              padding: "12px 32px", borderRadius: 8, border: "none",
+              padding: isMobile ? "10px 24px" : "12px 32px", borderRadius: 8, border: "none",
               background: equationValid ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0",
               color: equationValid ? "#fff" : "#94a3b8",
-              fontSize: 14, fontWeight: 600, cursor: equationValid ? "pointer" : "not-allowed",
+              fontSize: isMobile ? 13 : 14, fontWeight: 600, cursor: equationValid ? "pointer" : "not-allowed",
             }}>
             Save Equation
           </button>
         </div>
       </div>
 
-      {/* Right panel ~25% — Final Output, always visible */}
-      {targetMetric && steps.length > 0 && (
+      {/* Right panel ~25% — Final Output, only on desktop */}
+      {!isMobile && targetMetric && steps.length > 0 && (
         <div style={{ flex: 1, maxWidth: "25%", minWidth: 220, background: "#F8FAFC", display: "flex", flexDirection: "column" }}>
           <div style={{ padding: "20px 20px", borderBottom: "1px solid #e2e8f0" }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em" }}>
@@ -5323,23 +5343,12 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
             <span style={{ fontSize: 32, fontWeight: 300, color: "#1a2332", fontFamily: "serif", lineHeight: 1 }}>=</span>
             <MetricBlock
               metric={{
-                id: targetMetric.id,
-                label: targetMetric.label,
-                icon: targetMetric.icon,
-                color: targetMetric.color,
-                value: liveFormatted ?? "...",
-                metricType: targetMetric.metricType,
-                currencySymbol: targetMetric.currencySymbol,
-                modal: targetMetric.modal,
-                history: targetMetric.history,
-                equation: targetMetric.equation,
+                id: targetMetric.id, label: targetMetric.label, icon: targetMetric.icon,
+                color: targetMetric.color, value: liveFormatted ?? "...",
+                metricType: targetMetric.metricType, currencySymbol: targetMetric.currencySymbol,
+                modal: targetMetric.modal, history: targetMetric.history, equation: targetMetric.equation,
               }}
-              onClick={() => {}}
-              onDragStart={() => {}}
-              onDragEnter={() => {}}
-              onDrop={() => {}}
-              isDragOver={false}
-              disableDrag
+              onClick={() => {}} onDragStart={() => {}} onDragEnter={() => {}} onDrop={() => {}} isDragOver={false} disableDrag
             />
           </div>
         </div>
@@ -6252,6 +6261,7 @@ export default function DashelloDashboard() {
   const [selectedApp, setSelectedApp] = useState<typeof APPS[0] | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showChat, setShowChat] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState("");
@@ -6943,8 +6953,22 @@ const sidebarEl = (
             )}
           </div>
           <div style={{ flex: 1 }} />
-          <div onClick={() => setShowChat(v => !v)} style={{ padding: isMobile ? "10px 16px" : "6px 16px", borderRadius: 20, border: "1px solid #e2e8f0", fontSize: 12, color: "#64748b", cursor: "pointer", background: showChat ? "#EFF6FF" : "#fff", whiteSpace: "nowrap" }}>Chat</div>
-          <div onClick={() => setPage("integrations")} style={{ padding: isMobile ? "10px 16px" : "7px clamp(10px,2vw,20px)", borderRadius: 8, background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>Customize</div>
+          {isMobile ? (
+            <div style={{ position: "relative" }}>
+              <div onClick={() => setShowMobileMenu(v => !v)} style={{ width: 34, height: 34, borderRadius: "50%", border: "1.5px solid #e2e8f0", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 14, color: "#64748b" }}>‹</div>
+              {showMobileMenu && (
+                <div style={{ position: "absolute", top: 40, right: 0, zIndex: 100, background: "#fff", borderRadius: 12, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", minWidth: 140, overflow: "hidden" }}>
+                  <div onClick={() => { setShowChat(v => !v); setShowMobileMenu(false); }} style={{ padding: "10px 16px", fontSize: 13, color: "#64748b", cursor: "pointer", borderBottom: "1px solid #f1f5f9" }}>Chat</div>
+                  <div onClick={() => { setPage("integrations"); setShowMobileMenu(false); }} style={{ padding: "10px 16px", fontSize: 13, color: "#64748b", cursor: "pointer" }}>Customize</div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              <div onClick={() => setShowChat(v => !v)} style={{ padding: "6px 16px", borderRadius: 20, border: "1px solid #e2e8f0", fontSize: 12, color: "#64748b", cursor: "pointer", background: showChat ? "#EFF6FF" : "#fff", whiteSpace: "nowrap" }}>Chat</div>
+              <div onClick={() => setPage("integrations")} style={{ padding: "7px clamp(10px,2vw,20px)", borderRadius: 8, background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>Customize</div>
+            </>
+          )}
         </div>
 
         {/* Pages */}
@@ -6973,6 +6997,7 @@ const sidebarEl = (
               onSaveDraft={handleSaveDraftEquation}
               onCancel={handleCancelEquation}
               onDirty={() => setInlineHasUnsaved(true)}
+              isMobile={isMobile}
             />
           )}
           {/* Inline metric detail view — renders in page flow, no overlay */}
