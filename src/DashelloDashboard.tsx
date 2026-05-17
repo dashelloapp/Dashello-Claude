@@ -1091,6 +1091,7 @@ function BottomThreeCards({ data, metricId, tasks, setTasks, userEmail, orgMembe
   const [actionText, setActionText] = useState("");
   const [actionAssignee, setActionAssignee] = useState(userEmail || "");
   const [menuTaskId, setMenuTaskId] = useState<string | null>(null);
+  const [expandMetricActions, setExpandMetricActions] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const handler = (e: MouseEvent) => { if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuTaskId(null); };
@@ -1125,8 +1126,12 @@ function BottomThreeCards({ data, metricId, tasks, setTasks, userEmail, orgMembe
           <div style={{ height: 7, borderRadius: 99, background: "#e2e8f0", flex: 1 }} />
         </div>)}
       </SectionCard>
+      <div style={{ position: "relative" }}>
       <SectionCard>
         <div style={{ display: "inline-block", background: "#3B82F6", color: "#fff", borderRadius: 99, padding: "5px 14px", fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Next Actions</div>
+        {linkedTasks.length > 0 && <button onClick={() => setExpandMetricActions(true)}
+          style={{ position: "absolute", bottom: 4, right: 4, width: 22, height: 22, borderRadius: 4, border: "none", background: "rgba(255,255,255,0.9)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#64748b", boxShadow: "0 1px 3px rgba(0,0,0,0.12)" }}
+          title="View all next actions">⛶</button>}
         {linkedTasks.map(t => {
           const assigneeMember = (orgMembers || []).find(m => m.email === t.assignedTo);
           return (
@@ -1195,6 +1200,34 @@ function BottomThreeCards({ data, metricId, tasks, setTasks, userEmail, orgMembe
         )}
         {linkedTasks.length === 0 && !showAddAction && <div style={{ fontSize: 12, color: "#cbd5e1", fontStyle: "italic" }}>No actions yet</div>}
       </SectionCard>
+      </div>
+      {expandMetricActions && (
+        <div onClick={() => setExpandMetricActions(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 99999, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 16, padding: 28, width: "90vw", maxWidth: 600, maxHeight: "90vh", overflow: "auto", position: "relative" }}>
+            <button onClick={() => setExpandMetricActions(false)}
+              style={{ position: "absolute", top: 12, right: 16, width: 28, height: 28, borderRadius: "50%", border: "none", background: "#f1f5f9", cursor: "pointer", fontSize: 16, color: "#64748b", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "#1a2332", marginBottom: 20 }}>Next Actions</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {linkedTasks.map(t => {
+                const assigneeMember = (orgMembers || []).find(m => m.email === t.assignedTo);
+                return (
+                  <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8, background: "#fff", border: "1px solid #f1f5f9" }}>
+                    <div onClick={() => { if (setTasks) setTasks(prev => prev.map(x => x.id === t.id ? { ...x, done: !x.done } : x)); }} style={{ width: 18, height: 18, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 9 }}>{t.done ? "✓" : ""}</div>
+                    <span style={{ fontSize: 13, color: "#1a2332", flex: 1, minWidth: 0 }}>{t.text}</span>
+                    {assigneeMember && (
+                      assigneeMember.avatarUrl
+                        ? <img src={assigneeMember.avatarUrl} alt="" style={{ width: 22, height: 22, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+                        : <div style={{ width: 22, height: 22, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: "#94a3b8", flexShrink: 0 }}>
+                            {(assigneeMember.name?.[0] || assigneeMember.email[0] || "?").toUpperCase()}
+            </>
+          )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1904,8 +1937,8 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
         </div>
       );
     })()}
-  </div>
-)}
+                  </>
+                )}
         {data.healthPct != null
           ? <><div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332", marginBottom: 6 }}>Health — <strong>{data.healthPct}%</strong></div>
             <div style={{ height: 28, borderRadius: 99, background: "#e5e7eb", maxWidth: 260, overflow: "hidden", marginBottom: 20 }}>
@@ -2572,8 +2605,8 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
                               )}
                             </div>
                           )}
-                        </>
-                      )}
+            </div>
+          )}
                     </div>
                   );
                 })()}
@@ -2616,8 +2649,8 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
                         ))}
                       </div>
                     )}
-                  </>
-                )}
+            </div>
+          )}
               </div>
 
               {/* RIGHT */}
@@ -3182,6 +3215,7 @@ function GoalsPage({ goals, setGoals, sections, viewMode, onOpenOnboarding, onEd
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({ active: false, drafted: false, completed: false });
   const [confirmComplete, setConfirmComplete] = useState<Goal | null>(null);
   const [goalAddTask, setGoalAddTask] = useState<{ goalId: string; text: string } | null>(null);
+  const [goalExpandActions, setGoalExpandActions] = useState<string | null>(null);
   const toggleSection = (k: string) => setCollapsed(p => ({ ...p, [k]: !p[k] }));
 
   const goalsWithProgress = goals.map(g => {
@@ -3227,7 +3261,7 @@ function GoalsPage({ goals, setGoals, sections, viewMode, onOpenOnboarding, onEd
 
           {/* Expanded mode details */}
           {!isCompact && (
-            <>
+            <div style={{ display: "contents" }}>
               {g.type === "equation" && g.steps?.length > 0 && (
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12, marginBottom: 8 }}>
                   {g.steps.map((s, si) => {
@@ -3277,12 +3311,16 @@ function GoalsPage({ goals, setGoals, sections, viewMode, onOpenOnboarding, onEd
                     <div style={{ height: 7, borderRadius: 99, background: "#e2e8f0", flex: 1 }} />
                   </div>)}
                 </SectionCard>
+                <div style={{ position: "relative" }}>
                 <SectionCard>
                   <div style={{ display: "inline-block", background: "#3B82F6", color: "#fff", borderRadius: 99, padding: "5px 14px", fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Next Actions</div>
                   {(() => {
                     const linked = (tasks || []).filter(t => t.linkedGoalId === g.id && !t.done);
                     return (
-                      <>
+                      <div style={{ display: "contents" }}>
+                        {linked.length > 0 && <button onClick={(e) => { e.stopPropagation(); setGoalExpandActions(g.id); }}
+                          style={{ position: "absolute", bottom: 4, right: 4, width: 22, height: 22, borderRadius: 4, border: "none", background: "rgba(255,255,255,0.9)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#64748b", boxShadow: "0 1px 3px rgba(0,0,0,0.12)" }}
+                          title="View all next actions">⛶</button>}
                         {linked.map(t => (
                           <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                             <div onClick={(e) => { e.stopPropagation(); if (setTasks) setTasks(prev => prev.map(x => x.id === t.id ? { ...x, done: !x.done } : x)); }}
@@ -3303,7 +3341,7 @@ function GoalsPage({ goals, setGoals, sections, viewMode, onOpenOnboarding, onEd
                             <span style={{ fontSize: 14 }}>+</span> Add Task
                           </div>
                         )}
-                      </>
+                      </div>
                     );
                   })()}
                 </SectionCard>
@@ -3311,6 +3349,24 @@ function GoalsPage({ goals, setGoals, sections, viewMode, onOpenOnboarding, onEd
             </>
           )}
         </div>
+        {goalExpandActions === g.id && (
+          <div onClick={() => setGoalExpandActions(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 99999, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 16, padding: 28, width: "90vw", maxWidth: 600, maxHeight: "90vh", overflow: "auto", position: "relative" }}>
+              <button onClick={() => setGoalExpandActions(null)}
+                style={{ position: "absolute", top: 12, right: 16, width: 28, height: 28, borderRadius: "50%", border: "none", background: "#f1f5f9", cursor: "pointer", fontSize: 16, color: "#64748b", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#1a2332", marginBottom: 20 }}>Next Actions — {g.label}</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {(tasks || []).filter(t => t.linkedGoalId === g.id && !t.done).map(t => (
+                  <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8, background: "#fff", border: "1px solid #f1f5f9" }}>
+                    <div onClick={(e) => { e.stopPropagation(); if (setTasks) setTasks(prev => prev.map(x => x.id === t.id ? { ...x, done: !x.done } : x)); }} style={{ width: 18, height: 18, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 9 }}>{t.done ? "✓" : ""}</div>
+                    <span style={{ fontSize: 13, color: "#1a2332", flex: 1, minWidth: 0 }}>{t.text}</span>
+                    <span style={{ fontSize: 11, color: "#94a3b8", whiteSpace: "nowrap" }}>{t.assignedTo ? t.assignedTo.split("@")[0] : ""}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -3951,6 +4007,12 @@ function GoalSettingsModal({ goal, sections, isMobile, onSave, onDuplicate, onDe
   );
 }
 
+const _months = ["Jan.", "Feb.", "Mar.", "Apr.", "May", "Jun.", "Jul.", "Aug.", "Sep.", "Oct.", "Nov.", "Dec."];
+function formatDate(dateStr: string) {
+  const d = new Date(dateStr + "T00:00:00");
+  return `${_months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // PAGE: TASKS
 // ═══════════════════════════════════════════════════════════════════════════
@@ -3997,10 +4059,11 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
   };
 
   const getMemberByEmail = (email: string) => orgMembers.find(m => m.email === email);
+  const todayStr = new Date().toISOString().split("T")[0];
 
   const teamMembersWithTasks = orgMembers
     .filter(m => m.status === "active")
-    .map(m => ({ member: m, memberTasks: tasks.filter(t => t.assignedTo === m.email) }))
+    .map(m => ({ member: m, memberTasks: tasks.filter(t => t.assignedTo === m.email && !t.done) }))
     .filter(x => x.memberTasks.length > 0);
 
   const suggestedTasks = sections.flatMap(s =>
@@ -4017,7 +4080,7 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
   };
 
   return (
-    <div style={{ padding: "clamp(16px,4vw,32px)", height: "100%", display: "flex", flexDirection: "column" }}>
+    <div style={{ padding: "clamp(16px,4vw,32px)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24, flexWrap: "wrap" }}>
         <h1 style={{ margin: 0, fontSize: "clamp(20px,4vw,26px)", fontWeight: 700, color: "#1a2332" }}>Tasks</h1>
         <div style={{ marginLeft: "auto" }} />
@@ -4047,7 +4110,7 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
               </div>
             </div>
             {/* Task list */}
-            <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 4 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               {displayedTasks.length === 0 && (
                 <div style={{ fontSize: 12, color: "#cbd5e1", fontStyle: "italic", padding: "12px 0", textAlign: "center" }}>
                   {taskFilter === "current" ? "No current tasks. Add one below!" : "No completed tasks yet."}
@@ -4056,8 +4119,9 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
               {displayedTasks.map(t => {
                 const assigneeMember = getMemberByEmail(t.assignedTo);
                 const isEditing = editingTaskId === t.id;
+                const isDueToday = t.dueDate === todayStr;
                 return (
-                  <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8, background: t.done ? "#f8fafc" : "#fff", opacity: t.done ? 0.6 : 1 }}>
+                  <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8, background: t.done ? "#f8fafc" : isDueToday ? "#EFF6FF" : "#fff", border: isDueToday && !t.done ? "1px solid #93C5FD" : "none", opacity: t.done ? 0.6 : 1 }}>
                     <div onClick={() => toggle(t.id)} style={{ width: 20, height: 20, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 11 }}>{t.done ? "✓" : ""}</div>
                     {isEditing ? (
                       <input value={editText} onChange={e => setEditText(e.target.value)}
@@ -4068,7 +4132,7 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
                       <div onClick={() => { setEditingTaskId(t.id); setEditText(t.text); setMenuTaskId(null); }} style={{ flex: 1, fontSize: 13, color: "#1a2332", textDecoration: t.done ? "line-through" : "none", minWidth: 0, cursor: "text" }}>{t.text}</div>
                     )}
                     <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, position: "relative" }}>
-                      {t.dueDate && <div style={{ fontSize: 11, color: "#94a3b8", whiteSpace: "nowrap" }}>{t.dueDate}</div>}
+                      {t.dueDate && <div style={{ fontSize: 11, color: isDueToday ? "#3B82F6" : "#94a3b8", fontWeight: isDueToday ? 600 : 400, whiteSpace: "nowrap" }}>{isDueToday ? "Due Today" : formatDate(t.dueDate)}</div>}
                       {(t.linkedMetricId || t.linkedGoalId) && (
                         <div style={{ display: "flex", gap: 4 }}>
                           {t.linkedMetricId && (
@@ -4174,7 +4238,7 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
         </div>
 
         {/* ── Right Column: Team Tasks ── */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 12, minHeight: 0, overflowY: "auto" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <h2 style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 700, color: "#1a2332" }}>Team Tasks</h2>
           {teamMembersWithTasks.length === 0 && (
             <div style={{ fontSize: 12, color: "#cbd5e1", fontStyle: "italic", padding: 20, textAlign: "center" }}>No team tasks yet.</div>
@@ -4194,13 +4258,16 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
                 </div>
                 <div style={{ padding: "5px 14px", borderRadius: 20, fontSize: 12, fontWeight: 500, background: "#3B82F6", color: "#fff", display: "inline-block", marginBottom: 8 }}>Next Actions</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  {memberTasks.slice(0, 3).map(t => (
-                    <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 6, background: t.done ? "#f8fafc" : "#fff", opacity: t.done ? 0.6 : 1 }}>
+                  {memberTasks.slice(0, 3).map(t => {
+                    const isDueToday = t.dueDate === todayStr;
+                    return (
+                    <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 6, background: t.done ? "#f8fafc" : isDueToday ? "#EFF6FF" : "#fff", border: isDueToday && !t.done ? "1px solid #93C5FD" : "none", opacity: t.done ? 0.6 : 1 }}>
                       <div onClick={() => toggle(t.id)} style={{ width: 16, height: 16, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 8 }}>{t.done ? "✓" : ""}</div>
                       <div style={{ flex: 1, fontSize: 12, color: "#1a2332", textDecoration: t.done ? "line-through" : "none", minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.text}</div>
-                      {t.dueDate && <div style={{ fontSize: 10, color: "#94a3b8", whiteSpace: "nowrap", flexShrink: 0 }}>{t.dueDate}</div>}
+                      {t.dueDate && <div style={{ fontSize: 10, color: isDueToday ? "#3B82F6" : "#94a3b8", fontWeight: isDueToday ? 600 : 400, whiteSpace: "nowrap", flexShrink: 0 }}>{isDueToday ? "Due Today" : formatDate(t.dueDate)}</div>}
                     </div>
-                  ))}
+                    );
+                  })}
                   {memberTasks.length > 3 && (
                     <div onClick={() => onViewTeamMember(member)} style={{ fontSize: 11, color: "#3B82F6", cursor: "pointer", fontWeight: 600, padding: "6px 0 0", textAlign: "center", marginTop: 4 }}>
                       View All ({memberTasks.length} tasks) →
@@ -4608,15 +4675,15 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
                 </div>
               </div>
               {/* Tasks section */}
-              {(tasks || []).filter(t => t.assignedTo === memberDetail.email).length > 0 && (
+              {(tasks || []).filter(t => t.assignedTo === memberDetail.email && !t.done).length > 0 && (
                 <div style={{ textAlign: "left", background: "#f8fafc", borderRadius: 12, padding: "14px 16px", marginBottom: 18 }}>
                   <div style={{ fontSize: 11, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>Tasks</div>
-                  {(tasks || []).filter(t => t.assignedTo === memberDetail.email).map(t => (
+                  {(tasks || []).filter(t => t.assignedTo === memberDetail.email && !t.done).map(t => (
                     <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                       <div onClick={(e) => { e.stopPropagation(); if (setTasks) setTasks(prev => prev.map(x => x.id === t.id ? { ...x, done: !x.done } : x)); }}
                         style={{ width: 16, height: 16, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 8 }}>{t.done ? "✓" : ""}</div>
                       <span style={{ fontSize: 12, color: "#1a2332", flex: 1, textDecoration: t.done ? "line-through" : "none", minWidth: 0 }}>{t.text}</span>
-                      {t.dueDate && <span style={{ fontSize: 10, color: "#94a3b8", whiteSpace: "nowrap" }}>{t.dueDate}</span>}
+                      {t.dueDate && <span style={{ fontSize: 10, color: "#94a3b8", whiteSpace: "nowrap" }}>{formatDate(t.dueDate)}</span>}
                     </div>
                   ))}
                 </div>
