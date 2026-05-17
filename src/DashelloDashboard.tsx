@@ -42,7 +42,11 @@ async function inviteTeamMember(email: string, orgId: string, level: OrgPermissi
       body: { email, orgId, level, invitedByName },
     });
     if (res.error) {
-      const msg = res.data?.error || res.error.message || "Invite failed";
+      let msg = res.error.message;
+      try {
+        const body = await res.error.context.json();
+        if (body?.error) msg = body.error;
+      } catch {}
       throw new Error(msg);
     }
     return res.data;

@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
 
 serve(async (req) => {
   const corsHeaders = {
@@ -19,7 +19,11 @@ serve(async (req) => {
   }
 
   try {
+    console.log("invite-member called, method:", req.method);
     const { email, orgId, level, invitedByName } = await req.json();
+    console.log("body:", { email, orgId, level, invitedByName });
+    console.log("SUPABASE_URL set:", !!Deno.env.get("SUPABASE_URL"));
+    console.log("SUPABASE_SERVICE_ROLE_KEY set:", !!Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"));
 
     if (!email || !orgId || !level) {
       return new Response(JSON.stringify({ error: "Missing required fields: email, orgId, level" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
