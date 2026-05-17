@@ -29,7 +29,7 @@ type Page = "home" | "goals" | "tasks" | "integrations" | "team" | "settings" | 
 type GraphType = "bar-h" | "linear" | "pie" | "bar-v";
 type MetricType = "counter" | "percentage" | "financial";
 type RuleOp = ">=" | "<=" | ">" | "<" | "between" | "==" | "!=" ;
-type GoalTargetType = "number_reach" | "number_range" | "percentage";
+type GoalTargetType = "number_reach" | "number_range" | "percentage" | "color_rule";
 type GoalType = "equation" | "metric";
 type GoalSubType = "counter" | "financial" | "percentage";
 type GoalStatus = "active" | "drafted" | "completed";
@@ -71,6 +71,7 @@ interface Goal {
   manualNotes: GoalNote[];
   pct: number;
   barColor: MetricColor;
+  aiFilter?: string;
 }
 
 interface FiveAccountSettings {
@@ -249,6 +250,7 @@ function evaluateGoalStep(step: GoalStep, sections: Section[]): boolean {
   }
   if (t.type === "number_range") return num >= (t.value ?? 0) && num <= (t.value2 ?? Infinity);
   if (t.type === "percentage") return computeMetricHealth(m) >= (t.percent ?? 100);
+  if (t.type === "color_rule") return computeMetricHealth(m) >= 80;
   return false;
 }
 
@@ -280,13 +282,20 @@ function computeGoalProgress(goal: Goal, sections: Section[]): { pct: number; ba
 }
 
 function makeGoal(partial?: Partial<Goal>): Goal {
-  return { id: crypto.randomUUID(), label: "", type: "equation", subType: "counter", status: "active", due: "", steps: [], attachedMetrics: [], isManual: false, manualProgress: 0, manualNotes: [], pct: 0, barColor: "green", ...partial };
+  return {
+    id: crypto.randomUUID(), label: "", type: "equation", subType: "counter",
+    status: "drafted", due: "", steps: [], attachedMetrics: [],
+    isManual: false, manualProgress: 0, manualNotes: [],
+    pct: 0, barColor: "green",
+    ...partial
+  };
 }
 
 function formatTarget(t: GoalTarget): string {
   if (t.type === "number_reach") return `${t.operator ?? "≥"} ${t.value ?? 0}`;
   if (t.type === "number_range") return `${t.value ?? 0} – ${t.value2 ?? "∞"}`;
-  return `≥ ${t.percent ?? 100}% health`;
+  if (t.type === "percentage") return `≥ ${t.percent ?? 100}% health`;
+  return "Color Rule";
 }
 
 // ─── Five-Account equation ─────────────────────────────────────────────────
@@ -2863,11 +2872,15 @@ function DashSection({
 // PAGE: GOALS
 // ═══════════════════════════════════════════════════════════════════════════
 
-function GoalsPage({ goals, setGoals, sections, onOpenOnboarding, onEditGoal, onDuplicateGoal, onDeleteGoal }: { goals: Goal[]; setGoals: (g: Goal[]) => void; sections: Section[]; onOpenOnboarding: () => void; onEditGoal: (g: Goal) => void; onDuplicateGoal: (g: Goal) => void; onDeleteGoal: (id: string) => void }) {
+function GoalsPage({ goals, setGoals, sections, viewMode, onOpenOnboarding, onEditGoal, onDuplicateGoal }: {
+  goals: Goal[]; setGoals: (g: Goal[]) => void; sections: Section[];
+  viewMode: "row" | "expanded";
+  onOpenOnboarding: () => void; onEditGoal: (g: Goal) => void; onDuplicateGoal: (g: Goal) => void;
+}) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({ active: false, drafted: false, completed: false });
+  const [confirmComplete, setConfirmComplete] = useState<Goal | null>(null);
   const toggleSection = (k: string) => setCollapsed(p => ({ ...p, [k]: !p[k] }));
 
-  // Compute progress for all goals
   const goalsWithProgress = goals.map(g => {
     const { pct, barColor } = computeGoalProgress(g, sections);
     return { ...g, pct, barColor };
@@ -2877,66 +2890,102 @@ function GoalsPage({ goals, setGoals, sections, onOpenOnboarding, onEditGoal, on
   const drafted = goalsWithProgress.filter(g => g.status === "drafted");
   const completed = goalsWithProgress.filter(g => g.status === "completed");
 
+  const handleCompleteGoal = (g: Goal) => {
+    setGoals(goals.map(x => x.id === g.id ? { ...x, status: "completed" as GoalStatus, pct: 100, barColor: "green" as MetricColor } : x));
+    setConfirmComplete(null);
+  };
+
   const renderGoalCard = (g: Goal) => {
     const barBg = g.barColor === "green" ? "#4CAF7D" : g.barColor === "yellow" ? "#F5A623" : "#E85D75";
-    const typeIcon = g.type === "equation" ? "📐" : "📊";
-    const subLabel = g.subType === "financial" ? "$" : g.subType === "percentage" ? "%" : "#";
+    const isCompact = viewMode === "row";
     return (
-      <div key={g.id} style={{ background: "#fff", borderRadius: 14, border: "1px solid #f1f5f9", overflow: "hidden" }}>
-        <div style={{ padding: "16px 18px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-            <span style={{ fontSize: 13 }}>{typeIcon}</span>
-            <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: "#1a2332" }}>{g.label}</span>
-            <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 99, background: "#eef2ff", color: "#4f46e5", fontWeight: 600 }}>{subLabel}</span>
-            {g.due && <span style={{ fontSize: 12, color: "#94a3b8" }}>{g.due}</span>}
-          </div>
-          <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 4 }}>Progress — {g.pct}%</div>
-          <div style={{ height: 8, borderRadius: 99, background: "#e5e7eb", overflow: "hidden", marginBottom: 12 }}>
-            <div style={{ width: `${g.pct}%`, height: "100%", borderRadius: 99, background: barBg, transition: "width 0.3s" }} />
-          </div>
-          {g.type === "equation" && g.steps?.length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 8 }}>
-              {g.steps.map((s, si) => {
-                const m = findMetricByLabel(sections, s.sectionLabel, s.metricLabel);
-                const met = evaluateGoalStep(s, sections);
-                return (
-                  <div key={si} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 6, background: met ? "#ECFDF5" : "#FEF2F2", fontSize: 11, fontWeight: 500, color: met ? "#059669" : "#DC2626" }}>
-                    <span>{si + 1}.</span>
-                    <span>{m?.label ?? s.metricLabel}</span>
-                    <span style={{ opacity: 0.6 }}>{formatTarget(s.target)}</span>
-                    <span>{met ? "✓" : "✗"}</span>
-                  </div>
-                );
-              })}
+      <div key={g.id} style={{ background: "#fff", borderRadius: 14, border: "1px solid #f1f5f9", overflow: "hidden", opacity: g.status === "completed" ? 0.5 : 1 }}>
+        <div style={{ padding: isCompact ? "14px 18px" : "18px" }}>
+          {/* Top row: checkbox + name + due + edit */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: isCompact ? 10 : 12 }}>
+            <div onClick={e => { e.stopPropagation(); if (g.status !== "completed") setConfirmComplete(g); }}
+              style={{ width: 22, height: 22, borderRadius: "50%", border: g.status === "completed" ? "none" : "2px solid #cbd5e1", background: g.status === "completed" ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: g.status === "completed" ? "default" : "pointer", flexShrink: 0, transition: "all 0.2s" }}>
+              {g.status === "completed" && <IconGlyph name="Check" size={14} color="#fff" weight="bold" />}
             </div>
-          )}
-          {g.type === "metric" && g.attachedMetrics?.length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 8 }}>
-              {g.attachedMetrics.map((a, ai) => {
-                const m = findMetricByLabel(sections, a.sectionLabel, a.metricLabel);
-                const health = m ? computeMetricHealth(m) : 0;
-                const dotColor = health >= 80 ? "#4CAF7D" : health >= 50 ? "#F5A623" : "#E85D75";
-                return (
-                  <div key={ai} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 6, background: "#F8FAFC", fontSize: 11, fontWeight: 500, color: "#475569" }}>
-                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: dotColor }} />
-                    <span>{m?.label ?? a.metricLabel}</span>
-                    <span style={{ opacity: 0.6 }}>({health}%)</span>
-                  </div>
-                );
-              })}
+            <span style={{ flex: 1, fontSize: 15, fontWeight: 600, color: "#1a2332", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.label}</span>
+            {g.due && <span style={{ fontSize: 12, color: "#94a3b8", whiteSpace: "nowrap" }}>{g.due}</span>}
+            {!isCompact && g.subType && (
+              <span style={{ display: "flex", alignItems: "center", gap: 2, fontSize: 11, padding: "2px 8px", borderRadius: 99, background: "#eef2ff", color: "#4f46e5", fontWeight: 600 }}>
+                {g.subType === "financial" ? <IconGlyph name="CurrencyDollar" size={12} color="#4f46e5" /> : g.subType === "percentage" ? <IconGlyph name="Percent" size={12} color="#4f46e5" /> : <IconGlyph name="Hash" size={12} color="#4f46e5" />}
+              </span>
+            )}
+            <div onClick={() => onEditGoal(g)} style={{ width: 32, height: 32, borderRadius: 8, background: "#f8fafc", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }} title="Edit goal settings">
+              <IconGlyph name="PencilSimple" size={16} color="#64748b" />
             </div>
-          )}
-          <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
-            <button onClick={() => onEditGoal(g)} style={{ padding: "4px 12px", borderRadius: 6, border: "1px solid #e2e8f0", background: "#fff", fontSize: 11, cursor: "pointer", color: "#3B82F6" }}>Edit</button>
-            <button onClick={() => onDuplicateGoal(g)} style={{ padding: "4px 12px", borderRadius: 6, border: "1px solid #e2e8f0", background: "#fff", fontSize: 11, cursor: "pointer", color: "#64748b" }}>Duplicate</button>
-            <button onClick={() => onDeleteGoal(g.id)} style={{ padding: "4px 12px", borderRadius: 6, border: "1px solid #e2e8f0", background: "#fff", fontSize: 11, cursor: "pointer", color: "#E85D75" }}>Delete</button>
           </div>
+
+          {/* Progress bar - always shown */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ flex: 1, height: 32, borderRadius: 99, background: "#e5e7eb", overflow: "hidden" }}>
+              <div style={{ width: `${g.pct}%`, height: "100%", borderRadius: 99, background: barBg, transition: "width 0.3s" }} />
+            </div>
+            <span style={{ fontSize: 13, fontWeight: 700, color: barBg, minWidth: 40, textAlign: "right" }}>{g.pct}%</span>
+          </div>
+
+          {/* Expanded mode details */}
+          {!isCompact && (
+            <>
+              {g.type === "equation" && g.steps?.length > 0 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 12, marginBottom: 8 }}>
+                  {g.steps.map((s, si) => {
+                    const m = findMetricByLabel(sections, s.sectionLabel, s.metricLabel);
+                    const met = evaluateGoalStep(s, sections);
+                    return (
+                      <div key={si} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 6, background: met ? "#ECFDF5" : "#FEF2F2", fontSize: 11, fontWeight: 500, color: met ? "#059669" : "#DC2626" }}>
+                        <span>{si + 1}.</span>
+                        <span>{m?.label ?? s.metricLabel}</span>
+                        <span style={{ opacity: 0.6 }}>{formatTarget(s.target)}</span>
+                        <span style={{ display: "flex", alignItems: "center" }}>{met ? <IconGlyph name="CheckCircle" size={12} color="#059669" weight="fill" /> : <IconGlyph name="XCircle" size={12} color="#DC2626" weight="fill" />}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Attached metric boxes - full-size */}
+              {g.attachedMetrics?.length > 0 && (
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12, marginBottom: 8 }}>
+                  {g.attachedMetrics.map((a, ai) => {
+                    const m = findMetricByLabel(sections, a.sectionLabel, a.metricLabel);
+                    if (!m) return null;
+                    const sectionOf = sections.find(s => s.metrics.some(mm => mm.id === m.id));
+                    return (
+                      <MetricBlock key={ai} metric={m!} onClick={() => {}} onDragStart={() => {}} onDragEnter={() => {}} onDrop={() => {}} isDragOver={false} />
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Goal-level projections, suggestions, next actions */}
+              {g.attachedMetrics?.length > 0 && (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginTop: 16 }}>
+                  <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #f1f5f9", padding: 14 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#1a2332", marginBottom: 4 }}>Projections</div>
+                    <div style={{ fontSize: 11, color: "#94a3b8", fontStyle: "italic" }}>Coming Soon</div>
+                  </div>
+                  <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #f1f5f9", padding: 14 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#1a2332", marginBottom: 4 }}>Suggestions</div>
+                    <div style={{ fontSize: 11, color: "#94a3b8", fontStyle: "italic" }}>Coming Soon</div>
+                  </div>
+                  <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #f1f5f9", padding: 14 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#1a2332", marginBottom: 4 }}>Next Actions</div>
+                    <div style={{ fontSize: 11, color: "#94a3b8", fontStyle: "italic" }}>Coming Soon</div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
     );
   };
 
-  const renderSection = (key: string, label: string, items: Goal[], defaultIcon: string) => (
+  const renderSection = (key: string, label: string, items: Goal[]) => (
     <div style={{ marginBottom: 16 }}>
       <div onClick={() => toggleSection(key)} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", padding: "8px 0", userSelect: "none" }}>
         <span style={{ fontSize: 11, color: collapsed[key] ? "#3B82F6" : "#64748b", transition: "transform 0.2s", transform: collapsed[key] ? "rotate(-90deg)" : "rotate(0deg)" }}>▼</span>
@@ -2961,9 +3010,23 @@ function GoalsPage({ goals, setGoals, sections, onOpenOnboarding, onEditGoal, on
         <h1 style={{ margin: 0, fontSize: "clamp(20px,4vw,26px)", fontWeight: 700, color: "#1a2332" }}>Company Goals</h1>
         <button onClick={onOpenOnboarding} style={{ padding: "7px 18px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", marginLeft: "auto" }}>⊕ Add Goal</button>
       </div>
-      {renderSection("active", "Active", active, "●")}
-      {renderSection("drafted", "Drafted", drafted, "○")}
-      {renderSection("completed", "Completed", completed, "✓")}
+      {renderSection("active", "Active", active)}
+      {renderSection("drafted", "Drafted", drafted)}
+      {renderSection("completed", "Completed", completed)}
+
+      {/* Completion confirmation dialog */}
+      {confirmComplete && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 2000, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ background: "#fff", borderRadius: 16, padding: "28px 32px", maxWidth: 380, textAlign: "center", boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#1a2332", marginBottom: 12 }}>Mark goal as complete?</div>
+            <div style={{ fontSize: 13, color: "#64748b", marginBottom: 20 }}>Are you sure "<strong>{confirmComplete.label}</strong>" is finished?</div>
+            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+              <button onClick={() => setConfirmComplete(null)} style={{ padding: "10px 24px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 13, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+              <button onClick={() => handleCompleteGoal(confirmComplete)} style={{ padding: "10px 24px", borderRadius: 8, border: "none", background: "#4CAF7D", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Yes, Complete</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -2976,15 +3039,15 @@ function GoalOnboarding({ sections, isMobile, onClose, onCreate }: { sections: S
   const [page, setPage] = useState(0);
   const [goalName, setGoalName] = useState("");
   const [dueDate, setDueDate] = useState("");
-  const [goalType, setGoalType] = useState<GoalType>("equation");
-  const [goalSubType, setGoalSubType] = useState<GoalSubType>("counter");
+  const [goalType, setGoalType] = useState<GoalType | null>(null);
   const [steps, setSteps] = useState<GoalStep[]>([]);
   const [attachedMetrics, setAttachedMetrics] = useState<GoalAttachedMetric[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [aiFilter, setAiFilter] = useState("alltime");
 
   // target configuration
   const [configMetric, setConfigMetric] = useState<{ sectionLabel: string; metricLabel: string } | null>(null);
-  const [configTargetType, setConfigTargetType] = useState<GoalTargetType>("number_reach");
+  const [configTargetType, setConfigTargetType] = useState<GoalTargetType>("color_rule");
   const [configOp, setConfigOp] = useState<RuleOp>(">=");
   const [configVal, setConfigVal] = useState("");
   const [configVal2, setConfigVal2] = useState("");
@@ -2993,28 +3056,40 @@ function GoalOnboarding({ sections, isMobile, onClose, onCreate }: { sections: S
   const allMetrics = sections.flatMap(s => s.metrics.map(m => ({ sectionLabel: s.title, metricLabel: m.label, value: m.value, color: resolveColor(m) })));
   const filteredMetrics = searchQuery.trim() ? allMetrics.filter(m => m.metricLabel.toLowerCase().includes(searchQuery.toLowerCase())) : [];
 
-  const resetConfig = () => { setConfigMetric(null); setConfigTargetType("number_reach"); setConfigOp(">="); setConfigVal(""); setConfigVal2(""); setConfigPct(""); };
+  const resetConfig = () => { setConfigMetric(null); setConfigTargetType("color_rule"); setConfigOp(">="); setConfigVal(""); setConfigVal2(""); setConfigPct(""); };
 
   const confirmStep = () => {
     if (!configMetric) return;
     let target: GoalTarget;
     if (configTargetType === "number_reach") target = { type: "number_reach", operator: configOp, value: parseFloat(configVal) || 0 };
     else if (configTargetType === "number_range") target = { type: "number_range", value: parseFloat(configVal) || 0, value2: parseFloat(configVal2) || 0 };
-    else target = { type: "percentage", percent: Math.min(100, Math.max(0, parseInt(configPct) || 100)) };
+    else if (configTargetType === "percentage") target = { type: "percentage", percent: Math.min(100, Math.max(0, parseInt(configPct) || 100)) };
+    else target = { type: "color_rule" };
     setSteps(p => [...p, { sectionLabel: configMetric.sectionLabel, metricLabel: configMetric.metricLabel, target }]);
     resetConfig();
     setSearchQuery("");
   };
 
-  const createGoal = () => {
+  const step1Complete = !!goalName.trim() && !!goalType;
+  const step2Complete = goalType === "metric" ? attachedMetrics.length > 0 : steps.length > 0;
+  const step3Complete = true; // filter always selected (has default)
+
+  const canGoNext = () => {
+    if (page === 0) return step1Complete;
+    if (page === 1) return step2Complete;
+    if (page === 2) return step3Complete;
+    return true;
+  };
+
+  const handleFinish = () => {
     const newGoal = makeGoal({
       label: goalName || "Untitled Goal",
-      type: goalType,
-      subType: goalSubType,
-      status: "active",
+      type: goalType ?? "metric",
       due: dueDate,
-      steps: goalType === "equation" ? steps : [],
-      attachedMetrics: goalType === "metric" ? attachedMetrics : [],
+      steps: steps,
+      attachedMetrics: attachedMetrics,
+      aiFilter,
+      status: step1Complete && step2Complete && step3Complete ? "active" : "drafted",
     });
     const { pct, barColor } = computeGoalProgress(newGoal, sections);
     newGoal.pct = pct; newGoal.barColor = barColor;
@@ -3022,85 +3097,118 @@ function GoalOnboarding({ sections, isMobile, onClose, onCreate }: { sections: S
     onClose();
   };
 
-  const pages = [
-    // Page 0: Name + Due Date
-    <div key="name" style={{ maxWidth: 420, margin: "0 auto", textAlign: "center" }}>
-      <div style={{ fontSize: 22, fontWeight: 700, color: "#1a2332", marginBottom: 8 }}>Create Goal</div>
-      <div style={{ fontSize: 13, color: "#64748b", marginBottom: 28 }}>Step 1: Name & Deadline</div>
-      <input autoFocus value={goalName} onChange={e => setGoalName(e.target.value)} placeholder="Goal name..." style={{ width: "100%", padding: "12px 16px", borderRadius: 10, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none", marginBottom: 14, boxSizing: "border-box" }} />
-      <input value={dueDate} onChange={e => setDueDate(e.target.value)} placeholder="Due date (e.g. May 26th)" style={{ width: "100%", padding: "12px 16px", borderRadius: 10, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none", marginBottom: 14, boxSizing: "border-box" }} />
-      <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-        <button onClick={onClose} style={{ padding: "10px 24px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 13, cursor: "pointer", color: "#64748b" }}>Cancel</button>
-        <button onClick={() => setPage(1)} disabled={!goalName.trim()} style={{ padding: "10px 24px", borderRadius: 8, border: "none", background: goalName.trim() ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0", color: "#fff", fontSize: 13, fontWeight: 600, cursor: goalName.trim() ? "pointer" : "default" }}>Next →</button>
-      </div>
-    </div>,
+  const handlePage0Next = () => { if (goalType) setPage(1); };
 
-    // Page 1: Goal Type
-    <div key="type" style={{ maxWidth: 500, margin: "0 auto", textAlign: "center" }}>
-      <div style={{ fontSize: 22, fontWeight: 700, color: "#1a2332", marginBottom: 8 }}>Goal Type</div>
-      <div style={{ fontSize: 13, color: "#64748b", marginBottom: 28 }}>Step 2: Choose how to track progress</div>
-      <div style={{ display: "flex", gap: 14, justifyContent: "center", marginBottom: 24 }}>
-        {(["equation", "metric"] as GoalType[]).map(t => (
-          <div key={t} onClick={() => setGoalType(t)} style={{ flex: 1, maxWidth: 200, padding: "20px 16px", borderRadius: 12, border: `2px solid ${goalType === t ? "#3B82F6" : "#e2e8f0"}`, background: goalType === t ? "#EFF6FF" : "#fff", cursor: "pointer", textAlign: "center" }}>
-            <div style={{ fontSize: 28, marginBottom: 8 }}>{t === "equation" ? "📐" : "📊"}</div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: "#1a2332", marginBottom: 4 }}>{t === "equation" ? "Equation Goal" : "Metric Goal"}</div>
-            <div style={{ fontSize: 11, color: "#64748b" }}>{t === "equation" ? "Build structured steps with per-metric targets" : "Average health of attached metric boxes"}</div>
+  const stepIndicator = () => (
+    <div style={{ marginBottom: 24 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 0, justifyContent: "center", marginBottom: 16 }}>
+        {[0, 1, 2].map(i => (
+          <div key={i} style={{ display: "flex", alignItems: "center" }}>
+            <div onClick={() => { if (i < page || (i === 0 && step1Complete) || (i === 1 && step2Complete)) setPage(i); }}
+              style={{ width: 28, height: 28, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", cursor: i <= page ? "pointer" : "default",
+                background: (i === 0 && step1Complete) || (i === 1 && step2Complete) || i < page ? "#4CAF7D" : i === page ? "#3B82F6" : "#e2e8f0",
+                color: i <= page ? "#fff" : "#94a3b8", fontSize: 12, fontWeight: 700, transition: "all 0.2s" }}>
+              {(i === 0 && step1Complete) || (i === 1 && step2Complete) || i < page ? <IconGlyph name="Check" size={16} color="#fff" weight="bold" /> : i + 1}
+            </div>
+            {i < 2 && <div style={{ width: 40, height: 2, background: ((i === 0 && step1Complete) || i < page) ? "#4CAF7D" : "#e2e8f0", transition: "background 0.3s" }} />}
           </div>
         ))}
       </div>
-      {goalType === "equation" && (
-        <div style={{ display: "flex", gap: 8, justifyContent: "center", marginBottom: 20 }}>
-          {(["counter", "financial", "percentage"] as GoalSubType[]).map(st => (
-            <div key={st} onClick={() => setGoalSubType(st)} style={{ padding: "5px 16px", borderRadius: 20, border: `1.5px solid ${goalSubType === st ? "#3B82F6" : "#e2e8f0"}`, background: goalSubType === st ? "#EFF6FF" : "#fff", fontSize: 12, fontWeight: 500, cursor: "pointer", color: goalSubType === st ? "#3B82F6" : "#64748b" }}>
-              {st === "counter" ? "# Counter" : st === "financial" ? "$ Financial" : "% Percentage"}
-            </div>
-          ))}
-        </div>
-      )}
-      <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-        <button onClick={() => setPage(0)} style={{ padding: "10px 24px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 13, cursor: "pointer", color: "#64748b" }}>← Back</button>
-        <button onClick={() => setPage(2)} style={{ padding: "10px 24px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Next →</button>
+      {/* Current step summary */}
+      <div style={{ textAlign: "center" }}>
+        {page === 0 && <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332" }}>Step 1: Name, Deadline & Type</div>}
+        {page === 1 && <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332" }}>Step 2: {goalType === "metric" ? "Attach Metrics & Set Targets" : "Build Your Goal"}</div>}
+        {page === 2 && <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332" }}>Step 3: AI Projections</div>}
+        {page === 3 && <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332" }}>Review & Save</div>}
       </div>
-    </div>,
+    </div>
+  );
 
-    // Page 2: Equation goal — search & configure steps
-    goalType === "equation" ? (
-      <div key="eq-setup" style={{ maxWidth: 560, margin: "0 auto" }}>
-        <div style={{ fontSize: 22, fontWeight: 700, color: "#1a2332", marginBottom: 4, textAlign: "center" }}>Add Metrics & Targets</div>
-        <div style={{ fontSize: 13, color: "#64748b", marginBottom: 24, textAlign: "center" }}>Search for metrics and set a target for each</div>
+  const renderPage0 = () => (
+    <div style={{ maxWidth: 420, margin: "0 auto", textAlign: "center" }}>
+      <div style={{ fontSize: 22, fontWeight: 700, color: "#1a2332", marginBottom: 4 }}>Create Goal</div>
+      <div style={{ fontSize: 13, color: "#64748b", marginBottom: 24 }}>Name your goal and choose a type</div>
 
-        {/* Current steps */}
-        {steps.length > 0 && (
+      <input autoFocus value={goalName} onChange={e => setGoalName(e.target.value)} placeholder="Goal name..." style={{ width: "100%", padding: "12px 16px", borderRadius: 10, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none", marginBottom: 14, boxSizing: "border-box" }} />
+
+      <div style={{ textAlign: "left", marginBottom: 8 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>DEADLINE (optional)</div>
+        <input value={dueDate} onChange={e => setDueDate(e.target.value)} type="date" style={{ width: "100%", padding: "12px 16px", borderRadius: 10, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none", marginBottom: 6, boxSizing: "border-box" }} />
+        <div style={{ fontSize: 11, color: "#94a3b8", lineHeight: 1.4, marginBottom: 16 }}>
+          Set a deadline to track progress against time. Without a deadline, this becomes an evergreen goal that shows your average health score.
+        </div>
+      </div>
+
+      <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 8, textAlign: "left" }}>GOAL TYPE</div>
+      <div style={{ display: "flex", gap: 12, justifyContent: "center", marginBottom: 20 }}>
+        {(["equation", "metric"] as GoalType[]).map(t => (
+          <div key={t} onClick={() => setGoalType(t)} style={{ flex: 1, maxWidth: 200, padding: "20px 16px", borderRadius: 12, border: `2px solid ${goalType === t ? "#3B82F6" : "#e2e8f0"}`, background: goalType === t ? "#EFF6FF" : "#fff", cursor: "pointer", textAlign: "center", transition: "all 0.15s" }}>
+            <div style={{ fontSize: 28, marginBottom: 8, display: "flex", justifyContent: "center" }}>
+              {t === "equation" ? <IconGlyph name="ChartBar" size={32} color={goalType === t ? "#3B82F6" : "#64748b"} /> : <IconGlyph name="Gauge" size={32} color={goalType === t ? "#3B82F6" : "#64748b"} />}
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "#1a2332", marginBottom: 4 }}>{t === "equation" ? "Equation Goal" : "Metric Goal"}</div>
+            <div style={{ fontSize: 11, color: "#64748b" }}>{t === "equation" ? "Set targets on specific metrics" : "Track average health of metric boxes"}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+        <button onClick={onClose} style={{ padding: "10px 24px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 13, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+        <button onClick={handlePage0Next} disabled={!step1Complete} style={{ padding: "10px 24px", borderRadius: 8, border: "none", background: step1Complete ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0", color: "#fff", fontSize: 13, fontWeight: 600, cursor: step1Complete ? "pointer" : "default" }}>Next →</button>
+      </div>
+    </div>
+  );
+
+  const renderPage1 = () => {
+    const isEquationMode = goalType === "equation";
+
+    return (
+      <div style={{ maxWidth: 560, margin: "0 auto" }}>
+        <div style={{ fontSize: 22, fontWeight: 700, color: "#1a2332", marginBottom: 4, textAlign: "center" }}>
+          {isEquationMode ? "Set Step Targets" : "Attach Metric Boxes"}
+        </div>
+        <div style={{ fontSize: 13, color: "#64748b", marginBottom: 24, textAlign: "center" }}>
+          {isEquationMode ? "Add steps with targets to track" : "Search and attach metric boxes to track"}
+        </div>
+
+        {/* Selected steps / attached metrics */}
+        {(isEquationMode ? steps : attachedMetrics).length > 0 && (
           <div style={{ marginBottom: 16 }}>
-            {steps.map((s, i) => {
-              const m = findMetricByLabel(sections, s.sectionLabel, s.metricLabel);
+            {(isEquationMode ? steps : attachedMetrics).map((item: any, i: number) => {
+              const m = findMetricByLabel(sections, item.sectionLabel, item.metricLabel);
+              const isStep = isEquationMode;
+              const met = isStep ? evaluateGoalStep(item as GoalStep, sections) : false;
+              const health = !isStep && m ? computeMetricHealth(m) : 0;
               return (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "#F8FAFC", borderRadius: 8, marginBottom: 4, fontSize: 13 }}>
-                  <span style={{ fontWeight: 600, color: "#3B82F6", minWidth: 20 }}>{i + 1}.</span>
-                  <span style={{ flex: 1, color: "#1a2332" }}>{m?.label ?? s.metricLabel}</span>
-                  <span style={{ color: "#64748b", fontSize: 12 }}>{formatTarget(s.target)}</span>
-                  <span onClick={() => { setSteps(p => p.filter((_, j) => j !== i)); }} style={{ cursor: "pointer", color: "#E85D75", fontSize: 16 }}>×</span>
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", background: "#F8FAFC", borderRadius: 10, marginBottom: 6, fontSize: 13, border: "1px solid #f1f5f9" }}>
+                  <span style={{ width: 24, height: 24, borderRadius: "50%", background: "#3B82F6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{i + 1}</span>
+                  <span style={{ flex: 1, color: "#1a2332", fontWeight: 500 }}>{m?.label ?? item.metricLabel}</span>
+                  {isStep && <span style={{ color: "#64748b", fontSize: 12 }}>{formatTarget((item as GoalStep).target)}</span>}
+                  {!isStep && <span style={{ color: "#64748b", fontSize: 12 }}>{health}%</span>}
+                  <span onClick={() => {
+                    if (isStep) setSteps(p => p.filter((_, j) => j !== i));
+                    else setAttachedMetrics(p => p.filter((_, j) => j !== i));
+                  }} style={{ cursor: "pointer", color: "#E85D75", fontSize: 16, flexShrink: 0, marginLeft: 4 }}>×</span>
                 </div>
               );
             })}
           </div>
         )}
 
+        {/* Target configuration panel (for equation mode) */}
         {configMetric ? (
-          /* Target configuration panel */
-          <div style={{ background: "#fff", borderRadius: 12, border: "1.5px solid #e2e8f0", padding: 20, marginBottom: 16 }}>
+          <div style={{ background: "#fff", borderRadius: 12, border: "1.5px solid #3B82F6", padding: 18, marginBottom: 16 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: "#1a2332", marginBottom: 12 }}>
               Target for: <span style={{ color: "#3B82F6" }}>{configMetric.metricLabel}</span>
             </div>
-            <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
-              {(["number_reach", "number_range", "percentage"] as GoalTargetType[]).map(tt => (
-                <div key={tt} onClick={() => setConfigTargetType(tt)} style={{ padding: "5px 14px", borderRadius: 20, border: `1.5px solid ${configTargetType === tt ? "#3B82F6" : "#e2e8f0"}`, background: configTargetType === tt ? "#EFF6FF" : "#fff", fontSize: 12, fontWeight: 500, cursor: "pointer", color: configTargetType === tt ? "#3B82F6" : "#64748b" }}>
-                  {tt === "number_reach" ? "Number Reach" : tt === "number_range" ? "Range" : "Percentage"}
-                </div>
-              ))}
-            </div>
+            <select value={configTargetType} onChange={e => setConfigTargetType(e.target.value as GoalTargetType)} style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none", marginBottom: 10 }}>
+              <option value="color_rule">Color Rule</option>
+              <option value="number_reach">Number Reached</option>
+              <option value="number_range">Number Range Reached</option>
+              <option value="percentage">Percentage Reached</option>
+            </select>
             {configTargetType === "number_reach" && (
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
                 <select value={configOp} onChange={e => setConfigOp(e.target.value as RuleOp)} style={{ padding: "8px 10px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none" }}>
                   {[">=", "<=", ">", "<", "==", "!="].map(op => <option key={op} value={op}>{op}</option>)}
                 </select>
@@ -3108,20 +3216,20 @@ function GoalOnboarding({ sections, isMobile, onClose, onCreate }: { sections: S
               </div>
             )}
             {configTargetType === "number_range" && (
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
                 <input value={configVal} onChange={e => setConfigVal(e.target.value)} type="number" placeholder="Min" style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none" }} />
                 <span style={{ color: "#94a3b8" }}>to</span>
                 <input value={configVal2} onChange={e => setConfigVal2(e.target.value)} type="number" placeholder="Max" style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none" }} />
               </div>
             )}
             {configTargetType === "percentage" && (
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
                 <span style={{ fontSize: 13, color: "#64748b" }}>≥</span>
-                <input value={configPct} onChange={e => setConfigPct(e.target.value)} type="number" min="0" max="100" placeholder="80" style={{ width: 100, padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none" }} />
+                <input value={configPct} onChange={e => setConfigPct(e.target.value)} type="number" placeholder="80" style={{ width: 100, padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none" }} />
                 <span style={{ fontSize: 13, color: "#64748b" }}>% health</span>
               </div>
             )}
-            <div style={{ display: "flex", gap: 8, marginTop: 16, justifyContent: "flex-end" }}>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
               <button onClick={resetConfig} style={{ padding: "8px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b" }}>Cancel</button>
               <button onClick={confirmStep} style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Add Step</button>
             </div>
@@ -3129,96 +3237,138 @@ function GoalOnboarding({ sections, isMobile, onClose, onCreate }: { sections: S
         ) : (
           /* Search */
           <div>
-            <input autoFocus value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Type to search metrics..." style={{ width: "100%", padding: "12px 16px", borderRadius: 10, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none", marginBottom: 12, boxSizing: "border-box" }} />
+            <input autoFocus value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Start typing the name of a metric box..." style={{ width: "100%", padding: "12px 16px", borderRadius: 10, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none", marginBottom: 12, boxSizing: "border-box" }} />
             {searchQuery.trim() && (
-              <div style={{ maxHeight: 240, overflowY: "auto", border: "1px solid #f1f5f9", borderRadius: 10, marginBottom: 12 }}>
+              <div style={{ maxHeight: 260, overflowY: "auto", border: "1px solid #f1f5f9", borderRadius: 10, marginBottom: 12 }}>
                 {filteredMetrics.length === 0 ? (
                   <div style={{ padding: 20, textAlign: "center", fontSize: 12, color: "#94a3b8" }}>No metrics found</div>
-                ) : filteredMetrics.map((m, i) => (
-                  <div key={i} onClick={() => { setConfigMetric({ sectionLabel: m.sectionLabel, metricLabel: m.metricLabel }); setSearchQuery(""); }} style={{ padding: "10px 14px", borderBottom: i < filteredMetrics.length - 1 ? "1px solid #f1f5f9" : "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "#1a2332" }}>
-                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: MS[m.color].bg, flexShrink: 0 }} />
-                    <span style={{ flex: 1 }}>{m.metricLabel}</span>
-                    <span style={{ color: "#94a3b8", fontSize: 12 }}>{m.value}</span>
-                  </div>
-                ))}
+                ) : filteredMetrics
+                  .filter(m => isEquationMode ? !steps.some(s => s.metricLabel === m.metricLabel) : !attachedMetrics.some(a => a.metricLabel === m.metricLabel))
+                  .slice(0, 8)
+                  .map((m, i) => (
+                    <div key={i} onClick={() => {
+                      if (isEquationMode) { setConfigMetric({ sectionLabel: m.sectionLabel, metricLabel: m.metricLabel }); setSearchQuery(""); }
+                      else { setAttachedMetrics(p => [...p, { sectionLabel: m.sectionLabel, metricLabel: m.metricLabel, trackingMode: "average" }]); setSearchQuery(""); }
+                    }} style={{ padding: "12px 14px", borderBottom: i < Math.min(filteredMetrics.length, 8) - 1 ? "1px solid #f1f5f9" : "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 12, fontSize: 13, color: "#1a2332" }}>
+                      <span style={{ width: 10, height: 10, borderRadius: "50%", background: MS[m.color].bg, flexShrink: 0 }} />
+                      <span style={{ flex: 1, fontWeight: 500 }}>{m.metricLabel}</span>
+                      <span style={{ color: "#94a3b8", fontSize: 12 }}>{m.value}</span>
+                      <span style={{ fontSize: 11, color: "#3B82F6", fontWeight: 600, flexShrink: 0 }}>{isEquationMode ? "Select →" : "+ Attach"}</span>
+                    </div>
+                  ))}
               </div>
             )}
           </div>
         )}
 
         <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 8 }}>
-          <button onClick={() => setPage(1)} style={{ padding: "10px 24px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 13, cursor: "pointer", color: "#64748b" }}>← Back</button>
-          <button onClick={createGoal} disabled={steps.length === 0} style={{ padding: "10px 24px", borderRadius: 8, border: "none", background: steps.length === 0 ? "#e2e8f0" : "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: steps.length === 0 ? "default" : "pointer" }}>
-            {steps.length === 0 ? "Add at least one metric" : "🚀 Create Goal"}
+          <button onClick={() => setPage(0)} style={{ padding: "10px 24px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 13, cursor: "pointer", color: "#64748b" }}>← Back</button>
+          <button onClick={() => setPage(2)} disabled={!step2Complete} style={{ padding: "10px 24px", borderRadius: 8, border: "none", background: step2Complete ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0", color: "#fff", fontSize: 13, fontWeight: 600, cursor: step2Complete ? "pointer" : "default" }}>
+            {step2Complete ? "Next →" : isEquationMode ? "Add at least one step" : "Attach at least one metric"}
           </button>
         </div>
       </div>
-    ) : (
-      /* Page 2: Metric goal — attach metrics with tracking */
-      <div key="metric-setup" style={{ maxWidth: 560, margin: "0 auto" }}>
-        <div style={{ fontSize: 22, fontWeight: 700, color: "#1a2332", marginBottom: 4, textAlign: "center" }}>Attach Metric Boxes</div>
-        <div style={{ fontSize: 13, color: "#64748b", marginBottom: 24, textAlign: "center" }}>Search and attach metric boxes to track their health</div>
+    );
+  };
 
-        <input autoFocus value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Type to search metrics..." style={{ width: "100%", padding: "12px 16px", borderRadius: 10, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none", marginBottom: 12, boxSizing: "border-box" }} />
+  const renderPage2 = () => (
+    <div style={{ maxWidth: 480, margin: "0 auto" }}>
+      <div style={{ fontSize: 22, fontWeight: 700, color: "#1a2332", marginBottom: 4, textAlign: "center" }}>AI Projections</div>
+      <div style={{ fontSize: 13, color: "#64748b", marginBottom: 24, textAlign: "center" }}>Choose how far back to analyze</div>
 
-        {searchQuery.trim() && (
-          <div style={{ maxHeight: 200, overflowY: "auto", border: "1px solid #f1f5f9", borderRadius: 10, marginBottom: 12 }}>
-            {filteredMetrics.filter(fm => !attachedMetrics.some(a => a.metricLabel === fm.metricLabel)).length === 0 ? (
-              <div style={{ padding: 20, textAlign: "center", fontSize: 12, color: "#94a3b8" }}>All matching metrics already attached</div>
-            ) : filteredMetrics.filter(fm => !attachedMetrics.some(a => a.metricLabel === fm.metricLabel)).map((m, i) => (
-              <div key={i} onClick={() => { setAttachedMetrics(p => [...p, { sectionLabel: m.sectionLabel, metricLabel: m.metricLabel, trackingMode: "average" }]); setSearchQuery(""); }} style={{ padding: "10px 14px", borderBottom: "1px solid #f1f5f9", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "#1a2332" }}>
-                <span style={{ width: 8, height: 8, borderRadius: "50%", background: MS[m.color].bg, flexShrink: 0 }} />
-                <span style={{ flex: 1 }}>{m.metricLabel}</span>
-                <span style={{ color: "#94a3b8", fontSize: 12 }}>{m.value}</span>
-                <span style={{ fontSize: 11, color: "#3B82F6" }}>+ Attach</span>
-              </div>
-            ))}
+      <div style={{ background: "#F8FAFC", borderRadius: 12, padding: 20, marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+          <IconGlyph name="Star" size={20} color="#F5A623" weight="fill" />
+          <div style={{ fontSize: 14, fontWeight: 600, color: "#1a2332" }}>Projections Filter</div>
+        </div>
+        <select value={aiFilter} onChange={e => setAiFilter(e.target.value)} style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none", marginBottom: 12 }}>
+          <option value="3months">Past 3 Months</option>
+          <option value="7days">Past 7 Days</option>
+          <option value="1year">Past Year</option>
+          <option value="alltime">All Time</option>
+        </select>
+        <div style={{ fontSize: 12, color: "#64748b", lineHeight: 1.5, fontStyle: "italic" }}>
+          AI projections will analyze your past data and tasks to predict future trends and keep your business on track.
+        </div>
+      </div>
+
+      <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+        <button onClick={() => setPage(1)} style={{ padding: "10px 24px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 13, cursor: "pointer", color: "#64748b" }}>← Back</button>
+        <button onClick={() => setPage(3)} style={{ padding: "10px 24px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Next →</button>
+      </div>
+    </div>
+  );
+
+  const renderPage3 = () => (
+    <div style={{ maxWidth: 520, margin: "0 auto" }}>
+      <div style={{ fontSize: 22, fontWeight: 700, color: "#1a2332", marginBottom: 4, textAlign: "center" }}>Review Your Goal</div>
+      <div style={{ fontSize: 13, color: "#64748b", marginBottom: 24, textAlign: "center" }}>Check everything looks right before saving</div>
+
+      {/* Goal header */}
+      <div style={{ background: "#fff", borderRadius: 12, border: "1.5px solid #e2e8f0", padding: 18, marginBottom: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+          <span style={{ flex: 1, fontSize: 16, fontWeight: 700, color: "#1a2332" }}>{goalName || "Untitled Goal"}</span>
+          <div onClick={() => setPage(0)} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 2, color: "#94a3b8", fontSize: 11 }}><IconGlyph name="PencilSimple" size={12} color="#94a3b8" /> Edit</div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ height: 32, flex: 1, borderRadius: 99, background: "#e5e7eb", overflow: "hidden" }}>
+            <div style={{ width: `${0}%`, height: "100%", borderRadius: 99, background: "#94a3b8" }} />
           </div>
-        )}
+          {dueDate && <span style={{ fontSize: 12, color: "#94a3b8" }}>Due: {dueDate}</span>}
+          <div onClick={() => setPage(0)} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 2, color: "#94a3b8", fontSize: 11 }}><IconGlyph name="PencilSimple" size={12} color="#94a3b8" /></div>
+        </div>
+      </div>
 
-        {/* Attached metrics */}
-        {attachedMetrics.length > 0 && (
-          <div style={{ marginBottom: 16 }}>
-            {attachedMetrics.map((a, i) => {
-              const m = findMetricByLabel(sections, a.sectionLabel, a.metricLabel);
-              const health = m ? computeMetricHealth(m) : 0;
+      {/* Metrics tracking */}
+      <div style={{ background: "#fff", borderRadius: 12, border: "1.5px solid #e2e8f0", padding: 18, marginBottom: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+          <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: "#1a2332" }}>Metrics Tracking This Goal</span>
+          <div onClick={() => setPage(1)} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 2, color: "#94a3b8", fontSize: 11 }}><IconGlyph name="PencilSimple" size={12} color="#94a3b8" /> Edit</div>
+        </div>
+        {(goalType === "equation" ? steps : attachedMetrics).length === 0 ? (
+          <div style={{ fontSize: 12, color: "#94a3b8", padding: "8px 0" }}>No metrics attached yet</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {(goalType === "equation" ? steps : attachedMetrics).map((item: any, i: number) => {
+              const m = findMetricByLabel(sections, item.sectionLabel, item.metricLabel);
               return (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "#F8FAFC", borderRadius: 8, marginBottom: 4, fontSize: 13 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: health >= 80 ? "#4CAF7D" : health >= 50 ? "#F5A623" : "#E85D75", flexShrink: 0 }} />
-                  <span style={{ flex: 1, color: "#1a2332" }}>{m?.label ?? a.metricLabel}</span>
-                  <span style={{ color: "#64748b", fontSize: 12 }}>{health}%</span>
-                  <select value={a.trackingMode} onChange={e => { const v = e.target.value as GoalTrackingMode; setAttachedMetrics(p => p.map((x, j) => j === i ? { ...x, trackingMode: v } : x)); }} style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #e2e8f0", fontSize: 11, outline: "none" }}>
-                    <option value="average">Average</option>
-                    <option value="off">Off</option>
-                    <option value="direct">Direct</option>
-                    <option value="health_over_time">Health Over Time</option>
-                  </select>
-                  <span onClick={() => setAttachedMetrics(p => p.filter((_, j) => j !== i))} style={{ cursor: "pointer", color: "#E85D75", fontSize: 16 }}>×</span>
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "#F8FAFC", borderRadius: 8, fontSize: 13 }}>
+                  <span style={{ width: 24, height: 24, borderRadius: "50%", background: "#3B82F6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{i + 1}</span>
+                  <span style={{ flex: 1, color: "#1a2332" }}>{m?.label ?? item.metricLabel}</span>
+                  {goalType === "equation" && <span style={{ color: "#64748b", fontSize: 12 }}>{formatTarget((item as GoalStep).target)}</span>}
                 </div>
               );
             })}
           </div>
         )}
+      </div>
 
-        <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 8 }}>
-          <button onClick={() => setPage(1)} style={{ padding: "10px 24px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 13, cursor: "pointer", color: "#64748b" }}>← Back</button>
-          <button onClick={createGoal} disabled={attachedMetrics.length === 0} style={{ padding: "10px 24px", borderRadius: 8, border: "none", background: attachedMetrics.length === 0 ? "#e2e8f0" : "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: attachedMetrics.length === 0 ? "default" : "pointer" }}>
-            {attachedMetrics.length === 0 ? "Attach at least one metric" : "🚀 Create Goal"}
-          </button>
+      {/* Projections */}
+      <div style={{ background: "#fff", borderRadius: 12, border: "1.5px solid #e2e8f0", padding: 18, marginBottom: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <IconGlyph name="Star" size={16} color="#F5A623" weight="fill" />
+          <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: "#1a2332" }}>Projections</span>
+          <span style={{ fontSize: 12, color: "#64748b" }}>{aiFilter === "3months" ? "Past 3 Months" : aiFilter === "7days" ? "Past 7 Days" : aiFilter === "1year" ? "Past Year" : "All Time"}</span>
+          <div onClick={() => setPage(2)} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 2, color: "#94a3b8", fontSize: 11 }}><IconGlyph name="PencilSimple" size={12} color="#94a3b8" /> Edit</div>
         </div>
       </div>
-    ),
-  ];
+
+      {/* Action buttons */}
+      <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 20 }}>
+        <button onClick={() => setPage(2)} style={{ padding: "10px 24px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 13, cursor: "pointer", color: "#64748b" }}>← Back</button>
+        <button onClick={handleFinish} style={{ padding: "10px 24px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Save Goal</button>
+      </div>
+    </div>
+  );
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: isMobile ? "#fff" : "rgba(0,0,0,0.15)", display: "flex", flexDirection: "column" }}>
       <div style={{ background: "#fff", flex: 1, overflowY: "auto", width: "100%", padding: isMobile ? "20px 16px" : "clamp(24px,4vw,40px)", borderRadius: isMobile ? 0 : 20, maxWidth: isMobile ? "100%" : 640, margin: isMobile ? 0 : "auto", maxHeight: isMobile ? "100dvh" : "90vh", boxShadow: isMobile ? "none" : "0 25px 50px rgba(0,0,0,0.15)" }}>
-        <div style={{ display: "flex", gap: 6, justifyContent: "center", marginBottom: 24 }}>
-          {pages.map((_, i) => (
-            <div key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: i === page ? "#3B82F6" : i < page ? "#4CAF7D" : "#e2e8f0", transition: "background 0.2s" }} />
-          ))}
-        </div>
-        {pages[page]}
+        {stepIndicator()}
+        {page === 0 && renderPage0()}
+        {page === 1 && renderPage1()}
+        {page === 2 && renderPage2()}
+        {page === 3 && renderPage3()}
       </div>
     </div>
   );
@@ -3247,13 +3397,59 @@ function GoalSettingsModal({ goal, sections, isMobile, onSave, onDuplicate, onDe
     let target: GoalTarget;
     if (configTargetType === "number_reach") target = { type: "number_reach", operator: configOp, value: parseFloat(configVal) || 0 };
     else if (configTargetType === "number_range") target = { type: "number_range", value: parseFloat(configVal) || 0, value2: parseFloat(configVal2) || 0 };
-    else target = { type: "percentage", percent: Math.min(100, Math.max(0, parseInt(configPct) || 100)) };
+    else if (configTargetType === "percentage") target = { type: "percentage", percent: Math.min(100, Math.max(0, parseInt(configPct) || 100)) };
+    else target = { type: "color_rule" };
     setEdited(p => ({ ...p, steps: [...p.steps, { sectionLabel: configMetric.sectionLabel, metricLabel: configMetric.metricLabel, target }] }));
     resetConfig(); setSearchQuery("");
   };
 
   const { pct: livePct, barColor: liveBarColor } = computeGoalProgress(edited, sections);
   const saveGoal = () => { onSave({ ...edited, pct: livePct, barColor: liveBarColor }); onClose(); };
+
+  const renderTargetConfig = (onConfirm: (target: GoalTarget) => void, onCancel: () => void) => (
+    <div style={{ marginTop: 8 }}>
+      <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332", marginBottom: 10 }}>Target for: <span style={{ color: "#3B82F6" }}>{configMetric?.metricLabel}</span></div>
+      <select value={configTargetType} onChange={e => setConfigTargetType(e.target.value as GoalTargetType)} style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", marginBottom: 10 }}>
+        <option value="color_rule">Color Rule</option>
+        <option value="number_reach">Number Reached</option>
+        <option value="number_range">Number Range Reached</option>
+        <option value="percentage">Percentage Reached</option>
+      </select>
+      {configTargetType === "number_reach" && (
+        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
+          <select value={configOp} onChange={e => setConfigOp(e.target.value as RuleOp)} style={{ padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none" }}>
+            {[">=", "<=", ">", "<", "==", "!="].map(op => <option key={op} value={op}>{op}</option>)}
+          </select>
+          <input value={configVal} onChange={e => setConfigVal(e.target.value)} type="number" placeholder="Value" style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none" }} />
+        </div>
+      )}
+      {configTargetType === "number_range" && (
+        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
+          <input value={configVal} onChange={e => setConfigVal(e.target.value)} type="number" placeholder="Min" style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none" }} />
+          <span style={{ color: "#94a3b8" }}>to</span>
+          <input value={configVal2} onChange={e => setConfigVal2(e.target.value)} type="number" placeholder="Max" style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none" }} />
+        </div>
+      )}
+      {configTargetType === "percentage" && (
+        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
+          <span style={{ fontSize: 13, color: "#64748b" }}>≥</span>
+          <input value={configPct} onChange={e => setConfigPct(e.target.value)} type="number" placeholder="80" style={{ width: 100, padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none" }} />
+          <span style={{ fontSize: 13, color: "#64748b" }}>% health</span>
+        </div>
+      )}
+      <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+        <button onClick={onCancel} style={{ padding: "6px 14px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 11, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+        <button onClick={() => {
+          let target: GoalTarget;
+          if (configTargetType === "number_reach") target = { type: "number_reach", operator: configOp, value: parseFloat(configVal) || 0 };
+          else if (configTargetType === "number_range") target = { type: "number_range", value: parseFloat(configVal) || 0, value2: parseFloat(configVal2) || 0 };
+          else if (configTargetType === "percentage") target = { type: "percentage", percent: Math.min(100, Math.max(0, parseInt(configPct) || 100)) };
+          else target = { type: "color_rule" };
+          onConfirm(target);
+        }} style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Add Step</button>
+      </div>
+    </div>
+  );
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: isMobile ? "#fff" : "rgba(0,0,0,0.15)", display: "flex", flexDirection: "column" }}>
@@ -3262,13 +3458,9 @@ function GoalSettingsModal({ goal, sections, isMobile, onSave, onDuplicate, onDe
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
           <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#64748b", padding: 0 }}>×</button>
           <div style={{ fontSize: 18, fontWeight: 700, color: "#1a2332", flex: 1 }}>Goal Settings</div>
-          <div style={{ display: "flex", gap: 6 }}>
-            <div onClick={() => { onDuplicate(makeGoal({ ...edited, label: edited.label + " (copy)", status: "drafted" })); }} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 12, cursor: "pointer", color: "#64748b" }}>Duplicate</div>
-            <div onClick={() => { if (confirm("Delete this goal?")) { onDelete(edited.id); onClose(); } }} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #fecaca", fontSize: 12, cursor: "pointer", color: "#E85D75" }}>Delete</div>
-          </div>
         </div>
 
-        {/* Name & Status */}
+        {/* Name & Due Date */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
           <div>
             <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>LABEL</div>
@@ -3276,10 +3468,11 @@ function GoalSettingsModal({ goal, sections, isMobile, onSave, onDuplicate, onDe
           </div>
           <div>
             <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>DUE DATE</div>
-            <input value={edited.due} onChange={e => setEdited(p => ({ ...p, due: e.target.value }))} style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+            <input value={edited.due} onChange={e => setEdited(p => ({ ...p, due: e.target.value }))} type="date" style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
           </div>
         </div>
 
+        {/* Type & Status */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
           <div>
             <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>TYPE</div>
@@ -3298,18 +3491,9 @@ function GoalSettingsModal({ goal, sections, isMobile, onSave, onDuplicate, onDe
           </div>
         </div>
 
+        {/* Steps section (for equation type) */}
         {edited.type === "equation" && (
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>SUB-TYPE</div>
-            <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
-              {(["counter", "financial", "percentage"] as GoalSubType[]).map(st => (
-                <div key={st} onClick={() => setEdited(p => ({ ...p, subType: st }))} style={{ padding: "5px 14px", borderRadius: 20, border: `1.5px solid ${edited.subType === st ? "#3B82F6" : "#e2e8f0"}`, background: edited.subType === st ? "#EFF6FF" : "#fff", fontSize: 12, fontWeight: 500, cursor: "pointer", color: edited.subType === st ? "#3B82F6" : "#64748b" }}>
-                  {st === "counter" ? "# Counter" : st === "financial" ? "$ Financial" : "% Percentage"}
-                </div>
-              ))}
-            </div>
-
-            {/* Steps */}
+          <div style={{ marginBottom: 16 }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>STEPS ({edited.steps.length})</div>
             {edited.steps.map((s, i) => {
               const m = findMetricByLabel(sections, s.sectionLabel, s.metricLabel);
@@ -3319,50 +3503,14 @@ function GoalSettingsModal({ goal, sections, isMobile, onSave, onDuplicate, onDe
                   <span style={{ fontWeight: 600, color: "#3B82F6", minWidth: 20 }}>{i + 1}.</span>
                   <span style={{ flex: 1, color: "#1a2332" }}>{m?.label ?? s.metricLabel}</span>
                   <span style={{ color: "#64748b", fontSize: 12 }}>{formatTarget(s.target)}</span>
-                  <span style={{ color: met ? "#059669" : "#DC2626", fontSize: 12, fontWeight: 600 }}>{met ? "✓" : "✗"}</span>
+                  <span style={{ display: "flex", alignItems: "center" }}>{met ? <IconGlyph name="CheckCircle" size={14} color="#059669" weight="fill" /> : <IconGlyph name="XCircle" size={14} color="#DC2626" weight="fill" />}</span>
                   <span onClick={() => setEdited(p => ({ ...p, steps: p.steps.filter((_, j) => j !== i) }))} style={{ cursor: "pointer", color: "#E85D75", fontSize: 16 }}>×</span>
                 </div>
               );
             })}
-
-            {/* Add step */}
-            {configMetric ? (
-              <div style={{ background: "#fff", borderRadius: 12, border: "1.5px solid #e2e8f0", padding: 16, marginTop: 8 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332", marginBottom: 10 }}>Target for: <span style={{ color: "#3B82F6" }}>{configMetric.metricLabel}</span></div>
-                <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
-                  {(["number_reach", "number_range", "percentage"] as GoalTargetType[]).map(tt => (
-                    <div key={tt} onClick={() => setConfigTargetType(tt)} style={{ padding: "4px 12px", borderRadius: 20, border: `1.5px solid ${configTargetType === tt ? "#3B82F6" : "#e2e8f0"}`, background: configTargetType === tt ? "#EFF6FF" : "#fff", fontSize: 11, fontWeight: 500, cursor: "pointer", color: configTargetType === tt ? "#3B82F6" : "#64748b" }}>
-                      {tt === "number_reach" ? "Number Reach" : tt === "number_range" ? "Range" : "Percentage"}
-                    </div>
-                  ))}
-                </div>
-                {configTargetType === "number_reach" && (
-                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <select value={configOp} onChange={e => setConfigOp(e.target.value as RuleOp)} style={{ padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none" }}>
-                      {[">=", "<=", ">", "<", "==", "!="].map(op => <option key={op} value={op}>{op}</option>)}
-                    </select>
-                    <input value={configVal} onChange={e => setConfigVal(e.target.value)} type="number" placeholder="Value" style={{ flex: 1, padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none" }} />
-                  </div>
-                )}
-                {configTargetType === "number_range" && (
-                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <input value={configVal} onChange={e => setConfigVal(e.target.value)} type="number" placeholder="Min" style={{ flex: 1, padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none" }} />
-                    <span style={{ color: "#94a3b8" }}>to</span>
-                    <input value={configVal2} onChange={e => setConfigVal2(e.target.value)} type="number" placeholder="Max" style={{ flex: 1, padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none" }} />
-                  </div>
-                )}
-                {configTargetType === "percentage" && (
-                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <span style={{ fontSize: 12, color: "#64748b" }}>≥</span>
-                    <input value={configPct} onChange={e => setConfigPct(e.target.value)} type="number" placeholder="80" style={{ width: 80, padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none" }} />
-                    <span style={{ fontSize: 12, color: "#64748b" }}>% health</span>
-                  </div>
-                )}
-                <div style={{ display: "flex", gap: 6, marginTop: 10, justifyContent: "flex-end" }}>
-                  <button onClick={resetConfig} style={{ padding: "6px 14px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 11, cursor: "pointer", color: "#64748b" }}>Cancel</button>
-                  <button onClick={confirmStep} style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Add Step</button>
-                </div>
-              </div>
+            {configMetric ? renderTargetConfig(
+              (target) => { setEdited(p => ({ ...p, steps: [...p.steps, { sectionLabel: configMetric.sectionLabel, metricLabel: configMetric.metricLabel, target }] })); resetConfig(); setSearchQuery(""); },
+              resetConfig
             ) : (
               <div style={{ marginTop: 8 }}>
                 <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search to add a metric step..." style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
@@ -3384,8 +3532,9 @@ function GoalSettingsModal({ goal, sections, isMobile, onSave, onDuplicate, onDe
           </div>
         )}
 
+        {/* Attached metrics (for metric type) */}
         {edited.type === "metric" && (
-          <div>
+          <div style={{ marginBottom: 16 }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>ATTACHED METRICS</div>
             {edited.attachedMetrics.map((a, i) => {
               const m = findMetricByLabel(sections, a.sectionLabel, a.metricLabel);
@@ -3417,7 +3566,7 @@ function GoalSettingsModal({ goal, sections, isMobile, onSave, onDuplicate, onDe
             <span style={{ fontSize: 12, fontWeight: 600, color: "#64748b" }}>Progress Preview</span>
             <span style={{ fontSize: 14, fontWeight: 700, color: liveBarColor === "green" ? "#4CAF7D" : liveBarColor === "yellow" ? "#F5A623" : "#E85D75" }}>{livePct}%</span>
           </div>
-          <div style={{ height: 8, borderRadius: 99, background: "#e5e7eb", overflow: "hidden" }}>
+          <div style={{ height: 32, borderRadius: 99, background: "#e5e7eb", overflow: "hidden" }}>
             <div style={{ width: `${livePct}%`, height: "100%", borderRadius: 99, background: liveBarColor === "green" ? "#4CAF7D" : liveBarColor === "yellow" ? "#F5A623" : "#E85D75", transition: "width 0.3s" }} />
           </div>
         </div>
@@ -3426,6 +3575,16 @@ function GoalSettingsModal({ goal, sections, isMobile, onSave, onDuplicate, onDe
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 20 }}>
           <button onClick={onClose} style={{ padding: "10px 24px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 13, cursor: "pointer", color: "#64748b" }}>Cancel</button>
           <button onClick={saveGoal} style={{ padding: "10px 24px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Save</button>
+        </div>
+
+        {/* Duplicate & Delete as links (like MetricBoxSettingsModal) */}
+        <div style={{ display: "flex", justifyContent: "center", gap: 20, marginTop: 18, paddingTop: 18, borderTop: "1px solid #f1f5f9" }}>
+          <div onClick={() => { onDuplicate(makeGoal({ ...edited, label: edited.label + " (copy)", status: "drafted" })); }} style={{ fontSize: 12, color: "#3B82F6", cursor: "pointer", fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>
+            <IconGlyph name="Copy" size={14} color="#3B82F6" /> Duplicate Goal
+          </div>
+          <div onClick={() => { if (confirm("Delete this goal?")) { onDelete(edited.id); onClose(); } }} style={{ fontSize: 12, color: "#E85D75", cursor: "pointer", fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>
+            <IconGlyph name="Trash" size={14} color="#E85D75" /> Delete Goal
+          </div>
         </div>
       </div>
     </div>
@@ -5807,7 +5966,7 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
         <span>Health</span>
         <span style={{ color: "#1a2332", fontWeight: 700 }}>{health.score}%</span>
       </div>
-      <div style={{ width: "100%", height: 16, background: "#f1f5f9", borderRadius: 99, overflow: "hidden" }}>
+      <div style={{ width: "100%", height: 32, background: "#f1f5f9", borderRadius: 99, overflow: "hidden" }}>
         <div style={{
           width: `${health.score}%`, height: "100%",
           background: barColors[health.barColor], borderRadius: 99,
@@ -6202,6 +6361,7 @@ export default function DashelloDashboard() {
   ]);
 
   const [goalsData, setGoalsData] = useState<Goal[]>([]);
+  const [goalsViewMode, setGoalsViewMode] = useState<"row" | "expanded">("row");
   const [showGoalOnboarding, setShowGoalOnboarding] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
 
@@ -6250,6 +6410,26 @@ export default function DashelloDashboard() {
   useEffect(() => { if (userId && dbReady) saveUserData("sections", userId, sections); }, [sections, userId, dbReady]);
   useEffect(() => { if (userId && dbReady) saveUserData("tasks", userId, tasksData); }, [tasksData, userId, dbReady]);
   useEffect(() => { if (userId && dbReady) saveUserData("goals", userId, goalsData); }, [goalsData, userId, dbReady]);
+
+  // Auto-create tasks when goals hit 100%
+  useEffect(() => {
+    setTasksData(prev => {
+      let changed = false;
+      const next = [...prev];
+      for (const g of goalsData) {
+        if (g.status !== "active") continue;
+        const { pct } = computeGoalProgress(g, sections);
+        if (pct >= 100) {
+          const taskText = `Complete your goal: ${g.label}`;
+          if (!next.some(t => t.text === taskText)) {
+            next.push({ id: crypto.randomUUID(), text: taskText, done: false, assignee: "AJ", due: g.due || "" });
+            changed = true;
+          }
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [goalsData, sections]);
 
   // Mobile
   useEffect(() => {
@@ -6672,13 +6852,16 @@ const sidebarEl = (
             </div>
           )}
           <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
-            {page === "home" && !inlineView && (
+            {(page === "home" && !inlineView) || page === "goals" ? (
               <div style={{ display: "flex", borderRadius: 8, border: "1px solid #e2e8f0", overflow: "hidden" }}>
-                {["Row", "Column"].map((lbl, i) => (
-                  <div key={lbl} style={{ padding: isMobile ? "8px 12px" : "5px 13px", fontSize: 12, fontWeight: 500, cursor: "pointer", background: i === 0 ? "#3B82F6" : "#fff", color: i === 0 ? "#fff" : "#94a3b8" }}>{lbl}</div>
+                {["Row", page === "goals" ? "Expanded" : "Column"].map((lbl, i) => (
+                  <div key={lbl} onClick={() => { if (page === "goals") setGoalsViewMode(i === 0 ? "row" : "expanded"); }}
+                    style={{ padding: isMobile ? "8px 12px" : "5px 13px", fontSize: 12, fontWeight: 500, cursor: "pointer", userSelect: "none",
+                      background: (page === "home" && i === 0) || (page === "goals" && ((i === 0 && goalsViewMode === "row") || (i === 1 && goalsViewMode === "expanded"))) ? "#3B82F6" : "#fff",
+                      color: (page === "home" && i === 0) || (page === "goals" && ((i === 0 && goalsViewMode === "row") || (i === 1 && goalsViewMode === "expanded"))) ? "#fff" : "#94a3b8" }}>{lbl}</div>
                 ))}
               </div>
-            )}
+            ) : null}
             <TopBarRefreshButton onRefresh={handleRefreshAll} lastSyncedAt={lastDashboardSync} />
             {(page === "home" && inlineView) && (
               <BreadcrumbNav items={getBreadcrumbItems()} onNavigate={handleBreadcrumbNavigate} />
@@ -6720,7 +6903,7 @@ const sidebarEl = (
             onFiveAccountEnabledFromBox={handleFiveAccountEnabledFromBox}
             onFiveAccountDisabledFromBox={handleFiveAccountDisabledFromBox}
             onOpenEquationBuilder={handleOpenEquationBuilder} />}
-          {page === "goals" && <div style={{ flex: 1, overflowY: "auto" }}><GoalsPage goals={goalsData} setGoals={setGoalsData} sections={sections} onOpenOnboarding={() => setShowGoalOnboarding(true)} onEditGoal={handleEditGoal} onDuplicateGoal={handleDuplicateGoal} onDeleteGoal={handleDeleteGoal} /></div>}
+          {page === "goals" && <div style={{ flex: 1, overflowY: "auto" }}><GoalsPage goals={goalsData} setGoals={setGoalsData} sections={sections} viewMode={goalsViewMode} onOpenOnboarding={() => setShowGoalOnboarding(true)} onEditGoal={handleEditGoal} onDuplicateGoal={handleDuplicateGoal} /></div>}
           {page === "tasks" && <div style={{ flex: 1, overflowY: "auto" }}><TasksPage tasks={tasksData} setTasks={setTasksData} /></div>}
           {page === "integrations" && <div style={{ flex: 1, overflowY: "auto" }}><IntegrationsPage onSelectApp={a => { setSelectedApp(a); setPage("app-detail"); }} /></div>}
           {page === "app-detail" && selectedApp && <div style={{ flex: 1, overflowY: "auto" }}><AppDetailPage app={selectedApp} onBack={() => setPage("integrations")} /></div>}
