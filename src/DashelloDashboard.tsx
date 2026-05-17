@@ -2927,7 +2927,7 @@ function GoalsPage({ goals, setGoals, sections, viewMode, onOpenOnboarding, onEd
 
           {/* Progress bar - always shown */}
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ flex: 1, height: 32, borderRadius: 99, background: "#e5e7eb", overflow: "hidden" }}>
+            <div style={{ flex: 1, height: 24, borderRadius: 99, background: "#e5e7eb", overflow: "hidden" }}>
               <div style={{ width: `${g.pct}%`, height: "100%", borderRadius: 99, background: barBg, transition: "width 0.3s" }} />
             </div>
             <span style={{ fontSize: 13, fontWeight: 700, color: barBg, minWidth: 40, textAlign: "right" }}>{g.pct}%</span>
@@ -3317,7 +3317,7 @@ function GoalOnboarding({ sections, isMobile, onClose, onCreate }: { sections: S
           <div onClick={() => setPage(0)} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 2, color: "#94a3b8", fontSize: 11 }}><IconGlyph name="PencilSimple" size={12} color="#94a3b8" /> Edit</div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ height: 32, flex: 1, borderRadius: 99, background: "#e5e7eb", overflow: "hidden" }}>
+          <div style={{ height: 24, flex: 1, borderRadius: 99, background: "#e5e7eb", overflow: "hidden" }}>
             <div style={{ width: `${0}%`, height: "100%", borderRadius: 99, background: "#94a3b8" }} />
           </div>
           {dueDate && <span style={{ fontSize: 12, color: "#94a3b8" }}>Due: {dueDate}</span>}
@@ -3577,7 +3577,21 @@ function GoalSettingsModal({ goal, sections, isMobile, onSave, onDuplicate, onDe
               );
             })}
             <div style={{ marginTop: 8 }}>
-              <input value={searchQuery} onChange={e => { setSearchQuery(e.target.value); if (!e.target.value) return; const m = allMetrics.find(x => x.metricLabel.toLowerCase().includes(e.target.value.toLowerCase()) && !edited.attachedMetrics.some(a => a.metricLabel === x.metricLabel)); if (m) { setEdited(p => ({ ...p, attachedMetrics: [...p.attachedMetrics, { sectionLabel: m.sectionLabel, metricLabel: m.metricLabel, trackingMode: "average" }] })); setSearchQuery(""); }}} placeholder="Type to attach a metric box..." style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+              <input value={searchQuery} onChange={e => { setSearchQuery(e.target.value); }} placeholder="Start typing the name of a metric box..." style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+              {searchQuery.trim() && (
+                <div style={{ maxHeight: 220, overflowY: "auto", border: "1px solid #f1f5f9", borderRadius: 8, marginTop: 4 }}>
+                  {filteredMetrics.filter(m => !edited.attachedMetrics.some(a => a.metricLabel === m.metricLabel)).length === 0 ? (
+                    <div style={{ padding: 14, textAlign: "center", fontSize: 12, color: "#94a3b8" }}>No metrics found</div>
+                  ) : filteredMetrics.filter(m => !edited.attachedMetrics.some(a => a.metricLabel === m.metricLabel)).map((mmm, i) => (
+                    <div key={i} onClick={() => { setEdited(p => ({ ...p, attachedMetrics: [...p.attachedMetrics, { sectionLabel: mmm.sectionLabel, metricLabel: mmm.metricLabel, trackingMode: "average" }] })); setSearchQuery(""); }} style={{ padding: "8px 12px", borderBottom: i < filteredMetrics.length - 1 ? "1px solid #f1f5f9" : "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, fontSize: 12, color: "#1a2332" }}>
+                      <span style={{ width: 10, height: 10, borderRadius: "50%", background: MS[mmm.color].bg, flexShrink: 0 }} />
+                      <span style={{ flex: 1, fontWeight: 500 }}>{mmm.metricLabel}</span>
+                      <span style={{ color: "#94a3b8", fontSize: 12 }}>{mmm.value}</span>
+                      <span style={{ fontSize: 11, color: "#3B82F6", fontWeight: 600, flexShrink: 0 }}>+ Attach</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -3588,7 +3602,7 @@ function GoalSettingsModal({ goal, sections, isMobile, onSave, onDuplicate, onDe
             <span style={{ fontSize: 12, fontWeight: 600, color: "#64748b" }}>Progress Preview</span>
             <span style={{ fontSize: 14, fontWeight: 700, color: liveBarColor === "green" ? "#4CAF7D" : liveBarColor === "yellow" ? "#F5A623" : "#E85D75" }}>{livePct}%</span>
           </div>
-          <div style={{ height: 32, borderRadius: 99, background: "#e5e7eb", overflow: "hidden" }}>
+          <div style={{ height: 24, borderRadius: 99, background: "#e5e7eb", overflow: "hidden" }}>
             <div style={{ width: `${livePct}%`, height: "100%", borderRadius: 99, background: liveBarColor === "green" ? "#4CAF7D" : liveBarColor === "yellow" ? "#F5A623" : "#E85D75", transition: "width 0.3s" }} />
           </div>
         </div>
@@ -5997,7 +6011,7 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
         <span>Health</span>
         <span style={{ color: "#fff", fontWeight: 700 }}>{health.score}%</span>
       </div>
-      <div style={{ width: "100%", height: 32, background: "rgba(255,255,255,0.2)", borderRadius: 99, overflow: "hidden" }}>
+      <div style={{ width: "100%", height: 24, background: "rgba(255,255,255,0.2)", borderRadius: 99, overflow: "hidden" }}>
         <div style={{
           width: `${health.score}%`, height: "100%",
           background: barColors[health.barColor], borderRadius: 99,
