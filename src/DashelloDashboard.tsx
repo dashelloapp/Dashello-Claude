@@ -1219,7 +1219,7 @@ function BottomThreeCards({ data, metricId, tasks, setTasks, userEmail, orgMembe
                         ? <img src={assigneeMember.avatarUrl} alt="" style={{ width: 22, height: 22, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
                         : <div style={{ width: 22, height: 22, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: "#94a3b8", flexShrink: 0 }}>
                             {(assigneeMember.name?.[0] || assigneeMember.email[0] || "?").toUpperCase()}
-            </>
+                          </div>
           )}
                   </div>
                 );
