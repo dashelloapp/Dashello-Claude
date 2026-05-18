@@ -23,12 +23,16 @@ async function loadUserData(table: string, userId: string) {
   return data?.data ?? null;
 }
 async function saveUserData(table: string, userId: string, payload: any) {
-  const { data: existing } = await supabase.from(table).select("id").eq("user_id", userId).maybeSingle();
-  if (existing) {
-    await supabase.from(table).update({ data: payload, updated_at: new Date().toISOString() }).eq("user_id", userId);
-  } else {
-    await supabase.from(table).insert({ user_id: userId, data: payload });
-  }
+  try {
+    const { data: existing } = await supabase.from(table).select("id").eq("user_id", userId).maybeSingle();
+    if (existing) {
+      const { error } = await supabase.from(table).update({ data: payload, updated_at: new Date().toISOString() }).eq("user_id", userId);
+      if (error) console.error("playbooks save error:", error);
+    } else {
+      const { error } = await supabase.from(table).insert({ user_id: userId, data: payload });
+      if (error) console.error("playbooks insert error:", error);
+    }
+  } catch (e) { console.error("playbooks save exception:", e); }
 }
 
 // ── Icon helpers ──────────────────────────────────────────────────────────
@@ -401,7 +405,7 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
   const [rowModalInitial, setRowModalInitial] = useState("");
   const [rowModalCallback, setRowModalCallback] = useState<((name: string) => void) | null>(null);
 
-  // ── Init ─────────────────────────────────────────────────────────────
+  // ── Init & Save ──────────────────────────────────────────────────────
   useEffect(() => {
     (async () => {
       if (!userId) { setLoading(false); return; }
@@ -415,21 +419,35 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
     })();
   }, [userId]);
 
+  const rowsRef = useRef(rows);
+  rowsRef.current = rows;
+
   useEffect(() => {
     if (!userId || loading) return;
-    const timer = setTimeout(() => saveUserData("playbooks", userId, rows), 500);
+    const timer = setTimeout(() => {
+      saveUserData("playbooks", userId, rowsRef.current);
+    }, 300);
     return () => clearTimeout(timer);
   }, [rows, userId, loading]);
 
+  // Save on unmount
+  useEffect(() => {
+    return () => {
+      if (userId && rowsRef.current.length > 0) {
+        saveUserData("playbooks", userId, rowsRef.current);
+      }
+    };
+  }, [userId]);
+
   // ── Row management ────────────────────────────────────────────────────
   const addRow = (name: string) => {
-    setRows(p => [...p, { id: crypto.randomUUID(), title: name, items: [] }]);
+    setRows(p => { const u = [...p, { id: crypto.randomUUID(), title: name, items: [] }]; if (userId) saveUserData("playbooks", userId, u); return u; });
   };
   const renameRow = (rid: string, name: string) => {
-    setRows(p => p.map(r => r.id === rid ? { ...r, title: name } : r));
+    setRows(p => { const u = p.map(r => r.id === rid ? { ...r, title: name } : r); if (userId) saveUserData("playbooks", userId, u); return u; });
   };
   const removeRow = (rid: string) => {
-    setRows(p => p.filter(r => r.id !== rid));
+    setRows(p => { const u = p.filter(r => r.id !== rid); if (userId) saveUserData("playbooks", userId, u); return u; });
   };
 
   // ── Item management ───────────────────────────────────────────────────
@@ -464,7 +482,7 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
       const moving = srcRow.items.find(i => i.id === src.itemId);
       if (!moving) return prev;
       const without = prev.map(r => r.id === src.rowId ? { ...r, items: r.items.filter(i => i.id !== src.itemId) } : r);
-      return without.map(r => {
+      const updated = without.map(r => {
         if (r.id !== targetRid) return r;
         if (targetIid === "__end__") return { ...r, items: [...r.items, moving] };
         const idx = r.items.findIndex(i => i.id === targetIid);
@@ -473,9 +491,11 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
         items.splice(idx, 0, moving);
         return { ...r, items };
       });
+      if (userId) saveUserData("playbooks", userId, updated);
+      return updated;
     });
     dragItemRef.current = null; setDragItemState(null); setDragOverItem(null);
-  }, []);
+  }, [userId]);
 
   // ── Drag and drop (rows) ──────────────────────────────────────────────
   const handleRowDragStart = useCallback((rid: string) => {
@@ -495,10 +515,11 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
       if (fi === -1 || ti === -1) return prev;
       const [moved] = arr.splice(fi, 1);
       arr.splice(ti, 0, moved);
+      if (userId) saveUserData("playbooks", userId, arr);
       return arr;
     });
     dragRowRef.current = null; setDragOverRow(null);
-  }, []);
+  }, [userId]);
   const handleDragEnd = useCallback(() => {
     dragItemRef.current = null; dragRowRef.current = null;
     setDragItemState(null); setDragOverItem(null); setDragOverRow(null);
@@ -525,19 +546,15 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
       recurrence: createType === "template" && createRecurrence.enabled ? createRecurrence : undefined,
     };
     newItem.icon = autoSelectIcon(newItem);
-    addItem(createRowId, newItem);
-    if (createType === "template") {
-      const hasTemplate = rows.some(r => r.title === "Templates");
-      if (!hasTemplate) addRow("Templates");
-      setSubView("list");
-    }
-    if (userId) await saveUserData("playbooks", userId, (() => {
-      const r = rows.map(rr => rr.id === createRowId ? { ...rr, items: [...rr.items, newItem] } : rr);
-      if (createType === "template" && !rows.some(r => r.title === "Templates")) {
-        return [...r, { id: crypto.randomUUID(), title: "Templates", items: [] }];
+    setRows(prev => {
+      let updated = prev.map(r => r.id === createRowId ? { ...r, items: [...r.items, newItem] } : r);
+      if (createType === "template" && !updated.some(r => r.title === "Templates")) {
+        updated = [...updated, { id: crypto.randomUUID(), title: "Templates", items: [] }];
       }
-      return r;
-    })());
+      if (userId) saveUserData("playbooks", userId, updated);
+      return updated;
+    });
+    if (createType === "template") setSubView("list");
     resetCreate();
   };
   const handleCreateFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -568,7 +585,7 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
     });
     setFillData(fd); setSubView("template-fill");
   };
-  const handleFillSave = async () => {
+  const handleFillSave = () => {
     if (!fillTemplateId || !fillTemplateRowId) return;
     const templateItem = rows.flatMap(r => r.items).find(i => i.id === fillTemplateId);
     if (!templateItem) return;
@@ -580,11 +597,11 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
       filledData: fillData,
     };
     newItem.icon = autoSelectIcon(newItem);
-    addItem(fillTemplateRowId, newItem);
-    if (userId) {
-      const r = rows.map(rr => rr.id === fillTemplateRowId ? { ...rr, items: [...rr.items, newItem] } : rr);
-      await saveUserData("playbooks", userId, r);
-    }
+    setRows(prev => {
+      const updated = prev.map(r => r.id === fillTemplateRowId ? { ...r, items: [...r.items, newItem] } : r);
+      if (userId) saveUserData("playbooks", userId, updated);
+      return updated;
+    });
     setSubView("list"); setFillTemplateId(null); setFillTemplateRowId(null); setFillData({});
   };
 
@@ -603,9 +620,11 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
   const saveEditSettings = () => {
     if (!editSettingsItem) return;
     const rid = rows.find(r => r.items.some(i => i.id === editSettingsItem.id))?.id;
-    if (rid) updateItem(rid, editSettingsItem.id, {
-      label: editSettingsName, icon: editSettingsIcon, content: editSettingsContent,
-      recurrence: editSettingsItem.type === "template" ? editSettingsRecurrence : undefined,
+    if (!rid) return;
+    setRows(prev => {
+      const updated = prev.map(r => r.id === rid ? { ...r, items: r.items.map(i => i.id === editSettingsItem.id ? { ...i, label: editSettingsName, icon: editSettingsIcon, content: editSettingsContent, recurrence: editSettingsItem.type === "template" ? editSettingsRecurrence : undefined } : i) } : r);
+      if (userId) saveUserData("playbooks", userId, updated);
+      return updated;
     });
     setEditSettingsItem(null);
     setEditSettingsExpanded(false);
@@ -616,14 +635,23 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
     const rid = rows.find(r => r.items.some(i => i.id === editSettingsItem.id))?.id;
     if (!rid) return;
     const dup: PlaybookItem = { ...editSettingsItem, id: crypto.randomUUID(), label: editSettingsName + " (Copy)", createdAt: new Date().toISOString() };
-    addItem(rid, dup);
+    setRows(prev => {
+      const updated = prev.map(r => r.id === rid ? { ...r, items: [...r.items, dup] } : r);
+      if (userId) saveUserData("playbooks", userId, updated);
+      return updated;
+    });
     setEditSettingsItem(null);
     setEditSettingsExpanded(false);
   };
   const deleteItem = () => {
     if (!editSettingsItem || !deleteConfirmText) return;
     const rid = rows.find(r => r.items.some(i => i.id === editSettingsItem.id))?.id;
-    if (rid) removeItem(rid, editSettingsItem.id);
+    if (!rid) return;
+    setRows(prev => {
+      const updated = prev.map(r => r.id === rid ? { ...r, items: r.items.filter(i => i.id !== editSettingsItem.id) } : r);
+      if (userId) saveUserData("playbooks", userId, updated);
+      return updated;
+    });
     setEditSettingsItem(null);
     setEditSettingsExpanded(false);
     setDeleteConfirmText("");
