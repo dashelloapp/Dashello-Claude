@@ -113,10 +113,21 @@ interface TemplateField {
   id: string;
   type: TemplateFieldType;
   header: string;
+  description: string;
   placeholder: string;
   required: boolean;
   options?: string[];
   color: string;
+  dateAutoFill?: boolean;
+  dateFormat?: string;
+}
+type RecurrenceInterval = "daily" | "weekly" | "monthly" | "quarterly" | "semi-annually" | "yearly" | "custom";
+interface RecurrenceConfig {
+  enabled: boolean;
+  interval: RecurrenceInterval;
+  customDays?: number;
+  lastReset?: string;
+  nextReset?: string;
 }
 interface PlaybookFile {
   id: string;
@@ -142,6 +153,8 @@ interface PlaybookItem {
   templateFields?: TemplateField[];
   templateId?: string;
   filledData?: Record<string, string>;
+  columns?: 1 | 2;
+  recurrence?: RecurrenceConfig;
 }
 interface PlaybookRow {
   id: string;
@@ -224,7 +237,7 @@ function RichEditor({ content, onChange, placeholder }: {
     content: content || "",
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
     editorProps: {
-      attributes: { class: "prose" as string },
+      attributes: { class: "prose" as string, style: "min-height: 280px; outline: none; cursor: text;" },
     },
   });
 
@@ -235,9 +248,10 @@ function RichEditor({ content, onChange, placeholder }: {
   }, [content]);
 
   return (
-    <div style={{ border: "1.5px solid #e2e8f0", borderRadius: 10, overflow: "hidden" }}>
+    <div style={{ border: "1.5px solid #e2e8f0", borderRadius: 10, overflow: "hidden", position: "relative" }}>
       <MenuBar editor={editor} />
-      <div style={{ padding: "12px 16px", minHeight: 300, maxHeight: 500, overflowY: "auto", fontSize: 14, lineHeight: 1.6, color: "#1a2332" }}>
+      <div style={{ padding: "12px 16px", minHeight: 300, maxHeight: 500, overflowY: "auto", fontSize: 14, lineHeight: 1.6, color: "#1a2332", cursor: "text" }}
+        onClick={() => editor?.chain().focus().run()}>
         <EditorContent editor={editor} />
       </div>
     </div>
@@ -253,6 +267,9 @@ function RichEditorSmall({ content, onChange }: { content: string; onChange: (ht
     ],
     content: content || "",
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
+    editorProps: {
+      attributes: { style: "min-height: 40px; outline: none; cursor: text;" },
+    },
   });
   useEffect(() => {
     if (editor && content !== editor.getHTML()) {
@@ -260,7 +277,8 @@ function RichEditorSmall({ content, onChange }: { content: string; onChange: (ht
     }
   }, [content]);
   return (
-    <div style={{ border: "1.5px solid #e2e8f0", borderRadius: 8, overflow: "hidden" }}>
+    <div style={{ border: "1.5px solid #e2e8f0", borderRadius: 8, overflow: "hidden" }}
+      onClick={() => editor?.chain().focus().run()}>
       <div style={{ display: "flex", gap: 2, padding: "3px 6px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc" }}>
         {[["B","bold"],["I","italic"],["U","underline"]].map(([label,action]) => (
           <button key={action} onClick={() => {
@@ -278,7 +296,7 @@ function RichEditorSmall({ content, onChange }: { content: string; onChange: (ht
           onChange={e => editor?.chain().focus().setColor(e.target.value).run()}
           style={{ width: 20, height: 20, padding: 0, border: "none", cursor: "pointer", marginLeft: 4 }} />
       </div>
-      <div style={{ padding: "6px 10px", minHeight: 60, fontSize: 13, lineHeight: 1.5 }}>
+      <div style={{ padding: "6px 10px", minHeight: 60, fontSize: 13, lineHeight: 1.5, cursor: "text" }}>
         <EditorContent editor={editor} />
       </div>
     </div>
@@ -315,6 +333,28 @@ function getFileUrl(path: string) {
   return data.publicUrl;
 }
 
+function getDateString(format: string, date?: Date): string {
+  const d = date || new Date();
+  const days = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+  const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const ordinal = (n: number) => {
+    if (n > 3 && n < 21) return n + "th";
+    switch (n % 10) { case 1: return n + "st"; case 2: return n + "nd"; case 3: return n + "rd"; default: return n + "th"; }
+  };
+  return format
+    .replace("dddd", days[d.getDay()])
+    .replace("MMMM", months[d.getMonth()])
+    .replace("MMM", months[d.getMonth()].slice(0, 3))
+    .replace("Do", ordinal(d.getDate()))
+    .replace("DD", pad(d.getDate()))
+    .replace("D", String(d.getDate()))
+    .replace("YYYY", String(d.getFullYear()))
+    .replace("YY", String(d.getFullYear()).slice(-2))
+    .replace("MM", pad(d.getMonth() + 1))
+    .replace("M", String(d.getMonth() + 1));
+}
+
 // ── Main Component ────────────────────────────────────────────────────────
 export function PlaybooksPage({ userId }: { userId: string | null }) {
   const [rows, setRows] = useState<PlaybookRow[]>([]);
@@ -337,6 +377,8 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
   const [createLinks, setCreateLinks] = useState<PlaybookLink[]>([]);
   const [createTemplateFields, setCreateTemplateFields] = useState<TemplateField[]>([]);
   const [createUploading, setCreateUploading] = useState(false);
+  const [createColumns, setCreateColumns] = useState<1 | 2>(1);
+  const [createRecurrence, setCreateRecurrence] = useState<RecurrenceConfig>({ enabled: false, interval: "monthly" });
 
   // Template fill state
   const [fillTemplateId, setFillTemplateId] = useState<string | null>(null);
@@ -467,6 +509,7 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
     setCreateStep(0); setCreateName(""); setCreateType(null); setCreateDocMode(null);
     setCreateContent(""); setCreateFiles([]); setCreateLinks([]); setCreateTemplateFields([]);
     setShowCreate(false); setCreateRowId(null);
+    setCreateColumns(1); setCreateRecurrence({ enabled: false, interval: "monthly" });
   };
   const handleCreateSave = async () => {
     if (!createName.trim() || !createRowId || !createType) return;
@@ -478,13 +521,23 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
       files: createFiles.length > 0 ? createFiles : undefined,
       links: createLinks.length > 0 ? createLinks : undefined,
       templateFields: createType === "template" && createTemplateFields.length > 0 ? createTemplateFields : undefined,
+      columns: createType === "template" ? (createColumns || undefined) as 1 | 2 | undefined : undefined,
+      recurrence: createType === "template" && createRecurrence.enabled ? createRecurrence : undefined,
     };
     newItem.icon = autoSelectIcon(newItem);
     addItem(createRowId, newItem);
     if (createType === "template") {
       const hasTemplate = rows.some(r => r.title === "Templates");
       if (!hasTemplate) addRow("Templates");
+      setSubView("list");
     }
+    if (userId) await saveUserData("playbooks", userId, (() => {
+      const r = rows.map(rr => rr.id === createRowId ? { ...rr, items: [...rr.items, newItem] } : rr);
+      if (createType === "template" && !rows.some(r => r.title === "Templates")) {
+        return [...r, { id: crypto.randomUUID(), title: "Templates", items: [] }];
+      }
+      return r;
+    })());
     resetCreate();
   };
   const handleCreateFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -510,10 +563,12 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
   const startFill = (item: PlaybookItem, rid: string) => {
     setFillTemplateId(item.id); setFillTemplateRowId(rid);
     const fd: Record<string, string> = {};
-    item.templateFields?.forEach(f => { fd[f.id] = ""; });
+    item.templateFields?.forEach(f => {
+      fd[f.id] = f.dateAutoFill ? getDateString(f.dateFormat || "MMMM Do, YYYY") : "";
+    });
     setFillData(fd); setSubView("template-fill");
   };
-  const handleFillSave = () => {
+  const handleFillSave = async () => {
     if (!fillTemplateId || !fillTemplateRowId) return;
     const templateItem = rows.flatMap(r => r.items).find(i => i.id === fillTemplateId);
     if (!templateItem) return;
@@ -526,6 +581,10 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
     };
     newItem.icon = autoSelectIcon(newItem);
     addItem(fillTemplateRowId, newItem);
+    if (userId) {
+      const r = rows.map(rr => rr.id === fillTemplateRowId ? { ...rr, items: [...rr.items, newItem] } : rr);
+      await saveUserData("playbooks", userId, r);
+    }
     setSubView("list"); setFillTemplateId(null); setFillTemplateRowId(null); setFillData({});
   };
 
@@ -535,13 +594,41 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
     setEditSettingsItem(item);
     setEditSettingsName(item.label);
     setEditSettingsIcon(item.icon);
+    setEditSettingsContent(item.content || "");
+    setEditSettingsRecurrence(item.recurrence || { enabled: false, interval: "monthly" });
   };
+  const [editSettingsContent, setEditSettingsContent] = useState("");
+  const [editSettingsExpanded, setEditSettingsExpanded] = useState(false);
+  const [editSettingsRecurrence, setEditSettingsRecurrence] = useState<RecurrenceConfig>({ enabled: false, interval: "monthly" });
   const saveEditSettings = () => {
     if (!editSettingsItem) return;
     const rid = rows.find(r => r.items.some(i => i.id === editSettingsItem.id))?.id;
-    if (rid) updateItem(rid, editSettingsItem.id, { label: editSettingsName, icon: editSettingsIcon });
+    if (rid) updateItem(rid, editSettingsItem.id, {
+      label: editSettingsName, icon: editSettingsIcon, content: editSettingsContent,
+      recurrence: editSettingsItem.type === "template" ? editSettingsRecurrence : undefined,
+    });
     setEditSettingsItem(null);
+    setEditSettingsExpanded(false);
+    setEditSettingsRecurrence({ enabled: false, interval: "monthly" });
   };
+  const duplicateItem = () => {
+    if (!editSettingsItem) return;
+    const rid = rows.find(r => r.items.some(i => i.id === editSettingsItem.id))?.id;
+    if (!rid) return;
+    const dup: PlaybookItem = { ...editSettingsItem, id: crypto.randomUUID(), label: editSettingsName + " (Copy)", createdAt: new Date().toISOString() };
+    addItem(rid, dup);
+    setEditSettingsItem(null);
+    setEditSettingsExpanded(false);
+  };
+  const deleteItem = () => {
+    if (!editSettingsItem || !deleteConfirmText) return;
+    const rid = rows.find(r => r.items.some(i => i.id === editSettingsItem.id))?.id;
+    if (rid) removeItem(rid, editSettingsItem.id);
+    setEditSettingsItem(null);
+    setEditSettingsExpanded(false);
+    setDeleteConfirmText("");
+  };
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
 
   // ── Render helpers ────────────────────────────────────────────────────
 
@@ -555,7 +642,7 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
   if (subView === "template-builder") {
     const addField = (type: TemplateFieldType) => {
       setCreateTemplateFields(p => [...p, {
-        id: crypto.randomUUID(), type, header: "", placeholder: "",
+        id: crypto.randomUUID(), type, header: "", description: "", placeholder: "",
         required: false, options: type === "checkbox" || type === "radio" ? ["Option 1"] : undefined,
         color: "#1a2332",
       }]);
@@ -603,13 +690,34 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
                     style={{ width: 22, height: 22, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 12, background: "#fee2e2", color: "#E85D75" }}>✕</button>
                 </div>
                 <div style={{ marginBottom: 6 }}>
-                  <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 2 }}>Header</div>
+                  <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 2 }}>Header {f.dateAutoFill && <span style={{ color: "#3B82F6", fontSize: 10 }}>(auto-fills with date)</span>}</div>
                   <RichEditorSmall content={f.header} onChange={html => updateField(f.id, { header: html })} />
+                  <label style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4, fontSize: 11, color: "#64748b", cursor: "pointer" }}>
+                    <input type="checkbox" checked={!!f.dateAutoFill} onChange={e => updateField(f.id, { dateAutoFill: e.target.checked, dateFormat: e.target.checked ? (f.dateFormat || "MMMM Do, YYYY") : undefined })}
+                      style={{ accentColor: "#3B82F6", margin: 0 }} /> Auto-fill with current date
+                  </label>
+                  {f.dateAutoFill && (
+                    <select value={f.dateFormat || "MMMM Do, YYYY"} onChange={e => updateField(f.id, { dateFormat: e.target.value })}
+                      style={{ width: "100%", marginTop: 4, padding: "4px 8px", borderRadius: 4, border: "1px solid #e2e8f0", fontSize: 11, outline: "none" }}>
+                      <option value="MMMM Do, YYYY">March 7th, 2026</option>
+                      <option value="MM/DD/YYYY">03/07/2026</option>
+                      <option value="YYYY-MM-DD">2026-03-07</option>
+                      <option value="dddd, MMMM Do, YYYY">Tuesday, March 7th, 2026</option>
+                      <option value="MMM D, YYYY">Mar 7, 2026</option>
+                      <option value="MMMM YYYY">March 2026</option>
+                    </select>
+                  )}
                 </div>
+                <div style={{ marginBottom: 6 }}>
+                  <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 2 }}>Description</div>
+                  <RichEditorSmall content={f.description} onChange={html => updateField(f.id, { description: html })} />
+                </div>
+                {f.type !== "checkbox" && f.type !== "radio" && (
                 <div style={{ marginBottom: 6 }}>
                   <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 2 }}>Placeholder</div>
                   <RichEditorSmall content={f.placeholder} onChange={html => updateField(f.id, { placeholder: html })} />
                 </div>
+                )}
                 {(f.type === "checkbox" || f.type === "radio") && (
                   <div style={{ marginBottom: 6 }}>
                     <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 4 }}>Options</div>
@@ -651,6 +759,48 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
                 </button>
               ))}
             </div>
+            <div style={{ display: "flex", gap: 16, marginBottom: 16, alignItems: "center" }}>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>LAYOUT</div>
+                <div style={{ display: "flex", gap: 4 }}>
+                  {([1, 2] as const).map(c => (
+                    <button key={c} onClick={() => setCreateColumns(c)}
+                      style={{ padding: "4px 12px", borderRadius: 6, border: `1.5px solid ${createColumns === c ? "#3B82F6" : "#e2e8f0"}`,
+                        background: createColumns === c ? "#EFF6FF" : "#fff", fontSize: 11, cursor: "pointer",
+                        color: createColumns === c ? "#3B82F6" : "#64748b", fontWeight: createColumns === c ? 600 : 400 }}>
+                      {c} Column{c > 1 ? "s" : ""}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>RECURRENCE</div>
+                <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#64748b", cursor: "pointer" }}>
+                  <input type="checkbox" checked={createRecurrence.enabled} onChange={e => setCreateRecurrence(p => ({ ...p, enabled: e.target.checked }))}
+                    style={{ accentColor: "#3B82F6", margin: 0 }} /> Auto-reset template
+                </label>
+                {createRecurrence.enabled && (
+                  <select value={createRecurrence.interval} onChange={e => setCreateRecurrence(p => ({ ...p, interval: e.target.value as RecurrenceInterval }))}
+                    style={{ width: "100%", marginTop: 4, padding: "4px 8px", borderRadius: 4, border: "1px solid #e2e8f0", fontSize: 11, outline: "none" }}>
+                    <option value="daily">Every Day</option>
+                    <option value="weekly">Every Week</option>
+                    <option value="monthly">Every Month</option>
+                    <option value="quarterly">Every Quarter</option>
+                    <option value="semi-annually">Every 6 Months</option>
+                    <option value="yearly">Every Year</option>
+                    <option value="custom">Custom...</option>
+                  </select>
+                )}
+                {createRecurrence.enabled && createRecurrence.interval === "custom" && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4 }}>
+                    <span style={{ fontSize: 11, color: "#64748b" }}>Every</span>
+                    <input type="number" min={1} value={createRecurrence.customDays || 1} onChange={e => setCreateRecurrence(p => ({ ...p, customDays: parseInt(e.target.value) || 1 }))}
+                      style={{ width: 60, padding: "4px 8px", borderRadius: 4, border: "1px solid #e2e8f0", fontSize: 11, outline: "none" }} />
+                    <span style={{ fontSize: 11, color: "#64748b" }}>days</span>
+                  </div>
+                )}
+              </div>
+            </div>
             <button onClick={handleCreateSave} disabled={!createName.trim()}
               style={{ padding: "10px 28px", borderRadius: 8, border: "none",
                 background: createName.trim() ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0",
@@ -663,35 +813,42 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
           <div style={{ flex: 1, overflowY: "auto", padding: "clamp(12px,2vw,20px)", background: "#F8FAFC", borderLeft: window.innerWidth >= 768 ? "1px solid #e2e8f0" : "none", borderTop: window.innerWidth < 768 ? "1px solid #e2e8f0" : "none" }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: "#64748b", marginBottom: 12 }}>PREVIEW</div>
             <div style={{ fontSize: 16, fontWeight: 700, color: "#1a2332", marginBottom: 16 }}>{createName || "Template Name"}</div>
+            {createColumns === 2 && <div style={{ fontSize: 11, color: "#3B82F6", fontWeight: 600, marginBottom: 8 }}>Two-column layout</div>}
+            {createRecurrence.enabled && <div style={{ fontSize: 11, color: "#4CAF7D", fontWeight: 600, marginBottom: 8 }}>Auto-resets: {createRecurrence.interval === "custom" ? `Every ${createRecurrence.customDays || 1} days` : createRecurrence.interval}</div>}
             {createTemplateFields.length === 0 ? (
               <div style={{ fontSize: 13, color: "#cbd5e1", fontStyle: "italic" }}>Add fields to see preview</div>
-            ) : createTemplateFields.map((f, idx) => (
-              <div key={f.id} style={{
-                background: "#f1f5f9", borderRadius: 10, padding: 14, marginBottom: 10,
-              }}>
-                {f.header && <div style={{ fontSize: 13, fontWeight: 600, color: f.color, marginBottom: 4 }} dangerouslySetInnerHTML={{ __html: f.header }} />}
-                {f.type === "text" && (
-                  <div style={{ padding: "8px 12px", borderRadius: 6, background: "#fff", fontSize: 13, color: "#94a3b8" }}
-                    dangerouslySetInnerHTML={{ __html: f.placeholder || "Text input..." }} />
-                )}
-                {f.type === "textarea" && (
-                  <div style={{ padding: "8px 12px", borderRadius: 6, background: "#fff", fontSize: 13, color: "#94a3b8", minHeight: 60 }}
-                    dangerouslySetInnerHTML={{ __html: f.placeholder || "Long text..." }} />
-                )}
-                {f.type === "checkbox" && (f.options || []).map((opt, oi) => (
-                  <div key={oi} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, fontSize: 13, color: "#94a3b8" }}>
-                    <div style={{ width: 16, height: 16, borderRadius: 3, border: "1.5px solid #d1d5db", background: "#fff" }} />
-                    {opt}
-                  </div>
-                ))}
-                {f.type === "radio" && (f.options || []).map((opt, oi) => (
-                  <div key={oi} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, fontSize: 13, color: "#94a3b8" }}>
-                    <div style={{ width: 16, height: 16, borderRadius: "50%", border: "1.5px solid #d1d5db", background: "#fff" }} />
-                    {opt}
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: createColumns === 2 ? "1fr 1fr" : "1fr", gap: 10 }}>
+                {createTemplateFields.map((f, idx) => (
+                  <div key={f.id} style={{
+                    background: "#f1f5f9", borderRadius: 10, padding: 14, marginBottom: 10,
+                  }}>
+                    {f.header && <div style={{ fontSize: 13, fontWeight: 600, color: f.color, marginBottom: 4 }} dangerouslySetInnerHTML={{ __html: f.dateAutoFill ? getDateString(f.dateFormat || "MMMM Do, YYYY") : f.header }} />}
+                    {f.description && <div style={{ fontSize: 12, color: "#64748b", marginBottom: 6, fontStyle: "italic" }} dangerouslySetInnerHTML={{ __html: f.description }} />}
+                    {f.type === "text" && (
+                      <div style={{ padding: "8px 12px", borderRadius: 6, background: "#fff", fontSize: 13, color: "#94a3b8" }}
+                        dangerouslySetInnerHTML={{ __html: f.placeholder || "Text input..." }} />
+                    )}
+                    {f.type === "textarea" && (
+                      <div style={{ padding: "8px 12px", borderRadius: 6, background: "#fff", fontSize: 13, color: "#94a3b8", minHeight: 60 }}
+                        dangerouslySetInnerHTML={{ __html: f.placeholder || "Long text..." }} />
+                    )}
+                    {f.type === "checkbox" && (f.options || []).map((opt, oi) => (
+                      <div key={oi} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, fontSize: 13, color: "#94a3b8" }}>
+                        <div style={{ width: 16, height: 16, borderRadius: 3, border: "1.5px solid #d1d5db", background: "#fff" }} />
+                        {opt}
+                      </div>
+                    ))}
+                    {f.type === "radio" && (f.options || []).map((opt, oi) => (
+                      <div key={oi} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, fontSize: 13, color: "#94a3b8" }}>
+                        <div style={{ width: 16, height: 16, borderRadius: "50%", border: "1.5px solid #d1d5db", background: "#fff" }} />
+                        {opt}
+                      </div>
+                    ))}
                   </div>
                 ))}
               </div>
-            ))}
+            )}
           </div>
         </div>
       </div>
@@ -711,45 +868,44 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
         </div>
         <div style={{ flex: 1, display: "flex", overflow: "hidden", flexDirection: window.innerWidth < 768 ? "column" : "row" }}>
           <div style={{ flex: 1, overflowY: "auto", padding: "clamp(12px,2vw,20px)" }}>
-            {tItem.templateFields.map(f => (
-              <div key={f.id} style={{ marginBottom: 16 }}>
-                {f.header && <div style={{ fontSize: 13, fontWeight: 600, color: f.color, marginBottom: 4 }} dangerouslySetInnerHTML={{ __html: f.header }} />}
-                {f.type === "text" && (
-                  <input value={fillData[f.id] || ""} onChange={e => setFillData(p => ({ ...p, [f.id]: e.target.value }))}
-                    placeholder="" style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none", boxSizing: "border-box" }}
-                    dangerouslySetInnerHTML={{ __html: "" }} />
-                )}
-                {/* the actual input */}
-                {f.type === "text" && (
-                  <input value={fillData[f.id] || ""} onChange={e => setFillData(p => ({ ...p, [f.id]: e.target.value }))}
-                    placeholder={f.placeholder.replace(/<[^>]*>/g, "")}
-                    style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none", boxSizing: "border-box" }} />
-                )}
-                {f.type === "textarea" && (
-                  <textarea value={fillData[f.id] || ""} onChange={e => setFillData(p => ({ ...p, [f.id]: e.target.value }))}
-                    placeholder={f.placeholder.replace(/<[^>]*>/g, "")}
-                    style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none", boxSizing: "border-box", minHeight: 100, resize: "vertical", fontFamily: "inherit" }} />
-                )}
-                {(f.type === "checkbox") && (f.options || []).map((opt, oi) => (
-                  <label key={oi} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, fontSize: 13, color: "#1a2332", cursor: "pointer" }}>
-                    <input type="checkbox" checked={(fillData[f.id] || "").includes(opt)}
-                      onChange={e => {
-                        const current = new Set((fillData[f.id] || "").split(",").filter(Boolean));
-                        if (e.target.checked) current.add(opt); else current.delete(opt);
-                        setFillData(p => ({ ...p, [f.id]: Array.from(current).join(",") }));
-                      }} style={{ accentColor: "#3B82F6" }} />
-                    {opt}
-                  </label>
-                ))}
-                {(f.type === "radio") && (f.options || []).map((opt, oi) => (
-                  <label key={oi} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, fontSize: 13, color: "#1a2332", cursor: "pointer" }}>
-                    <input type="radio" name={`field-${f.id}`} checked={fillData[f.id] === opt}
-                      onChange={() => setFillData(p => ({ ...p, [f.id]: opt }))} style={{ accentColor: "#3B82F6" }} />
-                    {opt}
-                  </label>
-                ))}
-              </div>
-            ))}
+            <div style={{ display: "grid", gridTemplateColumns: tItem.columns === 2 && window.innerWidth >= 768 ? "1fr 1fr" : "1fr", gap: 16 }}>
+              {tItem.templateFields.map(f => {
+                const displayHeader = f.dateAutoFill ? getDateString(f.dateFormat || "MMMM Do, YYYY") : f.header;
+                return (
+                <div key={f.id} style={{ marginBottom: 16 }}>
+                  {displayHeader && <div style={{ fontSize: 13, fontWeight: 600, color: f.color, marginBottom: 4 }} dangerouslySetInnerHTML={{ __html: displayHeader }} />}
+                  {f.description && <div style={{ fontSize: 12, color: "#64748b", marginBottom: 6, fontStyle: "italic" }} dangerouslySetInnerHTML={{ __html: f.description }} />}
+                  {f.type === "text" && (
+                    <input value={fillData[f.id] || ""} onChange={e => setFillData(p => ({ ...p, [f.id]: e.target.value }))}
+                      placeholder={f.placeholder.replace(/<[^>]*>/g, "")}
+                      style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none", boxSizing: "border-box" }} />
+                  )}
+                  {f.type === "textarea" && (
+                    <textarea value={fillData[f.id] || ""} onChange={e => setFillData(p => ({ ...p, [f.id]: e.target.value }))}
+                      placeholder={f.placeholder.replace(/<[^>]*>/g, "")}
+                      style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none", boxSizing: "border-box", minHeight: 100, resize: "vertical", fontFamily: "inherit" }} />
+                  )}
+                  {(f.type === "checkbox") && (f.options || []).map((opt, oi) => (
+                    <label key={oi} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, fontSize: 13, color: "#1a2332", cursor: "pointer" }}>
+                      <input type="checkbox" checked={(fillData[f.id] || "").includes(opt)}
+                        onChange={e => {
+                          const current = new Set((fillData[f.id] || "").split(",").filter(Boolean));
+                          if (e.target.checked) current.add(opt); else current.delete(opt);
+                          setFillData(p => ({ ...p, [f.id]: Array.from(current).join(",") }));
+                        }} style={{ accentColor: "#3B82F6" }} />
+                      {opt}
+                    </label>
+                  ))}
+                  {(f.type === "radio") && (f.options || []).map((opt, oi) => (
+                    <label key={oi} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, fontSize: 13, color: "#1a2332", cursor: "pointer" }}>
+                      <input type="radio" name={`field-${f.id}`} checked={fillData[f.id] === opt}
+                        onChange={() => setFillData(p => ({ ...p, [f.id]: opt }))} style={{ accentColor: "#3B82F6" }} />
+                      {opt}
+                    </label>
+                  ))}
+                </div>
+              );})}
+            </div>
             <button onClick={handleFillSave}
               style={{ padding: "10px 28px", borderRadius: 8, border: "none",
                 background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
@@ -760,12 +916,17 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
           <div style={{ flex: 1, overflowY: "auto", padding: "clamp(12px,2vw,20px)", background: "#F8FAFC", borderLeft: window.innerWidth >= 768 ? "1px solid #e2e8f0" : "none", borderTop: window.innerWidth < 768 ? "1px solid #e2e8f0" : "none" }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: "#64748b", marginBottom: 12 }}>PREVIEW</div>
             <div style={{ fontSize: 16, fontWeight: 700, color: "#1a2332", marginBottom: 16 }}>{tItem.label}</div>
-            {tItem.templateFields.map(f => (
-              <div key={f.id} style={{ background: "#f1f5f9", borderRadius: 10, padding: 14, marginBottom: 10 }}>
-                {f.header && <div style={{ fontSize: 13, fontWeight: 600, color: f.color, marginBottom: 4 }} dangerouslySetInnerHTML={{ __html: f.header }} />}
-                <div style={{ fontSize: 13, color: "#1a2332" }}>{fillData[f.id] || (f.placeholder ? <span style={{ color: "#94a3b8" }} dangerouslySetInnerHTML={{ __html: f.placeholder }} /> : <span style={{ color: "#cbd5e1", fontStyle: "italic" }}>Empty</span>)}</div>
-              </div>
-            ))}
+            <div style={{ display: "grid", gridTemplateColumns: tItem.columns === 2 && window.innerWidth >= 768 ? "1fr 1fr" : "1fr", gap: 10 }}>
+              {tItem.templateFields.map(f => {
+                const displayHeader = f.dateAutoFill ? getDateString(f.dateFormat || "MMMM Do, YYYY") : f.header;
+                return (
+                <div key={f.id} style={{ background: "#f1f5f9", borderRadius: 10, padding: 14, marginBottom: 10 }}>
+                  {displayHeader && <div style={{ fontSize: 13, fontWeight: 600, color: f.color, marginBottom: 4 }} dangerouslySetInnerHTML={{ __html: displayHeader }} />}
+                  {f.description && <div style={{ fontSize: 12, color: "#64748b", marginBottom: 6, fontStyle: "italic" }} dangerouslySetInnerHTML={{ __html: f.description }} />}
+                  <div style={{ fontSize: 13, color: "#1a2332" }}>{fillData[f.id] || (f.placeholder && f.type !== "checkbox" && f.type !== "radio" ? <span style={{ color: "#94a3b8" }} dangerouslySetInnerHTML={{ __html: f.placeholder }} /> : <span style={{ color: "#cbd5e1", fontStyle: "italic" }}>Empty</span>)}</div>
+                </div>
+              );})}
+            </div>
           </div>
         </div>
       </div>
@@ -798,53 +959,21 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
               onDragOver={e => { e.preventDefault(); if (dragItemState) handleItemDragEnter(row.id, "__end__"); }}
               onDrop={() => handleItemDrop(row.id, "__end__")}>
               {row.items.map(item => {
-                const isSingleLink = !item.content && (!item.files || item.files.length === 0) && item.links?.length === 1;
-                const isSingleFile = !item.content && item.files?.length === 1 && (!item.links || item.links.length === 0);
-                const isMulti = !item.content && ((item.links && item.links.length > 1) || (item.files && item.files.length > 1));
+                const isSingleLink = !!(!item.content && (!item.files || item.files.length === 0) && item.links?.length === 1);
+                const isSingleFile = !!(!item.content && item.files?.length === 1 && (!item.links || item.links.length === 0));
+                const isMulti = !!(!item.content && ((item.links && item.links.length > 1) || (item.files && item.files.length > 1)));
                 const showAction = isSingleLink || isSingleFile;
                 const actionLabel = isSingleFile ? `View ${item.files![0].name.split(".").pop()?.toUpperCase() || "FILE"}` : "View Link";
                 const isDragTarget = dragOverItem?.rowId === row.id && dragOverItem?.itemId === item.id;
                 return (
                   <Fragment key={item.id}>
                     {isDragTarget && <div style={{ width: 3, alignSelf: "stretch", background: "#3B82F6", borderRadius: 2, flexShrink: 0, minHeight: 60 }} />}
-                    <div draggable onDragStart={() => handleItemDragStart(row.id, item.id)}
+                    <PlaybookCard item={item} rowId={row.id} onDetail={openDetail} onEdit={openEditSettings}
+                      onStartFill={startFill} isSingleLink={isSingleLink} isSingleFile={isSingleFile} isMulti={isMulti}
+                      showAction={showAction} actionLabel={actionLabel}
+                      onDragStart={() => handleItemDragStart(row.id, item.id)}
                       onDragEnter={() => handleItemDragEnter(row.id, item.id)}
-                      onDrop={() => handleItemDrop(row.id, item.id)}
-                      style={{ width: 200, background: "#f8fafc", borderRadius: 12, border: "1px solid #f1f5f9", overflow: "hidden", cursor: "grab" }}>
-                      {/* Icon + Title */}
-                      <div onClick={() => openDetail(item)} style={{ padding: 14, cursor: "pointer" }}>
-                        <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 8 }}>
-                          <IconGlyph name={item.icon || "Notebook"} size={18} color="#3B82F6" />
-                        </div>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332", marginBottom: 2 }}>{item.label}</div>
-                        {item.type === "template" ? (
-                          <div onClick={e => { e.stopPropagation(); startFill(item, row.id); }}
-                            style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 6, background: "#EFF6FF", color: "#3B82F6", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
-                            + Add New
-                          </div>
-                        ) : item.type === "filled-template" ? (
-                          <div style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 6, background: "#F0FDF4", color: "#4CAF7D", fontSize: 11, fontWeight: 500 }}>
-                            <IconGlyph name="Check" size={12} color="#4CAF7D" weight="bold" /> View Playbook
-                          </div>
-                        ) : showAction ? (
-                          <a href={isSingleLink ? item.links![0].url : `#file-${item.files![0].id}`}
-                            target={isSingleLink ? "_blank" : undefined}
-                            rel="noopener noreferrer"
-                            onClick={e => { if (!isSingleLink) e.preventDefault(); }}
-                            style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 6, background: "#EFF6FF", color: "#3B82F6", fontSize: 11, fontWeight: 500, textDecoration: "none" }}>
-                            {actionLabel} <IconGlyph name="ArrowUpRight" size={12} color="#3B82F6" weight="bold" />
-                          </a>
-                        ) : isMulti ? (
-                          <div style={{ fontSize: 11, color: "#94a3b8" }}>
-                            {item.links && item.links.length > 0 ? `${item.links.length} link${item.links.length > 1 ? "s" : ""}` : ""}
-                            {item.links && item.links.length > 0 && item.files && item.files.length > 0 ? " · " : ""}
-                            {item.files && item.files.length > 0 ? `${item.files.length} file${item.files.length > 1 ? "s" : ""}` : ""}
-                          </div>
-                        ) : item.content ? (
-                          <div style={{ fontSize: 11, color: "#94a3b8" }}>View Document</div>
-                        ) : null}
-                      </div>
-                    </div>
+                      onDrop={() => handleItemDrop(row.id, item.id)} />
                   </Fragment>
                 );
               })}
@@ -1128,23 +1257,108 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
       )}
 
       {/* ── Edit Settings Modal ───────────────────────────────────────── */}
-      {editSettingsItem && (
-        <div onClick={() => setEditSettingsItem(null)}
+      {editSettingsItem && !editSettingsExpanded && (
+        <div onClick={() => { setEditSettingsItem(null); setEditSettingsExpanded(false); setDeleteConfirmText(""); }}
           style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2100, padding: 16 }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 16, padding: 28, width: "100%", maxWidth: 420, boxShadow: "0 24px 64px rgba(0,0,0,0.2)" }}>
-            <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#1a2332", marginBottom: 16 }}>Edit Settings</h2>
-            <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>PLAYBOOK NAME</div>
-              <input value={editSettingsName} onChange={e => setEditSettingsName(e.target.value)}
-                style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none", boxSizing: "border-box" }} />
+          <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 720, maxHeight: "90vh", overflow: "hidden", boxShadow: "0 24px 64px rgba(0,0,0,0.2)", display: "flex", flexDirection: "column" }}>
+            <div style={{ padding: "20px 24px", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "center", gap: 12 }}>
+              <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#1a2332", flex: 1 }}>Edit {editSettingsItem.type === "template" ? "Template" : "Playbook"}</h2>
+              <button onClick={() => setEditSettingsExpanded(true)}
+                style={{ width: 26, height: 26, borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#64748b" }} title="Expand">⛶</button>
             </div>
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>ICON</div>
-              <IconPicker selected={editSettingsIcon} onSelect={setEditSettingsIcon} />
+            <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}>
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>PLAYBOOK NAME</div>
+                <input value={editSettingsName} onChange={e => setEditSettingsName(e.target.value)}
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none", boxSizing: "border-box" }} />
+              </div>
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>ICON</div>
+                <IconPicker selected={editSettingsIcon} onSelect={setEditSettingsIcon} />
+              </div>
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>CONTENT</div>
+                <RichEditor content={editSettingsContent} onChange={setEditSettingsContent} />
+              </div>
+              {editSettingsItem.type === "template" && (
+                <div style={{ marginBottom: 14, padding: 14, background: "#f8fafc", borderRadius: 10, border: "1px solid #e2e8f0" }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>RECURRENCE SETTINGS</div>
+                  <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "#64748b", cursor: "pointer" }}>
+                    <input type="checkbox" checked={editSettingsRecurrence.enabled} onChange={e => setEditSettingsRecurrence(p => ({ ...p, enabled: e.target.checked }))}
+                      style={{ accentColor: "#3B82F6", margin: 0 }} /> Auto-reset this template
+                  </label>
+                  {editSettingsRecurrence.enabled && (
+                    <>
+                      <select value={editSettingsRecurrence.interval} onChange={e => setEditSettingsRecurrence(p => ({ ...p, interval: e.target.value as RecurrenceInterval }))}
+                        style={{ width: "100%", marginTop: 6, padding: "6px 10px", borderRadius: 6, border: "1px solid #e2e8f0", fontSize: 12, outline: "none" }}>
+                        <option value="daily">Every Day</option>
+                        <option value="weekly">Every Week</option>
+                        <option value="monthly">Every Month</option>
+                        <option value="quarterly">Every Quarter</option>
+                        <option value="semi-annually">Every 6 Months</option>
+                        <option value="yearly">Every Year</option>
+                        <option value="custom">Custom...</option>
+                      </select>
+                      {editSettingsRecurrence.interval === "custom" && (
+                        <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6 }}>
+                          <span style={{ fontSize: 12, color: "#64748b" }}>Every</span>
+                          <input type="number" min={1} value={editSettingsRecurrence.customDays || 1} onChange={e => setEditSettingsRecurrence(p => ({ ...p, customDays: parseInt(e.target.value) || 1 }))}
+                            style={{ width: 60, padding: "4px 8px", borderRadius: 4, border: "1px solid #e2e8f0", fontSize: 12, outline: "none" }} />
+                          <span style={{ fontSize: 12, color: "#64748b" }}>days</span>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
             </div>
-            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-              <button onClick={() => setEditSettingsItem(null)} style={{ padding: "8px 18px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b" }}>Cancel</button>
-              <button onClick={saveEditSettings} style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Save</button>
+            <div style={{ padding: "16px 24px", borderTop: "1px solid #e2e8f0", display: "flex", alignItems: "center", gap: 10, justifyContent: "flex-end" }}>
+              {deleteConfirmText ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
+                  <span style={{ fontSize: 12, color: "#E85D75" }}>Type "delete" to confirm:</span>
+                  <input value={deleteConfirmText} onChange={e => setDeleteConfirmText(e.target.value)} placeholder="delete"
+                    style={{ width: 100, padding: "6px 10px", borderRadius: 6, border: "1.5px solid #E85D75", fontSize: 12, outline: "none" }} />
+                  <button onClick={deleteItem} disabled={deleteConfirmText !== "delete"}
+                    style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: deleteConfirmText === "delete" ? "#E85D75" : "#fee2e2", color: "#fff", fontSize: 12, fontWeight: 600, cursor: deleteConfirmText === "delete" ? "pointer" : "default" }}>Delete</button>
+                  <button onClick={() => setDeleteConfirmText("")} style={{ padding: "6px 14px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+                </div>
+              ) : (
+                <>
+                  <button onClick={() => setDeleteConfirmText("pending")} style={{ padding: "8px 16px", borderRadius: 8, border: "1.5px solid #E85D75", background: "#fff", fontSize: 12, cursor: "pointer", color: "#E85D75", fontWeight: 600 }}>Delete</button>
+                  <button onClick={duplicateItem} style={{ padding: "8px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b" }}>Duplicate</button>
+                  <div style={{ flex: 1 }} />
+                  <button onClick={() => { setEditSettingsItem(null); setEditSettingsExpanded(false); setDeleteConfirmText(""); }} style={{ padding: "8px 18px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+                  <button onClick={saveEditSettings} style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Save</button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Edit Settings EXPANDED (full inline) ────────────────────────── */}
+      {editSettingsItem && editSettingsExpanded && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 2100, background: "#fff", display: "flex", flexDirection: "column" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px clamp(16px,3vw,24px)", borderBottom: "1px solid #e2e8f0", background: "#fff", flexShrink: 0 }}>
+            <button onClick={() => setEditSettingsExpanded(false)}
+              style={{ padding: "6px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b" }}>← Collapse</button>
+            <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#1a2332", flex: 1 }}>Editing: {editSettingsName || editSettingsItem.label}</h2>
+            <button onClick={saveEditSettings} style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Save</button>
+          </div>
+          <div style={{ flex: 1, overflowY: "auto", padding: "clamp(16px,3vw,28px)", display: "flex", gap: 24, flexDirection: "row" }}>
+            <div style={{ width: 280, flexShrink: 0 }}>
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>PLAYBOOK NAME</div>
+                <input value={editSettingsName} onChange={e => setEditSettingsName(e.target.value)}
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none", boxSizing: "border-box" }} />
+              </div>
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>ICON</div>
+                <IconPicker selected={editSettingsIcon} onSelect={setEditSettingsIcon} />
+              </div>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <RichEditor content={editSettingsContent} onChange={setEditSettingsContent} />
             </div>
           </div>
         </div>
@@ -1175,6 +1389,61 @@ function EditAddRowModalCustom({ initial, onSave, onClose }: {
               background: name.trim() ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0",
               color: "#fff", fontSize: 12, fontWeight: 600, cursor: name.trim() ? "pointer" : "default" }}>Save</button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function PlaybookCard({ item, rowId, onDetail, onEdit, onStartFill, isSingleLink, isSingleFile, isMulti, showAction, actionLabel, onDragStart, onDragEnter, onDrop }: {
+  item: PlaybookItem; rowId: string; onDetail: (i: PlaybookItem) => void; onEdit: (i: PlaybookItem) => void;
+  onStartFill: (i: PlaybookItem, rid: string) => void;
+  isSingleLink: boolean; isSingleFile: boolean; isMulti: boolean; showAction: boolean; actionLabel: string;
+  onDragStart: () => void; onDragEnter: () => void; onDrop: () => void;
+}) {
+  const [cardHov, setCardHov] = useState(false);
+  const activeColor = item.type === "template" ? "#3B82F6" : item.type === "filled-template" ? "#4CAF7D" : "#64748b";
+  return (
+    <div draggable onDragStart={onDragStart} onDragEnter={onDragEnter} onDrop={onDrop}
+      onMouseEnter={() => setCardHov(true)} onMouseLeave={() => setCardHov(false)}
+      onClick={() => onDetail(item)}
+      style={{ width: 150, minHeight: 150, background: "#fff", borderRadius: 16, border: "1px solid #f1f5f9",
+        padding: "14px 12px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+        cursor: "pointer", position: "relative", flexShrink: 0,
+        transform: cardHov ? "translateY(-3px)" : "none",
+        transition: "transform 0.15s, box-shadow 0.15s",
+        boxShadow: cardHov ? "0 10px 28px rgba(0,0,0,0.12)" : "0 2px 8px rgba(0,0,0,0.06)" }}>
+      <div style={{ width: 44, height: 44, borderRadius: "50%", background: "#f8fafc", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 8 }}>
+        <IconGlyph name={item.icon || "Notebook"} size={20} color={activeColor} />
+      </div>
+      <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332", textAlign: "center", lineHeight: 1.3, marginBottom: 8 }}>{item.label}</div>
+      {item.type === "template" ? (
+        <div onClick={e => { e.stopPropagation(); onStartFill(item, rowId); }}
+          style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 6, background: "#EFF6FF", color: "#3B82F6", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+          + Add New
+        </div>
+      ) : item.type === "filled-template" ? (
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 6, background: "#F0FDF4", color: "#4CAF7D", fontSize: 11, fontWeight: 500 }}>
+          <IconGlyph name="Check" size={12} color="#4CAF7D" weight="bold" /> View
+        </div>
+      ) : showAction ? (
+        <a href={isSingleLink ? item.links![0].url : `#file-${item.files![0].id}`}
+          target={isSingleLink ? "_blank" : undefined} rel="noopener noreferrer"
+          onClick={e => { e.stopPropagation(); if (!isSingleLink) e.preventDefault(); }}
+          style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 6, background: "#EFF6FF", color: "#3B82F6", fontSize: 11, fontWeight: 500, textDecoration: "none" }}>
+          {actionLabel} <IconGlyph name="ArrowUpRight" size={12} color="#3B82F6" weight="bold" />
+        </a>
+      ) : isMulti ? (
+        <div style={{ fontSize: 11, color: "#94a3b8", textAlign: "center" }}>
+          {item.links && item.links.length > 0 ? `${item.links.length} link${item.links.length > 1 ? "s" : ""}` : ""}
+          {item.links && item.links.length > 0 && item.files && item.files.length > 0 ? " · " : ""}
+          {item.files && item.files.length > 0 ? `${item.files.length} file${item.files.length > 1 ? "s" : ""}` : ""}
+        </div>
+      ) : item.content ? (
+        <div style={{ fontSize: 11, color: "#94a3b8" }}>View Document</div>
+      ) : null}
+      <div style={{ position: "absolute", top: 6, right: 6, display: "flex", gap: 2 }}>
+        <div onClick={e => { e.stopPropagation(); onEdit(item); }}
+          style={{ width: 22, height: 22, borderRadius: 6, background: cardHov ? "#f1f5f9" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 11, color: "#94a3b8" }}>···</div>
       </div>
     </div>
   );
