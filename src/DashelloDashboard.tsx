@@ -4088,11 +4088,11 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
         <div style={{ marginLeft: "auto" }} />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, flex: 1, minHeight: 0 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, alignItems: "start" }}>
         {/* ── Left Column ── */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 20, minHeight: 0 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
           {/* Your Tasks */}
-          <div style={{ background: "#fff", borderRadius: 16, padding: "20px", display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+          <div style={{ background: "#fff", borderRadius: 16, padding: "20px", display: "flex", flexDirection: "column" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
               <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#1a2332", flex: 1 }}>Your Tasks</h2>
               <div style={{ fontSize: 12, color: "#94a3b8" }}>Overall Progress</div>
@@ -4217,12 +4217,12 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
           </div>
 
           {/* Suggested Tasks */}
-          <div style={{ background: "linear-gradient(135deg,#EFF6FF,#F0FDF4)", borderRadius: 16, border: "1px solid #e2e8f0", padding: "20px", flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+          <div style={{ background: "linear-gradient(135deg,#EFF6FF,#F0FDF4)", borderRadius: 16, border: "1px solid #e2e8f0", padding: "20px", display: "flex", flexDirection: "column" }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: "#1a2332", marginBottom: 4 }}>Suggested Tasks ✦</div>
             <div style={{ fontSize: 11, color: "#64748b", marginBottom: 12, lineHeight: 1.5 }}>
               These AI tasks are from the metric boxes you have access to. They recommend next steps for your business based on your data to increase the health score of your business.
             </div>
-            <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {suggestedTasks.length === 0 && (
                 <div style={{ fontSize: 12, color: "#cbd5e1", fontStyle: "italic", padding: "12px 0", textAlign: "center" }}>No AI suggestions yet. Use metric boxes to generate them.</div>
               )}
