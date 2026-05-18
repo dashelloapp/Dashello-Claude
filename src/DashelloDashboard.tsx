@@ -7167,6 +7167,7 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
   const [sidebarAddText, setSidebarAddText] = useState("");
   const [sidebarAddAssignee, setSidebarAddAssignee] = useState(userEmail || "");
   const [sidebarAddDueDate, setSidebarAddDueDate] = useState("");
+  const [sidebarAddPriority, setSidebarAddPriority] = useState(false);
   const mySidebarTasks = tasks.filter(t => t.assignedTo === userEmail);
   const sidebarDoneCount = mySidebarTasks.filter(t => t.done).length;
   const sidebarTotalCount = mySidebarTasks.length;
@@ -7175,13 +7176,15 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
   const sidebarToggle = (id: string) => setTasks(prev => prev.map(t => t.id === id ? { ...t, done: !t.done } : t));
   const sidebarAddTask = () => {
     if (!sidebarAddText.trim()) return;
-    setTasks(prev => [...prev, {
+    setTasks(prev => [{
       id: crypto.randomUUID(), text: sidebarAddText.trim(), done: false,
       assignedTo: sidebarAddAssignee || userEmail, createdBy: userEmail,
       createdAt: new Date().toISOString(), dueDate: sidebarAddDueDate || undefined,
-    }]);
+      priority: sidebarAddPriority || undefined,
+    }, ...prev]);
     setSidebarAddText("");
     setSidebarAddDueDate("");
+    setSidebarAddPriority(false);
   };
 
   return (
@@ -7258,6 +7261,10 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
               placeholder="New task..." autoFocus
               onKeyDown={e => { if (e.key === "Enter") sidebarAddTask(); }}
               style={{ width: "100%", padding: "5px 8px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 11, outline: "none", boxSizing: "border-box", marginBottom: 4 }} />
+            <label style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 9, color: sidebarAddPriority ? "#F5A623" : "#94a3b8", cursor: "pointer", marginBottom: 4, alignSelf: "flex-start" }}>
+              <input type="checkbox" checked={sidebarAddPriority} onChange={e => setSidebarAddPriority(e.target.checked)} style={{ accentColor: "#F5A623", margin: 0, width: 12, height: 12 }} />
+              {sidebarAddPriority ? "" : "Make priority?"}
+            </label>
             <div style={{ display: "flex", gap: 4, marginBottom: 4 }}>
               <select value={sidebarAddAssignee} onChange={e => setSidebarAddAssignee(e.target.value)}
                 style={{ flex: 1, padding: "4px 6px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 10, outline: "none", background: "#fff" }}>
