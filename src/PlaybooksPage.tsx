@@ -46,20 +46,28 @@ function IconGlyph({ name, size = 20, color = "#3B82F6", weight = "regular" }: {
 }
 
 const ICON_NONE = "";
-const ICON_NAMES = [
-  "Notebook","FileText","FilePdf","FileDoc","FileImage","Link","GitFork","Target",
-  "CheckSquare","BookOpen","Scroll","ClipboardText","ListChecks","Article","Newspaper",
-  "ReadCvLogo","Books","GraduationCap","ChalkboardTeacher","PresentationChart",
-  "Lightbulb","Strategy","FlowArrow","ShareNetwork","ShareFat","PaperPlaneTilt",
-  "Envelope","ChatCircleDots","ChatText","RocketLaunch","Rocket","MagicWand",
-  "Star","Heart","Fire","Crown","Medal","Trophy","Award","Certificate",
+const PHOSPHOR_CATEGORIES: { label: string; icons: string[] }[] = [
+  { label: "Finance", icons: ["CreditCard","Wallet","Money","Coins","Bank","Receipt","Invoice","Cardholder","CurrencyDollar","CurrencyEur","CurrencyGbp","CurrencyJpy","CurrencyKrw","CurrencyInr","CurrencyBtc","PiggyBank","Vault","HandCoins","HandDeposit","HandWithdraw","TrendUp","TrendDown","ChartLine","ChartBar","ChartPie","ChartDonut","Percent","Calculator","Briefcase","Buildings","ShoppingCart","ShoppingBag","Storefront","Tag","Barcode",] },
+  { label: "Business", icons: ["Handshake","UsersThree","UserCircle","IdentificationCard","Suitcase","SuitcaseRolling","Target","Trophy","Medal","MedalMilitary","Star","StarFour","Crown","CrownSimple","Rocket","Lightbulb","Clipboard","ClipboardText","Files","FolderOpen","Folder","Archive","Bookmarks","BookmarkSimple","Table","Rows","Columns","SquaresFour","GridFour","ListBullets","ListChecks","ListNumbers","Notebook","Notepad","FileText","FilePdf","FileDoc","FileXls",] },
+  { label: "Communication", icons: ["Envelope","EnvelopeOpen","EnvelopeSimple","Phone","PhoneCall","PhoneIncoming","PhoneOutgoing","ChatCircle","ChatCircleDots","ChatText","ChatTeardrop","Chats","ChatsCircle","Megaphone","MegaphoneSimple","Bell","BellRinging","BellSimple","Broadcast","Rss","Share","ShareNetwork","PaperPlaneTilt","At","Hash","Link","LinkSimple","Globe","GlobeHemisphereWest","GlobeHemisphereEast",] },
+  { label: "Analytics", icons: ["ChartLineUp","ChartLineDown","ChartDonut","ChartBarHorizontal","ChartScatter","ChartPolar","ArrowUp","ArrowDown","ArrowRight","ArrowLeft","ArrowUUpRight","ArrowUUpLeft","ArrowsOut","ArrowsIn","ArrowsClockwise","ArrowsCounterClockwise","ArrowsLeftRight","ArrowsDownUp","Pulse","Gauge","Database","HardDrive","HardDrives","Cloud","CloudArrowUp","CloudArrowDown","CloudCheck","CloudX","MagnifyingGlass","MagnifyingGlassPlus","MagnifyingGlassMinus","Funnel","FunnelSimple","SortAscending","SortDescending",] },
+  { label: "Status", icons: ["CheckCircle","XCircle","WarningCircle","Warning","Info","Question","Check","CheckFat","CheckSquare","X","XSquare","Plus","PlusCircle","Minus","MinusCircle","Lock","LockOpen","LockKey","Key","KeyReturn","Shield","ShieldCheck","ShieldWarning","Fire","FireSimple","Snowflake","Lightning","LightningSlash","Timer","Clock","ClockCountdown","Calendar","CalendarBlank","CalendarCheck","Alarm",] },
+  { label: "People", icons: ["User","UserPlus","UserMinus","UserCheck","UserCircle","UserCirclePlus","UserCircleMinus","UserList","UserFocus","Users","UsersFour","UsersThree","PersonSimple","PersonSimpleRun","PersonSimpleWalk","PersonArmsSpread","Smiley","SmileyMeh","SmileySad","SmileyWink","SmileyAngry","SmileyNervous","SmileyXEyes","Heart","HeartStraight","HandHeart","Heartbeat","FirstAid","FirstAidKit","Stethoscope","Pill","Student","GraduationCap","Certificate","Scales","Gavel",] },
+  { label: "Tools", icons: ["Gear","GearSix","GearFine","Wrench","Hammer","Screwdriver","Nut","Toolbox","Code","CodeSimple","CodeBlock","Terminal","TerminalWindow","Desktop","Laptop","DeviceMobile","DeviceTablet","Monitor","Printer","Camera","CameraPlus","Image","ImageSquare","ImagesSquare","PencilSimple","PencilLine","Pen","PenNib","Eraser","Trash","TrashSimple","Copy","CopySimple","MagicWand","PaintBrush","PaintBrushBroad","PaintBucket","Palette","Eyedropper",] },
+  { label: "Nature", icons: ["Sun","SunDim","SunHorizon","Moon","MoonStars","CloudSun","CloudMoon","CloudRain","CloudSnow","CloudLightning","CloudFog","Rainbow","RainbowCloud","Tree","TreePalm","TreeEvergreen","Plant","Flower","FlowerLotus","FlowerTulip","Leaf","Cactus","Mountains","Waves","Drop","DropHalf","Fish","Bird","Butterfly","Dog","Cat","Cow","Horse","Rabbit",] },
+  { label: "Transit", icons: ["Car","CarSimple","CarProfile","Taxi","Truck","Van","Motorcycle","Bicycle","Scooter","Bus","Train","TrainSimple","TrainRegional","Tram","Airplane","AirplaneTakeoff","AirplaneLanding","Rocket","Boat","Sailboat","RocketLaunch","MapPin","MapTrifold","NavigationArrow","Compass","Path","RoadHorizon","TrafficCone","TrafficSign","TrafficSignal",] },
+  { label: "Food", icons: ["ForkKnife","CookingPot","BowlFood","Bread","Coffee","Hamburger","Pizza","Popcorn","FishSimple","BeerBottle","Wine","Knife","Cake","Cookie","OrangeSlice","Orange","IceCream","AppleLogo",] },
+  { label: "Health", icons: ["Hospital","Syringe","Thermometer","TestTube","Flask","Dna","MaskHappy","HandSoap","HeartBreak","HeartHalf",] },
 ];
+const ALL_PHOSPHOR_ICONS = PHOSPHOR_CATEGORIES.flatMap(c => c.icons);
+const DISPLAY_CATEGORIES = [{ label: "All", icons: ALL_PHOSPHOR_ICONS }, ...PHOSPHOR_CATEGORIES];
 
 function IconPicker({ selected, onSelect }: { selected: string; onSelect: (icon: string) => void }) {
   const [search, setSearch] = useState("");
+  const [activeCategory, setActiveCategory] = useState(0);
   const displayIcons = search.trim()
-    ? ICON_NAMES.filter(i => i.toLowerCase().includes(search.toLowerCase()))
-    : ICON_NAMES;
+    ? ALL_PHOSPHOR_ICONS.filter(i => i.toLowerCase().includes(search.toLowerCase()))
+    : DISPLAY_CATEGORIES[activeCategory]?.icons ?? [];
   return (
     <div>
       <div onClick={() => onSelect(ICON_NONE)} style={{
@@ -71,7 +79,18 @@ function IconPicker({ selected, onSelect }: { selected: string; onSelect: (icon:
       }}>No icon</div>
       <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search icons..."
         style={{ width: "100%", padding: "6px 10px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", marginBottom: 8, boxSizing: "border-box" }} />
-      <div style={{ height: 140, overflowY: "auto", border: "1px solid #e2e8f0", borderRadius: 10, padding: 6 }}>
+      {!search && (
+        <div style={{ display: "flex", gap: 4, overflowX: "auto", marginBottom: 8, paddingBottom: 2 }}>
+          {DISPLAY_CATEGORIES.map((cat, i) => (
+            <button key={i} onClick={() => setActiveCategory(i)} style={{
+              padding: "3px 8px", borderRadius: 20, border: "none", cursor: "pointer", flexShrink: 0,
+              background: activeCategory === i ? "#3B82F6" : "#f1f5f9",
+              color: activeCategory === i ? "#fff" : "#64748b", fontSize: 10, fontWeight: 500
+            }}>{cat.label}</button>
+          ))}
+        </div>
+      )}
+      <div style={{ height: 160, overflowY: "auto", border: "1px solid #e2e8f0", borderRadius: 10, padding: 6 }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: 4 }}>
           {displayIcons.map(ic => (
             <div key={ic} onClick={() => onSelect(ic)} title={ic}
@@ -280,8 +299,10 @@ function MenuBar({ editor }: { editor: any }) {
         style={{ width: 28, height: 28, borderRadius: 4, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#64748b" }}>
         <PhosphorReact.CalendarBlank size={16} color="currentColor" /></button>
       <div style={{ position: "relative" }} ref={tablePickerRef}>
-        {showTablePicker && (
-          <div style={{ position: "absolute", top: 32, left: 0, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 200, padding: 12, minWidth: 180 }}>
+        {showTablePicker && (() => {
+          const rect = tablePickerRef.current?.getBoundingClientRect();
+          return (
+          <div style={{ position: "fixed", top: rect ? rect.bottom + 4 : 0, left: rect ? rect.left : 0, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 9999, padding: 12, minWidth: 180 }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>Insert Table</div>
             <div style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "center" }}>
               <label style={{ fontSize: 11, color: "#1a2332" }}>Rows:
@@ -298,7 +319,7 @@ function MenuBar({ editor }: { editor: any }) {
             <button onClick={() => { const r = (document.getElementById("table-rows") as HTMLSelectElement)?.value; const c = (document.getElementById("table-cols") as HTMLSelectElement)?.value; if (r && c) insertTable(parseInt(r), parseInt(c)); }}
               style={{ width: "100%", padding: "6px 0", borderRadius: 6, border: "none", background: "#3B82F6", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Create</button>
           </div>
-        )}
+        );})()}
         <button onClick={() => { if (editor.isActive("table")) { editor.chain().focus().deleteTable().run(); } else { setShowTablePicker(!showTablePicker); } }} title="Table"
           style={{ width: 28, height: 28, borderRadius: 4, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
             background: editor.isActive("table") ? "#dbeafe" : "transparent", color: "#64748b" }}>
@@ -666,6 +687,24 @@ function getDateString(format: string, date?: Date): string {
 
   // Detail / edit modals
   const [detailItem, setDetailItem] = useState<PlaybookItem | null>(null);
+  const [detailFillData, setDetailFillData] = useState<Record<string,string>>({});
+  const [detailSaveStatus, setDetailSaveStatus] = useState<"" | "saving" | "saved">("");
+  const detailFillTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const autoSaveDetail = useCallback(() => {
+    if (detailFillTimerRef.current) clearTimeout(detailFillTimerRef.current);
+    detailFillTimerRef.current = setTimeout(async () => {
+      setDetailSaveStatus("saving");
+      const item = detailItem;
+      if (!item) return;
+      const rid = rows.find(r => r.items.some(i => i.id === item.id))?.id;
+      if (!rid) return;
+      const updated = rows.map(r => r.id === rid ? { ...r, items: r.items.map(i => i.id === item.id ? { ...i, filledData: detailFillData } : i) } : r);
+      setRows(updated);
+      if (userId) await saveUserData("playbooks", userId, updated);
+      setDetailSaveStatus("saved");
+      setTimeout(() => setDetailSaveStatus(""), 2000);
+    }, 600);
+  }, [detailItem, detailFillData, rows, userId]);
   const [editSettingsItem, setEditSettingsItem] = useState<PlaybookItem | null>(null);
   const [editSettingsName, setEditSettingsName] = useState("");
   const [editSettingsIcon, setEditSettingsIcon] = useState("");
@@ -920,7 +959,14 @@ function getDateString(format: string, date?: Date): string {
   }, [fillData, fillTemplateId, fillTemplateRowId, rows, userId]);
 
   // ── Detail / Edit ─────────────────────────────────────────────────────
-  const openDetail = (item: PlaybookItem) => setDetailItem(item);
+  const openDetail = (item: PlaybookItem) => {
+    setDetailItem(item);
+    if (item.type === "filled-template" && item.filledData) {
+      setDetailFillData({ ...item.filledData });
+    } else {
+      setDetailFillData({});
+    }
+  };
   const openEditSettings = (item: PlaybookItem) => {
     setEditSettingsItem(item);
     setEditSettingsName(item.label);
@@ -935,7 +981,7 @@ function getDateString(format: string, date?: Date): string {
     if (!editSettingsItem) return;
     const rid = rows.find(r => r.items.some(i => i.id === editSettingsItem.id))?.id;
     if (!rid) return;
-    const updated = rows.map(r => r.id === rid ? { ...r, items: r.items.map(i => i.id === editSettingsItem.id ? { ...i, label: editSettingsName, icon: editSettingsIcon, content: editSettingsContent, recurrence: editSettingsItem.type === "template" ? editSettingsRecurrence : undefined } : i) } : r);
+    const updated = rows.map(r => r.id === rid ? { ...r, items: r.items.map(i => i.id === editSettingsItem.id ? { ...i, label: editSettingsName, icon: editSettingsIcon, content: editSettingsContent, recurrence: editSettingsItem.type !== "template" ? editSettingsRecurrence : undefined } : i) } : r);
     setRows(updated);
     if (userId) saveUserData("playbooks", userId, updated);
     setEditSettingsItem(null);
@@ -1017,7 +1063,7 @@ function getDateString(format: string, date?: Date): string {
       const newField: TemplateField = {
         id: crypto.randomUUID(), type, header: "", description: "", placeholder: "",
         required: false, options: type === "checkbox" || type === "radio" || type === "big-checklist" ? ["Option 1"] : undefined,
-        color: "#1a2332", column: 1, textSize: 24, checklistLayout: "together", bigChecklistMode: "option", syncToTasks: false,
+        color: "#1a2332", column: 1, textSize: 30, checklistLayout: "together", bigChecklistMode: "option", syncToTasks: false,
       };
       setCreateTemplateFields(p => [...p, newField]);
     };
@@ -1143,8 +1189,8 @@ function getDateString(format: string, date?: Date): string {
                           </div>
                           {/* ── Text Size Slider ── */}
                           <div style={{ marginBottom: 6 }}>
-                            <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 2 }}>Size: {(f.textSize || 24)}px</div>
-                            <input type="range" min={11} max={55} value={f.textSize || 24}
+                            <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 2 }}>Size: {(f.textSize || 30)}px</div>
+                            <input type="range" min={30} max={100} value={f.textSize || 30}
                               onChange={e => updateField(f.id, { textSize: parseInt(e.target.value) })}
                               style={{ width: "100%", accentColor: "#3B82F6" }} />
                           </div>
@@ -1241,35 +1287,6 @@ function getDateString(format: string, date?: Date): string {
                 </button>
               ))}
             </div>
-            <div style={{ display: "flex", gap: 16, marginBottom: 16, alignItems: "center" }}>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>RECURRENCE</div>
-                <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#64748b", cursor: "pointer" }}>
-                  <input type="checkbox" checked={createRecurrence.enabled} onChange={e => setCreateRecurrence(p => ({ ...p, enabled: e.target.checked }))}
-                    style={{ accentColor: "#3B82F6", margin: 0 }} /> Auto-reset template
-                </label>
-                {createRecurrence.enabled && (
-                  <select value={createRecurrence.interval} onChange={e => setCreateRecurrence(p => ({ ...p, interval: e.target.value as RecurrenceInterval }))}
-                    style={{ width: "100%", marginTop: 4, padding: "4px 8px", borderRadius: 4, border: "1px solid #e2e8f0", fontSize: 11, outline: "none" }}>
-                    <option value="daily">Every Day</option>
-                    <option value="weekly">Every Week</option>
-                    <option value="monthly">Every Month</option>
-                    <option value="quarterly">Every Quarter</option>
-                    <option value="semi-annually">Every 6 Months</option>
-                    <option value="yearly">Every Year</option>
-                    <option value="custom">Custom...</option>
-                  </select>
-                )}
-                {createRecurrence.enabled && createRecurrence.interval === "custom" && (
-                  <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4 }}>
-                    <span style={{ fontSize: 11, color: "#64748b" }}>Every</span>
-                    <input type="number" min={1} value={createRecurrence.customDays || 1} onChange={e => setCreateRecurrence(p => ({ ...p, customDays: parseInt(e.target.value) || 1 }))}
-                      style={{ width: 60, padding: "4px 8px", borderRadius: 4, border: "1px solid #e2e8f0", fontSize: 11, outline: "none" }} />
-                    <span style={{ fontSize: 11, color: "#64748b" }}>days</span>
-                  </div>
-                )}
-              </div>
-            </div>
             <button onClick={handleCreateSave} disabled={!createName.trim()}
               style={{ padding: "10px 28px", borderRadius: 8, border: "none",
                 background: createName.trim() ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0",
@@ -1283,7 +1300,6 @@ function getDateString(format: string, date?: Date): string {
             <div style={{ fontSize: 13, fontWeight: 600, color: "#64748b", marginBottom: 12 }}>PREVIEW</div>
             <div style={{ fontSize: 16, fontWeight: 700, color: "#1a2332", marginBottom: 16 }}>{createName || "Template Name"}</div>
             {createLayout === 2 && <div style={{ fontSize: 11, color: "#3B82F6", fontWeight: 600, marginBottom: 8 }}>Two-column layout</div>}
-            {createRecurrence.enabled && <div style={{ fontSize: 11, color: "#4CAF7D", fontWeight: 600, marginBottom: 8 }}>Auto-resets: {createRecurrence.interval === "custom" ? `Every ${createRecurrence.customDays || 1} days` : createRecurrence.interval}</div>}
             {createTemplateFields.length === 0 ? (
               <div style={{ fontSize: 13, color: "#cbd5e1", fontStyle: "italic" }}>Add fields to see preview</div>
             ) : (
@@ -1325,18 +1341,18 @@ function getDateString(format: string, date?: Date): string {
                     {f.type === "big-checklist" && (
                       <div>
                         <div style={{
-                          fontSize: (f.textSize || 24) * 0.65,
+                          fontSize: (f.textSize || 30) * 0.65,
                           color: "#94a3b8", fontStyle: f.checklistLayout === "separate" ? "normal" : "italic", marginBottom: 4
                         }}>
                           {f.checklistLayout === "separate" ? (f.options || []).map((opt, oi) => (
                             <div key={oi} style={{
                               display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 6,
-                              fontSize: (f.textSize || 24) * 0.65,
+                              fontSize: (f.textSize || 30) * 0.65,
                               color: "#1a2332"
                             }}>
                               <div style={{
-                                width: (f.textSize || 24) * 0.55,
-                                height: (f.textSize || 24) * 0.55,
+                                width: (f.textSize || 30) * 0.65 * 1.2,
+                                height: (f.textSize || 30) * 0.65 * 1.2,
                                 borderRadius: "50%", border: "2px solid #d1d5db", background: "#fff", flexShrink: 0, marginTop: 2
                               }} />
                               <span>{opt}</span>
@@ -1431,9 +1447,9 @@ function getDateString(format: string, date?: Date): string {
                           );
                         })()}
                         {f.type === "big-checklist" && (() => {
-                          const size = f.textSize || 24;
+                          const size = f.textSize || 30;
                           const fontSizeVal = size * 0.65;
-                          const checkboxSize = size * 0.55;
+                          const checkboxSize = fontSizeVal * 1.2;
                           const layout = f.checklistLayout || "together";
                           const mode = f.bigChecklistMode || "option";
 
@@ -1899,6 +1915,8 @@ function getDateString(format: string, date?: Date): string {
                 <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#1a2332" }}>{detailItem.label}</h2>
                 <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>
                   {detailItem.type === "document" ? "Document" : detailItem.type === "template" ? "Template" : "Filled Playbook"}
+                  {detailItem.type === "filled-template" && detailSaveStatus === "saved" && <span style={{ color: "#4CAF7D", fontWeight: 600, marginLeft: 6 }}>✓</span>}
+                  {detailItem.type === "filled-template" && detailSaveStatus === "saving" && <span style={{ color: "#94a3b8", marginLeft: 6 }}>…</span>}
                   {detailItem.createdAt ? ` · ${new Date(detailItem.createdAt).toLocaleDateString()}` : ""}
                 </div>
               </div>
@@ -1956,12 +1974,63 @@ function getDateString(format: string, date?: Date): string {
                 <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>CONTENT</div>
                 {(() => {
                   const template = rows.flatMap(r => r.items).find(i => i.id === detailItem.templateId);
-                  return template?.templateFields?.map(f => (
+                  return template?.templateFields?.map(f => {
+                    const displayHeader = f.dateAutoFill ? getDateString(f.dateFormat || "MMMM Do, YYYY") : f.header;
+                    return (
                     <div key={f.id} style={{ background: "#f1f5f9", borderRadius: 8, padding: 12, marginBottom: 8 }}>
-                      {f.header && <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, color: f.color }} dangerouslySetInnerHTML={{ __html: f.header }} />}
-                      <div style={{ fontSize: 13, color: "#1a2332" }}>{f.type === "fill-checklist" || f.type === "big-checklist" || f.type === "sync-checklist" ? renderChecklistPreview(detailItem.filledData?.[f.id], undefined) : detailItem.filledData?.[f.id] || <span style={{ color: "#cbd5e1", fontStyle: "italic" }}>Empty</span>}</div>
+                      {displayHeader && <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, color: f.color }} dangerouslySetInnerHTML={{ __html: renderShortcodes(displayHeader) }} />}
+                      {f.description && <div style={{ fontSize: 11, color: "#64748b", marginBottom: 6, fontStyle: "italic" }}>{f.description}</div>}
+                      {f.type === "text" && (
+                        <input value={detailFillData[f.id] || ""} onChange={e => { setDetailFillData(p => ({ ...p, [f.id]: e.target.value })); autoSaveDetail(); }}
+                          placeholder={f.placeholder?.replace(/<[^>]*>/g, "")}
+                          style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+                      )}
+                      {f.type === "textarea" && (
+                        <textarea value={detailFillData[f.id] || ""} onChange={e => { setDetailFillData(p => ({ ...p, [f.id]: e.target.value })); autoSaveDetail(); }}
+                          placeholder={f.placeholder?.replace(/<[^>]*>/g, "")}
+                          style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none", boxSizing: "border-box", minHeight: 60, resize: "vertical", fontFamily: "inherit" }} />
+                      )}
+                      {(f.type === "checkbox") && (f.options || []).map((opt, oi) => (
+                        <label key={oi} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, fontSize: 13, color: "#1a2332", cursor: "pointer" }}>
+                          <input type="checkbox" checked={(detailFillData[f.id] || "").includes(opt)}
+                            onChange={e => {
+                              const current = new Set((detailFillData[f.id] || "").split(",").filter(Boolean));
+                              if (e.target.checked) current.add(opt); else current.delete(opt);
+                              setDetailFillData(p => ({ ...p, [f.id]: Array.from(current).join(",") }));
+                              autoSaveDetail();
+                            }} style={{ accentColor: "#3B82F6" }} />
+                          {opt}
+                        </label>
+                      ))}
+                      {(f.type === "radio") && (f.options || []).map((opt, oi) => (
+                        <label key={oi} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, fontSize: 13, color: "#1a2332", cursor: "pointer" }}>
+                          <input type="radio" name={`detail-${f.id}`} checked={detailFillData[f.id] === opt}
+                            onChange={() => { setDetailFillData(p => ({ ...p, [f.id]: opt })); autoSaveDetail(); }} style={{ accentColor: "#3B82F6" }} />
+                          {opt}
+                        </label>
+                      ))}
+                      {f.type === "fill-checklist" && (() => {
+                        const items: {id:string,text:string,checked:boolean}[] = (() => { try { const p = JSON.parse(detailFillData[f.id] || "[]"); return Array.isArray(p) ? p : []; } catch { return []; } })();
+                        return (
+                          <div>
+                            <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+                              <input placeholder={f.placeholder?.replace(/<[^>]*>/g, "") || "Add item..."}
+                                onKeyDown={e => { if (e.key === "Enter" && (e.target as HTMLInputElement).value.trim()) { const newItem = { id: crypto.randomUUID(), text: (e.target as HTMLInputElement).value.trim(), checked: false }; setDetailFillData(p => ({ ...p, [f.id]: JSON.stringify([...items, newItem]) })); autoSaveDetail(); (e.target as HTMLInputElement).value = ""; } }}
+                                style={{ flex: 1, padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none" }} />
+                              <button onClick={() => { const inp = document.getElementById(`detail-inp-${f.id}`) as HTMLInputElement; if (inp?.value?.trim()) { const newItem = { id: crypto.randomUUID(), text: inp.value.trim(), checked: false }; setDetailFillData(p => ({ ...p, [f.id]: JSON.stringify([...items, newItem]) })); autoSaveDetail(); inp.value = ""; } }}
+                                style={{ padding: "6px 12px", borderRadius: 6, border: "none", background: "#3B82F6", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Add</button>
+                            </div>
+                            {items.map((item, ii) => (
+                              <label key={item.id} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, fontSize: 13, color: "#1a2332", cursor: "pointer" }}>
+                                <input type="checkbox" checked={item.checked} onChange={e => { const n = [...items]; n[ii] = { ...n[ii], checked: e.target.checked }; setDetailFillData(p => ({ ...p, [f.id]: JSON.stringify(n) })); autoSaveDetail(); }} style={{ accentColor: "#3B82F6" }} />
+                                <span style={{ textDecoration: item.checked ? "line-through" : "none", color: item.checked ? "#94a3b8" : "#1a2332" }}>{item.text}</span>
+                              </label>
+                            ))}
+                          </div>
+                        );
+                      })()}
                     </div>
-                  ));
+                  );});
                 })()}
               </div>
             )}
@@ -1989,16 +2058,18 @@ function getDateString(format: string, date?: Date): string {
                 <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>ICON</div>
                 <IconPicker selected={editSettingsIcon} onSelect={setEditSettingsIcon} />
               </div>
+              {editSettingsItem.type !== "template" && (
               <div style={{ marginBottom: 14 }}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>CONTENT</div>
                 <RichEditor content={editSettingsContent} onChange={setEditSettingsContent} />
               </div>
-              {editSettingsItem.type === "template" && (
+              )}
+              {(editSettingsItem.type === "document" || editSettingsItem.type === "filled-template") && (
                 <div style={{ marginBottom: 14, padding: 14, background: "#f8fafc", borderRadius: 10, border: "1px solid #e2e8f0" }}>
                   <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>RECURRENCE SETTINGS</div>
                   <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "#64748b", cursor: "pointer" }}>
                     <input type="checkbox" checked={editSettingsRecurrence.enabled} onChange={e => setEditSettingsRecurrence(p => ({ ...p, enabled: e.target.checked }))}
-                      style={{ accentColor: "#3B82F6", margin: 0 }} /> Auto-reset this template
+                      style={{ accentColor: "#3B82F6", margin: 0 }} /> Auto-reset this item
                   </label>
                   {editSettingsRecurrence.enabled && (
                     <>
@@ -2124,8 +2195,8 @@ function PlaybookCard({ item, rowId, onDetail, onEdit, onStartFill, isSingleLink
         transform: cardHov ? "translateY(-3px)" : "none",
         transition: "transform 0.15s, box-shadow 0.15s",
         boxShadow: cardHov ? "0 10px 28px rgba(0,0,0,0.12)" : "0 2px 8px rgba(0,0,0,0.06)" }}>
-      <div style={{ width: 44, height: 44, borderRadius: "50%", background: "#f8fafc", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 8 }}>
-        <IconGlyph name={item.icon || "Notebook"} size={20} color={activeColor} />
+      <div style={{ width: 44, height: 44, borderRadius: "50%", background: item.icon ? "#f8fafc" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 8 }}>
+        {item.icon ? <IconGlyph name={item.icon} size={20} color={activeColor} /> : null}
       </div>
       <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332", textAlign: "center", lineHeight: 1.3, marginBottom: 8 }}>{item.label}</div>
       {item.type === "template" ? (
