@@ -165,53 +165,87 @@ interface PlaybookRow {
 // ── TipTap Rich Text Editor ───────────────────────────────────────────────
 function MenuBar({ editor }: { editor: any }) {
   if (!editor) return null;
+  const [showTablePicker, setShowTablePicker] = useState(false);
+  const tablePickerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (tablePickerRef.current && !tablePickerRef.current.contains(e.target as Node)) setShowTablePicker(false); };
+    document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h);
+  }, []);
   const addImage = () => {
     const url = window.prompt("Image URL");
     if (url) editor.chain().focus().setImage({ src: url }).run();
   };
+  const insertTable = (rows: number, cols: number) => {
+    editor.chain().focus().insertTable({ rows, cols, withHeaderRow: true }).run();
+    setShowTablePicker(false);
+  };
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 2, padding: "6px 8px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc" }}>
-      {[["Bold","bold"],["Italic","italic"],["Underline","underline"]].map(([label, action]) => (
-        <button key={action} onClick={() => editor.chain().focus()[action === "underline" ? "toggleUnderline" : "toggle" + label]().run()} title={label}
-          style={{ width: 28, height: 28, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600,
-            background: editor.isActive(action === "underline" ? "underline" : label.toLowerCase()) ? "#dbeafe" : "transparent",
-            color: editor.isActive(action === "underline" ? "underline" : label.toLowerCase()) ? "#3B82F6" : "#64748b" }}>
-          {label === "Bold" ? "B" : label === "Italic" ? "I" : "U"}</button>
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 2, padding: "6px 8px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc", position: "relative" }}>
+      <button key="bold" onClick={() => editor.chain().focus().toggleBold().run()} title="Bold"
+        style={{ width: 28, height: 28, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700,
+          background: editor.isActive("bold") ? "#dbeafe" : "transparent",
+          color: editor.isActive("bold") ? "#3B82F6" : "#64748b" }}>B</button>
+      <button key="italic" onClick={() => editor.chain().focus().toggleItalic().run()} title="Italic"
+        style={{ width: 28, height: 28, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 14, fontStyle: "italic", fontWeight: 400,
+          background: editor.isActive("italic") ? "#dbeafe" : "transparent",
+          color: editor.isActive("italic") ? "#3B82F6" : "#64748b" }}>I</button>
+      <button key="underline" onClick={() => editor.chain().focus().toggleUnderline().run()} title="Underline"
+        style={{ width: 28, height: 28, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 400, textDecoration: "underline",
+          background: editor.isActive("underline") ? "#dbeafe" : "transparent",
+          color: editor.isActive("underline") ? "#3B82F6" : "#64748b" }}>U</button>
+      <div style={{ width: 1, background: "#e2e8f0", margin: "0 4px" }} />
+      {[["H1",1],["H2",2],["H3",3],["P",0]].map(([l,level]) => (
+        <button key={String(level)} onClick={() => level === 0 ? editor.chain().focus().setParagraph().run() : editor.chain().focus().toggleHeading({ level: level as 1|2|3 }).run()} title={level === 0 ? "Paragraph" : `Heading ${level}`}
+          style={{ width: level === 0 ? 28 : 32, height: 28, borderRadius: 4, border: "none", cursor: "pointer", fontSize: level === 0 ? 11 : level === 1 ? 13 : level === 2 ? 12 : 11, fontWeight: level === 0 ? 400 : 700,
+            background: level === 0 ? (editor.isActive("paragraph") ? "#dbeafe" : "transparent") : (editor.isActive("heading", { level }) ? "#dbeafe" : "transparent"),
+            color: level === 0 ? (editor.isActive("paragraph") ? "#3B82F6" : "#64748b") : (editor.isActive("heading", { level }) ? "#3B82F6" : "#64748b") }}>{l}</button>
       ))}
       <div style={{ width: 1, background: "#e2e8f0", margin: "0 4px" }} />
-      {[["H1",1],["H2",2],["H3",3]].map(([l,level]) => (
-        <button key={String(level)} onClick={() => editor.chain().focus().toggleHeading({ level: level as 1|2|3 }).run()} title={`Heading ${level}`}
-          style={{ width: 32, height: 28, borderRadius: 4, border: "none", cursor: "pointer", fontSize: level === 1 ? 13 : level === 2 ? 12 : 11, fontWeight: 700,
-            background: editor.isActive("heading", { level }) ? "#dbeafe" : "transparent",
-            color: editor.isActive("heading", { level }) ? "#3B82F6" : "#64748b" }}>{l}</button>
-      ))}
-      <div style={{ width: 1, background: "#e2e8f0", margin: "0 4px" }} />
-      {[["left","Left"],["center","Center"],["right","Right"]].map(([align,label]) => (
-        <button key={align} onClick={() => editor.chain().focus().setTextAlign(align).run()} title={label}
-          style={{ width: 28, height: 28, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 11,
-            background: editor.isActive({ textAlign: align }) ? "#dbeafe" : "transparent",
-            color: editor.isActive({ textAlign: align }) ? "#3B82F6" : "#64748b" }}>{label[0]}</button>
+      {[{a:"left",c:"≡"}, {a:"center",c:"≡"}, {a:"right",c:"≡"}].map(({a,c}) => (
+        <button key={a} onClick={() => editor.chain().focus().setTextAlign(a).run()}
+          style={{ width: 28, height: 28, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center",
+            background: editor.isActive({ textAlign: a }) ? "#dbeafe" : "transparent",
+            color: editor.isActive({ textAlign: a }) ? "#3B82F6" : "#64748b" }}>
+          <span style={{ display: "inline-block", transform: a === "left" ? "none" : a === "center" ? "none" : "none", letterSpacing: a === "left" ? "-2px" : a === "center" ? "2px" : "4px", fontWeight: 400 }}>—</span>
+        </button>
       ))}
       <div style={{ width: 1, background: "#e2e8f0", margin: "0 4px" }} />
       <button onClick={() => editor.chain().focus().toggleBulletList().run()} title="Bullet list"
-        style={{ width: 28, height: 28, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 12,
-          background: editor.isActive("bulletList") ? "#dbeafe" : "transparent", color: "#64748b" }}>•</button>
+        style={{ width: 28, height: 28, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center",
+          background: editor.isActive("bulletList") ? "#dbeafe" : "transparent", color: "#64748b" }}><span style={{ fontSize: 16, lineHeight: 1 }}>•</span><span style={{ fontSize: 8, lineHeight: 1, marginLeft: 1 }}>•</span><span style={{ fontSize: 12, lineHeight: 1, marginLeft: 1 }}>•</span></button>
       <button onClick={() => editor.chain().focus().toggleOrderedList().run()} title="Numbered list"
-        style={{ width: 28, height: 28, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 11,
-          background: editor.isActive("orderedList") ? "#dbeafe" : "transparent", color: "#64748b" }}>1.</button>
+        style={{ width: 28, height: 28, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 9, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 600,
+          background: editor.isActive("orderedList") ? "#dbeafe" : "transparent", color: "#64748b" }}><span>1.</span><span style={{ marginLeft: 2 }}>2.</span></button>
       <div style={{ width: 1, background: "#e2e8f0", margin: "0 4px" }} />
       <button onClick={() => editor.chain().focus().toggleBlockquote().run()} title="Quote"
         style={{ width: 28, height: 28, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 12,
           background: editor.isActive("blockquote") ? "#dbeafe" : "transparent", color: "#64748b" }}>❝</button>
       <button onClick={addImage} title="Insert image"
         style={{ width: 28, height: 28, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 12, color: "#64748b" }}>🖼</button>
-      <button onClick={() => editor.chain().focus().toggleTable().run()} title="Table"
-        style={{ width: 28, height: 28, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 12,
-          background: editor.isActive("table") ? "#dbeafe" : "transparent", color: "#64748b" }}>⊞</button>
-      {editor.isActive("table") && (
-        <button onClick={() => editor.chain().focus().deleteTable().run()} title="Delete table"
-          style={{ width: 28, height: 28, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 10, color: "#E85D75" }}>✕</button>
-      )}
+      <div style={{ position: "relative" }} ref={tablePickerRef}>
+        {showTablePicker && (
+          <div style={{ position: "absolute", top: 32, left: 0, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 200, padding: 12, minWidth: 180 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>Insert Table</div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "center" }}>
+              <label style={{ fontSize: 11, color: "#1a2332" }}>Rows:
+                <select id="table-rows" defaultValue={3} style={{ marginLeft: 4, padding: "2px 4px", borderRadius: 4, border: "1px solid #e2e8f0", fontSize: 11 }}>
+                  {[1,2,3,4,5,6,7,8,9,10].map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </label>
+              <label style={{ fontSize: 11, color: "#1a2332" }}>Cols:
+                <select id="table-cols" defaultValue={3} style={{ marginLeft: 4, padding: "2px 4px", borderRadius: 4, border: "1px solid #e2e8f0", fontSize: 11 }}>
+                  {[1,2,3,4,5,6,7,8,9,10].map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </label>
+            </div>
+            <button onClick={() => { const r = (document.getElementById("table-rows") as HTMLSelectElement)?.value; const c = (document.getElementById("table-cols") as HTMLSelectElement)?.value; if (r && c) insertTable(parseInt(r), parseInt(c)); }}
+              style={{ width: "100%", padding: "6px 0", borderRadius: 6, border: "none", background: "#3B82F6", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Create</button>
+          </div>
+        )}
+        <button onClick={() => { if (editor.isActive("table")) { editor.chain().focus().deleteTable().run(); } else { setShowTablePicker(!showTablePicker); } }} title="Table"
+          style={{ width: 28, height: 28, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 10, fontWeight: 500,
+            background: editor.isActive("table") ? "#dbeafe" : "transparent", color: "#64748b" }}>Table</button>
+      </div>
       <div style={{ flex: 1 }} />
       <input type="color" value={editor.getAttributes("textStyle").color || "#000000"}
         onChange={e => editor.chain().focus().setColor(e.target.value).run()} title="Text color"
@@ -545,9 +579,16 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
       recurrence: createType === "template" && createRecurrence.enabled ? createRecurrence : undefined,
     };
     newItem.icon = autoSelectIcon(newItem);
-    const updated = rows.map(r => r.id === createRowId ? { ...r, items: [...r.items, newItem] } : r);
-    if (createType === "template" && !updated.some(r => r.title === "Templates")) {
-      updated.push({ id: crypto.randomUUID(), title: "Templates", items: [] });
+    let updated: PlaybookRow[];
+    if (createType === "template") {
+      const existingRow = rows.find(r => r.title === "Templates");
+      if (existingRow) {
+        updated = rows.map(r => r.id === existingRow.id ? { ...r, items: [...r.items, newItem] } : r);
+      } else {
+        updated = [...rows, { id: crypto.randomUUID(), title: "Templates", items: [newItem] }];
+      }
+    } else {
+      updated = rows.map(r => r.id === createRowId ? { ...r, items: [...r.items, newItem] } : r);
     }
     setRows(updated);
     if (userId) await saveUserData("playbooks", userId, updated);

@@ -4420,6 +4420,8 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
   const [permModalMember, setPermModalMember] = useState<OrgMember | null>(null);
   const [transferringFrom, setTransferringFrom] = useState<OrgMember | null>(null);
   const [memberDetail, setMemberDetail] = useState<OrgMember | null>(null);
+  const [editingTeamRowId, setEditingTeamRowId] = useState<string | null>(null);
+  const [editingTeamRowValue, setEditingTeamRowValue] = useState("");
   useEffect(() => {
     if (pendingMemberDetail) {
       setMemberDetail(pendingMemberDetail);
@@ -4561,9 +4563,17 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
                 <div draggable onDragStart={() => handleTeamDragStart(team.id)}
                   style={{ cursor: "grab", color: "#cbd5e1", fontSize: 15, padding: "0 2px", flexShrink: 0 }}>⠿</div>
               )}
-              <h2 style={{ margin: 0, fontSize: "clamp(16px,3vw,20px)", fontWeight: 700, color: "#1a2332" }}>
-                {team.name}{team.order === 0 ? <span style={{ fontSize: "clamp(11px,2vw,13px)", fontWeight: 400, color: "#94a3b8" }}> (Default)</span> : ""}
-              </h2>
+              {editingTeamRowId === team.id ? (
+                <input value={editingTeamRowValue} onChange={e => setEditingTeamRowValue(e.target.value)}
+                  onBlur={() => { if (editingTeamRowValue.trim() && editingTeamRowValue.trim() !== team.name) renameTeam(team.id, editingTeamRowValue.trim()); setEditingTeamRowId(null); }}
+                  onKeyDown={e => { if (e.key === "Enter") { if (editingTeamRowValue.trim() && editingTeamRowValue.trim() !== team.name) renameTeam(team.id, editingTeamRowValue.trim()); setEditingTeamRowId(null); } if (e.key === "Escape") setEditingTeamRowId(null); }}
+                  autoFocus style={{ fontSize: "clamp(16px,3vw,20px)", fontWeight: 700, color: "#1a2332", border: "1.5px solid #3B82F6", borderRadius: 6, padding: "2px 6px", outline: "none", width: 200 }} />
+              ) : (
+                <h2 onClick={() => { setEditingTeamRowId(team.id); setEditingTeamRowValue(team.name); }}
+                  style={{ margin: 0, fontSize: "clamp(16px,3vw,20px)", fontWeight: 700, color: "#1a2332", cursor: "text" }}>
+                  {team.name}{team.order === 0 ? <span style={{ fontSize: "clamp(11px,2vw,13px)", fontWeight: 400, color: "#94a3b8" }}> (Default)</span> : ""}
+                </h2>
+              )}
               <div style={{ flex: 1 }} />
               {isManager && (
                 <TeamRowMenu
@@ -7054,9 +7064,10 @@ function BreadcrumbNav({ items, onNavigate }: {
 }
 
 export default function DashelloDashboard() {
-  const [page, setPage] = useState<Page>("home");
+  const [page, setPage] = useState<Page>(() => (localStorage.getItem("dashello_page") as Page) || "home");
   const [sections, setSections] = useState<Section[]>([]);
   const [activeModal, setActiveModal] = useState<{ data: MetricModalData; metric: Metric } | null>(null);
+  useEffect(() => { localStorage.setItem("dashello_page", page); }, [page]);
   const [editingMetricFromModal, setEditingMetricFromModal] = useState<Metric | null>(null);
   // Inline view system
   const [inlineView, setInlineView] = useState<"metric-detail" | "metric-settings" | "color-rule" | null>(null);
