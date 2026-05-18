@@ -1220,7 +1220,7 @@ function BottomThreeCards({ data, metricId, tasks, setTasks, userEmail, orgMembe
                         : <div style={{ width: 22, height: 22, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: "#94a3b8", flexShrink: 0 }}>
                             {(assigneeMember.name?.[0] || assigneeMember.email[0] || "?").toUpperCase()}
                           </div>
-          )}
+                        )}
                   </div>
                 );
               })}
@@ -1937,8 +1937,8 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
         </div>
       );
     })()}
-                  </>
-                )}
+  </div>
+        )}
         {data.healthPct != null
           ? <><div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332", marginBottom: 6 }}>Health — <strong>{data.healthPct}%</strong></div>
             <div style={{ height: 28, borderRadius: 99, background: "#e5e7eb", maxWidth: 260, overflow: "hidden", marginBottom: 20 }}>
@@ -2605,8 +2605,8 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
                               )}
                             </div>
                           )}
-            </div>
-          )}
+                        </>
+                      )}
                     </div>
                   );
                 })()}
@@ -2649,9 +2649,9 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
                         ))}
                       </div>
                     )}
-            </div>
-          )}
-              </div>
+                  </>
+                )}
+               </div>
 
               {/* RIGHT */}
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -3345,6 +3345,7 @@ function GoalsPage({ goals, setGoals, sections, viewMode, onOpenOnboarding, onEd
                     );
                   })()}
                 </SectionCard>
+                </div>
               </div>
             </div>
           )}
