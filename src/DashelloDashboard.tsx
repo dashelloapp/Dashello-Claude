@@ -210,6 +210,7 @@ interface Task {
   linkedMetricId?: string;
   linkedGoalId?: string;
   createdAt: string;
+  priority?: boolean;
 }
 
 interface MetricModalData {
@@ -4293,6 +4294,8 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [inlineAddText, setInlineAddText] = useState("");
+  const [showAddPriority, setShowAddPriority] = useState(false);
+  const [priorityAddText, setPriorityAddText] = useState("");
   const menuRef = useRef<HTMLDivElement>(null);
   const menuTriggerElRef = useRef<HTMLElement | null>(null);
   const [menuPos, setMenuPos] = useState<React.CSSProperties>({ position: "absolute", top: 28, right: 0, visibility: "hidden" });
@@ -4320,8 +4323,10 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
     setMenuTaskId(null);
   };
   const myTasks = tasks.filter(t => t.assignedTo === userEmail);
-  const currentTasks = myTasks.filter(t => !t.done);
-  const completedTasks = myTasks.filter(t => t.done);
+  const priorityTasks = myTasks.filter(t => t.priority && !t.done);
+  const nonPriority = myTasks.filter(t => !t.priority);
+  const currentTasks = nonPriority.filter(t => !t.done);
+  const completedTasks = nonPriority.filter(t => t.done);
   const doneCount = completedTasks.length;
   const totalCount = myTasks.length;
   const pct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
@@ -4378,6 +4383,90 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
             <div style={{ height: 8, borderRadius: 99, background: "#e2e8f0", marginBottom: 16, overflow: "hidden" }}>
               <div style={{ width: `${pct}%`, height: "100%", borderRadius: 99, background: "#4CAF7D", transition: "width 0.3s" }} />
             </div>
+            {/* Priorities */}
+            {priorityTasks.length > 0 && (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#F5A623", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                  <span>★ Priorities</span>
+                  <span style={{ fontSize: 11, fontWeight: 500, color: "#94a3b8", background: "#f1f5f9", padding: "1px 8px", borderRadius: 99 }}>{priorityTasks.length}</span>
+                </div>
+                {priorityTasks.map(t => {
+                  const assigneeMember = getMemberByEmail(t.assignedTo);
+                  const isEditing = editingTaskId === t.id;
+                  const isDueToday = t.dueDate === todayStr;
+                  return (
+                    <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 8, background: "#FFF8ED", border: "1px solid #FDE68A", marginBottom: 6, fontSize: 15 }}>
+                      <div onClick={() => toggle(t.id)} style={{ width: 24, height: 24, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "2px solid #F5A623", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 13 }}>{t.done ? "✓" : ""}</div>
+                      {isEditing ? (
+                        <input value={editText} onChange={e => setEditText(e.target.value)}
+                          onBlur={() => { if (editText.trim()) setTasks(prev => prev.map(x => x.id === t.id ? { ...x, text: editText.trim() } : x)); setEditingTaskId(null); }}
+                          onKeyDown={e => { if (e.key === "Enter") { if (editText.trim()) setTasks(prev => prev.map(x => x.id === t.id ? { ...x, text: editText.trim() } : x)); setEditingTaskId(null); } }}
+                          autoFocus style={{ flex: 1, padding: "4px 8px", borderRadius: 6, border: "1.5px solid #F5A623", fontSize: 15, outline: "none" }} />
+                      ) : (
+                        <div onClick={() => { setEditingTaskId(t.id); setEditText(t.text); setMenuTaskId(null); }} style={{ flex: 1, fontSize: 15, color: "#1a2332", fontWeight: 600, textDecoration: t.done ? "line-through" : "none", minWidth: 0, cursor: "text" }}>{t.text}</div>
+                      )}
+                      <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, position: "relative" }}>
+                        {t.dueDate && <div style={{ fontSize: 12, color: isDueToday ? "#F5A623" : "#94a3b8", fontWeight: isDueToday ? 600 : 400, whiteSpace: "nowrap" }}>{isDueToday ? "Due Today" : formatDate(t.dueDate)}</div>}
+                        {(t.linkedMetricId || t.linkedGoalId) && (
+                          <div style={{ display: "flex", gap: 4 }}>
+                            {t.linkedMetricId && <div onClick={() => onViewMetric(t.linkedMetricId!)} style={{ width: 22, height: 22, borderRadius: "50%", background: "#EFF6FF", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
+                              <IconGlyph name="Eye" size={12} color="#3B82F6" />
+                            </div>}
+                            {t.linkedGoalId && <div onClick={() => onViewGoal(t.linkedGoalId!)} style={{ width: 22, height: 22, borderRadius: "50%", background: "#F3F0FF", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
+                              <IconGlyph name="Target" size={12} color="#7B68EE" />
+                            </div>}
+                          </div>
+                        )}
+                        <div onClick={(e) => { menuTriggerElRef.current = e.currentTarget as HTMLElement; setMenuTaskId(menuTaskId === t.id ? null : t.id); }} style={{ width: 24, height: 24, borderRadius: "50%", background: "#F1F5F9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 11, color: "#94a3b8", flexShrink: 0 }}>···</div>
+                        {menuTaskId === t.id && (
+                          <div ref={menuRef} style={{ ...menuPos, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 100, minWidth: 160, overflow: "hidden" }}>
+                            <div style={{ padding: "8px 12px", fontSize: 11, fontWeight: 600, color: "#64748b", borderBottom: "1px solid #f1f5f9" }}>Assign To</div>
+                            {orgMembers.filter(m => m.status === "active").map(m => (
+                              <div key={m.id} onClick={() => { setTasks(prev => prev.map(x => x.id === t.id ? { ...x, assignedTo: m.email } : x)); setMenuTaskId(null); }}
+                                style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 12px", cursor: "pointer", background: t.assignedTo === m.email ? "#EFF6FF" : "transparent" }}
+                                onMouseEnter={e => e.currentTarget.style.background = "#f8fafc"}
+                                onMouseLeave={e => e.currentTarget.style.background = t.assignedTo === m.email ? "#EFF6FF" : "transparent"}>
+                                {m.avatarUrl ? <img src={m.avatarUrl} alt="" style={{ width: 18, height: 18, borderRadius: "50%", objectFit: "cover" }} />
+                                  : <div style={{ width: 18, height: 18, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 7, fontWeight: 700, color: "#94a3b8" }}>{(m.name?.[0] || m.email[0] || "?").toUpperCase()}</div>}
+                                <span style={{ fontSize: 12, color: "#1a2332", flex: 1 }}>{m.name || m.email.split("@")[0]}</span>
+                                {t.assignedTo === m.email && <span style={{ fontSize: 10, color: "#3B82F6" }}>✓</span>}
+                              </div>
+                            ))}
+                            <div style={{ borderTop: "1px solid #f1f5f9" }}>
+                              <div style={{ padding: "7px 12px", fontSize: 11, fontWeight: 600, color: "#64748b" }}>Due Date</div>
+                              <div style={{ padding: "0 12px 7px" }}>
+                                <input type="date" value={t.dueDate || ""} onChange={e => { setTasks(prev => prev.map(x => x.id === t.id ? { ...x, dueDate: e.target.value || undefined } : x)); setMenuTaskId(null); }}
+                                  style={{ width: "100%", padding: "4px 6px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 11, outline: "none", boxSizing: "border-box" }} />
+                              </div>
+                            </div>
+                            <div onClick={() => { setTasks(prev => prev.filter(x => x.id !== t.id)); setMenuTaskId(null); }}
+                              style={{ padding: "8px 12px", fontSize: 11, cursor: "pointer", color: "#E85D75", borderTop: "1px solid #f1f5f9" }}
+                              onMouseEnter={e => e.currentTarget.style.background = "#fff5f5"}
+                              onMouseLeave={e => e.currentTarget.style.background = "transparent"}>Delete</div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {/* Add Priority */}
+            {showAddPriority ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", marginBottom: 12, background: "#FFF8ED", borderRadius: 8, border: "1px solid #FDE68A" }}>
+                <div style={{ width: 24, height: 24, borderRadius: "50%", border: "2px solid #F5A623", flexShrink: 0 }} />
+                <input value={priorityAddText} onChange={e => setPriorityAddText(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && priorityAddText.trim()) { setTasks(prev => [...prev, { id: crypto.randomUUID(), text: priorityAddText.trim(), done: false, assignedTo: userEmail, createdBy: userEmail, createdAt: new Date().toISOString(), priority: true }]); setPriorityAddText(""); setShowAddPriority(false); } }}
+                  placeholder="Type priority and press Enter..."
+                  autoFocus
+                  style={{ flex: 1, padding: "6px 8px", borderRadius: 6, border: "1.5px solid #F5A623", fontSize: 15, outline: "none" }} />
+                <div onClick={() => { if (priorityAddText.trim()) { setTasks(prev => [...prev, { id: crypto.randomUUID(), text: priorityAddText.trim(), done: false, assignedTo: userEmail, createdBy: userEmail, createdAt: new Date().toISOString(), priority: true }]); setPriorityAddText(""); setShowAddPriority(false); } else { setShowAddPriority(false); } }}
+                  style={{ fontSize: 11, color: "#F5A623", cursor: "pointer", fontWeight: 600 }}>Done</div>
+              </div>
+            ) : (
+              <div onClick={() => setShowAddPriority(true)} style={{ display: "flex", alignItems: "center", gap: 8, color: "#F5A623", fontSize: 13, cursor: "pointer", padding: "4px 0", marginBottom: 12, fontWeight: 500 }}>
+                <span style={{ fontSize: 16 }}>+</span> Add Priority
+              </div>
+            )}
             {/* Filter tabs */}
             <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
               <div onClick={() => setTaskFilter("current")} style={{ padding: "5px 14px", borderRadius: 20, fontSize: 12, fontWeight: 500, cursor: "pointer", background: taskFilter === "current" ? "#3B82F6" : "#f1f5f9", color: taskFilter === "current" ? "#fff" : "#64748b" }}>
