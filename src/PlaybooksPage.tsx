@@ -1,4 +1,16 @@
-import { useState, useRef, useEffect, useCallback, Fragment } from "react";
+import { Node as TipTapNode, mergeAttributes } from "@tiptap/core";
+import { useState, useRef, useEffect, useCallback, Fragment, useLayoutEffect } from "react";
+
+const IframeExtension = TipTapNode.create({
+  name: "iframe",
+  group: "block",
+  atom: true,
+  addAttributes() {
+    return { src: { default: null }, style: { default: "width:100%;max-width:560px;height:315px;border:none;border-radius:8px" }, allowfullscreen: { default: "true" } };
+  },
+  parseHTML() { return [{ tag: "iframe" }]; },
+  renderHTML({ HTMLAttributes }) { return ["iframe", mergeAttributes(HTMLAttributes)]; },
+});
 import { useSmartPosition } from "./hooks/useSmartPosition";
 import { supabase } from "./lib/supabase";
 import * as PhosphorReact from "@phosphor-icons/react";
@@ -193,7 +205,7 @@ function MenuBar({ editor }: { editor: any }) {
   const [showTablePicker, setShowTablePicker] = useState(false);
   const tablePickerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const h = (e: MouseEvent) => { if (tablePickerRef.current && !tablePickerRef.current.contains(e.target as Node)) setShowTablePicker(false); };
+    const h = (e: MouseEvent) => { if (tablePickerRef.current && !tablePickerRef.current.contains(e.target as any)) setShowTablePicker(false); };
     document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h);
   }, []);
   const addImage = () => {
@@ -325,6 +337,10 @@ function MenuBar({ editor }: { editor: any }) {
             background: editor.isActive("table") ? "#dbeafe" : "transparent", color: "#64748b" }}>
           <PhosphorReact.Table size={16} color={editor.isActive("table") ? "#3B82F6" : "currentColor"} /></button>
       </div>
+      <button onClick={() => editor.chain().focus().toggleCodeBlock().run()} title="Code block"
+        style={{ width: 28, height: 28, borderRadius: 4, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+          background: editor.isActive("codeBlock") ? "#dbeafe" : "transparent", color: "#64748b" }}>
+        <PhosphorReact.Code size={16} color={editor.isActive("codeBlock") ? "#3B82F6" : "currentColor"} /></button>
       <div style={{ flex: 1 }} />
       <input type="color" value={editor.getAttributes("textStyle").color || "#000000"}
         onChange={e => editor.chain().focus().setColor(e.target.value).run()} title="Text color"
@@ -348,6 +364,7 @@ function RichEditor({ content, onChange, placeholder }: {
       TableExt.configure({ resizable: true }),
       TableRow, TableCell, TableHeader,
       TextStyle, Color, Highlight,
+      IframeExtension,
     ],
     content: content || "",
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
@@ -409,6 +426,7 @@ function RichEditorSmall({ content, onChange }: { content: string; onChange: (ht
       Underline,
       TextStyle, Color,
       LinkExt.configure({ openOnClick: true }),
+      IframeExtension,
     ],
     content: content || "",
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
@@ -520,6 +538,10 @@ function RichEditorSmall({ content, onChange }: { content: string; onChange: (ht
         <button onClick={() => editor?.chain().focus().insertContent(`[today's date]`).run()} title="Insert today's date"
           style={{ width: 24, height: 24, borderRadius: 4, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#64748b" }}>
           <PhosphorReact.CalendarBlank size={14} color="currentColor" /></button>
+        <button onClick={() => editor?.chain().focus().toggleCodeBlock().run()} title="Code block"
+          style={{ width: 24, height: 24, borderRadius: 4, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+            background: editor?.isActive("codeBlock") ? "#dbeafe" : "transparent", color: editor?.isActive("codeBlock") ? "#3B82F6" : "#64748b" }}>
+          <PhosphorReact.Code size={14} color={editor?.isActive("codeBlock") ? "#3B82F6" : "currentColor"} /></button>
         <input type="color" value={editor?.getAttributes("textStyle").color || "#000000"}
           onChange={e => editor?.chain().focus().setColor(e.target.value).run()}
           style={{ width: 18, height: 18, padding: 0, border: "none", cursor: "pointer", marginLeft: "auto" }} />
@@ -543,12 +565,18 @@ async function downloadPdf(elementId: string, filename: string) {
   const el = document.getElementById(elementId);
   if (!el) return;
   try {
-    const canvas = await html2canvas(el, { scale: 2, useCORS: true, logging: false });
+    const canvas = await html2canvas(el, { scale: 2, useCORS: true, logging: false, allowTaint: true });
     const imgData = canvas.toDataURL("image/png");
-    const pdf = new jsPDF("p", "mm", "a4");
-    const pdfW = pdf.internal.pageSize.getWidth();
+    const pdf = new jsPDF("p", "in", "letter");
+    const margin = 0.75;
+    const pdfW = pdf.internal.pageSize.getWidth() - margin * 2;
     const pdfH = (canvas.height * pdfW) / canvas.width;
-    pdf.addImage(imgData, "PNG", 0, 0, pdfW, pdfH);
+    const maxH = pdf.internal.pageSize.getHeight() - margin * 2;
+    if (pdfH <= maxH) {
+      pdf.addImage(imgData, "PNG", margin, margin, pdfW, pdfH);
+    } else {
+      pdf.addImage(imgData, "PNG", margin, margin, pdfW, pdfH);
+    }
     pdf.save(filename);
   } catch {}
 }
@@ -618,7 +646,7 @@ function getDateString(format: string, date?: Date): string {
 
     useEffect(() => {
       const h = (e: MouseEvent) => {
-        if (menuRef.current && !menuRef.current.contains(e.target as Node)) { setShowMenu(false); setConfirmDelete(false); }
+        if (menuRef.current && !menuRef.current.contains(e.target as any)) { setShowMenu(false); setConfirmDelete(false); }
       };
       document.addEventListener("mousedown", h);
       return () => document.removeEventListener("mousedown", h);
@@ -1938,8 +1966,8 @@ function getDateString(format: string, date?: Date): string {
             </div>
 
             {detailItem.content && (
-              <div id="playbook-content" style={{ fontSize: 14, lineHeight: 1.7, color: "#1a2332", padding: 16, border: "1px solid #e2e8f0", borderRadius: 10, marginBottom: 16 }}
-                dangerouslySetInnerHTML={{ __html: detailItem.content }} />
+              <div id="playbook-content" style={{ fontSize: 14, lineHeight: 1.7, color: "#1a2332", padding: "20px 40px", border: "none", marginBottom: 16, maxWidth: 800, marginLeft: "auto", marginRight: "auto" }}
+                dangerouslySetInnerHTML={{ __html: renderShortcodes(detailItem.content) }} />
             )}
 
             {detailItem.files && detailItem.files.length > 0 && (
