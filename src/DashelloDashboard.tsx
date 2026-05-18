@@ -2942,7 +2942,7 @@ function MetricBlock({ metric, onClick, onDragStart, onDragEnter, onDrop, isDrag
 // ROW CONTEXT MENU
 // ═══════════════════════════════════════════════════════════════════════════
 
-function RowMenu({ onRename, onDelete, onClose }: { onRename: () => void; onDelete: () => void; onClose: () => void }) {
+function RowMenu({ onRename, onDelete, onClose }: { onRename?: () => void; onDelete: () => void; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -2953,10 +2953,12 @@ function RowMenu({ onRename, onDelete, onClose }: { onRename: () => void; onDele
 
   return (
     <div ref={ref} style={{ position: "absolute", top: 36, right: 0, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 100, minWidth: 170, overflow: "hidden" }}>
-      <div onClick={() => { onRename(); onClose(); }}
-        style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
-        onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
-        onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Rename row</div>
+      {onRename && (
+        <div onClick={() => { onRename(); onClose(); }}
+          style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
+          onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
+          onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Rename row</div>
+      )}
 
       {!confirmDelete
         ? <div onClick={() => setConfirmDelete(true)}
@@ -3039,6 +3041,8 @@ function DashSection({
   const [editingMetric, setEditingMetric] = useState<Metric | null>(null);
   const [showRowModal, setShowRowModal] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [editingTitleValue, setEditingTitleValue] = useState("");
   const lastContainerTargetRef = useRef<string | null>(null);
 
   // Drop zone for the section itself (when dragging a metric over empty space in section)
@@ -3090,7 +3094,15 @@ function DashSection({
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
         <div draggable onDragStart={e => { e.stopPropagation(); onSectionDragStart(); }}
           style={{ cursor: "grab", color: "#cbd5e1", fontSize: 15, padding: "0 2px", flexShrink: 0 }} title="Drag to reorder">⠿</div>
-       <h2 style={{ margin: 0, fontSize: "clamp(16px,3vw,20px)", fontWeight: 700, color: "#1a2332" }}>{section.title}</h2>
+        {editingTitle ? (
+          <input autoFocus value={editingTitleValue} onChange={e => setEditingTitleValue(e.target.value)}
+            onBlur={() => { if (editingTitleValue.trim() && editingTitleValue.trim() !== section.title) onRenameSection(section.id, editingTitleValue.trim()); setEditingTitle(false); }}
+            onKeyDown={e => { if (e.key === "Enter") { if (editingTitleValue.trim() && editingTitleValue.trim() !== section.title) onRenameSection(section.id, editingTitleValue.trim()); setEditingTitle(false); } if (e.key === "Escape") setEditingTitle(false); }}
+            style={{ margin: 0, fontSize: "clamp(16px,3vw,20px)", fontWeight: 700, color: "#1a2332", padding: "2px 6px", border: "1.5px solid #3B82F6", borderRadius: 4, outline: "none", background: "#fff", fontFamily: "inherit", maxWidth: 300 }} />
+        ) : (
+          <h2 onClick={() => { setEditingTitle(true); setEditingTitleValue(section.title); setShowMenu(false); }}
+            style={{ margin: 0, fontSize: "clamp(16px,3vw,20px)", fontWeight: 700, color: "#1a2332", cursor: "text" }}>{section.title}</h2>
+        )}
         <div style={{ display: "flex", marginLeft: 2, paddingLeft: 4 }}>
           {(orgMembers && orgMembers.length > 0 ? orgMembers.filter(m => m.status === "active") : section.avatars.map(a => ({ id: a, name: a, level: "viewer" as OrgPermissionLevel, email: "", avatarUrl: "" }))).map(member => (
             <HoverAvatar key={member.id || member.name} name={member.name || member.email} level={member.level} size={28} />
@@ -3098,7 +3110,7 @@ function DashSection({
         </div>
         <div style={{ position: "relative" }}>
           <div onClick={() => setShowMenu(v => !v)} style={{ width: 26, height: 26, borderRadius: "50%", background: "#F1F5F9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 13, color: "#94a3b8" }}>···</div>
-          {showMenu && <RowMenu onRename={() => { setShowMenu(false); setShowRowModal(true); }} onDelete={() => onRemoveSection(section.id)} onClose={() => setShowMenu(false)} />}
+          {showMenu && <RowMenu onDelete={() => onRemoveSection(section.id)} onClose={() => setShowMenu(false)} />}
         </div>
         <div style={{ flex: 1 }} />
       </div>
@@ -3217,6 +3229,8 @@ function GoalsPage({ goals, setGoals, sections, viewMode, onOpenOnboarding, onEd
   const [confirmComplete, setConfirmComplete] = useState<Goal | null>(null);
   const [goalAddTask, setGoalAddTask] = useState<{ goalId: string; text: string } | null>(null);
   const [goalExpandActions, setGoalExpandActions] = useState<string | null>(null);
+  const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
+  const [editingGoalValue, setEditingGoalValue] = useState("");
   const toggleSection = (k: string) => setCollapsed(p => ({ ...p, [k]: !p[k] }));
 
   const goalsWithProgress = goals.map(g => {
@@ -3245,7 +3259,15 @@ function GoalsPage({ goals, setGoals, sections, viewMode, onOpenOnboarding, onEd
               style={{ width: 22, height: 22, borderRadius: "50%", border: g.status === "completed" ? "none" : "2px solid #cbd5e1", background: g.status === "completed" ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: g.status === "completed" ? "default" : "pointer", flexShrink: 0, transition: "all 0.2s" }}>
               {g.status === "completed" && <IconGlyph name="Check" size={14} color="#fff" weight="bold" />}
             </div>
-            <span style={{ flex: 1, fontSize: 15, fontWeight: 600, color: "#1a2332", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.label}</span>
+            {editingGoalId === g.id ? (
+              <input autoFocus value={editingGoalValue} onChange={e => setEditingGoalValue(e.target.value)}
+                onBlur={() => { if (editingGoalValue.trim() && editingGoalValue.trim() !== g.label) setGoals(goals.map(x => x.id === g.id ? { ...x, label: editingGoalValue.trim() } : x)); setEditingGoalId(null); }}
+                onKeyDown={e => { if (e.key === "Enter") { if (editingGoalValue.trim() && editingGoalValue.trim() !== g.label) setGoals(goals.map(x => x.id === g.id ? { ...x, label: editingGoalValue.trim() } : x)); setEditingGoalId(null); } if (e.key === "Escape") setEditingGoalId(null); }}
+                style={{ flex: 1, fontSize: 15, fontWeight: 600, color: "#1a2332", padding: "1px 4px", border: "1.5px solid #3B82F6", borderRadius: 4, outline: "none", background: "#fff", fontFamily: "inherit", minWidth: 0 }} />
+            ) : (
+              <span onClick={() => { setEditingGoalId(g.id); setEditingGoalValue(g.label); }}
+                style={{ flex: 1, fontSize: 15, fontWeight: 600, color: "#1a2332", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: "text" }}>{g.label}</span>
+            )}
             {g.due && <span style={{ fontSize: 12, color: "#94a3b8", whiteSpace: "nowrap" }}>{g.due}</span>}
             <div onClick={() => onEditGoal(g)} style={{ width: 32, height: 32, borderRadius: 8, background: "#f8fafc", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }} title="Edit goal settings">
               <IconGlyph name="PencilSimple" size={16} color="#64748b" />
@@ -6793,6 +6815,7 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
           );
         })}
       </nav>
+      </div>
       {health.hasData && (() => {
   const barColors = { green: "#4CAF7D", yellow: "#F5A623", red: "#E85D75" };
   return (
@@ -6815,7 +6838,6 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
     </div>
   );
 })()}
-      </div>
       <div style={{ padding: "14px 18px", borderTop: "1px solid rgba(255,255,255,0.15)", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, flexShrink: 0 }}>
         <img src="https://dashello.co/wp-content/uploads/2023/08/White-Logo-Full.png" alt="Dashello" style={{ height: 26, objectFit: "contain", maxWidth: "80%" }} />
         {(currentUserLevel === "owner" || currentUserLevel === "admin") && (

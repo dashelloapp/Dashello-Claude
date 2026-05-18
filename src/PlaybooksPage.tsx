@@ -400,6 +400,15 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
   const [showRowModal, setShowRowModal] = useState(false);
   const [rowModalInitial, setRowModalInitial] = useState("");
   const [rowModalCallback, setRowModalCallback] = useState<((name: string) => void) | null>(null);
+  const [editingRowTitle, setEditingRowTitle] = useState<string | null>(null);
+  const [editingRowTitleValue, setEditingRowTitleValue] = useState("");
+  const [menuRowId, setMenuRowId] = useState<string | null>(null);
+  const [deleteConfirmRowId, setDeleteConfirmRowId] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (menuRef.current && !menuRef.current.contains(e.target as Node)) { setMenuRowId(null); setDeleteConfirmRowId(null); } };
+    document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h);
+  }, []);
 
   // ── Init & Save ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -755,8 +764,8 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
                     <span style={{ fontSize: 11, color: "#94a3b8" }}>Color:</span>
                     <input type="color" value={f.color} onChange={e => updateField(f.id, { color: e.target.value })}
                       style={{ width: 22, height: 22, padding: 0, border: "none", cursor: "pointer" }} />
-                  </div>
-                </div>
+              </div>
+          </div>
               </div>
             ))}
             <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
@@ -954,10 +963,38 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
               <div draggable onDragStart={() => handleRowDragStart(row.id)}
                 style={{ cursor: "grab", color: "#cbd5e1", fontSize: 15, padding: "0 2px", flexShrink: 0 }} title="Drag to reorder">⠿</div>
-              <h2 style={{ margin: 0, fontSize: "clamp(16px,3vw,20px)", fontWeight: 700, color: "#1a2332" }}>{row.title}</h2>
+              {editingRowTitle === row.id ? (
+                <input autoFocus value={editingRowTitleValue} onChange={e => setEditingRowTitleValue(e.target.value)}
+                  onBlur={() => { if (editingRowTitleValue.trim() && editingRowTitleValue.trim() !== row.title) renameRow(row.id, editingRowTitleValue.trim()); setEditingRowTitle(null); }}
+                  onKeyDown={e => { if (e.key === "Enter") { if (editingRowTitleValue.trim() && editingRowTitleValue.trim() !== row.title) renameRow(row.id, editingRowTitleValue.trim()); setEditingRowTitle(null); } if (e.key === "Escape") setEditingRowTitle(null); }}
+                  style={{ margin: 0, fontSize: "clamp(16px,3vw,20px)", fontWeight: 700, color: "#1a2332", padding: "2px 6px", border: "1.5px solid #3B82F6", borderRadius: 4, outline: "none", background: "#fff", fontFamily: "inherit", maxWidth: 300 }} />
+              ) : (
+                <h2 onClick={() => { setEditingRowTitle(row.id); setEditingRowTitleValue(row.title); setMenuRowId(null); }}
+                  style={{ margin: 0, fontSize: "clamp(16px,3vw,20px)", fontWeight: 700, color: "#1a2332", cursor: "text" }}>{row.title}</h2>
+              )}
               <div style={{ position: "relative" }}>
-                <div onClick={() => { setRowModalInitial(row.title); setRowModalCallback(() => (name: string) => { renameRow(row.id, name); }); setShowRowModal(true); }}
+                <div onClick={() => setMenuRowId(menuRowId === row.id ? null : row.id)}
                   style={{ width: 26, height: 26, borderRadius: "50%", background: "#F1F5F9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 13, color: "#94a3b8" }}>···</div>
+                {menuRowId === row.id && (
+                  <div ref={menuRef} style={{ position: "absolute", top: 36, right: 0, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 100, minWidth: 160, overflow: "hidden" }}>
+                    {deleteConfirmRowId !== row.id ? (
+                      <div onClick={() => setDeleteConfirmRowId(row.id)}
+                        style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#E85D75" }}
+                        onMouseEnter={e => (e.currentTarget.style.background = "#fff5f5")}
+                        onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Delete row</div>
+                    ) : (
+                      <div style={{ padding: "10px 14px" }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: "#E85D75", marginBottom: 8 }}>Delete "{row.title}"?</div>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <button onClick={() => setDeleteConfirmRowId(null)}
+                            style={{ flex: 1, padding: "5px 0", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 11, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+                          <button onClick={() => { removeRow(row.id); setMenuRowId(null); setDeleteConfirmRowId(null); }}
+                            style={{ flex: 1, padding: "5px 0", borderRadius: 6, border: "none", background: "#E85D75", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Delete</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               <div style={{ flex: 1 }} />
             </div>
