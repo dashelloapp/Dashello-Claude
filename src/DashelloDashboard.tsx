@@ -7138,7 +7138,7 @@ const NAV: { icon: string; label: string; page: Page; comingSoon?: boolean }[] =
   { icon: "Gear", label: "Settings", page: "settings" },
 ];
 
-function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, health, activeOrg, orgs, showOrgDropdown, onToggleOrgDropdown, onSwitchOrg, currentUserLevel, onOpenInviteModal, menuPermissions }: {
+function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, health, activeOrg, orgs, showOrgDropdown, onToggleOrgDropdown, onSwitchOrg, currentUserLevel, onOpenInviteModal, menuPermissions, tasks, setTasks, orgMembers, userEmail }: {
   active: Page; onNav: (p: Page) => void; onClose: () => void;
   isMobile: boolean; avatarUrl?: string; firstName?: string;
   health: HealthResult;
@@ -7146,6 +7146,8 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
   onToggleOrgDropdown: () => void; onSwitchOrg: (org: Org) => void;
   currentUserLevel: OrgPermissionLevel; onOpenInviteModal: () => void;
   menuPermissions: Record<string, string[]>;
+  tasks: Task[]; setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
+  orgMembers: OrgMember[]; userEmail: string;
 }) {
   const orgDropdownRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -7160,6 +7162,27 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
     if (currentUserLevel === "viewer" && (key === "integrations" || key === "team")) return false;
     return !hiddenItems.includes(key);
   });
+
+  const [sidebarShowAdd, setSidebarShowAdd] = useState(false);
+  const [sidebarAddText, setSidebarAddText] = useState("");
+  const [sidebarAddAssignee, setSidebarAddAssignee] = useState(userEmail || "");
+  const [sidebarAddDueDate, setSidebarAddDueDate] = useState("");
+  const mySidebarTasks = tasks.filter(t => t.assignedTo === userEmail);
+  const sidebarDoneCount = mySidebarTasks.filter(t => t.done).length;
+  const sidebarTotalCount = mySidebarTasks.length;
+  const sidebarPct = sidebarTotalCount > 0 ? Math.round((sidebarDoneCount / sidebarTotalCount) * 100) : 0;
+  const sidebarTaskList = mySidebarTasks.filter(t => !t.done).slice(0, 5);
+  const sidebarToggle = (id: string) => setTasks(prev => prev.map(t => t.id === id ? { ...t, done: !t.done } : t));
+  const sidebarAddTask = () => {
+    if (!sidebarAddText.trim()) return;
+    setTasks(prev => [...prev, {
+      id: crypto.randomUUID(), text: sidebarAddText.trim(), done: false,
+      assignedTo: sidebarAddAssignee || userEmail, createdBy: userEmail,
+      createdAt: new Date().toISOString(), dueDate: sidebarAddDueDate || undefined,
+    }]);
+    setSidebarAddText("");
+    setSidebarAddDueDate("");
+  };
 
   return (
     <aside style={{ width: 240, flexShrink: 0, background: "linear-gradient(135deg,#3B82F6,#06B6D4)", display: "flex", flexDirection: "column", boxShadow: "2px 0 12px rgba(0,0,0,0.06)", height: "100dvh" } as React.CSSProperties}>
@@ -7214,6 +7237,50 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
           );
         })}
       </nav>
+      {/* ── Sidebar Tasks Widget ── */}
+      <div style={{ background: "#fff", borderRadius: 12, margin: "8px 12px 4px", padding: "12px 14px" }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: "#1a2332", marginBottom: 8 }}>Your Tasks</div>
+        <div style={{ height: 6, borderRadius: 99, background: "#e2e8f0", marginBottom: 10, overflow: "hidden" }}>
+          <div style={{ width: `${sidebarPct}%`, height: "100%", borderRadius: 99, background: "#4CAF7D", transition: "width 0.3s" }} />
+        </div>
+        {sidebarTaskList.map(t => (
+          <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 0", cursor: "pointer" }}
+            onClick={() => sidebarToggle(t.id)}>
+            <div style={{ width: 16, height: 16, borderRadius: "50%", flexShrink: 0, border: t.done ? "none" : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 8 }}>{t.done ? "✓" : ""}</div>
+            <span style={{ fontSize: 11, color: "#1a2332", flex: 1, textDecoration: t.done ? "line-through" : "none", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.text}</span>
+          </div>
+        ))}
+        <div onClick={() => onNav("tasks")} style={{ fontSize: 11, color: "#3B82F6", cursor: "pointer", fontWeight: 600, marginTop: 6, marginBottom: 8 }}>View all →</div>
+
+        {sidebarShowAdd ? (
+          <div>
+            <input value={sidebarAddText} onChange={e => setSidebarAddText(e.target.value)}
+              placeholder="New task..." autoFocus
+              onKeyDown={e => { if (e.key === "Enter") sidebarAddTask(); }}
+              style={{ width: "100%", padding: "5px 8px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 11, outline: "none", boxSizing: "border-box", marginBottom: 4 }} />
+            <div style={{ display: "flex", gap: 4, marginBottom: 4 }}>
+              <select value={sidebarAddAssignee} onChange={e => setSidebarAddAssignee(e.target.value)}
+                style={{ flex: 1, padding: "4px 6px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 10, outline: "none", background: "#fff" }}>
+                <option value={userEmail}>Me</option>
+                {orgMembers.filter(m => m.status === "active" && m.email !== userEmail).map(m => (
+                  <option key={m.id} value={m.email}>{m.name || m.email.split("@")[0]}</option>
+                ))}
+              </select>
+              <input type="date" value={sidebarAddDueDate} onChange={e => setSidebarAddDueDate(e.target.value)}
+                style={{ flex: 1, padding: "4px 6px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 10, outline: "none", boxSizing: "border-box" }} />
+            </div>
+            <div style={{ display: "flex", gap: 4 }}>
+              <button onClick={sidebarAddTask} disabled={!sidebarAddText.trim()}
+                style={{ flex: 1, padding: "4px 0", borderRadius: 6, border: "none", background: sidebarAddText.trim() ? "#3B82F6" : "#e2e8f0", color: "#fff", fontSize: 10, fontWeight: 600, cursor: sidebarAddText.trim() ? "pointer" : "not-allowed" }}>Add</button>
+              <button onClick={() => setSidebarShowAdd(false)} style={{ flex: 1, padding: "4px 0", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 10, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+            </div>
+          </div>
+        ) : (
+          <div onClick={() => setSidebarShowAdd(true)} style={{ fontSize: 11, color: "#3B82F6", cursor: "pointer", fontWeight: 600, display: "flex", alignItems: "center", gap: 3 }}>
+            <span style={{ fontSize: 13 }}>+</span> Add New Task
+          </div>
+        )}
+      </div>
       </div>
       <div style={{ borderTop: "1px solid rgba(255,255,255,0.15)", margin: "0 18px 10px" }} />
       {health.hasData && (() => {
@@ -8262,6 +8329,8 @@ const sidebarEl = (
     currentUserLevel={currentUserLevel}
     onOpenInviteModal={() => setShowInviteModal(true)}
     menuPermissions={profile.menu_permissions ?? {}}
+    tasks={tasksData} setTasks={setTasksData}
+    orgMembers={orgMembers} userEmail={userEmail}
   />);
 
   if (!dbReady) return (
