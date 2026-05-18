@@ -440,26 +440,23 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
   }, [userId]);
 
   // ── Row management ────────────────────────────────────────────────────
-  const addRow = (name: string) => {
-    setRows(p => { const u = [...p, { id: crypto.randomUUID(), title: name, items: [] }]; if (userId) saveUserData("playbooks", userId, u); return u; });
+  const addRow = async (name: string) => {
+    const u = [...rows, { id: crypto.randomUUID(), title: name, items: [] }];
+    setRows(u);
+    if (userId) await saveUserData("playbooks", userId, u);
   };
-  const renameRow = (rid: string, name: string) => {
-    setRows(p => { const u = p.map(r => r.id === rid ? { ...r, title: name } : r); if (userId) saveUserData("playbooks", userId, u); return u; });
+  const renameRow = async (rid: string, name: string) => {
+    const u = rows.map(r => r.id === rid ? { ...r, title: name } : r);
+    setRows(u);
+    if (userId) await saveUserData("playbooks", userId, u);
   };
-  const removeRow = (rid: string) => {
-    setRows(p => { const u = p.filter(r => r.id !== rid); if (userId) saveUserData("playbooks", userId, u); return u; });
+  const removeRow = async (rid: string) => {
+    const u = rows.filter(r => r.id !== rid);
+    setRows(u);
+    if (userId) await saveUserData("playbooks", userId, u);
   };
 
-  // ── Item management ───────────────────────────────────────────────────
-  const addItem = (rid: string, item: PlaybookItem) => {
-    setRows(p => p.map(r => r.id === rid ? { ...r, items: [...r.items, item] } : r));
-  };
-  const removeItem = (rid: string, iid: string) => {
-    setRows(p => p.map(r => r.id === rid ? { ...r, items: r.items.filter(i => i.id !== iid) } : r));
-  };
-  const updateItem = (rid: string, iid: string, updates: Partial<PlaybookItem>) => {
-    setRows(p => p.map(r => r.id === rid ? { ...r, items: r.items.map(i => i.id === iid ? { ...i, ...updates } : i) } : r));
-  };
+
 
   // ── Drag and drop (items) ─────────────────────────────────────────────
   const handleItemDragStart = useCallback((rid: string, iid: string) => {
@@ -476,24 +473,23 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
     if (src.rowId === targetRid && src.itemId === targetIid) {
       dragItemRef.current = null; setDragItemState(null); setDragOverItem(null); return;
     }
-    setRows(prev => {
-      const srcRow = prev.find(r => r.id === src.rowId);
-      if (!srcRow) return prev;
-      const moving = srcRow.items.find(i => i.id === src.itemId);
-      if (!moving) return prev;
-      const without = prev.map(r => r.id === src.rowId ? { ...r, items: r.items.filter(i => i.id !== src.itemId) } : r);
-      const updated = without.map(r => {
-        if (r.id !== targetRid) return r;
-        if (targetIid === "__end__") return { ...r, items: [...r.items, moving] };
-        const idx = r.items.findIndex(i => i.id === targetIid);
-        if (idx === -1) return { ...r, items: [...r.items, moving] };
-        const items = [...r.items];
-        items.splice(idx, 0, moving);
-        return { ...r, items };
-      });
-      if (userId) saveUserData("playbooks", userId, updated);
-      return updated;
+    const prev = rowsRef.current;
+    const srcRow = prev.find(r => r.id === src.rowId);
+    if (!srcRow) { dragItemRef.current = null; setDragItemState(null); setDragOverItem(null); return; }
+    const moving = srcRow.items.find(i => i.id === src.itemId);
+    if (!moving) { dragItemRef.current = null; setDragItemState(null); setDragOverItem(null); return; }
+    const without = prev.map(r => r.id === src.rowId ? { ...r, items: r.items.filter(i => i.id !== src.itemId) } : r);
+    const updated = without.map(r => {
+      if (r.id !== targetRid) return r;
+      if (targetIid === "__end__") return { ...r, items: [...r.items, moving] };
+      const idx = r.items.findIndex(i => i.id === targetIid);
+      if (idx === -1) return { ...r, items: [...r.items, moving] };
+      const items = [...r.items];
+      items.splice(idx, 0, moving);
+      return { ...r, items };
     });
+    setRows(updated);
+    if (userId) saveUserData("playbooks", userId, updated);
     dragItemRef.current = null; setDragItemState(null); setDragOverItem(null);
   }, [userId]);
 
@@ -508,16 +504,14 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
   const handleRowDrop = useCallback((targetRid: string) => {
     const from = dragRowRef.current;
     if (!from || from === targetRid) { dragRowRef.current = null; setDragOverRow(null); return; }
-    setRows(prev => {
-      const arr = [...prev];
-      const fi = arr.findIndex(r => r.id === from);
-      const ti = arr.findIndex(r => r.id === targetRid);
-      if (fi === -1 || ti === -1) return prev;
-      const [moved] = arr.splice(fi, 1);
-      arr.splice(ti, 0, moved);
-      if (userId) saveUserData("playbooks", userId, arr);
-      return arr;
-    });
+    const arr = [...rowsRef.current];
+    const fi = arr.findIndex(r => r.id === from);
+    const ti = arr.findIndex(r => r.id === targetRid);
+    if (fi === -1 || ti === -1) { dragRowRef.current = null; setDragOverRow(null); return; }
+    const [moved] = arr.splice(fi, 1);
+    arr.splice(ti, 0, moved);
+    setRows(arr);
+    if (userId) saveUserData("playbooks", userId, arr);
     dragRowRef.current = null; setDragOverRow(null);
   }, [userId]);
   const handleDragEnd = useCallback(() => {
@@ -546,14 +540,12 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
       recurrence: createType === "template" && createRecurrence.enabled ? createRecurrence : undefined,
     };
     newItem.icon = autoSelectIcon(newItem);
-    setRows(prev => {
-      let updated = prev.map(r => r.id === createRowId ? { ...r, items: [...r.items, newItem] } : r);
-      if (createType === "template" && !updated.some(r => r.title === "Templates")) {
-        updated = [...updated, { id: crypto.randomUUID(), title: "Templates", items: [] }];
-      }
-      if (userId) saveUserData("playbooks", userId, updated);
-      return updated;
-    });
+    const updated = rows.map(r => r.id === createRowId ? { ...r, items: [...r.items, newItem] } : r);
+    if (createType === "template" && !updated.some(r => r.title === "Templates")) {
+      updated.push({ id: crypto.randomUUID(), title: "Templates", items: [] });
+    }
+    setRows(updated);
+    if (userId) await saveUserData("playbooks", userId, updated);
     if (createType === "template") setSubView("list");
     resetCreate();
   };
@@ -597,11 +589,9 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
       filledData: fillData,
     };
     newItem.icon = autoSelectIcon(newItem);
-    setRows(prev => {
-      const updated = prev.map(r => r.id === fillTemplateRowId ? { ...r, items: [...r.items, newItem] } : r);
-      if (userId) saveUserData("playbooks", userId, updated);
-      return updated;
-    });
+    const updated = rows.map(r => r.id === fillTemplateRowId ? { ...r, items: [...r.items, newItem] } : r);
+    setRows(updated);
+    if (userId) saveUserData("playbooks", userId, updated);
     setSubView("list"); setFillTemplateId(null); setFillTemplateRowId(null); setFillData({});
   };
 
@@ -621,11 +611,9 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
     if (!editSettingsItem) return;
     const rid = rows.find(r => r.items.some(i => i.id === editSettingsItem.id))?.id;
     if (!rid) return;
-    setRows(prev => {
-      const updated = prev.map(r => r.id === rid ? { ...r, items: r.items.map(i => i.id === editSettingsItem.id ? { ...i, label: editSettingsName, icon: editSettingsIcon, content: editSettingsContent, recurrence: editSettingsItem.type === "template" ? editSettingsRecurrence : undefined } : i) } : r);
-      if (userId) saveUserData("playbooks", userId, updated);
-      return updated;
-    });
+    const updated = rows.map(r => r.id === rid ? { ...r, items: r.items.map(i => i.id === editSettingsItem.id ? { ...i, label: editSettingsName, icon: editSettingsIcon, content: editSettingsContent, recurrence: editSettingsItem.type === "template" ? editSettingsRecurrence : undefined } : i) } : r);
+    setRows(updated);
+    if (userId) saveUserData("playbooks", userId, updated);
     setEditSettingsItem(null);
     setEditSettingsExpanded(false);
     setEditSettingsRecurrence({ enabled: false, interval: "monthly" });
@@ -635,11 +623,9 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
     const rid = rows.find(r => r.items.some(i => i.id === editSettingsItem.id))?.id;
     if (!rid) return;
     const dup: PlaybookItem = { ...editSettingsItem, id: crypto.randomUUID(), label: editSettingsName + " (Copy)", createdAt: new Date().toISOString() };
-    setRows(prev => {
-      const updated = prev.map(r => r.id === rid ? { ...r, items: [...r.items, dup] } : r);
-      if (userId) saveUserData("playbooks", userId, updated);
-      return updated;
-    });
+    const updated = rows.map(r => r.id === rid ? { ...r, items: [...r.items, dup] } : r);
+    setRows(updated);
+    if (userId) saveUserData("playbooks", userId, updated);
     setEditSettingsItem(null);
     setEditSettingsExpanded(false);
   };
@@ -647,11 +633,9 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
     if (!editSettingsItem || !deleteConfirmText) return;
     const rid = rows.find(r => r.items.some(i => i.id === editSettingsItem.id))?.id;
     if (!rid) return;
-    setRows(prev => {
-      const updated = prev.map(r => r.id === rid ? { ...r, items: r.items.filter(i => i.id !== editSettingsItem.id) } : r);
-      if (userId) saveUserData("playbooks", userId, updated);
-      return updated;
-    });
+    const updated = rows.map(r => r.id === rid ? { ...r, items: r.items.filter(i => i.id !== editSettingsItem.id) } : r);
+    setRows(updated);
+    if (userId) saveUserData("playbooks", userId, updated);
     setEditSettingsItem(null);
     setEditSettingsExpanded(false);
     setDeleteConfirmText("");
