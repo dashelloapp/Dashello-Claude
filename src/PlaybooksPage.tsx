@@ -122,8 +122,9 @@ interface TemplateField {
   dateAutoFill?: boolean;
   dateFormat?: string;
   column?: 1 | 2;
-  textSize?: "small" | "medium" | "large";
+  textSize?: number;
   checklistLayout?: "together" | "separate";
+  bigChecklistMode?: "fill" | "option";
   syncToTasks?: boolean;
 }
 type RecurrenceInterval = "daily" | "weekly" | "monthly" | "quarterly" | "semi-annually" | "yearly" | "custom";
@@ -180,6 +181,23 @@ function MenuBar({ editor }: { editor: any }) {
     const url = window.prompt("Image URL");
     if (url) editor.chain().focus().setImage({ src: url }).run();
   };
+  const addVideo = () => {
+    const url = window.prompt("Video URL or iframe embed code\nSupports YouTube, Loom, Vimeo, Wistia, Skool, and any embeddable iframe");
+    if (!url) return;
+    if (url.startsWith("<iframe")) {
+      editor.chain().focus().insertContent(url).run();
+    } else {
+      let embedUrl = url;
+      const ytMatch = url.match(/(?:youtube\.com|youtu\.be)\/(?:watch\?v=)?([a-zA-Z0-9_-]{11})/);
+      if (ytMatch) embedUrl = `https://www.youtube.com/embed/${ytMatch[1]}`;
+      const loomMatch = url.match(/loom\.com\/share\/([a-zA-Z0-9_-]+)/);
+      if (loomMatch) embedUrl = `https://www.loom.com/embed/${loomMatch[1]}`;
+      editor.chain().focus().insertContent(`<iframe src="${embedUrl}" style="width:100%;max-width:560px;height:315px;border:none;border-radius:8px" allowfullscreen></iframe>`).run();
+    }
+  };
+  const insertDateShortcode = () => {
+    editor.chain().focus().insertContent(`[today's date]`).run();
+  };  
   const insertTable = (rows: number, cols: number) => {
     editor.chain().focus().insertTable({ rows, cols, withHeaderRow: true }).run();
     setShowTablePicker(false);
@@ -251,6 +269,16 @@ function MenuBar({ editor }: { editor: any }) {
       <button onClick={addImage} title="Insert image"
         style={{ width: 28, height: 28, borderRadius: 4, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#64748b" }}>
         <PhosphorReact.Image size={16} color="currentColor" /></button>
+      <button onClick={addVideo} title="Insert video (YouTube, Loom, Vimeo, iframe)"
+        style={{ width: 28, height: 28, borderRadius: 4, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#64748b" }}>
+        <PhosphorReact.VideoCamera size={16} color="currentColor" /></button>
+      <button onClick={() => { const url = window.prompt("Link URL", "https://"); if (url) editor.chain().focus().setLink({ href: url }).run(); }} title="Add link"
+        style={{ width: 28, height: 28, borderRadius: 4, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+          background: editor.isActive("link") ? "#dbeafe" : "transparent", color: editor.isActive("link") ? "#3B82F6" : "#64748b" }}>
+        <PhosphorReact.Link size={16} color={editor.isActive("link") ? "#3B82F6" : "currentColor"} /></button>
+      <button onClick={insertDateShortcode} title="Insert today's date"
+        style={{ width: 28, height: 28, borderRadius: 4, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#64748b" }}>
+        <PhosphorReact.CalendarBlank size={16} color="currentColor" /></button>
       <div style={{ position: "relative" }} ref={tablePickerRef}>
         {showTablePicker && (
           <div style={{ position: "absolute", top: 32, left: 0, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 200, padding: 12, minWidth: 180 }}>
@@ -359,6 +387,7 @@ function RichEditorSmall({ content, onChange }: { content: string; onChange: (ht
       StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
       Underline,
       TextStyle, Color,
+      LinkExt.configure({ openOnClick: true }),
     ],
     content: content || "",
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
@@ -460,6 +489,16 @@ function RichEditorSmall({ content, onChange }: { content: string; onChange: (ht
         <button onClick={() => { const url = window.prompt("Image URL"); if (url) editor?.chain().focus().setImage({ src: url }).run(); }} title="Insert image"
           style={{ width: 24, height: 24, borderRadius: 4, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#64748b" }}>
           <PhosphorReact.Image size={14} color="currentColor" /></button>
+        <button onClick={() => { const url = window.prompt("Video URL or iframe embed code"); if (url) { if (url.startsWith("<iframe")) { editor?.chain().focus().insertContent(url).run(); } else { let embed = url; const yt = url.match(/(?:youtube\.com|youtu\.be)\/(?:watch\?v=)?([a-zA-Z0-9_-]{11})/); if (yt) embed = `https://www.youtube.com/embed/${yt[1]}`; const lm = url.match(/loom\.com\/share\/([a-zA-Z0-9_-]+)/); if (lm) embed = `https://www.loom.com/embed/${lm[1]}`; editor?.chain().focus().insertContent(`<iframe src="${embed}" style="width:100%;max-width:560px;height:315px;border:none;border-radius:8px" allowfullscreen></iframe>`).run(); } }} } title="Insert video"
+          style={{ width: 24, height: 24, borderRadius: 4, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#64748b" }}>
+          <PhosphorReact.VideoCamera size={14} color="currentColor" /></button>
+        <button onClick={() => { const url = window.prompt("Link URL", "https://"); if (url) editor?.chain().focus().setLink({ href: url }).run(); }} title="Add link"
+          style={{ width: 24, height: 24, borderRadius: 4, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+            background: editor?.isActive("link") ? "#dbeafe" : "transparent", color: editor?.isActive("link") ? "#3B82F6" : "#64748b" }}>
+          <PhosphorReact.Link size={14} color={editor?.isActive("link") ? "#3B82F6" : "currentColor"} /></button>
+        <button onClick={() => editor?.chain().focus().insertContent(`[today's date]`).run()} title="Insert today's date"
+          style={{ width: 24, height: 24, borderRadius: 4, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#64748b" }}>
+          <PhosphorReact.CalendarBlank size={14} color="currentColor" /></button>
         <input type="color" value={editor?.getAttributes("textStyle").color || "#000000"}
           onChange={e => editor?.chain().focus().setColor(e.target.value).run()}
           style={{ width: 18, height: 18, padding: 0, border: "none", cursor: "pointer", marginLeft: "auto" }} />
@@ -506,6 +545,11 @@ async function uploadFile(file: File, userId: string, itemId: string): Promise<P
 function getFileUrl(path: string) {
   const { data } = supabase.storage.from("playbooks").getPublicUrl(path);
   return data.publicUrl;
+}
+
+function renderShortcodes(html: string): string {
+  const today = new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+  return html.replace(/\[today's date\]/g, today);
 }
 
 function getDateString(format: string, date?: Date): string {
@@ -608,6 +652,8 @@ function getDateString(format: string, date?: Date): string {
   const [createFiles, setCreateFiles] = useState<PlaybookFile[]>([]);
   const [createLinks, setCreateLinks] = useState<PlaybookLink[]>([]);
   const [createTemplateFields, setCreateTemplateFields] = useState<TemplateField[]>([]);
+  const createFieldDragRef = useRef<string | null>(null);
+  const [createFieldDragOver, setCreateFieldDragOver] = useState<string | null>(null);
   const [createUploading, setCreateUploading] = useState(false);
   const [createColumns, setCreateColumns] = useState<1 | 2>(1);
   const [createLayout, setCreateLayout] = useState<1 | 2>(1);
@@ -971,7 +1017,7 @@ function getDateString(format: string, date?: Date): string {
       const newField: TemplateField = {
         id: crypto.randomUUID(), type, header: "", description: "", placeholder: "",
         required: false, options: type === "checkbox" || type === "radio" || type === "big-checklist" ? ["Option 1"] : undefined,
-        color: "#1a2332", column: 1, textSize: "medium", checklistLayout: "together", syncToTasks: false,
+        color: "#1a2332", column: 1, textSize: 24, checklistLayout: "together", bigChecklistMode: "option", syncToTasks: false,
       };
       setCreateTemplateFields(p => [...p, newField]);
     };
@@ -996,6 +1042,24 @@ function getDateString(format: string, date?: Date): string {
     const moveFieldToColumn = (id: string, col: 1 | 2) => {
       setCreateTemplateFields(p => p.map(f => f.id === id ? { ...f, column: col } : f));
     };
+    const handleFieldDragStart = (id: string) => { createFieldDragRef.current = id; };
+    const handleFieldDragEnter = (id: string) => { if (createFieldDragRef.current !== id) setCreateFieldDragOver(id); };
+    const handleFieldDrop = (id: string) => {
+      const from = createFieldDragRef.current;
+      if (!from || from === id) { createFieldDragRef.current = null; setCreateFieldDragOver(null); return; }
+      setCreateTemplateFields(p => {
+        const arr = [...p];
+        const fi = arr.findIndex(f => f.id === from);
+        const ti = arr.findIndex(f => f.id === id);
+        if (fi === -1 || ti === -1) return p;
+        const [moved] = arr.splice(fi, 1);
+        arr.splice(ti, 0, moved);
+        return arr;
+      });
+      createFieldDragRef.current = null;
+      setCreateFieldDragOver(null);
+    };
+    const handleFieldDragEnd = () => { createFieldDragRef.current = null; setCreateFieldDragOver(null); };
 
     return (
       <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
@@ -1036,23 +1100,8 @@ function getDateString(format: string, date?: Date): string {
                           style={{ width: 22, height: 22, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 12, background: "#fee2e2", color: "#E85D75" }}>✕</button>
                       </div>
                       <div style={{ marginBottom: 6 }}>
-                        <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 2 }}>Header {f.dateAutoFill && <span style={{ color: "#3B82F6", fontSize: 10 }}>(auto-fills with date)</span>}</div>
+                        <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 2 }}>Header</div>
                         <RichEditorSmall content={f.header} onChange={html => updateField(f.id, { header: html })} />
-                        <label style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4, fontSize: 11, color: "#64748b", cursor: "pointer" }}>
-                          <input type="checkbox" checked={!!f.dateAutoFill} onChange={e => updateField(f.id, { dateAutoFill: e.target.checked, dateFormat: e.target.checked ? (f.dateFormat || "MMMM Do, YYYY") : undefined })}
-                            style={{ accentColor: "#3B82F6", margin: 0 }} /> Auto-fill with current date
-                        </label>
-                        {f.dateAutoFill && (
-                          <select value={f.dateFormat || "MMMM Do, YYYY"} onChange={e => updateField(f.id, { dateFormat: e.target.value })}
-                            style={{ width: "100%", marginTop: 4, padding: "4px 8px", borderRadius: 4, border: "1px solid #e2e8f0", fontSize: 11, outline: "none" }}>
-                            <option value="MMMM Do, YYYY">March 7th, 2026</option>
-                            <option value="MM/DD/YYYY">03/07/2026</option>
-                            <option value="YYYY-MM-DD">2026-03-07</option>
-                            <option value="dddd, MMMM Do, YYYY">Tuesday, March 7th, 2026</option>
-                            <option value="MMM D, YYYY">Mar 7, 2026</option>
-                            <option value="MMMM YYYY">March 2026</option>
-                          </select>
-                        )}
                       </div>
                       <div style={{ marginBottom: 6 }}>
                         <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 2 }}>Description</div>
@@ -1081,14 +1130,23 @@ function getDateString(format: string, date?: Date): string {
                               </label>
                             ))}
                           </div>
-                          <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 4 }}>Text Size</div>
-                          <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
-                            {(["small","medium","large"] as const).map(s => (
-                              <label key={s} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#64748b", cursor: "pointer" }}>
-                                <input type="radio" name={`size-${f.id}`} checked={(f.textSize || "medium") === s} onChange={() => updateField(f.id, { textSize: s })}
-                                  style={{ accentColor: "#3B82F6", margin: 0 }} /> {s === "small" ? "Small" : s === "medium" ? "Medium" : "Large"}
+                          {/* ── Big Checklist Mode (fill / option) ── */}
+                          <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 4 }}>Checklist Mode</div>
+                          <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+                            {(["option","fill"] as const).map(m => (
+                              <label key={m} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#64748b", cursor: "pointer" }}>
+                                <input type="radio" name={`mode-${f.id}`} checked={(f.bigChecklistMode || "option") === m}
+                                  onChange={() => updateField(f.id, { bigChecklistMode: m })}
+                                  style={{ accentColor: "#3B82F6", margin: 0 }} /> {m === "option" ? "Option Checkboxes" : "Fill-in Checkboxes"}
                               </label>
                             ))}
+                          </div>
+                          {/* ── Text Size Slider ── */}
+                          <div style={{ marginBottom: 6 }}>
+                            <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 2 }}>Size: {(f.textSize || 24)}px</div>
+                            <input type="range" min={11} max={55} value={f.textSize || 24}
+                              onChange={e => updateField(f.id, { textSize: parseInt(e.target.value) })}
+                              style={{ width: "100%", accentColor: "#3B82F6" }} />
                           </div>
                           {f.checklistLayout === "separate" && (
                             <div>
@@ -1232,9 +1290,21 @@ function getDateString(format: string, date?: Date): string {
               <div style={{ display: "grid", gridTemplateColumns: createLayout === 2 ? "1fr 1fr" : "1fr", gap: 10 }}
                 className={createLayout === 2 ? "stack-mobile" : ""}>
                 {createTemplateFields.map(f => (
-                  <div key={f.id} style={{ background: "#f1f5f9", borderRadius: 10, padding: 14 }}>
-                    {f.header && <div style={{ fontSize: 13, fontWeight: 600, color: f.color, marginBottom: 4 }} dangerouslySetInnerHTML={{ __html: f.dateAutoFill ? getDateString(f.dateFormat || "MMMM Do, YYYY") : f.header }} />}
-                    {f.description && <div style={{ fontSize: 12, color: "#64748b", marginBottom: 6, fontStyle: "italic" }} dangerouslySetInnerHTML={{ __html: f.description }} />}
+                  <div key={f.id}
+                    onDragEnter={() => handleFieldDragEnter(f.id)}
+                    onDragOver={e => e.preventDefault()}
+                    onDrop={() => handleFieldDrop(f.id)}
+                    onDragEnd={handleFieldDragEnd}
+                    style={{ background: "#f1f5f9", borderRadius: 10, padding: 14, outline: createFieldDragOver === f.id ? "2px dashed #3B82F6" : "none" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, userSelect: "none" }}>
+                      <div draggable onDragStart={e => { e.stopPropagation(); handleFieldDragStart(f.id); }}
+                        style={{ cursor: "grab", color: "#cbd5e1", fontSize: 14, lineHeight: 1, letterSpacing: 2, width: 20, flexShrink: 0 }}
+                        title="Drag to reorder">⠿</div>
+                      <div style={{ flex: 1 }}>
+                        {f.header && <div style={{ fontSize: 13, fontWeight: 600, color: f.color, marginBottom: 4 }} dangerouslySetInnerHTML={{ __html: renderShortcodes(f.dateAutoFill ? getDateString(f.dateFormat || "MMMM Do, YYYY") : f.header) }} />}
+                        {f.description && <div style={{ fontSize: 12, color: "#64748b", marginBottom: 6, fontStyle: "italic" }} dangerouslySetInnerHTML={{ __html: renderShortcodes(f.description) }} />}
+                      </div>
+                    </div>
                     {f.type === "text" && <div style={{ padding: "8px 12px", borderRadius: 6, background: "#fff", fontSize: 13, color: "#94a3b8" }} dangerouslySetInnerHTML={{ __html: f.placeholder || "Text input..." }} />}
                     {f.type === "textarea" && <div style={{ padding: "8px 12px", borderRadius: 6, background: "#fff", fontSize: 13, color: "#94a3b8", minHeight: 60 }} dangerouslySetInnerHTML={{ __html: f.placeholder || "Long text..." }} />}
                     {f.type === "checkbox" && (f.options || []).map((opt, oi) => (
@@ -1255,19 +1325,19 @@ function getDateString(format: string, date?: Date): string {
                     {f.type === "big-checklist" && (
                       <div>
                         <div style={{
-                          fontSize: f.textSize === "large" ? 16 : f.textSize === "small" ? 12 : 14,
+                          fontSize: (f.textSize || 24) * 0.65,
                           color: "#94a3b8", fontStyle: f.checklistLayout === "separate" ? "normal" : "italic", marginBottom: 4
                         }}>
                           {f.checklistLayout === "separate" ? (f.options || []).map((opt, oi) => (
                             <div key={oi} style={{
                               display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 6,
-                              fontSize: f.textSize === "large" ? 16 : f.textSize === "small" ? 12 : 14,
+                              fontSize: (f.textSize || 24) * 0.65,
                               color: "#1a2332"
                             }}>
                               <div style={{
-                                width: f.textSize === "large" ? 22 : f.textSize === "small" ? 16 : 18,
-                                height: f.textSize === "large" ? 22 : f.textSize === "small" ? 16 : 18,
-                                borderRadius: 4, border: "1.5px solid #d1d5db", background: "#fff", flexShrink: 0, marginTop: 1
+                                width: (f.textSize || 24) * 0.55,
+                                height: (f.textSize || 24) * 0.55,
+                                borderRadius: "50%", border: "2px solid #d1d5db", background: "#fff", flexShrink: 0, marginTop: 2
                               }} />
                               <span>{opt}</span>
                             </div>
@@ -1306,8 +1376,8 @@ function getDateString(format: string, date?: Date): string {
                 const displayHeader = f.dateAutoFill ? getDateString(f.dateFormat || "MMMM Do, YYYY") : f.header;
                 return (
                       <div key={f.id}>
-                        {displayHeader && <div style={{ fontSize: 13, fontWeight: 600, color: f.color, marginBottom: 4 }} dangerouslySetInnerHTML={{ __html: displayHeader }} />}
-                        {f.description && <div style={{ fontSize: 12, color: "#64748b", marginBottom: 6, fontStyle: "italic" }} dangerouslySetInnerHTML={{ __html: f.description }} />}
+                        {displayHeader && <div style={{ fontSize: 13, fontWeight: 600, color: f.color, marginBottom: 4 }} dangerouslySetInnerHTML={{ __html: renderShortcodes(displayHeader) }} />}
+                        {f.description && <div style={{ fontSize: 12, color: "#64748b", marginBottom: 6, fontStyle: "italic" }} dangerouslySetInnerHTML={{ __html: renderShortcodes(f.description) }} />}
                         {f.type === "text" && (
                           <input value={fillData[f.id] || ""} onChange={e => { setFillData(p => ({ ...p, [f.id]: e.target.value })); autoSaveFill(); }}
                             placeholder={f.placeholder?.replace(/<[^>]*>/g, "")}
@@ -1361,45 +1431,90 @@ function getDateString(format: string, date?: Date): string {
                           );
                         })()}
                         {f.type === "big-checklist" && (() => {
-                          const textSize = f.textSize || "medium";
-                          const fontSizeVal = textSize === "large" ? 18 : textSize === "small" ? 12 : 15;
-                          const checkboxSize = textSize === "large" ? 24 : textSize === "small" ? 16 : 20;
+                          const size = f.textSize || 24;
+                          const fontSizeVal = size * 0.65;
+                          const checkboxSize = size * 0.55;
                           const layout = f.checklistLayout || "together";
-                          if (layout === "separate") {
+                          const mode = f.bigChecklistMode || "option";
+
+                          if (layout === "separate" && mode === "option") {
                             return (
                               <div>
                                 {(f.options || []).map((opt, oi) => (
-                                  <label key={oi} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 8, fontSize: fontSizeVal, color: "#1a2332", cursor: "pointer" }}>
-                                    <input type="checkbox" checked={(fillData[f.id] || "").includes(`opt-${oi}`)}
-                                      onChange={e => {
+                                  <div key={oi} style={{ background: "#F8FAFC", borderRadius: 10, padding: 12, marginBottom: 8, border: "1px solid #e2e8f0" }}>
+                                    <label style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: fontSizeVal, color: "#1a2332", cursor: "pointer" }}>
+                                      <div onClick={() => {
                                         const current = new Set((fillData[f.id] || "").split(",").filter(Boolean));
-                                        if (e.target.checked) current.add(`opt-${oi}`); else current.delete(`opt-${oi}`);
+                                        const checked = current.has(`opt-${oi}`);
+                                        if (checked) current.delete(`opt-${oi}`); else current.add(`opt-${oi}`);
                                         setFillData(p => ({ ...p, [f.id]: Array.from(current).join(",") })); autoSaveFill();
-                                      }} style={{ width: checkboxSize, height: checkboxSize, accentColor: "#3B82F6", marginTop: 2, flexShrink: 0 }} />
-                                    <span style={{ textDecoration: (fillData[f.id] || "").includes(`opt-${oi}`) ? "line-through" : "none" }}>{opt}</span>
-                                  </label>
+                                      }} style={{ width: checkboxSize, height: checkboxSize, borderRadius: "50%", border: (fillData[f.id] || "").includes(`opt-${oi}`) ? "none" : "2px solid #d1d5db", background: (fillData[f.id] || "").includes(`opt-${oi}`) ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2, color: "#fff", fontSize: checkboxSize * 0.55 }}>
+                                        {(fillData[f.id] || "").includes(`opt-${oi}`) ? "✓" : ""}
+                                      </div>
+                                      <span style={{ textDecoration: (fillData[f.id] || "").includes(`opt-${oi}`) ? "line-through" : "none", color: (fillData[f.id] || "").includes(`opt-${oi}`) ? "#94a3b8" : "#1a2332" }}>{opt}</span>
+                                    </label>
+                                  </div>
                                 ))}
                               </div>
                             );
                           }
+
+                          if (layout === "separate" && mode === "fill") {
+                            return (
+                              <div>
+                                {(f.options || []).map((opt, oi) => {
+                                  const val = (() => { try { return JSON.parse(fillData[f.id] || "{}")?.[`opt-${oi}`] || ""; } catch { return ""; } })();
+                                  return (
+                                    <div key={oi} style={{ background: "#F8FAFC", borderRadius: 10, padding: 12, marginBottom: 8, border: "1px solid #e2e8f0" }}>
+                                      <div style={{ fontSize: fontSizeVal, color: "#1a2332", marginBottom: 4 }}>{opt}</div>
+                                      <input value={val} placeholder="Enter amount..."
+                                        onChange={e => {
+                                          try { const obj = JSON.parse(fillData[f.id] || "{}"); obj[`opt-${oi}`] = e.target.value; setFillData(p => ({ ...p, [f.id]: JSON.stringify(obj) })); } catch { setFillData(p => ({ ...p, [f.id]: JSON.stringify({ [`opt-${oi}`]: e.target.value }) })); }
+                                          autoSaveFill();
+                                        }}
+                                        style={{ width: "100%", padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: fontSizeVal * 0.8, outline: "none", boxSizing: "border-box" }} />
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          }
+
+                          // Together layout
                           const items: {id:string,text:string,checked:boolean}[] = (() => { try { const p = JSON.parse(fillData[f.id] || "[]"); return Array.isArray(p) ? p : []; } catch { return []; } })();
                           return (
                             <div>
                               <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
                                 <input id={`big-inp-${f.id}`} placeholder={f.placeholder?.replace(/<[^>]*>/g, "") || "Add task..."}
                                   onKeyDown={e => { if (e.key === "Enter" && (e.target as HTMLInputElement).value.trim()) { const newItem = { id: crypto.randomUUID(), text: (e.target as HTMLInputElement).value.trim(), checked: false }; setFillData(p => ({ ...p, [f.id]: JSON.stringify([...items, newItem]) })); autoSaveFill(); (e.target as HTMLInputElement).value = ""; } }}
-                                  style={{ flex: 1, padding: "8px 12px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: fontSizeVal - 2, outline: "none" }} />
+                                  style={{ flex: 1, padding: "8px 12px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: fontSizeVal * 0.8, outline: "none" }} />
                                 <button onClick={() => { const inp = document.getElementById(`big-inp-${f.id}`) as HTMLInputElement; if (inp?.value?.trim()) { const newItem = { id: crypto.randomUUID(), text: inp.value.trim(), checked: false }; setFillData(p => ({ ...p, [f.id]: JSON.stringify([...items, newItem]) })); autoSaveFill(); inp.value = ""; } }}
-                                  style={{ padding: "8px 14px", borderRadius: 6, border: "none", background: "#3B82F6", color: "#fff", fontSize: fontSizeVal - 2, fontWeight: 600, cursor: "pointer" }}>Add</button>
+                                  style={{ padding: "8px 14px", borderRadius: 6, border: "none", background: "#3B82F6", color: "#fff", fontSize: fontSizeVal * 0.8, fontWeight: 600, cursor: "pointer" }}>Add</button>
                               </div>
                               {items.map((item, ii) => (
-                                <label key={item.id} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 6, fontSize: fontSizeVal, color: "#1a2332", cursor: "pointer" }}>
-                                  <input type="checkbox" checked={item.checked} onChange={e => {
-                                    const n = [...items]; n[ii] = { ...n[ii], checked: e.target.checked };
-                                    setFillData(p => ({ ...p, [f.id]: JSON.stringify(n) })); autoSaveFill();
-                                  }} style={{ width: checkboxSize, height: checkboxSize, accentColor: "#3B82F6", marginTop: 2, flexShrink: 0 }} />
-                                  <span style={{ textDecoration: item.checked ? "line-through" : "none", color: item.checked ? "#94a3b8" : "#1a2332" }}>{item.text}</span>
-                                </label>
+                                <div key={item.id} style={{ background: mode === "option" ? "transparent" : "#F8FAFC", borderRadius: mode === "option" ? 0 : 10, padding: mode === "option" ? 0 : 10, marginBottom: mode === "option" ? 6 : 8, border: mode === "option" ? "none" : "1px solid #e2e8f0" }}>
+                                  {mode === "option" ? (
+                                    <label style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: fontSizeVal, color: "#1a2332", cursor: "pointer" }}>
+                                      <div onClick={() => { const n = [...items]; n[ii] = { ...n[ii], checked: !n[ii].checked }; setFillData(p => ({ ...p, [f.id]: JSON.stringify(n) })); autoSaveFill(); }}
+                                        style={{ width: checkboxSize, height: checkboxSize, borderRadius: "50%", border: item.checked ? "none" : "2px solid #d1d5db", background: item.checked ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2, color: "#fff", fontSize: checkboxSize * 0.55 }}>
+                                        {item.checked ? "✓" : ""}
+                                      </div>
+                                      <span style={{ textDecoration: item.checked ? "line-through" : "none", color: item.checked ? "#94a3b8" : "#1a2332" }}>{item.text}</span>
+                                    </label>
+                                  ) : (
+                                    <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                                      <div style={{ width: checkboxSize, height: checkboxSize, borderRadius: "50%", border: item.checked ? "none" : "2px solid #d1d5db", background: item.checked ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2, color: "#fff", fontSize: checkboxSize * 0.55 }}>
+                                        {item.checked ? "✓" : ""}
+                                      </div>
+                                      <div style={{ flex: 1 }}>
+                                        <input value={item.text} placeholder="Type here..."
+                                          onChange={e => { const n = [...items]; n[ii] = { ...n[ii], text: e.target.value }; setFillData(p => ({ ...p, [f.id]: JSON.stringify(n) })); }}
+                                          onBlur={() => autoSaveFill()}
+                                          style={{ width: "100%", padding: "0", border: "none", background: "transparent", fontSize: fontSizeVal, color: "#1a2332", outline: "none", fontFamily: "inherit" }} />
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
                               ))}
                             </div>
                           );
@@ -1455,8 +1570,8 @@ function getDateString(format: string, date?: Date): string {
                     const displayHeader = f.dateAutoFill ? getDateString(f.dateFormat || "MMMM Do, YYYY") : f.header;
                     return (
                     <div key={f.id} style={{ background: "#f1f5f9", borderRadius: 10, padding: 14, marginBottom: 10 }}>
-                      {displayHeader && <div style={{ fontSize: 13, fontWeight: 600, color: f.color, marginBottom: 4 }} dangerouslySetInnerHTML={{ __html: displayHeader }} />}
-                      {f.description && <div style={{ fontSize: 12, color: "#64748b", marginBottom: 6, fontStyle: "italic" }} dangerouslySetInnerHTML={{ __html: f.description }} />}
+                      {displayHeader && <div style={{ fontSize: 13, fontWeight: 600, color: f.color, marginBottom: 4 }} dangerouslySetInnerHTML={{ __html: renderShortcodes(displayHeader) }} />}
+                      {f.description && <div style={{ fontSize: 12, color: "#64748b", marginBottom: 6, fontStyle: "italic" }} dangerouslySetInnerHTML={{ __html: renderShortcodes(f.description) }} />}
                       <div style={{ fontSize: 13, color: "#1a2332" }}>{f.type === "fill-checklist" || f.type === "big-checklist" || f.type === "sync-checklist" ? renderChecklistPreview(fillData[f.id], f.placeholder) : fillData[f.id] || (f.placeholder && f.type !== "checkbox" && f.type !== "radio" ? <span style={{ color: "#94a3b8" }} dangerouslySetInnerHTML={{ __html: f.placeholder }} /> : <span style={{ color: "#cbd5e1", fontStyle: "italic" }}>Empty</span>)}</div>
                     </div>
                     );
