@@ -1106,7 +1106,7 @@ function BottomThreeCards({ data, metricId, tasks, setTasks, userEmail, orgMembe
       id: crypto.randomUUID(), text: actionText.trim(), done: false, assignedTo: actionAssignee || userEmail,
       createdBy: userEmail, linkedMetricId: metricId, createdAt: new Date().toISOString(),
     }]);
-    setActionText(""); setShowAddAction(false);
+    setActionText("");
   };
   const toggleLinked = (id: string) => {
     if (!setTasks) return;
@@ -1180,6 +1180,7 @@ function BottomThreeCards({ data, metricId, tasks, setTasks, userEmail, orgMembe
         {showAddAction ? (
           <div style={{ marginTop: 8 }}>
             <input value={actionText} onChange={e => setActionText(e.target.value)} placeholder="New action..."
+              onKeyDown={e => { if (e.key === "Enter") handleAddAction(); }}
               style={{ width: "100%", padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", boxSizing: "border-box", marginBottom: 6 }} />
             <div style={{ display: "flex", gap: 6 }}>
               <select value={actionAssignee} onChange={e => setActionAssignee(e.target.value)}
@@ -3356,7 +3357,7 @@ function GoalsPage({ goals, setGoals, sections, viewMode, onOpenOnboarding, onEd
                         {goalAddTask?.goalId === g.id ? (
                           <div style={{ marginTop: 6 }}>
                             <input value={goalAddTask.text} onChange={e => setGoalAddTask({ goalId: g.id, text: e.target.value })} placeholder="Type task and press Enter..."
-                              onKeyDown={e => { if (e.key === "Enter" && goalAddTask.text.trim() && setTasks && userEmail) { setTasks(prev => [...prev, { id: crypto.randomUUID(), text: goalAddTask.text.trim(), done: false, assignedTo: userEmail, createdBy: userEmail, linkedGoalId: g.id, createdAt: new Date().toISOString() }]); setGoalAddTask(null); } }}
+                              onKeyDown={e => { if (e.key === "Enter" && goalAddTask.text.trim() && setTasks && userEmail) { setTasks(prev => [...prev, { id: crypto.randomUUID(), text: goalAddTask.text.trim(), done: false, assignedTo: userEmail, createdBy: userEmail, linkedGoalId: g.id, createdAt: new Date().toISOString() }]); setGoalAddTask({ goalId: g.id, text: "" }); } }}
                               autoFocus style={{ width: "100%", padding: "6px 10px", borderRadius: 6, border: "1.5px solid #3B82F6", fontSize: 12, outline: "none", boxSizing: "border-box" }} />
                           </div>
                         ) : (
@@ -6816,6 +6817,7 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
         })}
       </nav>
       </div>
+      <div style={{ borderTop: "1px solid rgba(255,255,255,0.15)", margin: "0 18px 10px" }} />
       {health.hasData && (() => {
   const barColors = { green: "#4CAF7D", yellow: "#F5A623", red: "#E85D75" };
   return (
@@ -6838,7 +6840,7 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
     </div>
   );
 })()}
-      <div style={{ padding: "14px 18px", borderTop: "1px solid rgba(255,255,255,0.15)", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, flexShrink: 0 }}>
+      <div style={{ padding: "14px 18px", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, flexShrink: 0 }}>
         <img src="https://dashello.co/wp-content/uploads/2023/08/White-Logo-Full.png" alt="Dashello" style={{ height: 26, objectFit: "contain", maxWidth: "80%" }} />
         {(currentUserLevel === "owner" || currentUserLevel === "admin") && (
           <button onClick={onOpenInviteModal} style={{ width: "100%", padding: "10px 0", borderRadius: 12, border: "none", background: "#fff", color: "#3B82F6", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Invite Team Members</button>
@@ -8065,6 +8067,15 @@ const sidebarEl = (
               </div>
             );
           })()}
+          {!["home","goals","tasks","integrations","app-detail","team","settings","playbooks","equation-builder"].includes(page) && (
+            <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 48 }}>
+              <div style={{ fontSize: 72, fontWeight: 800, color: "#e2e8f0", marginBottom: 8 }}>404</div>
+              <div style={{ fontSize: 18, color: "#64748b", marginBottom: 24 }}>Something isn't quite right.</div>
+              <button onClick={() => window.history.back()} style={{ padding: "10px 24px", borderRadius: 10, border: "none", background: "#3B82F6", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
+                Go to previous page
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

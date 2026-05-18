@@ -1027,8 +1027,27 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
               )}
               {/* Add button */}
               <div onClick={() => { setCreateRowId(row.id); setShowCreate(true); }}
-                style={{ width: 44, height: 44, borderRadius: "50%", border: "1.5px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#94a3b8", fontSize: 20, alignSelf: "center" }}>+</div>
+                style={{ width: 44, height: 44, borderRadius: "50%", border: "1.5px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#94a3b8", fontSize: 20,                 alignSelf: "center" }}>+</div>
             </div>
+            {row.items.length === 0 && (
+              <div style={{ marginTop: 8, opacity: 0.5, transition: "opacity 0.15s", padding: "8px 0" }}
+                onMouseEnter={e => (e.currentTarget.style.opacity = "0.75")}
+                onMouseLeave={e => (e.currentTarget.style.opacity = "0.5")}>
+                <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+                  {(["document","template"] as const).map(t => (
+                    <div key={t} onClick={() => { setCreateRowId(row.id); setCreateType(t); if (t === "template") { setSubView("template-builder"); } else { setShowCreate(true); } }}
+                      style={{ flex: 1, maxWidth: 200, padding: "14px 12px", borderRadius: 10, border: "1.5px dashed #d1d5db", background: "#fff", cursor: "pointer", textAlign: "center" }}>
+                      <div style={{ fontSize: 22, marginBottom: 4, display: "flex", justifyContent: "center" }}>
+                        <IconGlyph name={t === "document" ? "Notebook" : "GitFork"} size={24} color="#94a3b8" />
+                      </div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "#64748b", marginBottom: 2 }}>
+                        {t === "document" ? "Playbook" : "Template"}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         ))}
 
