@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback, Fragment } from "react";
+import { useSmartPosition } from "./hooks/useSmartPosition";
 import { supabase } from "./lib/supabase";
 import * as PhosphorReact from "@phosphor-icons/react";
 import { useEditor, EditorContent } from "@tiptap/react";
@@ -542,6 +543,50 @@ function getDateString(format: string, date?: Date): string {
     } catch { return <span style={{ color: "#cbd5e1", fontStyle: "italic" }}>No items</span>; }
   };
 
+  // ── Row Menu (smart-positioned ··· dropdown) ────────────────────────────
+  function RowMenu({ row, onDelete }: { row: { id: string; title: string }; onDelete: (id: string) => void }) {
+    const [showMenu, setShowMenu] = useState(false);
+    const [confirmDelete, setConfirmDelete] = useState(false);
+    const triggerRef = useRef<HTMLDivElement>(null);
+    const menuRef = useRef<HTMLDivElement>(null);
+    const { style: menuPos } = useSmartPosition(triggerRef, menuRef, showMenu, { top: 36 });
+
+    useEffect(() => {
+      const h = (e: MouseEvent) => {
+        if (menuRef.current && !menuRef.current.contains(e.target as Node)) { setShowMenu(false); setConfirmDelete(false); }
+      };
+      document.addEventListener("mousedown", h);
+      return () => document.removeEventListener("mousedown", h);
+    }, []);
+
+    return (
+      <div style={{ position: "relative" }}>
+        <div ref={triggerRef} onClick={() => setShowMenu(v => !v)}
+          style={{ width: 26, height: 26, borderRadius: "50%", background: "#F1F5F9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 13, color: "#94a3b8" }}>···</div>
+        {showMenu && (
+          <div ref={menuRef} style={{ ...menuPos, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 100, minWidth: 160, overflow: "hidden" }}>
+            {!confirmDelete ? (
+              <div onClick={() => setConfirmDelete(true)}
+                style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#E85D75" }}
+                onMouseEnter={e => (e.currentTarget.style.background = "#fff5f5")}
+                onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Delete row</div>
+            ) : (
+              <div style={{ padding: "10px 14px" }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#E85D75", marginBottom: 8 }}>Delete "{row.title}"?</div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button onClick={() => setConfirmDelete(false)}
+                    style={{ flex: 1, padding: "5px 0", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 11, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+                  <button onClick={() => { onDelete(row.id); }}
+                    style={{ flex: 1, padding: "5px 0", borderRadius: 6, border: "none", background: "#E85D75", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Delete</button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   // ── Main Component ────────────────────────────────────────────────────────
   export function PlaybooksPage({ userId }: { userId: string | null }) {
   const [rows, setRows] = useState<PlaybookRow[]>([]);
@@ -590,13 +635,6 @@ function getDateString(format: string, date?: Date): string {
   const [rowModalCallback, setRowModalCallback] = useState<((name: string) => void) | null>(null);
   const [editingRowTitle, setEditingRowTitle] = useState<string | null>(null);
   const [editingRowTitleValue, setEditingRowTitleValue] = useState("");
-  const [menuRowId, setMenuRowId] = useState<string | null>(null);
-  const [deleteConfirmRowId, setDeleteConfirmRowId] = useState<string | null>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const h = (e: MouseEvent) => { if (menuRef.current && !menuRef.current.contains(e.target as Node)) { setMenuRowId(null); setDeleteConfirmRowId(null); } };
-    document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h);
-  }, []);
 
   // ── Init & Save ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -1450,33 +1488,10 @@ function getDateString(format: string, date?: Date): string {
                   onKeyDown={e => { if (e.key === "Enter") { if (editingRowTitleValue.trim() && editingRowTitleValue.trim() !== row.title) renameRow(row.id, editingRowTitleValue.trim()); setEditingRowTitle(null); } if (e.key === "Escape") setEditingRowTitle(null); }}
                   style={{ margin: 0, fontSize: "clamp(16px,3vw,20px)", fontWeight: 700, color: "#1a2332", padding: "2px 6px", border: "1.5px solid #3B82F6", borderRadius: 4, outline: "none", background: "#fff", fontFamily: "inherit", maxWidth: 300 }} />
               ) : (
-                <h2 onClick={() => { setEditingRowTitle(row.id); setEditingRowTitleValue(row.title); setMenuRowId(null); }}
+                <h2 onClick={() => { setEditingRowTitle(row.id); setEditingRowTitleValue(row.title); }}
                   style={{ margin: 0, fontSize: "clamp(16px,3vw,20px)", fontWeight: 700, color: "#1a2332", cursor: "text" }}>{row.title}</h2>
               )}
-              <div style={{ position: "relative" }}>
-                <div onClick={() => setMenuRowId(menuRowId === row.id ? null : row.id)}
-                  style={{ width: 26, height: 26, borderRadius: "50%", background: "#F1F5F9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 13, color: "#94a3b8" }}>···</div>
-                {menuRowId === row.id && (
-                  <div ref={menuRef} style={{ position: "absolute", top: 36, right: 0, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 100, minWidth: 160, overflow: "hidden" }}>
-                    {deleteConfirmRowId !== row.id ? (
-                      <div onClick={() => setDeleteConfirmRowId(row.id)}
-                        style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#E85D75" }}
-                        onMouseEnter={e => (e.currentTarget.style.background = "#fff5f5")}
-                        onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Delete row</div>
-                    ) : (
-                      <div style={{ padding: "10px 14px" }}>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: "#E85D75", marginBottom: 8 }}>Delete "{row.title}"?</div>
-                        <div style={{ display: "flex", gap: 6 }}>
-                          <button onClick={() => setDeleteConfirmRowId(null)}
-                            style={{ flex: 1, padding: "5px 0", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 11, cursor: "pointer", color: "#64748b" }}>Cancel</button>
-                          <button onClick={() => { removeRow(row.id); setMenuRowId(null); setDeleteConfirmRowId(null); }}
-                            style={{ flex: 1, padding: "5px 0", borderRadius: 6, border: "none", background: "#E85D75", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Delete</button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+              <RowMenu row={row} onDelete={removeRow} />
               <div style={{ flex: 1 }} />
             </div>
 
@@ -1510,27 +1525,30 @@ function getDateString(format: string, date?: Date): string {
               <div onClick={() => { setCreateRowId(row.id); setShowCreate(true); }}
                 style={{ width: 44, height: 44, borderRadius: "50%", border: "1.5px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#94a3b8", fontSize: 20,                 alignSelf: "center" }}>+</div>
             </div>
-            {row.items.length === 0 && (
-              <div style={{ marginTop: 8, opacity: 0.5, transition: "opacity 0.15s", padding: "8px 0" }}
-                onMouseEnter={e => (e.currentTarget.style.opacity = "0.75")}
-                onMouseLeave={e => (e.currentTarget.style.opacity = "0.5")}>
-                <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-                  {(["document","template"] as const).map(t => (
-                    <div key={t} onClick={() => { setCreateRowId(row.id); setCreateType(t); if (t === "template") { setSubView("template-builder"); } else { setShowCreate(true); } }}
-                      style={{ flex: 1, maxWidth: 200, padding: "14px 12px", borderRadius: 10, border: "1.5px dashed #d1d5db", background: "#fff", cursor: "pointer", textAlign: "center" }}>
-                      <div style={{ fontSize: 22, marginBottom: 4, display: "flex", justifyContent: "center" }}>
-                        <IconGlyph name={t === "document" ? "Notebook" : "GitFork"} size={24} color="#94a3b8" />
-                      </div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: "#64748b", marginBottom: 2 }}>
-                        {t === "document" ? "Playbook" : "Template"}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         ))}
+
+        {/* New Row */}
+        <div onClick={() => { setRowModalInitial(""); setRowModalCallback(() => (name: string) => addRow(name)); setShowRowModal(true); }}
+          style={{ display: "flex", alignItems: "center", gap: 8, color: "#94a3b8", fontSize: 13, cursor: "pointer", padding: "6px 0" }}>
+          <div style={{ width: 26, height: 26, borderRadius: "50%", border: "1.5px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, color: "#94a3b8" }}>+</div>
+          New Row
+        </div>
+
+        {/* Playbook / Template buttons */}
+        <div style={{ display: "flex", gap: 10, justifyContent: "center", margin: "12px 0" }}>
+          {(["document","template"] as const).map(t => (
+            <div key={t} onClick={() => { const firstRow = rows[0]; if (!firstRow) { setRowModalInitial(""); setRowModalCallback(() => (name: string) => addRow(name)); setShowRowModal(true); return; } setCreateRowId(firstRow.id); setCreateType(t); if (t === "template") { setSubView("template-builder"); } else { setShowCreate(true); } }}
+              style={{ flex: 1, maxWidth: 200, padding: "14px 12px", borderRadius: 10, border: "1.5px dashed #d1d5db", background: "#fff", cursor: "pointer", textAlign: "center" }}>
+              <div style={{ fontSize: 22, marginBottom: 4, display: "flex", justifyContent: "center" }}>
+                <IconGlyph name={t === "document" ? "Notebook" : "GitFork"} size={24} color="#94a3b8" />
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#64748b", marginBottom: 2 }}>
+                {t === "document" ? "Playbook" : "Template"}
+              </div>
+            </div>
+          ))}
+        </div>
 
         {/* Upload Zone */}
         <div onDragOver={e => { e.preventDefault(); setDragOverUpload(true); }} onDragLeave={() => setDragOverUpload(false)}
@@ -1573,13 +1591,6 @@ function getDateString(format: string, date?: Date): string {
             </div>
           </div>
         )}
-
-        {/* New Row */}
-        <div onClick={() => { setRowModalInitial(""); setRowModalCallback(() => (name: string) => addRow(name)); setShowRowModal(true); }}
-          style={{ display: "flex", alignItems: "center", gap: 8, color: "#94a3b8", fontSize: 13, cursor: "pointer", padding: "6px 0" }}>
-          <div style={{ width: 26, height: 26, borderRadius: "50%", border: "1.5px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, color: "#94a3b8" }}>+</div>
-          New Row
-        </div>
       </div>
 
       {/* ── Row Modal ─────────────────────────────────────────────────── */}

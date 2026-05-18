@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect, useCallback, Fragment } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, Fragment } from "react";
+import { useSmartPosition } from "./hooks/useSmartPosition";
 import { supabase } from "./lib/supabase";
 import * as PhosphorReact from "@phosphor-icons/react";
 import { PlaybooksPage } from "./PlaybooksPage";
@@ -1094,6 +1095,21 @@ function BottomThreeCards({ data, metricId, tasks, setTasks, userEmail, orgMembe
   const [menuTaskId, setMenuTaskId] = useState<string | null>(null);
   const [expandMetricActions, setExpandMetricActions] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const menuTriggerElRef = useRef<HTMLElement | null>(null);
+  const [menuPos, setMenuPos] = useState<React.CSSProperties>({ position: "absolute", top: 24, right: 0, visibility: "hidden" });
+  useLayoutEffect(() => {
+    if (!menuTaskId || !menuRef.current || !menuTriggerElRef.current) return;
+    const trigger = menuTriggerElRef.current;
+    const triggerRect = trigger.getBoundingClientRect();
+    const menuWidth = menuRef.current.offsetWidth || 150;
+    const menuHeight = menuRef.current.offsetHeight || 200;
+    let top = 24;
+    let left: number | undefined;
+    let rightVal: number | undefined;
+    if (triggerRect.right - menuWidth < 8) { left = 0; } else { rightVal = 0; }
+    if (triggerRect.top + 24 + menuHeight > window.innerHeight - 8) { top = -(menuHeight + 4); }
+    setMenuPos({ position: "absolute", top, left, right: rightVal, visibility: "visible" });
+  }, [menuTaskId]);
   useEffect(() => {
     const handler = (e: MouseEvent) => { if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuTaskId(null); };
     document.addEventListener("mousedown", handler);
@@ -1146,9 +1162,9 @@ function BottomThreeCards({ data, metricId, tasks, setTasks, userEmail, orgMembe
                       {(assigneeMember.name?.[0] || assigneeMember.email[0] || "?").toUpperCase()}
                     </div>
               ) : null}
-              <div onClick={() => setMenuTaskId(menuTaskId === t.id ? null : t.id)} style={{ width: 22, height: 22, borderRadius: "50%", background: "#F1F5F9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 9, color: "#94a3b8", flexShrink: 0 }}>···</div>
+              <div onClick={(e) => { menuTriggerElRef.current = e.currentTarget as HTMLElement; setMenuTaskId(menuTaskId === t.id ? null : t.id); }} style={{ width: 22, height: 22, borderRadius: "50%", background: "#F1F5F9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 9, color: "#94a3b8", flexShrink: 0 }}>···</div>
               {menuTaskId === t.id && (
-                <div ref={menuRef} style={{ position: "absolute", top: 24, right: 0, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 100, minWidth: 150, overflow: "hidden" }}>
+                <div ref={menuRef} style={{ ...menuPos, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 100, minWidth: 150, overflow: "hidden" }}>
                   <div style={{ padding: "7px 12px", fontSize: 11, fontWeight: 600, color: "#64748b", borderBottom: "1px solid #f1f5f9" }}>Assign To</div>
                   {(orgMembers || []).filter(m => m.status === "active").map(m => (
                     <div key={m.id} onClick={() => { setTasks?.(prev => prev.map(x => x.id === t.id ? { ...x, assignedTo: m.email } : x)); setMenuTaskId(null); }}
@@ -2943,17 +2959,18 @@ function MetricBlock({ metric, onClick, onDragStart, onDragEnter, onDrop, isDrag
 // ROW CONTEXT MENU
 // ═══════════════════════════════════════════════════════════════════════════
 
-function RowMenu({ onRename, onDelete, onClose }: { onRename?: () => void; onDelete: () => void; onClose: () => void }) {
-  const ref = useRef<HTMLDivElement>(null);
+function RowMenu({ onRename, onDelete, onClose, triggerRef }: { onRename?: () => void; onDelete: () => void; onClose: () => void; triggerRef: React.RefObject<HTMLDivElement | null> }) {
+  const menuRef = useRef<HTMLDivElement>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const { style: menuPos } = useSmartPosition(triggerRef, menuRef, true, { top: 36 });
 
   useEffect(() => {
-    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
+    const h = (e: MouseEvent) => { if (menuRef.current && !menuRef.current.contains(e.target as Node)) onClose(); };
     document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h);
   }, [onClose]);
 
   return (
-    <div ref={ref} style={{ position: "absolute", top: 36, right: 0, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 100, minWidth: 170, overflow: "hidden" }}>
+    <div ref={menuRef} style={{ ...menuPos, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 100, minWidth: 170, overflow: "hidden" }}>
       {onRename && (
         <div onClick={() => { onRename(); onClose(); }}
           style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
@@ -2975,6 +2992,24 @@ function RowMenu({ onRename, onDelete, onClose }: { onRename?: () => void; onDel
                 style={{ flex: 1, padding: "5px 0", borderRadius: 6, border: "none", background: "#E85D75", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Delete</button>
             </div>
           </div>}
+    </div>
+  );
+}
+
+// ── MOBILE MENU (smart-positioned) ─────────────────────────────────────────
+function MobileMenu({ triggerRef, onClose, onChat, onCustomize }: { triggerRef: React.RefObject<HTMLDivElement | null>; onClose: () => void; onChat: () => void; onCustomize: () => void }) {
+  const menuRef = useRef<HTMLDivElement>(null);
+  const { style: menuPos } = useSmartPosition(triggerRef, menuRef, true, { top: 40 });
+
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (menuRef.current && !menuRef.current.contains(e.target as Node)) onClose(); };
+    document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h);
+  }, [onClose]);
+
+  return (
+    <div ref={menuRef} style={{ ...menuPos, background: "#fff", borderRadius: 12, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 100, minWidth: 140, overflow: "hidden" }}>
+      <div onClick={() => { onChat(); onClose(); }} style={{ padding: "10px 16px", fontSize: 13, color: "#64748b", cursor: "pointer", borderBottom: "1px solid #f1f5f9" }}>Chat</div>
+      <div onClick={() => { onCustomize(); onClose(); }} style={{ padding: "10px 16px", fontSize: 13, color: "#64748b", cursor: "pointer" }}>Customize</div>
     </div>
   );
 }
@@ -3042,6 +3077,7 @@ function DashSection({
   const [editingMetric, setEditingMetric] = useState<Metric | null>(null);
   const [showRowModal, setShowRowModal] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const rowMenuTriggerRef = useRef<HTMLDivElement>(null);
   const [editingTitle, setEditingTitle] = useState(false);
   const [editingTitleValue, setEditingTitleValue] = useState("");
   const lastContainerTargetRef = useRef<string | null>(null);
@@ -3110,8 +3146,8 @@ function DashSection({
           ))}
         </div>
         <div style={{ position: "relative" }}>
-          <div onClick={() => setShowMenu(v => !v)} style={{ width: 26, height: 26, borderRadius: "50%", background: "#F1F5F9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 13, color: "#94a3b8" }}>···</div>
-          {showMenu && <RowMenu onDelete={() => onRemoveSection(section.id)} onClose={() => setShowMenu(false)} />}
+          <div ref={rowMenuTriggerRef} onClick={() => setShowMenu(v => !v)} style={{ width: 26, height: 26, borderRadius: "50%", background: "#F1F5F9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 13, color: "#94a3b8" }}>···</div>
+          {showMenu && <RowMenu triggerRef={rowMenuTriggerRef} onDelete={() => onRemoveSection(section.id)} onClose={() => setShowMenu(false)} />}
         </div>
         <div style={{ flex: 1 }} />
       </div>
@@ -4056,6 +4092,21 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
   const [editText, setEditText] = useState("");
   const [inlineAddText, setInlineAddText] = useState("");
   const menuRef = useRef<HTMLDivElement>(null);
+  const menuTriggerElRef = useRef<HTMLElement | null>(null);
+  const [menuPos, setMenuPos] = useState<React.CSSProperties>({ position: "absolute", top: 28, right: 0, visibility: "hidden" });
+  useLayoutEffect(() => {
+    if (!menuTaskId || !menuRef.current || !menuTriggerElRef.current) return;
+    const trigger = menuTriggerElRef.current;
+    const triggerRect = trigger.getBoundingClientRect();
+    const menuWidth = menuRef.current.offsetWidth || 160;
+    const menuHeight = menuRef.current.offsetHeight || 200;
+    let top = 28;
+    let left: number | undefined;
+    let rightVal: number | undefined;
+    if (triggerRect.right - menuWidth < 8) { left = 0; } else { rightVal = 0; }
+    if (triggerRect.top + 28 + menuHeight > window.innerHeight - 8) { top = -(menuHeight + 4); }
+    setMenuPos({ position: "absolute", top, left, right: rightVal, visibility: "visible" });
+  }, [menuTaskId]);
 
   useEffect(() => {
     const h = (e: MouseEvent) => { if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuTaskId(null); };
@@ -4173,9 +4224,9 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
                         </div>
                       )}
                       {/* Three-dot menu */}
-                      <div onClick={() => setMenuTaskId(menuTaskId === t.id ? null : t.id)} style={{ width: 24, height: 24, borderRadius: "50%", background: "#F1F5F9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 11, color: "#94a3b8", flexShrink: 0 }}>···</div>
+                      <div onClick={(e) => { menuTriggerElRef.current = e.currentTarget as HTMLElement; setMenuTaskId(menuTaskId === t.id ? null : t.id); }} style={{ width: 24, height: 24, borderRadius: "50%", background: "#F1F5F9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 11, color: "#94a3b8", flexShrink: 0 }}>···</div>
                       {menuTaskId === t.id && (
-                        <div ref={menuRef} style={{ position: "absolute", top: 28, right: 0, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 100, minWidth: 160, overflow: "hidden" }}>
+                        <div ref={menuRef} style={{ ...menuPos, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 100, minWidth: 160, overflow: "hidden" }}>
                           <div style={{ padding: "8px 12px", fontSize: 11, fontWeight: 600, color: "#64748b", borderBottom: "1px solid #f1f5f9" }}>Assign To</div>
                           {orgMembers.filter(m => m.status === "active").map(m => (
                             <div key={m.id} onClick={() => { setTasks(prev => prev.map(x => x.id === t.id ? { ...x, assignedTo: m.email } : x)); setMenuTaskId(null); }}
@@ -4918,42 +4969,44 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
 function TeamRowMenu({ isDefault, onEditPermissions, onRename, onDelete }: { isDefault?: boolean; onEditPermissions: () => void; onRename: () => void; onDelete: () => void; }) {
   const [open, setOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const { style: menuPos } = useSmartPosition(triggerRef, menuRef, open, { top: 30 });
   useEffect(() => {
-    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    if (!open) return;
+    const h = (e: MouseEvent) => { if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpen(false); };
     document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h);
-  }, []);
-
-  if (!open) {
-    return <div onClick={() => setOpen(true)} style={{ width: 26, height: 26, borderRadius: "50%", background: "#F1F5F9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 13, color: "#94a3b8", flexShrink: 0 }}>···</div>;
-  }
+  }, [open]);
 
   return (
-    <div ref={ref} style={{ position: "relative" }}>
-      <div style={{ position: "absolute", top: 30, right: 0, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 100, minWidth: 170, overflow: "hidden" }}>
-        <div onClick={() => { if (!isDefault) { setOpen(false); onEditPermissions(); } }}
-          style={{ padding: "9px 14px", fontSize: 13, cursor: isDefault ? "not-allowed" : "pointer", color: isDefault ? "#94a3b8" : "#1a2332" }}
-          onMouseEnter={e => { if (!isDefault) e.currentTarget.style.background = "#f8fafc"; }}
-          onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}>Edit Permissions{isDefault ? " (locked)" : ""}</div>
-        <div onClick={() => { setOpen(false); onRename(); }}
-          style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
-          onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
-          onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Edit Name</div>
-        {!confirmDelete
-          ? <div onClick={() => setConfirmDelete(true)}
-              style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#E85D75" }}
-              onMouseEnter={e => (e.currentTarget.style.background = "#fff5f5")}
-              onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Delete Team</div>
-          : <div style={{ padding: "10px 14px", borderTop: "1px solid #f1f5f9" }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#E85D75", marginBottom: 8 }}>Delete this team?</div>
-              <div style={{ display: "flex", gap: 6 }}>
-                <button onClick={() => setConfirmDelete(false)}
-                  style={{ flex: 1, padding: "5px 0", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 11, cursor: "pointer", color: "#64748b" }}>Cancel</button>
-                <button onClick={() => { onDelete(); setOpen(false); }}
-                  style={{ flex: 1, padding: "5px 0", borderRadius: 6, border: "none", background: "#E85D75", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Delete</button>
-              </div>
-            </div>}
-      </div>
+    <div style={{ position: "relative" }}>
+      <div ref={triggerRef} onClick={() => setOpen(v => !v)} style={{ width: 26, height: 26, borderRadius: "50%", background: "#F1F5F9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 13, color: "#94a3b8", flexShrink: 0 }}>···</div>
+      {open && (
+        <div ref={menuRef} style={{ ...menuPos, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 100, minWidth: 170, overflow: "hidden" }}>
+          <div onClick={() => { if (!isDefault) { setOpen(false); onEditPermissions(); } }}
+            style={{ padding: "9px 14px", fontSize: 13, cursor: isDefault ? "not-allowed" : "pointer", color: isDefault ? "#94a3b8" : "#1a2332" }}
+            onMouseEnter={e => { if (!isDefault) e.currentTarget.style.background = "#f8fafc"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}>Edit Permissions{isDefault ? " (locked)" : ""}</div>
+          <div onClick={() => { setOpen(false); onRename(); }}
+            style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
+            onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
+            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Edit Name</div>
+          {!confirmDelete
+            ? <div onClick={() => setConfirmDelete(true)}
+                style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#E85D75" }}
+                onMouseEnter={e => (e.currentTarget.style.background = "#fff5f5")}
+                onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Delete Team</div>
+            : <div style={{ padding: "10px 14px", borderTop: "1px solid #f1f5f9" }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#E85D75", marginBottom: 8 }}>Delete this team?</div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button onClick={() => setConfirmDelete(false)}
+                    style={{ flex: 1, padding: "5px 0", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 11, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+                  <button onClick={() => { onDelete(); setOpen(false); }}
+                    style={{ flex: 1, padding: "5px 0", borderRadius: 6, border: "none", background: "#E85D75", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Delete</button>
+                </div>
+              </div>}
+        </div>
+      )}
     </div>
   );
 }
@@ -5194,6 +5247,7 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
   health_green_multiplier: 1.0,
   health_yellow_multiplier: 0.5,
   health_red_multiplier: -1.0,
+  menu_permissions: {} as Record<string, string[]>,
 });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -5212,6 +5266,7 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
       health_green_multiplier: data.health_green_multiplier ?? 1.0,
       health_yellow_multiplier: data.health_yellow_multiplier ?? 0.5,
       health_red_multiplier: data.health_red_multiplier ?? -1.0,
+      menu_permissions: data.menu_permissions ?? {},
     });
   });
 }, [userId]);
@@ -5318,6 +5373,39 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
                 </div>
               </div>
             ))}
+          </div>
+          )}
+
+          {/* Menu Visibility — owner only */}
+          {(currentUserLevel === "owner" || !currentUserLevel) && (
+          <div style={{ background: "#fff", borderRadius: 14, padding: 20, border: "1px solid #f1f5f9" }}>
+            <h3 style={{ margin: "0 0 14px", fontSize: 14, fontWeight: 600, color: "#1a2332" }}>Menu Visibility</h3>
+            <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 14 }}>Customize which menu items each role can access. Home is always visible.</div>
+            {(["viewer","editor","admin"] as const).map(level => {
+              const hidden = localProfile.menu_permissions?.[level] || [];
+              return (
+                <div key={level} style={{ marginBottom: 12, background: "#F8FAFC", borderRadius: 10, padding: "12px 14px" }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#1a2332", marginBottom: 8, textTransform: "capitalize" }}>{level}</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {(["goals","tasks","playbooks","integrations","team","settings"] as const).map(item => {
+                      const isHidden = hidden.includes(item);
+                      const forcedOff = level === "viewer" && (item === "integrations" || item === "team");
+                      return (
+                        <label key={item} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 6, background: forcedOff ? "#f1f5f9" : isHidden ? "#fff5f5" : "#F0FDF4", border: forcedOff ? "1px solid #e2e8f0" : isHidden ? "1px solid #fecaca" : "1px solid #c3e6d4", fontSize: 11, color: forcedOff ? "#94a3b8" : isHidden ? "#E85D75" : "#0F6E56", cursor: forcedOff ? "not-allowed" : "pointer", userSelect: "none", opacity: forcedOff ? 0.5 : 1 }}>
+                          <input type="checkbox" checked={!isHidden} disabled={forcedOff}
+                            onChange={() => {
+                              const next = isHidden ? hidden.filter(h => h !== item) : [...hidden, item];
+                              setLocalProfile(p => ({ ...p, menu_permissions: { ...p.menu_permissions, [level]: next } }));
+                            }}
+                            style={{ accentColor: "#3B82F6", pointerEvents: forcedOff ? "none" : "auto" }} />
+                          {item === "goals" ? "Goals" : item === "tasks" ? "Tasks" : item === "playbooks" ? "Playbooks" : item === "integrations" ? "Integrations" : item === "team" ? "Team" : "Settings"}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
           </div>
           )}
 
@@ -6759,19 +6847,28 @@ const NAV: { icon: string; label: string; page: Page; comingSoon?: boolean }[] =
   { icon: "Gear", label: "Settings", page: "settings" },
 ];
 
-function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, health, activeOrg, orgs, showOrgDropdown, onToggleOrgDropdown, onSwitchOrg, currentUserLevel, onOpenInviteModal }: {
+function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, health, activeOrg, orgs, showOrgDropdown, onToggleOrgDropdown, onSwitchOrg, currentUserLevel, onOpenInviteModal, menuPermissions }: {
   active: Page; onNav: (p: Page) => void; onClose: () => void;
   isMobile: boolean; avatarUrl?: string; firstName?: string;
   health: HealthResult;
   activeOrg: Org | null; orgs: Org[]; showOrgDropdown: boolean;
   onToggleOrgDropdown: () => void; onSwitchOrg: (org: Org) => void;
   currentUserLevel: OrgPermissionLevel; onOpenInviteModal: () => void;
+  menuPermissions: Record<string, string[]>;
 }) {
   const orgDropdownRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const h = (e: MouseEvent) => { if (orgDropdownRef.current && !orgDropdownRef.current.contains(e.target as Node)) { if (showOrgDropdown) onToggleOrgDropdown(); } };
     document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h);
   }, [showOrgDropdown, onToggleOrgDropdown]);
+
+  const hiddenItems = currentUserLevel === "owner" ? [] : (menuPermissions[currentUserLevel] || []);
+  const filteredNav = NAV.filter(item => {
+    if (item.page === "home") return true;
+    const key = item.label.toLowerCase();
+    if (currentUserLevel === "viewer" && (key === "integrations" || key === "team")) return false;
+    return !hiddenItems.includes(key);
+  });
 
   return (
     <aside style={{ width: 240, flexShrink: 0, background: "linear-gradient(135deg,#3B82F6,#06B6D4)", display: "flex", flexDirection: "column", boxShadow: "2px 0 12px rgba(0,0,0,0.06)", height: "100dvh" } as React.CSSProperties}>
@@ -6809,7 +6906,7 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
         </div>
       </div>
       <nav style={{ flex: 1, padding: "6px 12px" }}>
-        {NAV.map(item => {
+        {filteredNav.map(item => {
           const isActive = active === item.page;
           return (
             <div key={item.label} onClick={() => { if (!item.comingSoon) onNav(item.page); }}
@@ -7080,6 +7177,8 @@ export default function DashelloDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showChat, setShowChat] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const mobileMenuTriggerRef = useRef<HTMLDivElement>(null);
+
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
@@ -7100,6 +7199,7 @@ export default function DashelloDashboard() {
     health_green_multiplier: 1.0,
     health_yellow_multiplier: 0.5,
     health_red_multiplier: -1.0,
+    menu_permissions: {} as Record<string, string[]>,
   });
   const [fiveAccountSettings, setFiveAccountSettings] = useState<FiveAccountSettings>(DEFAULT_FIVE_ACCOUNT_SETTINGS);
   // --- SETTINGS UPDATE LOGIC ---
@@ -7322,6 +7422,7 @@ export default function DashelloDashboard() {
   health_green_multiplier: prof.health_green_multiplier ?? 1.0,
   health_yellow_multiplier: prof.health_yellow_multiplier ?? 0.5,
   health_red_multiplier: prof.health_red_multiplier ?? -1.0,
+  menu_permissions: prof.menu_permissions ?? {},
 });
       setDbReady(true);
     }
@@ -7585,34 +7686,47 @@ export default function DashelloDashboard() {
 
   // Section 1: Mirror a transaction onto another Five-Account box when "Transfer to" is checked
   const handleTransfer = useCallback((toMetricId: string, amount: number, description: string) => {
-    setSections(prev => prev.map(s => ({
-      ...s,
-      metrics: s.metrics.map(m => {
-        if (m.id !== toMetricId) return m;
-        const cur = parseFloat(m.value.replace(/[^0-9.\-]/g, "")) || 0;
-        const next = Math.max(0, cur + amount);
-        const currency = m.currencySymbol ?? "$";
-        const formatted = `${currency}${next.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-        const now = Date.now();
-        const txn: Transaction = {
-          date: new Date(now).toLocaleDateString(),
-          description,
-          ...(amount > 0 ? { credit: amount } : { debit: -amount }),
-        };
-        return {
-          ...m,
-          value: formatted,
-          history: [...(m.history ?? []), { timestamp: now, value: next }].slice(-50),
-          lastSyncedAt: now,
-          modal: {
-            ...m.modal,
-            mainValue: formatted,
-            transactions: [...(m.modal.transactions ?? []), txn],
-          },
-        };
-      }),
-    })));
-  }, []);
+    setSections(prev => {
+      let updated = prev.map(s => ({
+        ...s,
+        metrics: s.metrics.map(m => {
+          if (m.id !== toMetricId) return m;
+          const cur = parseFloat(m.value.replace(/[^0-9.\-]/g, "")) || 0;
+          const next = Math.max(0, cur + amount);
+          const currency = m.currencySymbol ?? "$";
+          const formatted = `${currency}${next.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+          const now = Date.now();
+          const txn: Transaction = {
+            date: new Date(now).toLocaleDateString(),
+            description,
+            ...(amount > 0 ? { credit: amount } : { debit: -amount }),
+          };
+          return {
+            ...m,
+            value: formatted,
+            history: [...(m.history ?? []), { timestamp: now, value: next }].slice(-50),
+            lastSyncedAt: now,
+            modal: {
+              ...m.modal,
+              mainValue: formatted,
+              transactions: [...(m.modal.transactions ?? []), txn],
+            },
+          };
+        }),
+      }));
+      // Cascade Five-Account equation after transfer to keep all boxes in sync
+      if (fiveAccountSettings.mode !== "five-separate") {
+        updated = updated.map(s => {
+          const equationParent = s.metrics.find(m => m.modal?.fiveAccountEnabled === true && !m.fiveAccountParentId);
+          if (equationParent) {
+            return { ...s, metrics: runFiveAccountEquation(s.metrics, equationParent.id, fiveAccountSettings) };
+          }
+          return s;
+        });
+      }
+      return updated;
+    });
+  }, [fiveAccountSettings]);
 
   // Compute siblings for whichever metric is currently in the modal
   const activeModalSiblings: Metric[] = activeModal
@@ -7691,6 +7805,24 @@ export default function DashelloDashboard() {
       };
     }));
   }, []);
+
+  // ── Auto-disable global Five-Account flag when all 5 boxes are toggled off ─
+  useEffect(() => {
+    if (!profile.five_account_enabled) return;
+    const section = sections.find(s => s.metrics.some(m => m.modal?.fiveAccountEnabled || m.fiveAccountParentId));
+    if (section) {
+      const anyEnabled = section.metrics.some(m => m.modal?.fiveAccountEnabled || m.fiveAccountParentId);
+      if (!anyEnabled) {
+        setProfile(prev => {
+          if (!prev.five_account_enabled) return prev;
+          const updated = { ...prev, five_account_enabled: false };
+          supabase.from("profiles").upsert({ id: userId!, five_account_enabled: false, updated_at: new Date().toISOString() });
+          return updated;
+        });
+        setFiveAccountForceOff(true);
+      }
+    }
+  }, [sections, profile.five_account_enabled, userId]);
 
   // ── Section 7: Auto-reset scheduler ──────────────────────────────────────
   const checkAndResetMetricsRef = useRef<(() => void) | null>(null);
@@ -7811,6 +7943,14 @@ const currentUserLevel: OrgPermissionLevel = (() => {
   return "owner";
 })();
 
+const menuPermissions = profile.menu_permissions ?? {};
+const isPageAccessible = (pageName: string) => {
+  if (currentUserLevel === "owner") return true;
+  const hidden = menuPermissions[currentUserLevel] || [];
+  if (currentUserLevel === "viewer" && (pageName === "integrations" || pageName === "team")) return false;
+  return !hidden.includes(pageName);
+};
+
 // Preview mode
 const previewLevel = previewMember?.level ?? null;
 const previewSections = previewMember && previewPerms
@@ -7829,8 +7969,9 @@ const sidebarEl = (
     onToggleOrgDropdown={() => setShowOrgDropdown(v => !v)}
     onSwitchOrg={handleSwitchOrg}
     currentUserLevel={currentUserLevel}
-    onOpenInviteModal={() => setShowInviteModal(true)} />
-);
+    onOpenInviteModal={() => setShowInviteModal(true)}
+    menuPermissions={profile.menu_permissions ?? {}}
+  />);
 
   if (!dbReady) return (
     <div style={{ display: "flex", height: "100vh", alignItems: "center", justifyContent: "center", background: "linear-gradient(160deg,#2196F3 0%,#00BCD4 100%)", fontSize: 18, color: "#fff", fontFamily: "Inter, sans-serif" }}>
@@ -7927,13 +8068,8 @@ const sidebarEl = (
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               {(page === "home" || page === "goals" || page === "integrations" || page === "tasks") && <TopBarRefreshButton isMobile={isMobile} onRefresh={handleRefreshAll} lastSyncedAt={lastDashboardSync} />}
               <div style={{ position: "relative" }}>
-                <div onClick={() => setShowMobileMenu(v => !v)} style={{ width: 34, height: 34, borderRadius: "50%", border: "1.5px solid #e2e8f0", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 14, color: "#64748b" }}>‹</div>
-                {showMobileMenu && (
-                  <div style={{ position: "absolute", top: 40, right: 0, zIndex: 100, background: "#fff", borderRadius: 12, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", minWidth: 140, overflow: "hidden" }}>
-                    <div onClick={() => { setShowChat(v => !v); setShowMobileMenu(false); }} style={{ padding: "10px 16px", fontSize: 13, color: "#64748b", cursor: "pointer", borderBottom: "1px solid #f1f5f9" }}>Chat</div>
-                    <div onClick={() => { setPage("integrations"); setShowMobileMenu(false); }} style={{ padding: "10px 16px", fontSize: 13, color: "#64748b", cursor: "pointer" }}>Customize</div>
-                  </div>
-                )}
+                <div ref={mobileMenuTriggerRef} onClick={() => setShowMobileMenu(v => !v)} style={{ width: 34, height: 34, borderRadius: "50%", border: "1.5px solid #e2e8f0", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 14, color: "#64748b" }}>‹</div>
+                {showMobileMenu && <MobileMenu triggerRef={mobileMenuTriggerRef} onClose={() => setShowMobileMenu(false)} onChat={() => setShowChat(v => !v)} onCustomize={() => setPage("integrations")} />}
               </div>
             </div>
           ) : (
@@ -7952,13 +8088,13 @@ const sidebarEl = (
             onFiveAccountDisabledFromBox={handleFiveAccountDisabledFromBox}
             onOpenEquationBuilder={handleOpenEquationBuilder}
             orgMembers={orgMembers} />}
-          {page === "goals" && <div style={{ flex: 1, overflowY: "auto" }}><GoalsPage goals={goalsData} setGoals={setGoalsData} sections={isPreviewMode && previewSections ? previewSections : sections} viewMode={goalsViewMode} onOpenOnboarding={() => setShowGoalOnboarding(true)} onEditGoal={handleEditGoal} onDuplicateGoal={handleDuplicateGoal} tasks={tasksData} setTasks={setTasksData} userEmail={userEmail} orgMembers={orgMembers} /></div>}
-          {page === "tasks" && <div style={{ flex: 1, overflowY: "auto" }}><TasksPage tasks={tasksData} setTasks={setTasksData} userEmail={userEmail} orgMembers={orgMembers} teamRows={teamRows} sections={sections} goals={goalsData} onViewMetric={id => setViewMetricId(id)} onViewGoal={id => setViewGoalId(id)} onViewTeamMember={m => { setPendingMemberDetail(m); setPage("team"); }} /></div>}
-          {page === "integrations" && <div style={{ flex: 1, overflowY: "auto" }}><IntegrationsPage onSelectApp={a => { setSelectedApp(a); setPage("app-detail"); }} /></div>}
+          {page === "goals" && isPageAccessible("goals") && <div style={{ flex: 1, overflowY: "auto" }}><GoalsPage goals={goalsData} setGoals={setGoalsData} sections={isPreviewMode && previewSections ? previewSections : sections} viewMode={goalsViewMode} onOpenOnboarding={() => setShowGoalOnboarding(true)} onEditGoal={handleEditGoal} onDuplicateGoal={handleDuplicateGoal} tasks={tasksData} setTasks={setTasksData} userEmail={userEmail} orgMembers={orgMembers} /></div>}
+          {page === "tasks" && isPageAccessible("tasks") && <div style={{ flex: 1, overflowY: "auto" }}><TasksPage tasks={tasksData} setTasks={setTasksData} userEmail={userEmail} orgMembers={orgMembers} teamRows={teamRows} sections={sections} goals={goalsData} onViewMetric={id => setViewMetricId(id)} onViewGoal={id => setViewGoalId(id)} onViewTeamMember={m => { setPendingMemberDetail(m); setPage("team"); }} /></div>}
+          {page === "integrations" && isPageAccessible("integrations") && <div style={{ flex: 1, overflowY: "auto" }}><IntegrationsPage onSelectApp={a => { setSelectedApp(a); setPage("app-detail"); }} /></div>}
           {page === "app-detail" && selectedApp && <div style={{ flex: 1, overflowY: "auto" }}><AppDetailPage app={selectedApp} onBack={() => setPage("integrations")} /></div>}
-          {page === "team" && <div style={{ flex: 1, overflowY: "auto" }}><TeamPage sections={isPreviewMode && previewSections ? previewSections : sections} orgMembers={orgMembers} setOrgMembers={setOrgMembers} teamRows={teamRows} setTeamRows={setTeamRows} teamPermissions={teamPermissions} setTeamPermissions={setTeamPermissions} currentUserLevel={currentUserLevel} userEmail={userEmail} onOpenInvite={() => setShowInviteModal(true)} onPreviewMember={(member, perms) => { setPreviewMember(member); setPreviewPerms(perms); setPage("home"); }} onExitPreviewSave={() => { setPreviewFromSave(false); }} previewFromSave={previewFromSave} pendingMemberDetail={pendingMemberDetail} onClearPendingMember={() => setPendingMemberDetail(null)} tasks={tasksData} setTasks={setTasksData} /></div>}
-          {page === "settings" && <div style={{ flex: 1, overflowY: "auto" }}><SettingsPage userId={userId!} userEmail={userEmail} profile={profile} forceDisableFiveAccount={fiveAccountForceOff} onForceDisableAcknowledged={() => setFiveAccountForceOff(false)} onProfileSaved={p => setProfile(p)} onFiveAccountCreated={handleFiveAccountCreated} onFiveAccountDisabled={handleGlobalFiveAccountDisabled} fiveAccountSettings={fiveAccountSettings} onFiveAccountSettingsChange={handleUpdateSettings} currentUserLevel={currentUserLevel} /></div>}
-          {page === "playbooks" && <PlaybooksPage userId={userId} />}
+          {page === "team" && isPageAccessible("team") && <div style={{ flex: 1, overflowY: "auto" }}><TeamPage sections={isPreviewMode && previewSections ? previewSections : sections} orgMembers={orgMembers} setOrgMembers={setOrgMembers} teamRows={teamRows} setTeamRows={setTeamRows} teamPermissions={teamPermissions} setTeamPermissions={setTeamPermissions} currentUserLevel={currentUserLevel} userEmail={userEmail} onOpenInvite={() => setShowInviteModal(true)} onPreviewMember={(member, perms) => { setPreviewMember(member); setPreviewPerms(perms); setPage("home"); }} onExitPreviewSave={() => { setPreviewFromSave(false); }} previewFromSave={previewFromSave} pendingMemberDetail={pendingMemberDetail} onClearPendingMember={() => setPendingMemberDetail(null)} tasks={tasksData} setTasks={setTasksData} /></div>}
+          {page === "settings" && isPageAccessible("settings") && <div style={{ flex: 1, overflowY: "auto" }}><SettingsPage userId={userId!} userEmail={userEmail} profile={profile} forceDisableFiveAccount={fiveAccountForceOff} onForceDisableAcknowledged={() => setFiveAccountForceOff(false)} onProfileSaved={p => setProfile(p)} onFiveAccountCreated={handleFiveAccountCreated} onFiveAccountDisabled={handleGlobalFiveAccountDisabled} fiveAccountSettings={fiveAccountSettings} onFiveAccountSettingsChange={handleUpdateSettings} currentUserLevel={currentUserLevel} /></div>}
+          {page === "playbooks" && isPageAccessible("playbooks") && <PlaybooksPage userId={userId} />}
           {page === "equation-builder" && equationBuilderTarget && (
             <EquationBuilderPage
               allMetrics={sections.flatMap(s => s.metrics)}
