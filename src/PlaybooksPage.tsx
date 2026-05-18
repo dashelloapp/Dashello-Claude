@@ -23,16 +23,12 @@ async function loadUserData(table: string, userId: string) {
   return data?.data ?? null;
 }
 async function saveUserData(table: string, userId: string, payload: any) {
-  try {
-    const { data: existing } = await supabase.from(table).select("id").eq("user_id", userId).maybeSingle();
-    if (existing) {
-      const { error } = await supabase.from(table).update({ data: payload, updated_at: new Date().toISOString() }).eq("user_id", userId);
-      if (error) console.error("playbooks save error:", error);
-    } else {
-      const { error } = await supabase.from(table).insert({ user_id: userId, data: payload });
-      if (error) console.error("playbooks insert error:", error);
-    }
-  } catch (e) { console.error("playbooks save exception:", e); }
+  const { data: existing } = await supabase.from(table).select("id").eq("user_id", userId).maybeSingle();
+  if (existing) {
+    await supabase.from(table).update({ data: payload, updated_at: new Date().toISOString() }).eq("user_id", userId);
+  } else {
+    await supabase.from(table).insert({ user_id: userId, data: payload });
+  }
 }
 
 // ── Icon helpers ──────────────────────────────────────────────────────────
