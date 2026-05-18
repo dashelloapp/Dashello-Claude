@@ -120,6 +120,7 @@ interface TemplateField {
   color: string;
   dateAutoFill?: boolean;
   dateFormat?: string;
+  column?: 1 | 2;
 }
 type RecurrenceInterval = "daily" | "weekly" | "monthly" | "quarterly" | "semi-annually" | "yearly" | "custom";
 interface RecurrenceConfig {
@@ -257,6 +258,8 @@ function MenuBar({ editor }: { editor: any }) {
 function RichEditor({ content, onChange, placeholder }: {
   content: string; onChange: (html: string) => void; placeholder?: string;
 }) {
+  const [showPasteModal, setShowPasteModal] = useState(false);
+  const [pasteResolve, setPasteResolve] = useState<((rich: boolean) => void) | null>(null);
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
@@ -272,6 +275,26 @@ function RichEditor({ content, onChange, placeholder }: {
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
     editorProps: {
       attributes: { class: "prose" as string, style: "min-height: 280px; outline: none; cursor: text;" },
+      handlePaste: (view, event) => {
+        event.preventDefault();
+        const html = event.clipboardData?.getData("text/html") || "";
+        const text = event.clipboardData?.getData("text/plain") || "";
+        if (!text && !html) return true;
+        new Promise<void>(resolve => {
+          setShowPasteModal(true);
+          setPasteResolve(() => (rich: boolean) => {
+            if (rich && html) {
+              editor?.chain().focus().insertContent(html).run();
+            } else {
+              editor?.chain().focus().insertContent(text).run();
+            }
+            setShowPasteModal(false);
+            setPasteResolve(null);
+            resolve();
+          });
+        });
+        return true;
+      },
     },
   });
 
@@ -288,11 +311,20 @@ function RichEditor({ content, onChange, placeholder }: {
         onClick={() => editor?.chain().focus().run()}>
         <EditorContent editor={editor} />
       </div>
+      {showPasteModal && (
+        <div style={{ position: "absolute", bottom: 12, left: "50%", transform: "translateX(-50%)", background: "#fff", borderRadius: 12, boxShadow: "0 8px 32px rgba(0,0,0,0.15)", border: "1px solid #e2e8f0", zIndex: 300, padding: 16, display: "flex", gap: 10, alignItems: "center" }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: "#1a2332" }}>Paste as:</span>
+          <button onClick={() => pasteResolve?.(false)} style={{ padding: "6px 14px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b" }}>Plain text</button>
+          <button onClick={() => pasteResolve?.(true)} style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: "#3B82F6", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Rich text</button>
+        </div>
+      )}
     </div>
   );
 }
 
 function RichEditorSmall({ content, onChange }: { content: string; onChange: (html: string) => void }) {
+  const [showPasteModal, setShowPasteModal] = useState(false);
+  const [pasteResolve, setPasteResolve] = useState<((rich: boolean) => void) | null>(null);
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
@@ -303,6 +335,26 @@ function RichEditorSmall({ content, onChange }: { content: string; onChange: (ht
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
     editorProps: {
       attributes: { style: "min-height: 40px; outline: none; cursor: text;" },
+      handlePaste: (view, event) => {
+        event.preventDefault();
+        const html = event.clipboardData?.getData("text/html") || "";
+        const text = event.clipboardData?.getData("text/plain") || "";
+        if (!text && !html) return true;
+        new Promise<void>(resolve => {
+          setShowPasteModal(true);
+          setPasteResolve(() => (rich: boolean) => {
+            if (rich && html) {
+              editor?.chain().focus().insertContent(html).run();
+            } else {
+              editor?.chain().focus().insertContent(text).run();
+            }
+            setShowPasteModal(false);
+            setPasteResolve(null);
+            resolve();
+          });
+        });
+        return true;
+      },
     },
   });
   useEffect(() => {
@@ -311,7 +363,7 @@ function RichEditorSmall({ content, onChange }: { content: string; onChange: (ht
     }
   }, [content]);
   return (
-    <div style={{ border: "1.5px solid #e2e8f0", borderRadius: 8, overflow: "hidden" }}
+    <div style={{ border: "1.5px solid #e2e8f0", borderRadius: 8, overflow: "hidden", position: "relative" }}
       onClick={() => editor?.chain().focus().run()}>
       <div style={{ display: "flex", gap: 2, padding: "3px 6px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc" }}>
         {[["B","bold"],["I","italic"],["U","underline"]].map(([label,action]) => (
@@ -333,6 +385,13 @@ function RichEditorSmall({ content, onChange }: { content: string; onChange: (ht
       <div style={{ padding: "6px 10px", minHeight: 60, fontSize: 13, lineHeight: 1.5, cursor: "text" }}>
         <EditorContent editor={editor} />
       </div>
+      {showPasteModal && (
+        <div style={{ position: "absolute", bottom: 12, left: "50%", transform: "translateX(-50%)", background: "#fff", borderRadius: 12, boxShadow: "0 8px 32px rgba(0,0,0,0.15)", border: "1px solid #e2e8f0", zIndex: 300, padding: 12, display: "flex", gap: 8, alignItems: "center" }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: "#1a2332" }}>Paste as:</span>
+          <button onClick={() => pasteResolve?.(false)} style={{ padding: "4px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 11, cursor: "pointer", color: "#64748b" }}>Plain text</button>
+          <button onClick={() => pasteResolve?.(true)} style={{ padding: "4px 10px", borderRadius: 6, border: "none", background: "#3B82F6", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Rich text</button>
+        </div>
+      )}
     </div>
   );
 }
@@ -575,7 +634,7 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
       files: createFiles.length > 0 ? createFiles : undefined,
       links: createLinks.length > 0 ? createLinks : undefined,
       templateFields: createType === "template" && createTemplateFields.length > 0 ? createTemplateFields : undefined,
-      columns: createType === "template" ? (createColumns || undefined) as 1 | 2 | undefined : undefined,
+      columns: createType === "template" ? (createTemplateFields.some(f => (f.column || 1) === 2) ? 2 : 1 as const) : undefined,
       recurrence: createType === "template" && createRecurrence.enabled ? createRecurrence : undefined,
     };
     newItem.icon = autoSelectIcon(newItem);
@@ -623,23 +682,63 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
     });
     setFillData(fd); setSubView("template-fill");
   };
-  const handleFillSave = () => {
+  const handleFillSave = (existingId?: string) => {
     if (!fillTemplateId || !fillTemplateRowId) return;
     const templateItem = rows.flatMap(r => r.items).find(i => i.id === fillTemplateId);
     if (!templateItem) return;
-    const newItem: PlaybookItem = {
-      id: crypto.randomUUID(), label: templateItem.label,
-      icon: "Notebook", type: "filled-template",
-      createdAt: new Date().toISOString(),
-      templateId: fillTemplateId,
-      filledData: fillData,
-    };
-    newItem.icon = autoSelectIcon(newItem);
-    const updated = rows.map(r => r.id === fillTemplateRowId ? { ...r, items: [...r.items, newItem] } : r);
-    setRows(updated);
-    if (userId) saveUserData("playbooks", userId, updated);
-    setSubView("list"); setFillTemplateId(null); setFillTemplateRowId(null); setFillData({});
+    if (existingId) {
+      const updated = rows.map(r => r.id === fillTemplateRowId ? { ...r, items: r.items.map(i => i.id === existingId ? { ...i, filledData: fillData } : i) } : r);
+      setRows(updated);
+      if (userId) saveUserData("playbooks", userId, updated);
+    } else {
+      const newItem: PlaybookItem = {
+        id: crypto.randomUUID(), label: templateItem.label,
+        icon: "Notebook", type: "filled-template",
+        createdAt: new Date().toISOString(),
+        templateId: fillTemplateId || undefined,
+        filledData: fillData,
+        recurrence: templateItem.recurrence ? { ...templateItem.recurrence } : undefined,
+      };
+      newItem.icon = autoSelectIcon(newItem);
+      const updated = rows.map(r => r.id === fillTemplateRowId ? { ...r, items: [...r.items, newItem] } : r);
+      setRows(updated);
+      if (userId) saveUserData("playbooks", userId, updated);
+      fillSavedItemRef.current = newItem.id;
+    }
   };
+  const [fillSaveStatus, setFillSaveStatus] = useState<"" | "saving" | "saved">("");
+  const fillTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const fillSavedItemRef = useRef<string | null>(null);
+  const autoSaveFill = useCallback(() => {
+    if (fillTimerRef.current) clearTimeout(fillTimerRef.current);
+    fillTimerRef.current = setTimeout(async () => {
+      setFillSaveStatus("saving");
+      const existingId = fillSavedItemRef.current;
+      const tItem = rows.flatMap(r => r.items).find(i => i.id === fillTemplateId);
+      if (!tItem || !fillTemplateRowId) { setFillSaveStatus(""); return; }
+      if (existingId) {
+      const updated = rows.map(r => r.id === fillTemplateRowId ? { ...r, items: r.items.map(i => i.id === existingId ? { ...i, filledData: fillData } : i) } : r);
+        setRows(updated);
+        if (userId) await saveUserData("playbooks", userId, updated);
+      } else {
+        const newItem: PlaybookItem = {
+          id: crypto.randomUUID(), label: tItem.label,
+          icon: "Notebook", type: "filled-template",
+          createdAt: new Date().toISOString(),
+          templateId: fillTemplateId || undefined,
+          filledData: fillData,
+          recurrence: tItem.recurrence ? { ...tItem.recurrence } : undefined,
+        };
+        newItem.icon = autoSelectIcon(newItem);
+        const updated = rows.map(r => r.id === fillTemplateRowId ? { ...r, items: [...r.items, newItem] } : r);
+        setRows(updated);
+        if (userId) await saveUserData("playbooks", userId, updated);
+        fillSavedItemRef.current = newItem.id;
+      }
+      setFillSaveStatus("saved");
+      setTimeout(() => setFillSaveStatus(""), 2000);
+    }, 600);
+  }, [fillData, fillTemplateId, fillTemplateRowId, rows, userId]);
 
   // ── Detail / Edit ─────────────────────────────────────────────────────
   const openDetail = (item: PlaybookItem) => setDetailItem(item);
@@ -676,7 +775,7 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
     setEditSettingsExpanded(false);
   };
   const deleteItem = () => {
-    if (!editSettingsItem || !deleteConfirmText) return;
+    if (!editSettingsItem) return;
     const rid = rows.find(r => r.items.some(i => i.id === editSettingsItem.id))?.id;
     if (!rid) return;
     const updated = rows.map(r => r.id === rid ? { ...r, items: r.items.filter(i => i.id !== editSettingsItem.id) } : r);
@@ -702,22 +801,29 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
       setCreateTemplateFields(p => [...p, {
         id: crypto.randomUUID(), type, header: "", description: "", placeholder: "",
         required: false, options: type === "checkbox" || type === "radio" ? ["Option 1"] : undefined,
-        color: "#1a2332",
+        color: "#1a2332", column: 1,
       }]);
     };
     const updateField = (id: string, updates: Partial<TemplateField>) => {
       setCreateTemplateFields(p => p.map(f => f.id === id ? { ...f, ...updates } : f));
     };
     const removeField = (id: string) => setCreateTemplateFields(p => p.filter(f => f.id !== id));
-    const moveField = (idx: number, dir: -1 | 1) => {
-      const nidx = idx + dir;
-      if (nidx < 0 || nidx >= createTemplateFields.length) return;
+    const moveFieldWithinColumn = (id: string, dir: -1 | 1) => {
       setCreateTemplateFields(p => {
+        const col = (p.find(f => f.id === id)?.column || 1);
+        const colIndices = p.map((f, i) => ({ f, i })).filter(x => (x.f.column || 1) === col).map(x => x.i);
+        const idx = p.findIndex(f => f.id === id);
+        const posInCol = colIndices.indexOf(idx);
+        const targetPos = posInCol + dir;
+        if (targetPos < 0 || targetPos >= colIndices.length) return p;
         const arr = [...p];
-        const [moved] = arr.splice(idx, 1);
-        arr.splice(nidx, 0, moved);
+        const targetIdx = colIndices[targetPos];
+        [arr[idx], arr[targetIdx]] = [arr[targetIdx], arr[idx]];
         return arr;
       });
+    };
+    const moveFieldToColumn = (id: string, col: 1 | 2) => {
+      setCreateTemplateFields(p => p.map(f => f.id === id ? { ...f, column: col } : f));
     };
 
     return (
@@ -736,79 +842,93 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
                 style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none", boxSizing: "border-box" }} />
             </div>
 
-            {createTemplateFields.map((f, idx) => (
-              <div key={f.id} style={{ background: "#fff", borderRadius: 10, border: "1px solid #e2e8f0", padding: 14, marginBottom: 10 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-                  <span style={{ fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", flex: 1 }}>{f.type} field</span>
-                  <button onClick={() => moveField(idx, -1)} disabled={idx === 0}
-                    style={{ width: 22, height: 22, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 10, background: "#f1f5f9", color: idx === 0 ? "#e2e8f0" : "#64748b" }}>↑</button>
-                  <button onClick={() => moveField(idx, 1)} disabled={idx === createTemplateFields.length - 1}
-                    style={{ width: 22, height: 22, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 10, background: "#f1f5f9", color: idx === createTemplateFields.length - 1 ? "#e2e8f0" : "#64748b" }}>↓</button>
-                  <button onClick={() => removeField(f.id)}
-                    style={{ width: 22, height: 22, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 12, background: "#fee2e2", color: "#E85D75" }}>✕</button>
-                </div>
-                <div style={{ marginBottom: 6 }}>
-                  <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 2 }}>Header {f.dateAutoFill && <span style={{ color: "#3B82F6", fontSize: 10 }}>(auto-fills with date)</span>}</div>
-                  <RichEditorSmall content={f.header} onChange={html => updateField(f.id, { header: html })} />
-                  <label style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4, fontSize: 11, color: "#64748b", cursor: "pointer" }}>
-                    <input type="checkbox" checked={!!f.dateAutoFill} onChange={e => updateField(f.id, { dateAutoFill: e.target.checked, dateFormat: e.target.checked ? (f.dateFormat || "MMMM Do, YYYY") : undefined })}
-                      style={{ accentColor: "#3B82F6", margin: 0 }} /> Auto-fill with current date
-                  </label>
-                  {f.dateAutoFill && (
-                    <select value={f.dateFormat || "MMMM Do, YYYY"} onChange={e => updateField(f.id, { dateFormat: e.target.value })}
-                      style={{ width: "100%", marginTop: 4, padding: "4px 8px", borderRadius: 4, border: "1px solid #e2e8f0", fontSize: 11, outline: "none" }}>
-                      <option value="MMMM Do, YYYY">March 7th, 2026</option>
-                      <option value="MM/DD/YYYY">03/07/2026</option>
-                      <option value="YYYY-MM-DD">2026-03-07</option>
-                      <option value="dddd, MMMM Do, YYYY">Tuesday, March 7th, 2026</option>
-                      <option value="MMM D, YYYY">Mar 7, 2026</option>
-                      <option value="MMMM YYYY">March 2026</option>
-                    </select>
-                  )}
-                </div>
-                <div style={{ marginBottom: 6 }}>
-                  <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 2 }}>Description</div>
-                  <RichEditorSmall content={f.description} onChange={html => updateField(f.id, { description: html })} />
-                </div>
-                {f.type !== "checkbox" && f.type !== "radio" && (
-                <div style={{ marginBottom: 6 }}>
-                  <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 2 }}>Placeholder</div>
-                  <RichEditorSmall content={f.placeholder} onChange={html => updateField(f.id, { placeholder: html })} />
-                </div>
-                )}
-                {(f.type === "checkbox" || f.type === "radio") && (
-                  <div style={{ marginBottom: 6 }}>
-                    <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 4 }}>Options</div>
-                    {(f.options || []).map((opt, oi) => (
-                      <div key={oi} style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
-                        <input value={opt} onChange={e => {
-                          const opts = [...(f.options || [])];
-                          opts[oi] = e.target.value;
-                          updateField(f.id, { options: opts });
-                        }} style={{ flex: 1, padding: "4px 8px", borderRadius: 4, border: "1px solid #e2e8f0", fontSize: 12, outline: "none" }} />
-                        <button onClick={() => {
-                          const opts = (f.options || []).filter((_, j) => j !== oi);
-                          updateField(f.id, { options: opts.length > 0 ? opts : undefined });
-                        }} style={{ width: 20, height: 20, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 10, background: "#fee2e2", color: "#E85D75" }}>✕</button>
+            {(() => {
+              const cols: Record<number, TemplateField[]> = { 1: [], 2: [] };
+              for (const f of createTemplateFields) cols[f.column || 1].push(f);
+              return ([1, 2] as const).map(col => cols[col].length === 0 && col === 2 && createTemplateFields.every(f => (f.column || 1) === 1) ? null : (
+                <div key={col}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, marginTop: col === 2 ? 20 : 0 }}>Column {col}</div>
+                  {cols[col].map(f => {
+                    const colFields = cols[col];
+                    const idxInCol = colFields.indexOf(f);
+                    return (
+                    <div key={f.id} style={{ background: "#fff", borderRadius: 10, border: "1px solid #e2e8f0", padding: 14, marginBottom: 10 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", flex: 1 }}>{f.type} field</span>
+                        <button onClick={() => moveFieldToColumn(f.id, col === 1 ? 2 : 1)} title={col === 1 ? "Move to column 2" : "Move to column 1"}
+                          style={{ width: 22, height: 22, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 10, background: "#f1f5f9", color: "#64748b" }}>{col === 1 ? "→" : "←"}</button>
+                        <button onClick={() => moveFieldWithinColumn(f.id, -1)} disabled={idxInCol === 0}
+                          style={{ width: 22, height: 22, borderRadius: 4, border: "none", cursor: idxInCol === 0 ? "default" : "pointer", fontSize: 10, background: "#f1f5f9", color: idxInCol === 0 ? "#e2e8f0" : "#64748b" }}>↑</button>
+                        <button onClick={() => moveFieldWithinColumn(f.id, 1)} disabled={idxInCol === colFields.length - 1}
+                          style={{ width: 22, height: 22, borderRadius: 4, border: "none", cursor: idxInCol === colFields.length - 1 ? "default" : "pointer", fontSize: 10, background: "#f1f5f9", color: idxInCol === colFields.length - 1 ? "#e2e8f0" : "#64748b" }}>↓</button>
+                        <button onClick={() => removeField(f.id)}
+                          style={{ width: 22, height: 22, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 12, background: "#fee2e2", color: "#E85D75" }}>✕</button>
                       </div>
-                    ))}
-                    <button onClick={() => updateField(f.id, { options: [...(f.options || []), `Option ${(f.options || []).length + 1}`] })}
-                      style={{ padding: "3px 10px", borderRadius: 4, border: "1px dashed #d1d5db", background: "transparent", fontSize: 11, cursor: "pointer", color: "#94a3b8" }}>+ Add Option</button>
-                  </div>
-                )}
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#64748b", cursor: "pointer" }}>
-                    <input type="checkbox" checked={f.required} onChange={e => updateField(f.id, { required: e.target.checked })}
-                      style={{ accentColor: "#3B82F6", margin: 0 }} /> Required
-                  </label>
-                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                    <span style={{ fontSize: 11, color: "#94a3b8" }}>Color:</span>
-                    <input type="color" value={f.color} onChange={e => updateField(f.id, { color: e.target.value })}
-                      style={{ width: 22, height: 22, padding: 0, border: "none", cursor: "pointer" }} />
-              </div>
-          </div>
-              </div>
-            ))}
+                      <div style={{ marginBottom: 6 }}>
+                        <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 2 }}>Header {f.dateAutoFill && <span style={{ color: "#3B82F6", fontSize: 10 }}>(auto-fills with date)</span>}</div>
+                        <RichEditorSmall content={f.header} onChange={html => updateField(f.id, { header: html })} />
+                        <label style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4, fontSize: 11, color: "#64748b", cursor: "pointer" }}>
+                          <input type="checkbox" checked={!!f.dateAutoFill} onChange={e => updateField(f.id, { dateAutoFill: e.target.checked, dateFormat: e.target.checked ? (f.dateFormat || "MMMM Do, YYYY") : undefined })}
+                            style={{ accentColor: "#3B82F6", margin: 0 }} /> Auto-fill with current date
+                        </label>
+                        {f.dateAutoFill && (
+                          <select value={f.dateFormat || "MMMM Do, YYYY"} onChange={e => updateField(f.id, { dateFormat: e.target.value })}
+                            style={{ width: "100%", marginTop: 4, padding: "4px 8px", borderRadius: 4, border: "1px solid #e2e8f0", fontSize: 11, outline: "none" }}>
+                            <option value="MMMM Do, YYYY">March 7th, 2026</option>
+                            <option value="MM/DD/YYYY">03/07/2026</option>
+                            <option value="YYYY-MM-DD">2026-03-07</option>
+                            <option value="dddd, MMMM Do, YYYY">Tuesday, March 7th, 2026</option>
+                            <option value="MMM D, YYYY">Mar 7, 2026</option>
+                            <option value="MMMM YYYY">March 2026</option>
+                          </select>
+                        )}
+                      </div>
+                      <div style={{ marginBottom: 6 }}>
+                        <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 2 }}>Description</div>
+                        <RichEditorSmall content={f.description} onChange={html => updateField(f.id, { description: html })} />
+                      </div>
+                      {f.type !== "checkbox" && f.type !== "radio" && (
+                      <div style={{ marginBottom: 6 }}>
+                        <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 2 }}>Placeholder</div>
+                        <RichEditorSmall content={f.placeholder} onChange={html => updateField(f.id, { placeholder: html })} />
+                      </div>
+                      )}
+                      {(f.type === "checkbox" || f.type === "radio") && (
+                        <div style={{ marginBottom: 6 }}>
+                          <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 4 }}>Options</div>
+                          {(f.options || []).map((opt, oi) => (
+                            <div key={oi} style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
+                              <input value={opt} onChange={e => {
+                                const opts = [...(f.options || [])];
+                                opts[oi] = e.target.value;
+                                updateField(f.id, { options: opts });
+                              }} style={{ flex: 1, padding: "4px 8px", borderRadius: 4, border: "1px solid #e2e8f0", fontSize: 12, outline: "none" }} />
+                              <button onClick={() => {
+                                const opts = (f.options || []).filter((_, j) => j !== oi);
+                                updateField(f.id, { options: opts.length > 0 ? opts : undefined });
+                              }} style={{ width: 20, height: 20, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 10, background: "#fee2e2", color: "#E85D75" }}>✕</button>
+                            </div>
+                          ))}
+                          <button onClick={() => updateField(f.id, { options: [...(f.options || []), `Option ${(f.options || []).length + 1}`] })}
+                            style={{ padding: "3px 10px", borderRadius: 4, border: "1px dashed #d1d5db", background: "transparent", fontSize: 11, cursor: "pointer", color: "#94a3b8" }}>+ Add Option</button>
+                        </div>
+                      )}
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#64748b", cursor: "pointer" }}>
+                          <input type="checkbox" checked={f.required} onChange={e => updateField(f.id, { required: e.target.checked })}
+                            style={{ accentColor: "#3B82F6", margin: 0 }} /> Required
+                        </label>
+                        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                          <span style={{ fontSize: 11, color: "#94a3b8" }}>Color:</span>
+                          <input type="color" value={f.color} onChange={e => updateField(f.id, { color: e.target.value })}
+                            style={{ width: 22, height: 22, padding: 0, border: "none", cursor: "pointer" }} />
+                        </div>
+                      </div>
+                    </div>
+                  );})}
+                </div>
+              ));
+            })()}
             <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
               {(["text","textarea","checkbox","radio"] as TemplateFieldType[]).map(t => (
                 <button key={t} onClick={() => addField(t)}
@@ -818,19 +938,6 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
               ))}
             </div>
             <div style={{ display: "flex", gap: 16, marginBottom: 16, alignItems: "center" }}>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>LAYOUT</div>
-                <div style={{ display: "flex", gap: 4 }}>
-                  {([1, 2] as const).map(c => (
-                    <button key={c} onClick={() => setCreateColumns(c)}
-                      style={{ padding: "4px 12px", borderRadius: 6, border: `1.5px solid ${createColumns === c ? "#3B82F6" : "#e2e8f0"}`,
-                        background: createColumns === c ? "#EFF6FF" : "#fff", fontSize: 11, cursor: "pointer",
-                        color: createColumns === c ? "#3B82F6" : "#64748b", fontWeight: createColumns === c ? 600 : 400 }}>
-                      {c} Column{c > 1 ? "s" : ""}
-                    </button>
-                  ))}
-                </div>
-              </div>
               <div>
                 <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>RECURRENCE</div>
                 <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#64748b", cursor: "pointer" }}>
@@ -871,41 +978,43 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
           <div style={{ flex: 1, overflowY: "auto", padding: "clamp(12px,2vw,20px)", background: "#F8FAFC", borderLeft: window.innerWidth >= 768 ? "1px solid #e2e8f0" : "none", borderTop: window.innerWidth < 768 ? "1px solid #e2e8f0" : "none" }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: "#64748b", marginBottom: 12 }}>PREVIEW</div>
             <div style={{ fontSize: 16, fontWeight: 700, color: "#1a2332", marginBottom: 16 }}>{createName || "Template Name"}</div>
-            {createColumns === 2 && <div style={{ fontSize: 11, color: "#3B82F6", fontWeight: 600, marginBottom: 8 }}>Two-column layout</div>}
+            {createTemplateFields.some(f => (f.column || 1) === 2) && <div style={{ fontSize: 11, color: "#3B82F6", fontWeight: 600, marginBottom: 8 }}>Two-column layout</div>}
             {createRecurrence.enabled && <div style={{ fontSize: 11, color: "#4CAF7D", fontWeight: 600, marginBottom: 8 }}>Auto-resets: {createRecurrence.interval === "custom" ? `Every ${createRecurrence.customDays || 1} days` : createRecurrence.interval}</div>}
             {createTemplateFields.length === 0 ? (
               <div style={{ fontSize: 13, color: "#cbd5e1", fontStyle: "italic" }}>Add fields to see preview</div>
             ) : (
-              <div style={{ display: "grid", gridTemplateColumns: createColumns === 2 ? "1fr 1fr" : "1fr", gap: 10 }}>
-                {createTemplateFields.map((f, idx) => (
-                  <div key={f.id} style={{
-                    background: "#f1f5f9", borderRadius: 10, padding: 14, marginBottom: 10,
-                  }}>
-                    {f.header && <div style={{ fontSize: 13, fontWeight: 600, color: f.color, marginBottom: 4 }} dangerouslySetInnerHTML={{ __html: f.dateAutoFill ? getDateString(f.dateFormat || "MMMM Do, YYYY") : f.header }} />}
-                    {f.description && <div style={{ fontSize: 12, color: "#64748b", marginBottom: 6, fontStyle: "italic" }} dangerouslySetInnerHTML={{ __html: f.description }} />}
-                    {f.type === "text" && (
-                      <div style={{ padding: "8px 12px", borderRadius: 6, background: "#fff", fontSize: 13, color: "#94a3b8" }}
-                        dangerouslySetInnerHTML={{ __html: f.placeholder || "Text input..." }} />
-                    )}
-                    {f.type === "textarea" && (
-                      <div style={{ padding: "8px 12px", borderRadius: 6, background: "#fff", fontSize: 13, color: "#94a3b8", minHeight: 60 }}
-                        dangerouslySetInnerHTML={{ __html: f.placeholder || "Long text..." }} />
-                    )}
-                    {f.type === "checkbox" && (f.options || []).map((opt, oi) => (
-                      <div key={oi} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, fontSize: 13, color: "#94a3b8" }}>
-                        <div style={{ width: 16, height: 16, borderRadius: 3, border: "1.5px solid #d1d5db", background: "#fff" }} />
-                        {opt}
-                      </div>
-                    ))}
-                    {f.type === "radio" && (f.options || []).map((opt, oi) => (
-                      <div key={oi} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, fontSize: 13, color: "#94a3b8" }}>
-                        <div style={{ width: 16, height: 16, borderRadius: "50%", border: "1.5px solid #d1d5db", background: "#fff" }} />
-                        {opt}
-                      </div>
-                    ))}
+              (() => {
+                const colFields: Record<number, TemplateField[]> = { 1: [], 2: [] };
+                for (const f of createTemplateFields) colFields[f.column || 1].push(f);
+                const hasCol2 = colFields[2].length > 0;
+                return [1, 2].map(col => colFields[col].length === 0 ? null : (
+                  <div key={col}>
+                    {hasCol2 && <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8, marginTop: col === 2 ? 16 : 0 }}>Column {col}</div>}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      {colFields[col].map(f => (
+                        <div key={f.id} style={{ background: "#f1f5f9", borderRadius: 10, padding: 14 }}>
+                          {f.header && <div style={{ fontSize: 13, fontWeight: 600, color: f.color, marginBottom: 4 }} dangerouslySetInnerHTML={{ __html: f.dateAutoFill ? getDateString(f.dateFormat || "MMMM Do, YYYY") : f.header }} />}
+                          {f.description && <div style={{ fontSize: 12, color: "#64748b", marginBottom: 6, fontStyle: "italic" }} dangerouslySetInnerHTML={{ __html: f.description }} />}
+                          {f.type === "text" && <div style={{ padding: "8px 12px", borderRadius: 6, background: "#fff", fontSize: 13, color: "#94a3b8" }} dangerouslySetInnerHTML={{ __html: f.placeholder || "Text input..." }} />}
+                          {f.type === "textarea" && <div style={{ padding: "8px 12px", borderRadius: 6, background: "#fff", fontSize: 13, color: "#94a3b8", minHeight: 60 }} dangerouslySetInnerHTML={{ __html: f.placeholder || "Long text..." }} />}
+                          {f.type === "checkbox" && (f.options || []).map((opt, oi) => (
+                            <div key={oi} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, fontSize: 13, color: "#94a3b8" }}>
+                              <div style={{ width: 16, height: 16, borderRadius: 3, border: "1.5px solid #d1d5db", background: "#fff" }} />
+                              {opt}
+                            </div>
+                          ))}
+                          {f.type === "radio" && (f.options || []).map((opt, oi) => (
+                            <div key={oi} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, fontSize: 13, color: "#94a3b8" }}>
+                              <div style={{ width: 16, height: 16, borderRadius: "50%", border: "1.5px solid #d1d5db", background: "#fff" }} />
+                              {opt}
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                ))}
-              </div>
+                ));
+              })()
             )}
           </div>
         </div>
@@ -926,65 +1035,84 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
         </div>
         <div style={{ flex: 1, display: "flex", overflow: "hidden", flexDirection: window.innerWidth < 768 ? "column" : "row" }}>
           <div style={{ flex: 1, overflowY: "auto", padding: "clamp(12px,2vw,20px)" }}>
-            <div style={{ display: "grid", gridTemplateColumns: tItem.columns === 2 && window.innerWidth >= 768 ? "1fr 1fr" : "1fr", gap: 16 }}>
-              {tItem.templateFields.map(f => {
-                const displayHeader = f.dateAutoFill ? getDateString(f.dateFormat || "MMMM Do, YYYY") : f.header;
-                return (
-                <div key={f.id} style={{ marginBottom: 16 }}>
-                  {displayHeader && <div style={{ fontSize: 13, fontWeight: 600, color: f.color, marginBottom: 4 }} dangerouslySetInnerHTML={{ __html: displayHeader }} />}
-                  {f.description && <div style={{ fontSize: 12, color: "#64748b", marginBottom: 6, fontStyle: "italic" }} dangerouslySetInnerHTML={{ __html: f.description }} />}
-                  {f.type === "text" && (
-                    <input value={fillData[f.id] || ""} onChange={e => setFillData(p => ({ ...p, [f.id]: e.target.value }))}
-                      placeholder={f.placeholder.replace(/<[^>]*>/g, "")}
-                      style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none", boxSizing: "border-box" }} />
-                  )}
-                  {f.type === "textarea" && (
-                    <textarea value={fillData[f.id] || ""} onChange={e => setFillData(p => ({ ...p, [f.id]: e.target.value }))}
-                      placeholder={f.placeholder.replace(/<[^>]*>/g, "")}
-                      style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none", boxSizing: "border-box", minHeight: 100, resize: "vertical", fontFamily: "inherit" }} />
-                  )}
-                  {(f.type === "checkbox") && (f.options || []).map((opt, oi) => (
-                    <label key={oi} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, fontSize: 13, color: "#1a2332", cursor: "pointer" }}>
-                      <input type="checkbox" checked={(fillData[f.id] || "").includes(opt)}
-                        onChange={e => {
-                          const current = new Set((fillData[f.id] || "").split(",").filter(Boolean));
-                          if (e.target.checked) current.add(opt); else current.delete(opt);
-                          setFillData(p => ({ ...p, [f.id]: Array.from(current).join(",") }));
-                        }} style={{ accentColor: "#3B82F6" }} />
-                      {opt}
-                    </label>
-                  ))}
-                  {(f.type === "radio") && (f.options || []).map((opt, oi) => (
-                    <label key={oi} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, fontSize: 13, color: "#1a2332", cursor: "pointer" }}>
-                      <input type="radio" name={`field-${f.id}`} checked={fillData[f.id] === opt}
-                        onChange={() => setFillData(p => ({ ...p, [f.id]: opt }))} style={{ accentColor: "#3B82F6" }} />
-                      {opt}
-                    </label>
-                  ))}
+            {(() => {
+              const colFields: Record<number, TemplateField[]> = { 1: [], 2: [] };
+              for (const f of tItem.templateFields) colFields[f.column || 1].push(f);
+              const hasCol2 = colFields[2].length > 0;
+              return [1, 2].map(col => colFields[col].length === 0 ? null : (
+                <div key={col}>
+                  {hasCol2 && <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>Column {col}</div>}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                    {colFields[col].map(f => {
+                      const displayHeader = f.dateAutoFill ? getDateString(f.dateFormat || "MMMM Do, YYYY") : f.header;
+                      return (
+                      <div key={f.id}>
+                        {displayHeader && <div style={{ fontSize: 13, fontWeight: 600, color: f.color, marginBottom: 4 }} dangerouslySetInnerHTML={{ __html: displayHeader }} />}
+                        {f.description && <div style={{ fontSize: 12, color: "#64748b", marginBottom: 6, fontStyle: "italic" }} dangerouslySetInnerHTML={{ __html: f.description }} />}
+                        {f.type === "text" && (
+                          <input value={fillData[f.id] || ""} onChange={e => { setFillData(p => ({ ...p, [f.id]: e.target.value })); autoSaveFill(); }}
+                            placeholder={f.placeholder?.replace(/<[^>]*>/g, "")}
+                            style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none", boxSizing: "border-box" }} />
+                        )}
+                        {f.type === "textarea" && (
+                          <textarea value={fillData[f.id] || ""} onChange={e => { setFillData(p => ({ ...p, [f.id]: e.target.value })); autoSaveFill(); }}
+                            placeholder={f.placeholder?.replace(/<[^>]*>/g, "")}
+                            style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none", boxSizing: "border-box", minHeight: 100, resize: "vertical", fontFamily: "inherit" }} />
+                        )}
+                        {(f.type === "checkbox") && (f.options || []).map((opt, oi) => (
+                          <label key={oi} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, fontSize: 13, color: "#1a2332", cursor: "pointer" }}>
+                            <input type="checkbox" checked={(fillData[f.id] || "").includes(opt)}
+                              onChange={e => {
+                                const current = new Set((fillData[f.id] || "").split(",").filter(Boolean));
+                                if (e.target.checked) current.add(opt); else current.delete(opt);
+                                setFillData(p => ({ ...p, [f.id]: Array.from(current).join(",") }));
+                                autoSaveFill();
+                              }} style={{ accentColor: "#3B82F6" }} />
+                            {opt}
+                          </label>
+                        ))}
+                        {(f.type === "radio") && (f.options || []).map((opt, oi) => (
+                          <label key={oi} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, fontSize: 13, color: "#1a2332", cursor: "pointer" }}>
+                            <input type="radio" name={`field-${f.id}`} checked={fillData[f.id] === opt}
+                              onChange={() => { setFillData(p => ({ ...p, [f.id]: opt })); autoSaveFill(); }} style={{ accentColor: "#3B82F6" }} />
+                            {opt}
+                          </label>
+                        ))}
+                      </div>
+                    );})}
+                  </div>
                 </div>
-              );})}
-            </div>
-            <button onClick={handleFillSave}
-              style={{ padding: "10px 28px", borderRadius: 8, border: "none",
-                background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-              Save Playbook
-            </button>
+              ));
+            })()}
+            {fillSaveStatus && (
+              <div style={{ marginTop: 16, textAlign: "center", fontSize: 12, color: fillSaveStatus === "saved" ? "#4CAF7D" : "#94a3b8", fontWeight: 600 }}>
+                {fillSaveStatus === "saving" ? "Saving…" : "Saved ✓"}
+              </div>
+            )}
           </div>
 
           <div style={{ flex: 1, overflowY: "auto", padding: "clamp(12px,2vw,20px)", background: "#F8FAFC", borderLeft: window.innerWidth >= 768 ? "1px solid #e2e8f0" : "none", borderTop: window.innerWidth < 768 ? "1px solid #e2e8f0" : "none" }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: "#64748b", marginBottom: 12 }}>PREVIEW</div>
             <div style={{ fontSize: 16, fontWeight: 700, color: "#1a2332", marginBottom: 16 }}>{tItem.label}</div>
-            <div style={{ display: "grid", gridTemplateColumns: tItem.columns === 2 && window.innerWidth >= 768 ? "1fr 1fr" : "1fr", gap: 10 }}>
-              {tItem.templateFields.map(f => {
-                const displayHeader = f.dateAutoFill ? getDateString(f.dateFormat || "MMMM Do, YYYY") : f.header;
-                return (
-                <div key={f.id} style={{ background: "#f1f5f9", borderRadius: 10, padding: 14, marginBottom: 10 }}>
-                  {displayHeader && <div style={{ fontSize: 13, fontWeight: 600, color: f.color, marginBottom: 4 }} dangerouslySetInnerHTML={{ __html: displayHeader }} />}
-                  {f.description && <div style={{ fontSize: 12, color: "#64748b", marginBottom: 6, fontStyle: "italic" }} dangerouslySetInnerHTML={{ __html: f.description }} />}
-                  <div style={{ fontSize: 13, color: "#1a2332" }}>{fillData[f.id] || (f.placeholder && f.type !== "checkbox" && f.type !== "radio" ? <span style={{ color: "#94a3b8" }} dangerouslySetInnerHTML={{ __html: f.placeholder }} /> : <span style={{ color: "#cbd5e1", fontStyle: "italic" }}>Empty</span>)}</div>
+            {(() => {
+              const colFields: Record<number, TemplateField[]> = { 1: [], 2: [] };
+              for (const f of tItem.templateFields) colFields[f.column || 1].push(f);
+              const hasCol2 = colFields[2].length > 0;
+              return [1, 2].map(col => colFields[col].length === 0 ? null : (
+                <div key={col}>
+                  {hasCol2 && <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8, marginTop: col === 2 ? 16 : 0 }}>Column {col}</div>}
+                  {colFields[col].map((f: any) => {
+                    const displayHeader = f.dateAutoFill ? getDateString(f.dateFormat || "MMMM Do, YYYY") : f.header;
+                    return (
+                    <div key={f.id} style={{ background: "#f1f5f9", borderRadius: 10, padding: 14, marginBottom: 10 }}>
+                      {displayHeader && <div style={{ fontSize: 13, fontWeight: 600, color: f.color, marginBottom: 4 }} dangerouslySetInnerHTML={{ __html: displayHeader }} />}
+                      {f.description && <div style={{ fontSize: 12, color: "#64748b", marginBottom: 6, fontStyle: "italic" }} dangerouslySetInnerHTML={{ __html: f.description }} />}
+                      <div style={{ fontSize: 13, color: "#1a2332" }}>{fillData[f.id] || (f.placeholder && f.type !== "checkbox" && f.type !== "radio" ? <span style={{ color: "#94a3b8" }} dangerouslySetInnerHTML={{ __html: f.placeholder }} /> : <span style={{ color: "#cbd5e1", fontStyle: "italic" }}>Empty</span>)}</div>
+                    </div>
+                  );})}
                 </div>
-              );})}
-            </div>
+              ));
+            })()}
           </div>
         </div>
       </div>
@@ -1419,13 +1547,12 @@ export function PlaybooksPage({ userId }: { userId: string | null }) {
             </div>
             <div style={{ padding: "16px 24px", borderTop: "1px solid #e2e8f0", display: "flex", alignItems: "center", gap: 10, justifyContent: "flex-end" }}>
               {deleteConfirmText ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
-                  <span style={{ fontSize: 12, color: "#E85D75" }}>Type "delete" to confirm:</span>
-                  <input value={deleteConfirmText} onChange={e => setDeleteConfirmText(e.target.value)} placeholder="delete"
-                    style={{ width: 100, padding: "6px 10px", borderRadius: 6, border: "1.5px solid #E85D75", fontSize: 12, outline: "none" }} />
-                  <button onClick={deleteItem} disabled={deleteConfirmText !== "delete"}
-                    style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: deleteConfirmText === "delete" ? "#E85D75" : "#fee2e2", color: "#fff", fontSize: 12, fontWeight: 600, cursor: deleteConfirmText === "delete" ? "pointer" : "default" }}>Delete</button>
-                  <button onClick={() => setDeleteConfirmText("")} style={{ padding: "6px 14px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 13, color: "#E85D75", fontWeight: 600 }}>Are you sure?</span>
+                  <button onClick={() => setDeleteConfirmText("")}
+                    style={{ padding: "6px 14px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+                  <button onClick={deleteItem}
+                    style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: "#E85D75", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Yes, Delete</button>
                 </div>
               ) : (
                 <>
