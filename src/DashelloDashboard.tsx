@@ -7670,7 +7670,7 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
         <span>{__('common.health', 'Health')}</span>
         <span style={{ color: "#fff", fontWeight: 700 }}>{health.score}%</span>
       </div>
-      <div style={{ width: "100%", height: 24, background: "rgba(255,255,255,0.2)", borderRadius: 99, overflow: "hidden" }}>
+      <div style={{ width: "100%", height: 24, background: "#fff", borderRadius: 99, overflow: "hidden" }}>
         <div style={{
           width: `${health.score}%`, height: "100%",
           background: barColors[health.barColor], borderRadius: 99,
