@@ -716,10 +716,26 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
         </div>
       </div>
 
+      {/* Steps 7-10 mini row */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 14, marginLeft: 34, alignItems: "center", flexWrap: "wrap" }}>
+        {[
+          { n: "7", desc: "Evaluate trade-offs" },
+          { n: "8", desc: "Observe your will" },
+          { n: "9", desc: "Feel consolation" },
+          { n: "10", desc: "Trust & decide" },
+        ].map(s => (
+          <div key={s.n} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", background: "#F8FAFC", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+            <div style={{ width: 20, height: 20, borderRadius: "50%", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{s.n}</div>
+            <span style={{ fontSize: 13, color: "#64748b" }}>{s.desc}</span>
+          </div>
+        ))}
+      </div>
+
       {/* Favorite preview section */}
       {favoriteOption && (
-        <div style={{ marginTop: 16, padding: 20, background: "#F0FDF4", borderRadius: 12, border: "2px solid #4CAF7D" }}>
+        <div style={{ marginTop: 16, padding: 20, background: "#F0FDF4", borderRadius: 12, border: "2px solid #4CAF7D", position: "relative" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+            <div style={{ width: 24, height: 24, borderRadius: "50%", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", flexShrink: 0 }}>11</div>
             <span style={{ fontSize: 20, color: "#F5A623" }}>★</span>
             <span style={{ fontSize: 16, fontWeight: 700, color: "#1a2332" }}>Your Favorite Option: {favoriteOption.label}</span>
           </div>
@@ -777,9 +793,8 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
             </div>
           </div>
 
-          {/* Convert to priority - Step 11 */}
+          {/* Convert to priority */}
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 24, height: 24, borderRadius: "50%", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", flexShrink: 0 }}>11</div>
             <button onClick={() => {
               const label = favoriteOption.label;
               const pros = favoriteOption.pros.filter(p => p.trim());
