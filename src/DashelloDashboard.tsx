@@ -3429,6 +3429,14 @@ interface DecisionOption {
   cons: string[];
   connections: { proIndex: number; conIndex: number }[];
 }
+interface CompletedDecision {
+  id: string;
+  decisionStatement: string;
+  favoriteOption: DecisionOption;
+  priorityText: string;
+  allOptions: DecisionOption[];
+  completedAt: string;
+}
 
 function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
   tasks?: Task[]; setTasks?: React.Dispatch<React.SetStateAction<Task[]>>;
@@ -3445,6 +3453,7 @@ function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
   const [convertText, setConvertText] = useState("");
   const [dragging, setDragging] = useState<{ optionId: string; proIndex: number; startX: number; startY: number; currentX: number; currentY: number } | null>(null);
   const [decisionStatement, setDecisionStatement] = useState("");
+  const [completedDecisions, setCompletedDecisions] = useState<CompletedDecision[]>([]);
   const dotRefs = useRef<Record<string, HTMLElement | null>>({});
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -3548,14 +3557,38 @@ function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
   };
 
   const handleConvertToPriority = () => {
-    if (!convertText.trim() || !setTasks || !userEmail) return;
+    if (!convertText.trim() || !setTasks || !userEmail || !favoriteOption) return;
     setTasks(prev => [...prev, {
       id: crypto.randomUUID(), text: convertText.trim(), done: false,
       assignedTo: userEmail, createdBy: userEmail, createdAt: new Date().toISOString(),
       priority: true,
     }]);
+    setCompletedDecisions(prev => [...prev, {
+      id: crypto.randomUUID(),
+      decisionStatement,
+      favoriteOption: JSON.parse(JSON.stringify(favoriteOption)),
+      priorityText: convertText.trim(),
+      allOptions: JSON.parse(JSON.stringify(options)),
+      completedAt: new Date().toISOString(),
+    }]);
+    setOptions([
+      { id: crypto.randomUUID(), label: "Option A", pros: [""], cons: [""], connections: [] },
+      { id: crypto.randomUUID(), label: "Option B", pros: [""], cons: [""], connections: [] },
+      { id: crypto.randomUUID(), label: "Option C", pros: [""], cons: [""], connections: [] },
+    ]);
+    setFavoriteOptionId(null);
+    setDecisionStatement("");
     setShowConvert(false);
     setConvertText("");
+  };
+
+  const handleRevertDecision = (completed: CompletedDecision) => {
+    setOptions(completed.allOptions);
+    setDecisionStatement(completed.decisionStatement);
+    setFavoriteOptionId(
+      completed.allOptions.find(o => o.label === completed.favoriteOption.label)?.id ?? null
+    );
+    setCompletedDecisions(prev => prev.filter(c => c.id !== completed.id));
   };
 
   const favoriteOption = options.find(o => o.id === favoriteOptionId);
@@ -3897,6 +3930,42 @@ function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
                 Cancel
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Completed Decisions */}
+      {completedDecisions.length > 0 && (
+        <div style={{ marginTop: 24 }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: "#64748b", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+            <span>📦 Completed Decisions</span>
+            <span style={{ fontSize: 13, fontWeight: 500, color: "#94a3b8", background: "#f1f5f9", padding: "1px 8px", borderRadius: 99 }}>{completedDecisions.length}</span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {completedDecisions.map(cd => (
+              <div key={cd.id} style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", padding: 16 }}>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 12, justifyContent: "space-between" }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: "#1a2332", marginBottom: 2 }}>{cd.favoriteOption.label}</div>
+                    {cd.decisionStatement && <div style={{ fontSize: 13, color: "#64748b", marginBottom: 6, fontStyle: "italic" }}>"{cd.decisionStatement}"</div>}
+                    <div style={{ fontSize: 13, color: "#475569", marginBottom: 8, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                      <span style={{ background: "#EFF6FF", padding: "1px 6px", borderRadius: 4, fontSize: 12, color: "#3B82F6", fontWeight: 600 }}>Priority: {cd.priorityText}</span>
+                      <span style={{ color: "#94a3b8" }}>•</span>
+                      <span style={{ color: "#94a3b8" }}>{new Date(cd.completedAt).toLocaleDateString()}</span>
+                    </div>
+                    <div style={{ display: "flex", gap: 16, fontSize: 13, color: "#94a3b8" }}>
+                      <span>{cd.favoriteOption.pros.filter(p => p.trim()).length} pros</span>
+                      <span>{cd.favoriteOption.cons.filter(c => c.trim()).length} cons</span>
+                      <span>{cd.favoriteOption.connections.length} connections</span>
+                    </div>
+                  </div>
+                  <button onClick={() => handleRevertDecision(cd)} style={{
+                    padding: "6px 14px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff",
+                    fontSize: 13, cursor: "pointer", color: "#3B82F6", fontWeight: 600, whiteSpace: "nowrap", flexShrink: 0,
+                  }}>Revert</button>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
