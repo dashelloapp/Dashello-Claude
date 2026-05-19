@@ -1151,6 +1151,7 @@ function getDateString(format: string, date?: Date): string {
         setCreateTemplateFields(item.templateFields ? [...item.templateFields] : []);
         setCreateRecurrence(item.recurrence || { enabled: false, interval: "monthly" });
         setEditTemplateId(item.id);
+        setCreateDeleteConfirm(false);
       }
       return;
     }
