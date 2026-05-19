@@ -3444,6 +3444,7 @@ function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
   const [showConvert, setShowConvert] = useState(false);
   const [convertText, setConvertText] = useState("");
   const [dragging, setDragging] = useState<{ optionId: string; proIndex: number; startX: number; startY: number; currentX: number; currentY: number } | null>(null);
+  const [decisionStatement, setDecisionStatement] = useState("");
   const dotRefs = useRef<Record<string, HTMLElement | null>>({});
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -3582,7 +3583,7 @@ function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
     const isFavorite = option.id === favoriteOptionId;
     return (
       <div key={option.id} style={{
-        flex: "1 1 240px", minWidth: 220,
+        flex: "1 1 320px", minWidth: 300,
         background: isFavorite ? "#EFF6FF" : "#fff",
         borderRadius: 12, border: isFavorite ? "2px solid #3B82F6" : "1px solid #e2e8f0",
         padding: 16, display: "flex", flexDirection: "column", gap: 8, position: "relative",
@@ -3602,57 +3603,68 @@ function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
           <div onClick={() => removeOption(option.id)} style={{ cursor: "pointer", fontSize: 15, color: "#cbd5e1" }} title="Delete option">×</div>
         </div>
 
-        {/* Pros */}
-        <div>
-          <div style={{ fontSize: 15, fontWeight: 600, color: "#4CAF7D", marginBottom: 4 }}>Pros</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 3 }} data-pros-list>
-            {option.pros.map((pro, pi) => (
-              <div key={pi} style={{ display: "flex", alignItems: "center", gap: 4, position: "relative" }}>
-                <span style={{ fontSize: 15, color: "#4CAF7D" }}>+</span>
-                <input value={pro} onChange={e => updatePro(option.id, pi, e.target.value)}
-                  placeholder="Add a pro..."
-                  style={{ flex: 1, fontSize: 14, color: "#1a2332", border: "none", background: "transparent", outline: "none", fontFamily: "inherit", padding: "2px 0", minWidth: 0 }} />
-                {pro.trim() && (
-                  <div ref={el => { dotRefs.current[`pro-${option.id}-${pi}`] = el; }}
-                    data-pro-dot={`${option.id}-${pi}`}
-                    onMouseDown={e => handleProDotMouseDown(e, option.id, pi)}
-                    style={{ width: 10, height: 10, borderRadius: "50%", background: "#4CAF7D", cursor: "crosshair", flexShrink: 0 }} title="Drag to connect to a con" />
-                )}
-                {option.pros.length > 1 && (
-                  <div onClick={() => removePro(option.id, pi)} style={{ cursor: "pointer", fontSize: 15, color: "#cbd5e1", flexShrink: 0 }}>×</div>
-                )}
+        {/* Pros (left) / Cons (right) side by side */}
+        <div style={{ display: "flex", gap: 8, flex: 1 }}>
+          {/* Pros column */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "#4CAF7D", marginBottom: 4 }}>Pros</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              {option.pros.map((pro, pi) => (
+                <div key={pi} style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                  <span style={{ fontSize: 13, color: "#4CAF7D", flexShrink: 0 }}>+</span>
+                  <input value={pro} onChange={e => updatePro(option.id, pi, e.target.value)}
+                    placeholder="Add a pro..."
+                    style={{ flex: 1, fontSize: 13, color: "#1a2332", border: "none", background: "transparent", outline: "none", fontFamily: "inherit", padding: "1px 0", minWidth: 0 }} />
+                  {option.pros.length > 1 && (
+                    <div onClick={() => removePro(option.id, pi)} style={{ cursor: "pointer", fontSize: 13, color: "#cbd5e1", flexShrink: 0 }}>×</div>
+                  )}
+                </div>
+              ))}
+              <div onClick={() => addPro(option.id)} style={{ fontSize: 12, color: "#4CAF7D", cursor: "pointer", display: "flex", alignItems: "center", gap: 2 }}>
+                <span style={{ fontSize: 12 }}>+</span> Add pro
               </div>
-            ))}
+            </div>
           </div>
-          <div onClick={() => addPro(option.id)} style={{ fontSize: 13, color: "#4CAF7D", cursor: "pointer", marginTop: 2, display: "flex", alignItems: "center", gap: 2 }}>
-            <span style={{ fontSize: 13 }}>+</span> Add pro
+
+          {/* Dot gutter */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, justifyContent: "flex-start", paddingTop: 22, flexShrink: 0 }}>
+            {option.pros.map((pro, pi) => pro.trim() ? (
+              <div key={pi} ref={el => { dotRefs.current[`pro-${option.id}-${pi}`] = el; }}
+                data-pro-dot={`${option.id}-${pi}`}
+                onMouseDown={e => handleProDotMouseDown(e, option.id, pi)}
+                style={{ width: 10, height: 10, borderRadius: "50%", background: "#4CAF7D", cursor: "crosshair", flexShrink: 0 }} title="Drag to connect to a con" />
+            ) : <div key={pi} style={{ width: 10, height: 10 }} />)}
+          </div>
+
+          {/* Cons column */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "#E85D75", marginBottom: 4 }}>Cons</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              {option.cons.map((con, ci) => (
+                <div key={ci} style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                  {option.cons.length > 1 && (
+                    <div onClick={() => removeCon(option.id, ci)} style={{ cursor: "pointer", fontSize: 13, color: "#cbd5e1", flexShrink: 0 }}>×</div>
+                  )}
+                  <input value={con} onChange={e => updateCon(option.id, ci, e.target.value)}
+                    placeholder="Add a con..."
+                    style={{ flex: 1, fontSize: 13, color: "#1a2332", border: "none", background: "transparent", outline: "none", fontFamily: "inherit", padding: "1px 0", minWidth: 0 }} />
+                  <span style={{ fontSize: 13, color: "#E85D75", flexShrink: 0 }}>−</span>
+                </div>
+              ))}
+              <div onClick={() => addCon(option.id)} style={{ fontSize: 12, color: "#E85D75", cursor: "pointer", display: "flex", alignItems: "center", gap: 2, justifyContent: "flex-end" }}>
+                <span style={{ fontSize: 12 }}>+</span> Add con
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Cons */}
-        <div>
-          <div style={{ fontSize: 15, fontWeight: 600, color: "#E85D75", marginBottom: 4 }}>Cons</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 3 }} data-cons-list>
-            {option.cons.map((con, ci) => (
-              <div key={ci} style={{ display: "flex", alignItems: "center", gap: 4, position: "relative" }}>
-                <span style={{ fontSize: 15, color: "#E85D75" }}>−</span>
-                <input value={con} onChange={e => updateCon(option.id, ci, e.target.value)}
-                  placeholder="Add a con..."
-                  style={{ flex: 1, fontSize: 14, color: "#1a2332", border: "none", background: "transparent", outline: "none", fontFamily: "inherit", padding: "2px 0", minWidth: 0 }} />
-                {con.trim() && (
-                  <div ref={el => { dotRefs.current[`con-${option.id}-${ci}`] = el; }}
-                    data-con-dot="true" data-option-id={option.id} data-con-index={ci}
-                    style={{ width: 10, height: 10, borderRadius: "50%", background: "#E85D75", cursor: "crosshair", flexShrink: 0 }} title="Drop here to connect from a pro" />
-                )}
-                {option.cons.length > 1 && (
-                  <div onClick={() => removeCon(option.id, ci)} style={{ cursor: "pointer", fontSize: 15, color: "#cbd5e1", flexShrink: 0 }}>×</div>
-                )}
-              </div>
-            ))}
-          </div>
-          <div onClick={() => addCon(option.id)} style={{ fontSize: 13, color: "#E85D75", cursor: "pointer", marginTop: 2, display: "flex", alignItems: "center", gap: 2 }}>
-            <span style={{ fontSize: 13 }}>+</span> Add con
-          </div>
+        {/* Con dots (on the right edge) */}
+        <div style={{ position: "absolute", right: 16, display: "flex", flexDirection: "column", gap: 6, top: 80 }}>
+          {option.cons.map((con, ci) => con.trim() ? (
+            <div key={ci} ref={el => { dotRefs.current[`con-${option.id}-${ci}`] = el; }}
+              data-con-dot="true" data-option-id={option.id} data-con-index={ci}
+              style={{ width: 10, height: 10, borderRadius: "50%", background: "#E85D75", cursor: "crosshair", flexShrink: 0 }} title="Drop here to connect from a pro" />
+          ) : null)}
         </div>
 
         {/* Connection lines for this option */}
@@ -3683,22 +3695,33 @@ function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
         <div style={{ fontSize: 18, fontWeight: 700, color: "#1a2332", marginBottom: 16 }}>Decision Making Filter — Quick Start Guide</div>
 
         <div style={{ fontSize: 15, color: "#64748b", marginBottom: 16 }}>
-          The Decision Making Filter is a structured method for making thoughtful, grounded decisions. It helps you move from confusion to clarity by naming your options, weighing pros and cons, connecting opposing factors, and checking in with yourself before committing to an action. Below is a concise walkthrough of the method.
+          The Decision Making Filter is based on the Ignatian method of discernment — a time-tested framework for making decisions with clarity, freedom, and peace. Below are the 11 steps of the process, adapted and explained alongside the tools available in this filter.
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {[
-            { n: "1", title: "Name the decision", body: "Identify the practical choice you need to make. Be specific: What are you deciding? Is it real — meaning you actually can choose? Make sure you have the authority and the information you need." },
-            { n: "2", title: "Set up your options", body: "Create one column per option using the + button. Give each a clear, concrete label (e.g., 'Stay at current job' vs. 'Accept new offer'). Start with 2-3, add more if needed." },
-            { n: "3", title: "List pros for each option", body: "Under each column, add every benefit or advantage you can think of. Use the + Add pro button. Don't filter or judge yet — just get everything down." },
-            { n: "4", title: "List cons for each option", body: "Similarly, add every drawback or risk under each column using + Add con. Be honest about downsides, even uncomfortable ones." },
-            { n: "5", title: "Connect pros to cons", body: "Drag the small green dot next to a pro and drop it onto a red dot next to a con to draw a connection line. This pairs opposing factors so you can see trade-offs clearly. Click a connection dot to remove it." },
-            { n: "6", title: "Step back and reflect", body: "Review everything. Which option serves your deepest values? Which one feels most true to who you are? Imagine describing each choice to someone you trust — what does that reveal?" },
-            { n: "7", title: "Check your inner freedom", body: "Ask yourself: Am I attached to one option out of fear, pride, or pressure? Am I avoiding a hard truth? Take a moment to breathe, and ask to be guided toward what is best — not just easiest." },
-            { n: "8", title: "Pick a favorite", body: "Click the star icon on the column that feels right — not perfect, just most aligned. The starred option will appear highlighted in the preview section below." },
-            { n: "9", title: "Review your preview", body: "The favorite option appears below in full color. Read through it. Does it still feel right? Does the wording need adjusting?" },
-            { n: "10", title: "Sleep on it (if you can)", body: "If time allows, step away. Come back later and see if the same option still resonates. Notice whether you feel peace, enthusiasm, or hesitation." },
-            { n: "11", title: "Convert to a priority", body: "Once you're at peace with your decision, click 'Convert to Priority'. This creates a new priority task on your Tasks page. You can edit the text before converting to make sure it is an actionable, present-tense statement (e.g., 'Draft the proposal' or 'Schedule the family meeting')." },
+            { n: "1", title: "Identify the decision to be made",
+              body: "State the issue as a practical choice — something you will do or not do. It must be real (a decision actually facing you), yours to make (you have the authority), and informed (you can get the necessary information). Use the \"Decision to be made\" field above to write it out as a positive, concrete statement." },
+            { n: "2", title: "Formulate the issue in a proposal",
+              body: "Frame your decision as either X vs. non-X (e.g., \"I will accept the job offer\" vs. \"I will not accept it\") or X vs. Y (e.g., \"I will stay at my current job\" vs. \"I will accept the new offer\"). Multiple options like A vs. B vs. C work well for complex decisions. Each option label in the filter columns should be a concrete choice — not vague, but specific about what you will do, where, and when." },
+            { n: "3", title: "Pray for openness and inner freedom",
+              body: "Before weighing evidence, pause. Ask to be free from prejudgment, fear, pride, or any attachment that might steer you unconsciously. The goal is to want only what is truly best — not easiest or most comfortable. Read Scripture slowly (e.g., Luke 12:22-32, Matthew 13:44-46) and notice what stirs in you. Bring any obstacles — perfectionism, people-pleasing, impatience — to God in prayer." },
+            { n: "4", title: "Gather all necessary information",
+              body: "Find out the relevant specifics: Who? What? Where? When? How much? Consult everyone who will be affected by the decision — spouse, family, colleagues, friends. Discuss the matter with a spiritually mature person who can be honest and objective with you." },
+            { n: "5", title: "Repeat the prayer for freedom",
+              body: "After gathering input, new feelings and desires will have surfaced. Return to prayer. Ask to be purified of any new attachments or biases. This is a \"freedom check\" — are you free enough to be influenced only by which option best serves God, others, and your authentic self?" },
+            { n: "6", title: "List pros and cons for each alternative",
+              body: "For each option column, add every advantage (pro) and disadvantage (con) you can think of. Do not prejudge their merit yet. Begin with a short prayer asking for light to see clearly. List every reason you can — you will evaluate them in the next step." },
+            { n: "7", title: "Evaluate the advantages and disadvantages",
+              body: "Review your lists and ask: Which reasons are the most important? What values are preserved or realized by each option? Which option more evidently leads to serving God, others, and your true self? Which option feels more consistent with your own faith journey? Use the colored patches (pros are green, cons are red) and drag a green dot to a red dot to draw a connection line — this pairs opposing factors so you can weigh trade-offs at a glance. Click a connection dot to remove it." },
+            { n: "8", title: "Observe the direction of your will",
+              body: "As you evaluate, notice which option your desires are leaning toward. Pay attention to these inner movements. If your will fluctuates between options, a disordered attachment may be at play. Return to prayer (Step 3) and ask to be freed from selfish inclinations. Ask the Holy Spirit to draw your will toward what is true and good." },
+            { n: "9", title: "Ask for feelings of consolation",
+              body: "Once your thoughts (pros/cons) and desires are clear, ask for feelings of peace, joy, confidence, deeper faith, and trust about the option you are leaning toward. These feelings of consolation are signs of the Holy Spirit guiding you. If you feel only desolation (anxiety, confusion, restlessness), mixed motives may still be present. Return to Step 3 and pray for freedom." },
+            { n: "10", title: "Trust and make your decision",
+              body: "Even if you are not entirely certain, make your choice in trust. Click the star icon on the column that feels right — not perfect, but most aligned. The starred option will appear highlighted in the preview section below with a reflection guide to help you confirm. Live with the decision for a while to see whether your thoughts, desires, and feelings continue to support it." },
+            { n: "11", title: "Confirm and convert to action",
+              body: "If the decision holds — you are at peace, your feelings of consolation remain, and you have truly discerned — click \"Convert to Priority.\" This creates a new priority task on your Tasks page. Edit the text to be an actionable, present-tense statement (e.g., \"Draft the proposal\" or \"Schedule the family meeting\"). The decision is now a commitment." },
           ].map(s => (
             <div key={s.n} style={{ display: "flex", gap: 10 }}>
               <div style={{ width: 24, height: 24, borderRadius: "50%", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", flexShrink: 0, marginTop: 1 }}>{s.n}</div>
@@ -3711,7 +3734,7 @@ function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
         </div>
 
         <div style={{ marginTop: 16, padding: 12, background: "#F0FDF4", borderRadius: 10, fontSize: 14, color: "#0F6E56", lineHeight: 1.5 }}>
-          <strong>Pro tip:</strong> The goal of this process is not a perfect decision — it's a <em>peaceful</em> one. When you can look at your choice with clarity and calm, you're ready to move forward.
+          <strong>Remember:</strong> The goal of discernment is not a perfect decision — it is a <em>peaceful</em> one. When you can look at your choice with clarity and calm, you are ready to move forward in trust. As St. Ignatius taught, we seek to find God in all things — including the choices we make.
         </div>
       </div>
     </div>
@@ -3722,6 +3745,14 @@ function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
         <div style={{ fontSize: 16, fontWeight: 700, color: "#1a2332" }}>Decision Making Filter</div>
         <div onClick={() => setShowQuickStart(true)} style={{ fontSize: 13, color: "#3B82F6", cursor: "pointer", fontWeight: 500, textDecoration: "underline", textUnderlineOffset: 2 }}>View Quick Start Guide</div>
+      </div>
+
+      {/* Decision statement */}
+      <div style={{ marginBottom: 12, padding: "10px 14px", background: "#F8FAFC", borderRadius: 10, border: "1.5px solid #e2e8f0" }}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: "#1a2332", marginBottom: 4 }}>Decision to be made</div>
+        <input value={decisionStatement} onChange={e => setDecisionStatement(e.target.value)}
+          placeholder='Write your decision as a concrete statement — e.g., "Whether to accept the job offer from Company B" or "I will either stay at my current role or take the new position"'
+          style={{ width: "100%", fontSize: 14, color: "#475569", border: "none", background: "transparent", outline: "none", fontFamily: "inherit", padding: "2px 0" }} />
       </div>
 
       <div style={{ position: "relative" }}>
@@ -3793,19 +3824,22 @@ function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
 
           {/* Reflection guide */}
           <div style={{ marginBottom: 12, padding: 12, background: "#fff", borderRadius: 8, border: "1px solid #e2e8f0" }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: "#1a2332", marginBottom: 8 }}>Reflection Guide</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "#1a2332", marginBottom: 8 }}>Final Discernment Check — Ask Yourself</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 14, color: "#475569" }}>
               <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
-                <input type="checkbox" style={{ accentColor: "#3B82F6" }} /> Have you slept on it?
+                <input type="checkbox" style={{ accentColor: "#3B82F6" }} /> Have I prayed for openness to God's will and freedom from disordered attachments?
               </label>
               <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
-                <input type="checkbox" style={{ accentColor: "#3B82F6" }} /> Are you at peace with this choice?
+                <input type="checkbox" style={{ accentColor: "#3B82F6" }} /> Do I feel consolation — peace, joy, deeper faith, confidence — about this option?
               </label>
               <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
-                <input type="checkbox" style={{ accentColor: "#3B82F6" }} /> Does this align with your deepest values?
+                <input type="checkbox" style={{ accentColor: "#3B82F6" }} /> Does this choice serve God, my neighbors, and my true, authentic self?
               </label>
               <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
-                <input type="checkbox" style={{ accentColor: "#3B82F6" }} /> Have you truly discerned it well?
+                <input type="checkbox" style={{ accentColor: "#3B82F6" }} /> Have I slept on it and returned with the same peace?
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                <input type="checkbox" style={{ accentColor: "#3B82F6" }} /> Am I ready to trust God and make this decision, even without total certainty?
               </label>
             </div>
           </div>
@@ -3851,7 +3885,7 @@ function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
               autoFocus
               style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #3B82F6", fontSize: 15, outline: "none", boxSizing: "border-box", marginBottom: 12 }} />
             <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 12 }}>
-              Tip: Use present tense action verbs — e.g., "Draft the proposal", "Schedule the team meeting", "Change the diaper"
+              Tip: Use present tense action verbs — e.g., "Draft the proposal", "Schedule the family meeting"
             </div>
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={handleConvertToPriority} disabled={!convertText.trim()}
