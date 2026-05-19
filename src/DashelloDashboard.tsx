@@ -2517,7 +2517,7 @@ const sidebarEl = (
 
   if (!dbReady) return (
     <div style={{ display: "flex", height: "100vh", alignItems: "center", justifyContent: "center", background: "linear-gradient(160deg,#2196F3 0%,#00BCD4 100%)" }}>
-      <DashelloLoader size={240} />
+      <DashelloLoader size={360} />
     </div>
   );
 
@@ -2643,7 +2643,7 @@ const sidebarEl = (
           {page === "app-detail" && selectedApp && <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}><AppDetailPage app={selectedApp} onBack={() => setPage("integrations")} /></div>}
           {page === "team" && isPageAccessible("team") && <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}><TeamPage sections={isPreviewMode && previewSections ? previewSections : sections} orgMembers={orgMembers} setOrgMembers={setOrgMembers} teamRows={teamRows} setTeamRows={setTeamRows} teamPermissions={teamPermissions} setTeamPermissions={setTeamPermissions} currentUserLevel={currentUserLevel} userEmail={userEmail} onOpenInvite={() => setShowInviteModal(true)} onPreviewMember={(member, perms) => { setPreviewMember(member); setPreviewPerms(perms); setPage("home"); }} onExitPreviewSave={() => { setPreviewFromSave(false); }} previewFromSave={previewFromSave} pendingMemberDetail={pendingMemberDetail} onClearPendingMember={() => setPendingMemberDetail(null)} tasks={tasksData} setTasks={setTasksData} teamViewMode={teamViewMode} menuPermissions={profile.menu_permissions ?? {}} /></div>}
           {page === "settings" && isPageAccessible("settings") && <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}><SettingsPage userId={userId!} userEmail={userEmail} profile={profile} forceDisableFiveAccount={fiveAccountForceOff} onForceDisableAcknowledged={() => setFiveAccountForceOff(false)} onProfileSaved={p => setProfile(p)} onFiveAccountCreated={handleFiveAccountCreated} onFiveAccountDisabled={handleGlobalFiveAccountDisabled} fiveAccountSettings={fiveAccountSettings} onFiveAccountSettingsChange={handleUpdateSettings} currentUserLevel={currentUserLevel} /></div>}
-          {page === "playbooks" && isPageAccessible("playbooks") && <Suspense fallback={<div style={{ display: "flex", height: "100%", alignItems: "center", justifyContent: "center" }}><DashelloLoader size={80} /></div>}><PlaybooksPage userId={userId} tasks={tasksData} setTasks={setTasksData} userEmail={userEmail} /></Suspense>}
+          {page === "playbooks" && isPageAccessible("playbooks") && <Suspense fallback={<div style={{ display: "flex", height: "100%", alignItems: "center", justifyContent: "center" }}><DashelloLoader size={120} /></div>}><PlaybooksPage userId={userId} tasks={tasksData} setTasks={setTasksData} userEmail={userEmail} /></Suspense>}
           {page === "equation-builder" && equationBuilderTarget && (
             <EquationBuilderPage
               allMetrics={sections.flatMap(s => s.metrics)}

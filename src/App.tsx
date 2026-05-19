@@ -47,7 +47,7 @@ export default function App() {
       display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center',
       background: 'linear-gradient(160deg,#2196F3 0%,#00BCD4 100%)'
     }}>
-      <DashelloLoader size={480} />
+      <DashelloLoader size={360} />
     </div>
   )
 
