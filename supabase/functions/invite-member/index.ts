@@ -19,6 +19,7 @@ serve(async (req) => {
 
   try {
     const { email, orgId, level, orgName, invitedByName } = await req.json();
+    console.log("invite-member called:", { email, orgId, level, orgName, invitedByName });
 
     if (!email) {
       return new Response(JSON.stringify({ error: "Missing required field: email" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -57,7 +58,11 @@ serve(async (req) => {
     });
 
     if (inviteError) {
-      throw inviteError;
+      console.error("inviteUserByEmail error:", inviteError);
+      if (inviteError.message?.includes("SMTP") || inviteError.message?.includes("smtp")) {
+        throw new Error("Email sending is not configured. Please enable SMTP in your Supabase project's Auth settings.");
+      }
+      throw new Error(inviteError.message || "Failed to send invite email");
     }
 
     // If orgId is provided, store the team member record so we can track the invitation

@@ -87,17 +87,17 @@ function IconPicker({ selected, onSelect }: { selected: string; onSelect: (icon:
         borderRadius: 6, cursor: "pointer", marginBottom: 8,
         background: selected === ICON_NONE ? "#EFF6FF" : "#F8FAFC",
         border: selected === ICON_NONE ? "1.5px solid #3B82F6" : "1.5px solid #e2e8f0",
-        fontSize: 12, color: "#64748b"
+        fontSize: 15, color: "#64748b"
       }}>No icon</div>
       <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search icons..."
-        style={{ width: "100%", padding: "6px 10px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", marginBottom: 8, boxSizing: "border-box" }} />
+        style={{ width: "100%", padding: "6px 10px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", marginBottom: 8, boxSizing: "border-box" }} />
       {!search && (
         <div style={{ display: "flex", gap: 4, overflowX: "auto", marginBottom: 8, paddingBottom: 2 }}>
           {DISPLAY_CATEGORIES.map((cat, i) => (
             <button key={i} onClick={() => setActiveCategory(i)} style={{
               padding: "3px 8px", borderRadius: 20, border: "none", cursor: "pointer", flexShrink: 0,
               background: activeCategory === i ? "#3B82F6" : "#f1f5f9",
-              color: activeCategory === i ? "#fff" : "#64748b", fontSize: 10, fontWeight: 500
+              color: activeCategory === i ? "#fff" : "#64748b", fontSize: 15, fontWeight: 500
             }}>{cat.label}</button>
           ))}
         </div>
@@ -115,7 +115,7 @@ function IconPicker({ selected, onSelect }: { selected: string; onSelect: (icon:
         </div>
       </div>
       {selected && selected !== ICON_NONE && (
-        <div style={{ marginTop: 6, fontSize: 12, color: "#64748b", display: "flex", alignItems: "center", gap: 6 }}>
+        <div style={{ marginTop: 6, fontSize: 15, color: "#64748b", display: "flex", alignItems: "center", gap: 6 }}>
           Selected: <IconGlyph name={selected} size={14} color="#3B82F6" />
           <span style={{ color: "#94a3b8" }}>{selected}</span>
         </div>
@@ -318,21 +318,21 @@ function MenuBar({ editor, showSource, onToggleSource }: { editor: any; showSour
           const rect = tablePickerRef.current?.getBoundingClientRect();
           return (
           <div style={{ position: "fixed", top: rect ? rect.bottom + 4 : 0, left: rect ? rect.left : 0, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 9999, padding: 12, minWidth: 180 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>Insert Table</div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>Insert Table</div>
             <div style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "center" }}>
-              <label style={{ fontSize: 11, color: "#1a2332" }}>Rows:
-                <select id="table-rows" defaultValue={3} style={{ marginLeft: 4, padding: "2px 4px", borderRadius: 4, border: "1px solid #e2e8f0", fontSize: 11 }}>
+              <label style={{ fontSize: 15, color: "#1a2332" }}>Rows:
+                <select id="table-rows" defaultValue={3} style={{ marginLeft: 4, padding: "2px 4px", borderRadius: 4, border: "1px solid #e2e8f0", fontSize: 15 }}>
                   {[1,2,3,4,5,6,7,8,9,10].map(n => <option key={n} value={n}>{n}</option>)}
                 </select>
               </label>
-              <label style={{ fontSize: 11, color: "#1a2332" }}>Cols:
-                <select id="table-cols" defaultValue={3} style={{ marginLeft: 4, padding: "2px 4px", borderRadius: 4, border: "1px solid #e2e8f0", fontSize: 11 }}>
+              <label style={{ fontSize: 15, color: "#1a2332" }}>Cols:
+                <select id="table-cols" defaultValue={3} style={{ marginLeft: 4, padding: "2px 4px", borderRadius: 4, border: "1px solid #e2e8f0", fontSize: 15 }}>
                   {[1,2,3,4,5,6,7,8,9,10].map(n => <option key={n} value={n}>{n}</option>)}
                 </select>
               </label>
             </div>
             <button onClick={() => { const r = (document.getElementById("table-rows") as HTMLSelectElement)?.value; const c = (document.getElementById("table-cols") as HTMLSelectElement)?.value; if (r && c) insertTable(parseInt(r), parseInt(c)); }}
-              style={{ width: "100%", padding: "6px 0", borderRadius: 6, border: "none", background: "#3B82F6", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Create</button>
+              style={{ width: "100%", padding: "6px 0", borderRadius: 6, border: "none", background: "#3B82F6", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Create</button>
           </div>
         );})()}
         <button onClick={() => { if (editor.isActive("table")) { editor.chain().focus().deleteTable().run(); } else { setShowTablePicker(!showTablePicker); } }} title="Table"
@@ -427,18 +427,18 @@ function RichEditor({ content, onChange, placeholder }: {
       }} />
       {showSource ? (
         <textarea value={sourceHtml} onChange={e => { setSourceHtml(e.target.value); onChange(e.target.value); }}
-          style={{ width: "100%", minHeight: 300, maxHeight: 500, padding: "12px 16px", border: "none", fontSize: 12, fontFamily: "'SF Mono','Fira Code',monospace", outline: "none", resize: "vertical", boxSizing: "border-box" }} />
+          style={{ width: "100%", minHeight: 300, maxHeight: 500, padding: "12px 16px", border: "none", fontSize: 15, fontFamily: "'SF Mono','Fira Code',monospace", outline: "none", resize: "vertical", boxSizing: "border-box" }} />
       ) : (
-      <div style={{ padding: "12px 16px", minHeight: 300, maxHeight: 500, overflowY: "auto", fontSize: 14, lineHeight: 1.6, color: "#1a2332", cursor: "text" }}
+      <div style={{ padding: "12px 16px", minHeight: 300, maxHeight: 500, overflowY: "auto", fontSize: 15, lineHeight: 1.6, color: "#1a2332", cursor: "text" }}
         onClick={() => editor?.chain().focus().run()}>
         <EditorContent editor={editor} />
       </div>
       )}
       {showPasteModal && (
         <div style={{ position: "absolute", bottom: 12, left: "50%", transform: "translateX(-50%)", background: "#fff", borderRadius: 12, boxShadow: "0 8px 32px rgba(0,0,0,0.15)", border: "1px solid #e2e8f0", zIndex: 300, padding: 16, display: "flex", gap: 10, alignItems: "center" }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: "#1a2332" }}>Paste as:</span>
-          <button onClick={() => pasteResolve?.(false)} style={{ padding: "6px 14px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b" }}>Plain text</button>
-          <button onClick={() => pasteResolve?.(true)} style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: "#3B82F6", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Rich text</button>
+          <span style={{ fontSize: 15, fontWeight: 600, color: "#1a2332" }}>Paste as:</span>
+          <button onClick={() => pasteResolve?.(false)} style={{ padding: "6px 14px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>Plain text</button>
+          <button onClick={() => pasteResolve?.(true)} style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: "#3B82F6", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Rich text</button>
         </div>
       )}
     </div>
@@ -574,14 +574,14 @@ function RichEditorSmall({ content, onChange }: { content: string; onChange: (ht
           onChange={e => editor?.chain().focus().setColor(e.target.value).run()}
           style={{ width: 18, height: 18, padding: 0, border: "none", cursor: "pointer", marginLeft: "auto" }} />
       </div>
-      <div style={{ padding: "6px 10px", minHeight: 60, fontSize: 13, lineHeight: 1.5, cursor: "text" }}>
+      <div style={{ padding: "6px 10px", minHeight: 60, fontSize: 15, lineHeight: 1.5, cursor: "text" }}>
         <EditorContent editor={editor} />
       </div>
       {showPasteModal && (
         <div style={{ position: "absolute", bottom: 12, left: "50%", transform: "translateX(-50%)", background: "#fff", borderRadius: 12, boxShadow: "0 8px 32px rgba(0,0,0,0.15)", border: "1px solid #e2e8f0", zIndex: 300, padding: 12, display: "flex", gap: 8, alignItems: "center" }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: "#1a2332" }}>Paste as:</span>
-          <button onClick={() => pasteResolve?.(false)} style={{ padding: "4px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 11, cursor: "pointer", color: "#64748b" }}>Plain text</button>
-          <button onClick={() => pasteResolve?.(true)} style={{ padding: "4px 10px", borderRadius: 6, border: "none", background: "#3B82F6", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Rich text</button>
+          <span style={{ fontSize: 15, fontWeight: 600, color: "#1a2332" }}>Paste as:</span>
+          <button onClick={() => pasteResolve?.(false)} style={{ padding: "4px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>Plain text</button>
+          <button onClick={() => pasteResolve?.(true)} style={{ padding: "4px 10px", borderRadius: 6, border: "none", background: "#3B82F6", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Rich text</button>
         </div>
       )}
     </div>
@@ -681,7 +681,7 @@ function getDateString(format: string, date?: Date): string {
       const hasAny = options.some((_, oi) => selected.has(`opt-${oi}`));
       if (!hasAny) return <span style={{ color: "#cbd5e1", fontStyle: "italic" }}>No items</span>;
       return options.map((opt, oi) => selected.has(`opt-${oi}`) ? (
-        <div key={oi} style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2, fontSize: 13, textDecoration: "line-through", color: "#94a3b8" }}>
+        <div key={oi} style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2, fontSize: 15, textDecoration: "line-through", color: "#94a3b8" }}>
           <span>☑</span> {opt}
         </div>
       ) : null);
@@ -690,7 +690,7 @@ function getDateString(format: string, date?: Date): string {
       const arr = JSON.parse(data);
       if (!Array.isArray(arr) || arr.length === 0) return <span style={{ color: "#cbd5e1", fontStyle: "italic" }}>No items</span>;
       return arr.filter((x: any) => x.text).map((x: any, xi: number) => (
-        <div key={xi} style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2, fontSize: 13, textDecoration: x.checked ? "line-through" : "none", color: x.checked ? "#94a3b8" : "#1a2332" }}>
+        <div key={xi} style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2, fontSize: 15, textDecoration: x.checked ? "line-through" : "none", color: x.checked ? "#94a3b8" : "#1a2332" }}>
           <span>{x.checked ? "☑" : "☐"}</span> {x.text}
         </div>
       ));
@@ -716,22 +716,22 @@ function getDateString(format: string, date?: Date): string {
     return (
       <div style={{ position: "relative" }}>
         <div ref={triggerRef} onClick={() => setShowMenu(v => !v)}
-          style={{ width: 26, height: 26, borderRadius: "50%", background: "#F1F5F9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 13, color: "#94a3b8" }}>···</div>
+          style={{ width: 26, height: 26, borderRadius: "50%", background: "#F1F5F9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 15, color: "#94a3b8" }}>···</div>
         {showMenu && (
           <div ref={menuRef} style={{ ...menuPos, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 100, minWidth: 160, overflow: "hidden" }}>
             {!confirmDelete ? (
               <div onClick={() => setConfirmDelete(true)}
-                style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#E85D75" }}
+                style={{ padding: "9px 14px", fontSize: 15, cursor: "pointer", color: "#E85D75" }}
                 onMouseEnter={e => (e.currentTarget.style.background = "#fff5f5")}
                 onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Delete row</div>
             ) : (
               <div style={{ padding: "10px 14px" }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#E85D75", marginBottom: 8 }}>Delete "{row.title}"?</div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: "#E85D75", marginBottom: 8 }}>Delete "{row.title}"?</div>
                 <div style={{ display: "flex", gap: 6 }}>
                   <button onClick={() => setConfirmDelete(false)}
-                    style={{ flex: 1, padding: "5px 0", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 11, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+                    style={{ flex: 1, padding: "5px 0", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>Cancel</button>
                   <button onClick={() => { onDelete(row.id); }}
-                    style={{ flex: 1, padding: "5px 0", borderRadius: 6, border: "none", background: "#E85D75", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Delete</button>
+                    style={{ flex: 1, padding: "5px 0", borderRadius: 6, border: "none", background: "#E85D75", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Delete</button>
                 </div>
               </div>
             )}
@@ -1283,7 +1283,7 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
   // ── Render helpers ────────────────────────────────────────────────────
 
   if (loading) return (
-    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%", color: "#94a3b8", fontSize: 14 }}>
+    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%", color: "#94a3b8", fontSize: 15 }}>
       Loading playbooks...
     </div>
   );
@@ -1350,26 +1350,26 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
       <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "16px clamp(16px,3vw,24px)", borderBottom: "1px solid #e2e8f0", background: "#fff", flexShrink: 0 }}>
           <button onClick={() => { setSubView("list"); resetCreate(); }}
-            style={{ padding: "6px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b" }}>← Back</button>
+            style={{ padding: "6px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>← Back</button>
           <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#1a2332", flex: 1 }}>Playbook Template Settings</h2>
         </div>
         <div style={{ flex: 1, display: "flex", overflow: "hidden", flexDirection: window.innerWidth < 768 ? "column" : "row" }}>
           {/* LEFT: Editor */}
           <div style={{ flex: 1, overflowY: "auto", padding: "clamp(12px,2vw,20px)" }}>
               <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>TEMPLATE NAME</div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>TEMPLATE NAME</div>
                 <input value={createName} onChange={e => setCreateName(e.target.value)} placeholder="e.g. Impact Filter"
-                  style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none", boxSizing: "border-box" }} />
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box" }} />
               </div>
               <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>ICON</div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>ICON</div>
                 <IconPicker selected={createIcon} onSelect={setCreateIcon} />
               </div>
             <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>LAYOUT</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>LAYOUT</div>
               <div style={{ display: "flex", gap: 8 }}>
                 {([1, 2] as const).map(c => (
-                  <label key={c} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "#64748b", cursor: "pointer" }}>
+                  <label key={c} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 15, color: "#64748b", cursor: "pointer" }}>
                     <input type="radio" name="createLayout" checked={createLayout === c} onChange={() => setCreateLayout(c)}
                       style={{ accentColor: "#3B82F6", margin: 0 }} /> {c} Column{c > 1 ? "s" : ""}
                   </label>
@@ -1379,7 +1379,7 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
               {(["text","textarea","checkbox","radio","info"] as TemplateFieldType[]).map(t => (
                 <button key={t} onClick={() => addField(t)}
-                  style={{ padding: "5px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 10, cursor: "pointer", color: "#64748b", textTransform: "capitalize" }}>
+                  style={{ padding: "5px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b", textTransform: "capitalize" }}>
                   + {t === "textarea" ? "Text Area" : t === "info" ? "Info" : t === "checkbox" ? "Checkbox" : t === "radio" ? "Radio" : "Text"}
                 </button>
               ))}
@@ -1390,29 +1390,29 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
               for (const f of createTemplateFields) cols[f.column || 1].push(f);
               return ([1, 2] as const).map(col => cols[col].length === 0 && col === 2 && createTemplateFields.every(f => (f.column || 1) === 1) ? null : (
                 <div key={col}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, marginTop: col === 2 ? 20 : 0 }}>Column {col}</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, marginTop: col === 2 ? 20 : 0 }}>Column {col}</div>
                   {cols[col].map(f => {
                     const colFields = cols[col];
                     const idxInCol = colFields.indexOf(f);
                     return (
                     <div key={f.id} style={{ background: "#fff", borderRadius: 10, border: "1px solid #e2e8f0", padding: 14, marginBottom: 10 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-                        <span style={{ fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", flex: 1 }}>{f.type} field</span>
+                        <span style={{ fontSize: 15, fontWeight: 600, color: "#64748b", textTransform: "uppercase", flex: 1 }}>{f.type} field</span>
                         <button onClick={() => moveFieldToColumn(f.id, col === 1 ? 2 : 1)} title={col === 1 ? "Move to column 2" : "Move to column 1"}
-                          style={{ width: 22, height: 22, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 10, background: "#f1f5f9", color: "#64748b" }}>{col === 1 ? "→" : "←"}</button>
+                          style={{ width: 22, height: 22, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 15, background: "#f1f5f9", color: "#64748b" }}>{col === 1 ? "→" : "←"}</button>
                         <button onClick={() => moveFieldWithinColumn(f.id, -1)} disabled={idxInCol === 0}
-                          style={{ width: 22, height: 22, borderRadius: 4, border: "none", cursor: idxInCol === 0 ? "default" : "pointer", fontSize: 10, background: "#f1f5f9", color: idxInCol === 0 ? "#e2e8f0" : "#64748b" }}>↑</button>
+                          style={{ width: 22, height: 22, borderRadius: 4, border: "none", cursor: idxInCol === 0 ? "default" : "pointer", fontSize: 15, background: "#f1f5f9", color: idxInCol === 0 ? "#e2e8f0" : "#64748b" }}>↑</button>
                         <button onClick={() => moveFieldWithinColumn(f.id, 1)} disabled={idxInCol === colFields.length - 1}
-                          style={{ width: 22, height: 22, borderRadius: 4, border: "none", cursor: idxInCol === colFields.length - 1 ? "default" : "pointer", fontSize: 10, background: "#f1f5f9", color: idxInCol === colFields.length - 1 ? "#e2e8f0" : "#64748b" }}>↓</button>
+                          style={{ width: 22, height: 22, borderRadius: 4, border: "none", cursor: idxInCol === colFields.length - 1 ? "default" : "pointer", fontSize: 15, background: "#f1f5f9", color: idxInCol === colFields.length - 1 ? "#e2e8f0" : "#64748b" }}>↓</button>
                         <button onClick={() => removeField(f.id)}
-                          style={{ width: 22, height: 22, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 12, background: "#fee2e2", color: "#E85D75" }}>✕</button>
+                          style={{ width: 22, height: 22, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 15, background: "#fee2e2", color: "#E85D75" }}>✕</button>
                       </div>
                       <div style={{ marginBottom: 6 }}>
-                        <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 2 }}>Header</div>
+                        <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 2 }}>Header</div>
                         <RichEditorSmall content={f.header} onChange={html => updateField(f.id, { header: html })} />
                       </div>
                       <div style={{ marginBottom: 6 }}>
-                        <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 2 }}>Description</div>
+                        <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 2 }}>Description</div>
                         <RichEditorSmall content={f.description} onChange={html => updateField(f.id, { description: html })} />
                       </div>
                       {(() => {
@@ -1420,19 +1420,19 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                         return (<>
                       {f.type !== "checkbox" && f.type !== "radio" && f.type !== "info" && f.type !== "big-checklist" && f.type !== "fill-checklist" && f.type !== "sync-checklist" && (
                       <div style={{ marginBottom: 6 }}>
-                        <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 2 }}>Placeholder</div>
+                        <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 2 }}>Placeholder</div>
                         <RichEditorSmall content={f.placeholder} onChange={html => updateField(f.id, { placeholder: html })} />
                       </div>
                       )}
                       {f.type === "checkbox" && (
                         <div style={{ marginBottom: 8 }}>
-                          <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 4 }}>Checklist Type</div>
+                          <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 4 }}>Checklist Type</div>
                           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
                             {(["checkbox","fill-checklist","big-checklist","sync-checklist"] as const).map(sub => (
                               <label key={sub} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 8px", borderRadius: 6,
                                 background: f.checkboxSubtype === sub || (!f.checkboxSubtype && sub === "checkbox") ? "#EFF6FF" : "#F8FAFC",
                                 border: f.checkboxSubtype === sub || (!f.checkboxSubtype && sub === "checkbox") ? "1.5px solid #3B82F6" : "1.5px solid #e2e8f0",
-                                fontSize: 10, color: f.checkboxSubtype === sub || (!f.checkboxSubtype && sub === "checkbox") ? "#3B82F6" : "#64748b", cursor: "pointer" }}>
+                                fontSize: 15, color: f.checkboxSubtype === sub || (!f.checkboxSubtype && sub === "checkbox") ? "#3B82F6" : "#64748b", cursor: "pointer" }}>
                                 <input type="radio" checked={f.checkboxSubtype === sub || (!f.checkboxSubtype && sub === "checkbox")}
                                   onChange={() => updateField(f.id, { checkboxSubtype: sub === "checkbox" ? undefined : sub, options: sub === "big-checklist" || sub === "checkbox" ? ["Option 1"] : undefined })}
                                   style={{ accentColor: "#3B82F6", margin: 0 }} />
@@ -1443,25 +1443,25 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                           {/* Subtype-specific settings */}
                           {(fType === "fill-checklist" || fType === "sync-checklist") && (
                             <div style={{ marginBottom: 6 }}>
-                              <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 2 }}>Placeholder</div>
+                              <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 2 }}>Placeholder</div>
                               <RichEditorSmall content={f.placeholder} onChange={html => updateField(f.id, { placeholder: html })} />
                             </div>
                           )}
                           {fType === "big-checklist" && (
                             <div>
-                              <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 4 }}>Checklist Layout</div>
+                              <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 4 }}>Checklist Layout</div>
                               <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
                                 {(["together","separate"] as const).map(l => (
-                                  <label key={l} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#64748b", cursor: "pointer" }}>
+                                  <label key={l} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 15, color: "#64748b", cursor: "pointer" }}>
                                     <input type="radio" name={`layout-${f.id}`} checked={(f.checklistLayout || "together") === l} onChange={() => updateField(f.id, { checklistLayout: l })}
                                       style={{ accentColor: "#3B82F6", margin: 0 }} /> {l === "together" ? "Together" : "Separate"}
                                   </label>
                                 ))}
                               </div>
-                              <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 4 }}>Checklist Mode</div>
+                              <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 4 }}>Checklist Mode</div>
                               <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
                                 {(["option","fill"] as const).map(m => (
-                                  <label key={m} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#64748b", cursor: "pointer" }}>
+                                  <label key={m} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 15, color: "#64748b", cursor: "pointer" }}>
                                     <input type="radio" name={`mode-${f.id}`} checked={(f.bigChecklistMode || "option") === m}
                                       onChange={() => updateField(f.id, { bigChecklistMode: m })}
                                       style={{ accentColor: "#3B82F6", margin: 0 }} /> {m === "option" ? "Option Checkboxes" : "Fill-in Checkboxes"}
@@ -1470,38 +1470,38 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                               </div>
                               {f.bigChecklistMode === "fill" && f.checklistLayout === "separate" && (
                                 <div style={{ marginBottom: 6 }}>
-                                  <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#64748b", cursor: "pointer" }}>
+                                  <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 15, color: "#64748b", cursor: "pointer" }}>
                                     <input type="checkbox" checked={!!f.checklistPredetermined} onChange={e => updateField(f.id, { checklistPredetermined: e.target.checked, options: e.target.checked ? (f.checklistPredeterminedCount ? f.options : []) : undefined })}
                                       style={{ accentColor: "#3B82F6", margin: 0 }} /> Select predetermined amount
                                   </label>
                                   {f.checklistPredetermined && (
                                     <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4 }}>
-                                      <span style={{ fontSize: 11, color: "#64748b" }}>How many checkboxes?</span>
+                                      <span style={{ fontSize: 15, color: "#64748b" }}>How many checkboxes?</span>
                                       <input type="number" min={1} max={50} value={f.checklistPredeterminedCount || 5}
                                         onChange={e => { const count = parseInt(e.target.value) || 5; updateField(f.id, { checklistPredeterminedCount: count, options: Array.from({ length: count }, (_, i) => `Item ${i + 1}`) }); }}
-                                        style={{ width: 60, padding: "4px 8px", borderRadius: 4, border: "1px solid #e2e8f0", fontSize: 11, outline: "none" }} />
+                                        style={{ width: 60, padding: "4px 8px", borderRadius: 4, border: "1px solid #e2e8f0", fontSize: 15, outline: "none" }} />
                                     </div>
                                   )}
                                 </div>
                               )}
                               {f.bigChecklistMode === "option" && f.checklistLayout === "separate" && !f.checklistPredetermined && (
                                 <div>
-                                  <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 4 }}>Options</div>
+                                  <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 4 }}>Options</div>
                                   {(f.options || []).map((opt, oi) => (
                                     <div key={oi} style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
                                       <input value={opt} onChange={e => { const opts = [...(f.options || [])]; opts[oi] = e.target.value; updateField(f.id, { options: opts }); }}
-                                        style={{ flex: 1, padding: "4px 8px", borderRadius: 4, border: "1px solid #e2e8f0", fontSize: 12, outline: "none" }} />
+                                        style={{ flex: 1, padding: "4px 8px", borderRadius: 4, border: "1px solid #e2e8f0", fontSize: 15, outline: "none" }} />
                                       <button onClick={() => { const opts = (f.options || []).filter((_, j) => j !== oi); updateField(f.id, { options: opts.length > 0 ? opts : undefined }); }}
-                                        style={{ width: 20, height: 20, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 10, background: "#fee2e2", color: "#E85D75" }}>✕</button>
+                                        style={{ width: 20, height: 20, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 15, background: "#fee2e2", color: "#E85D75" }}>✕</button>
                                     </div>
                                   ))}
                                   <button onClick={() => updateField(f.id, { options: [...(f.options || []), `Item ${(f.options || []).length + 1}`] })}
-                                    style={{ padding: "3px 10px", borderRadius: 4, border: "1px dashed #d1d5db", background: "transparent", fontSize: 11, cursor: "pointer", color: "#94a3b8" }}>+ Add Item</button>
+                                    style={{ padding: "3px 10px", borderRadius: 4, border: "1px dashed #d1d5db", background: "transparent", fontSize: 15, cursor: "pointer", color: "#94a3b8" }}>+ Add Item</button>
                                 </div>
                               )}
                               {f.bigChecklistMode === "option" && f.checklistLayout === "separate" && f.checklistPredetermined && (
                                 <div style={{ marginBottom: 6 }}>
-                                  <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#64748b", cursor: "pointer" }}>
+                                  <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 15, color: "#64748b", cursor: "pointer" }}>
                                     <input type="checkbox" checked={!!f.checklistPredetermined} onChange={e => updateField(f.id, { checklistPredetermined: e.target.checked })}
                                       style={{ accentColor: "#3B82F6", margin: 0 }} /> How many checkboxes?
                                   </label>
@@ -1509,24 +1509,24 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                                     <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4 }}>
                                       <input type="number" min={1} max={50} value={f.checklistPredeterminedCount || 5}
                                         onChange={e => { const count = parseInt(e.target.value) || 5; updateField(f.id, { checklistPredeterminedCount: count, options: Array.from({ length: count }, (_, i) => `Item ${i + 1}`) }); }}
-                                        style={{ width: 60, padding: "4px 8px", borderRadius: 4, border: "1px solid #e2e8f0", fontSize: 11, outline: "none" }} />
+                                        style={{ width: 60, padding: "4px 8px", borderRadius: 4, border: "1px solid #e2e8f0", fontSize: 15, outline: "none" }} />
                                     </div>
                                   )}
                                 </div>
                               )}
                               <div style={{ marginBottom: 6 }}>
-                                <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 2 }}>Size: {(f.textSize || 30)}px</div>
+                                <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 2 }}>Size: {(f.textSize || 30)}px</div>
                                 <input type="range" min={30} max={100} value={f.textSize || 30}
                                   onChange={e => updateField(f.id, { textSize: parseInt(e.target.value) })}
                                   style={{ width: "100%", accentColor: "#3B82F6" }} />
                               </div>
                               {f.checklistLayout !== "separate" && (
                                 <div style={{ marginBottom: 6 }}>
-                                  <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 2 }}>Placeholder</div>
+                                  <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 2 }}>Placeholder</div>
                                   <RichEditorSmall content={f.placeholder} onChange={html => updateField(f.id, { placeholder: html })} />
                                 </div>
                               )}
-                              <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#64748b", cursor: "pointer", marginTop: 4 }}>
+                              <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 15, color: "#64748b", cursor: "pointer", marginTop: 4 }}>
                                 <input type="checkbox" checked={!!f.syncToTasks} onChange={e => updateField(f.id, { syncToTasks: e.target.checked })}
                                   style={{ accentColor: "#3B82F6", margin: 0 }} /> Sync to Priorities (Tasks)
                               </label>
@@ -1536,14 +1536,14 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                             <div key={oi} style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
                               <input type="checkbox" disabled style={{ accentColor: "#3B82F6" }} />
                               <input value={opt} onChange={e => { const opts = [...(f.options || [])]; opts[oi] = e.target.value; updateField(f.id, { options: opts }); }}
-                                style={{ flex: 1, padding: "4px 8px", borderRadius: 4, border: "1px solid #e2e8f0", fontSize: 12, outline: "none" }} />
+                                style={{ flex: 1, padding: "4px 8px", borderRadius: 4, border: "1px solid #e2e8f0", fontSize: 15, outline: "none" }} />
                               <button onClick={() => { const opts = (f.options || []).filter((_, j) => j !== oi); updateField(f.id, { options: opts.length > 0 ? opts : undefined }); }}
-                                style={{ width: 20, height: 20, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 10, background: "#fee2e2", color: "#E85D75" }}>✕</button>
+                                style={{ width: 20, height: 20, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 15, background: "#fee2e2", color: "#E85D75" }}>✕</button>
                             </div>
                           ))}
                           {fType === "checkbox" && (
                             <button onClick={() => updateField(f.id, { options: [...(f.options || []), `Option ${(f.options || []).length + 1}`] })}
-                              style={{ padding: "3px 10px", borderRadius: 4, border: "1px dashed #d1d5db", background: "transparent", fontSize: 11, cursor: "pointer", color: "#94a3b8" }}>+ Add Option</button>
+                              style={{ padding: "3px 10px", borderRadius: 4, border: "1px dashed #d1d5db", background: "transparent", fontSize: 15, cursor: "pointer", color: "#94a3b8" }}>+ Add Option</button>
                           )}
                         </div>
                       )}
@@ -1551,26 +1551,26 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                       })()}
                       {(f.type === "fill-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "fill-checklist") || f.type === "sync-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "sync-checklist")) && (
                       <div style={{ marginBottom: 6 }}>
-                        <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 2 }}>Placeholder</div>
+                        <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 2 }}>Placeholder</div>
                         <RichEditorSmall content={f.placeholder} onChange={html => updateField(f.id, { placeholder: html })} />
                       </div>
                       )}
                       {f.type === "big-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "big-checklist") && (
                         <div style={{ marginBottom: 8 }}>
-                          <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 4 }}>Checklist Layout</div>
+                          <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 4 }}>Checklist Layout</div>
                           <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
                             {(["together","separate"] as const).map(l => (
-                              <label key={l} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#64748b", cursor: "pointer" }}>
+                              <label key={l} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 15, color: "#64748b", cursor: "pointer" }}>
                                 <input type="radio" name={`layout-${f.id}`} checked={(f.checklistLayout || "together") === l} onChange={() => updateField(f.id, { checklistLayout: l })}
                                   style={{ accentColor: "#3B82F6", margin: 0 }} /> {l === "together" ? "Together" : "Separate"}
                               </label>
                             ))}
                           </div>
                           {/* ── Big Checklist Mode (fill / option) ── */}
-                          <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 4 }}>Checklist Mode</div>
+                          <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 4 }}>Checklist Mode</div>
                           <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
                             {(["option","fill"] as const).map(m => (
-                              <label key={m} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#64748b", cursor: "pointer" }}>
+                              <label key={m} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 15, color: "#64748b", cursor: "pointer" }}>
                                 <input type="radio" name={`mode-${f.id}`} checked={(f.bigChecklistMode || "option") === m}
                                   onChange={() => updateField(f.id, { bigChecklistMode: m })}
                                   style={{ accentColor: "#3B82F6", margin: 0 }} /> {m === "option" ? "Option Checkboxes" : "Fill-in Checkboxes"}
@@ -1579,34 +1579,34 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                           </div>
                           {/* ── Text Size Slider ── */}
                           <div style={{ marginBottom: 6 }}>
-                            <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 2 }}>Size: {(f.textSize || 30)}px</div>
+                            <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 2 }}>Size: {(f.textSize || 30)}px</div>
                             <input type="range" min={30} max={100} value={f.textSize || 30}
                               onChange={e => updateField(f.id, { textSize: parseInt(e.target.value) })}
                               style={{ width: "100%", accentColor: "#3B82F6" }} />
                           </div>
                           {f.checklistLayout === "separate" && (
                             <div>
-                              <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 4 }}>Options</div>
+                              <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 4 }}>Options</div>
                               {(f.options || []).map((opt, oi) => (
                                 <div key={oi} style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
                                   <input value={opt} onChange={e => {
                                     const opts = [...(f.options || [])];
                                     opts[oi] = e.target.value;
                                     updateField(f.id, { options: opts });
-                                  }} style={{ flex: 1, padding: "4px 8px", borderRadius: 4, border: "1px solid #e2e8f0", fontSize: 12, outline: "none" }} />
+                                  }} style={{ flex: 1, padding: "4px 8px", borderRadius: 4, border: "1px solid #e2e8f0", fontSize: 15, outline: "none" }} />
                                   <button onClick={() => {
                                     const opts = (f.options || []).filter((_, j) => j !== oi);
                                     updateField(f.id, { options: opts.length > 0 ? opts : undefined });
-                                  }} style={{ width: 20, height: 20, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 10, background: "#fee2e2", color: "#E85D75" }}>✕</button>
+                                  }} style={{ width: 20, height: 20, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 15, background: "#fee2e2", color: "#E85D75" }}>✕</button>
                                 </div>
                               ))}
                               <button onClick={() => updateField(f.id, { options: [...(f.options || []), `Item ${(f.options || []).length + 1}`] })}
-                                style={{ padding: "3px 10px", borderRadius: 4, border: "1px dashed #d1d5db", background: "transparent", fontSize: 11, cursor: "pointer", color: "#94a3b8" }}>+ Add Item</button>
+                                style={{ padding: "3px 10px", borderRadius: 4, border: "1px dashed #d1d5db", background: "transparent", fontSize: 15, cursor: "pointer", color: "#94a3b8" }}>+ Add Item</button>
                             </div>
                           )}
                           {f.checklistLayout !== "separate" && (
                             <div style={{ marginBottom: 6 }}>
-                              <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 2 }}>Placeholder</div>
+                              <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 2 }}>Placeholder</div>
                               <RichEditorSmall content={f.placeholder} onChange={html => updateField(f.id, { placeholder: html })} />
                             </div>
                           )}
@@ -1614,41 +1614,41 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                       )}
                       {f.type === "sync-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "sync-checklist") && (
                         <div style={{ marginBottom: 6 }}>
-                          <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#64748b", cursor: "pointer", marginBottom: 4 }}>
+                          <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 15, color: "#64748b", cursor: "pointer", marginBottom: 4 }}>
                             <input type="checkbox" checked={!!f.syncToTasks} onChange={e => updateField(f.id, { syncToTasks: e.target.checked })}
                               style={{ accentColor: "#3B82F6", margin: 0 }} /> Sync to Tasks
                           </label>
-                          <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 2 }}>Placeholder</div>
+                          <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 2 }}>Placeholder</div>
                           <RichEditorSmall content={f.placeholder} onChange={html => updateField(f.id, { placeholder: html })} />
                         </div>
                       )}
                       {(f.type === "checkbox" || f.type === "radio") && (
                         <div style={{ marginBottom: 6 }}>
-                          <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 4 }}>Options</div>
+                          <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 4 }}>Options</div>
                           {(f.options || []).map((opt, oi) => (
                             <div key={oi} style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
                               <input value={opt} onChange={e => {
                                 const opts = [...(f.options || [])];
                                 opts[oi] = e.target.value;
                                 updateField(f.id, { options: opts });
-                              }} style={{ flex: 1, padding: "4px 8px", borderRadius: 4, border: "1px solid #e2e8f0", fontSize: 12, outline: "none" }} />
+                              }} style={{ flex: 1, padding: "4px 8px", borderRadius: 4, border: "1px solid #e2e8f0", fontSize: 15, outline: "none" }} />
                               <button onClick={() => {
                                 const opts = (f.options || []).filter((_, j) => j !== oi);
                                 updateField(f.id, { options: opts.length > 0 ? opts : undefined });
-                              }} style={{ width: 20, height: 20, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 10, background: "#fee2e2", color: "#E85D75" }}>✕</button>
+                              }} style={{ width: 20, height: 20, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 15, background: "#fee2e2", color: "#E85D75" }}>✕</button>
                             </div>
                           ))}
                           <button onClick={() => updateField(f.id, { options: [...(f.options || []), `Option ${(f.options || []).length + 1}`] })}
-                            style={{ padding: "3px 10px", borderRadius: 4, border: "1px dashed #d1d5db", background: "transparent", fontSize: 11, cursor: "pointer", color: "#94a3b8" }}>+ Add Option</button>
+                            style={{ padding: "3px 10px", borderRadius: 4, border: "1px dashed #d1d5db", background: "transparent", fontSize: 15, cursor: "pointer", color: "#94a3b8" }}>+ Add Option</button>
                         </div>
                       )}
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#64748b", cursor: "pointer" }}>
+                        <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 15, color: "#64748b", cursor: "pointer" }}>
                           <input type="checkbox" checked={f.required} onChange={e => updateField(f.id, { required: e.target.checked })}
                             style={{ accentColor: "#3B82F6", margin: 0 }} /> Required
                         </label>
                         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                          <span style={{ fontSize: 11, color: "#94a3b8" }}>Color:</span>
+                          <span style={{ fontSize: 15, color: "#94a3b8" }}>Color:</span>
                           <input type="color" value={f.color} onChange={e => updateField(f.id, { color: e.target.value })}
                             style={{ width: 22, height: 22, padding: 0, border: "none", cursor: "pointer" }} />
                         </div>
@@ -1661,21 +1661,21 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
             <div style={{ padding: "16px 0", borderTop: "1px solid #e2e8f0", display: "flex", alignItems: "center", gap: 10, justifyContent: "flex-end" }}>
               {editTemplateId && createDeleteConfirm ? (
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 13, color: "#E85D75", fontWeight: 600 }}>Are you sure?</span>
+                  <span style={{ fontSize: 15, color: "#E85D75", fontWeight: 600 }}>Are you sure?</span>
                   <button onClick={() => setCreateDeleteConfirm(false)}
-                    style={{ padding: "6px 14px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+                    style={{ padding: "6px 14px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>Cancel</button>
                   <button onClick={handleDeleteTemplate}
-                    style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: "#E85D75", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Yes, Delete</button>
+                    style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: "#E85D75", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Yes, Delete</button>
                 </div>
               ) : (
                 <>
-                  {editTemplateId && <button onClick={() => { setCreateDeleteConfirm(true); }} style={{ padding: "8px 16px", borderRadius: 8, border: "1.5px solid #E85D75", background: "#fff", fontSize: 12, cursor: "pointer", color: "#E85D75", fontWeight: 600 }}>Delete</button>}
-                  {editTemplateId && <button onClick={handleDuplicateTemplate} style={{ padding: "8px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b" }}>Duplicate</button>}
+                  {editTemplateId && <button onClick={() => { setCreateDeleteConfirm(true); }} style={{ padding: "8px 16px", borderRadius: 8, border: "1.5px solid #E85D75", background: "#fff", fontSize: 15, cursor: "pointer", color: "#E85D75", fontWeight: 600 }}>Delete</button>}
+                  {editTemplateId && <button onClick={handleDuplicateTemplate} style={{ padding: "8px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>Duplicate</button>}
                   <div style={{ flex: 1 }} />
                   <button onClick={handleCreateSave} disabled={!createName.trim()}
                     style={{ padding: "10px 28px", borderRadius: 8, border: "none",
                       background: createName.trim() ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0",
-                      color: "#fff", fontSize: 13, fontWeight: 600, cursor: createName.trim() ? "pointer" : "default" }}>
+                      color: "#fff", fontSize: 15, fontWeight: 600, cursor: createName.trim() ? "pointer" : "default" }}>
                     Save Template
                   </button>
                 </>
@@ -1685,11 +1685,11 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
 
           {/* RIGHT: Preview */}
           <div style={{ flex: 1, overflowY: "auto", padding: "clamp(12px,2vw,20px)", background: "#F8FAFC", borderLeft: window.innerWidth >= 768 ? "1px solid #e2e8f0" : "none", borderTop: window.innerWidth < 768 ? "1px solid #e2e8f0" : "none" }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "#64748b", marginBottom: 12 }}>PREVIEW</div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 12 }}>PREVIEW</div>
             <div style={{ fontSize: 16, fontWeight: 700, color: "#1a2332", marginBottom: 16 }}>{createName || "Template Name"}</div>
-            {createLayout === 2 && <div style={{ fontSize: 11, color: "#3B82F6", fontWeight: 600, marginBottom: 8 }}>Two-column layout</div>}
+            {createLayout === 2 && <div style={{ fontSize: 15, color: "#3B82F6", fontWeight: 600, marginBottom: 8 }}>Two-column layout</div>}
             {createTemplateFields.length === 0 ? (
-              <div style={{ fontSize: 13, color: "#cbd5e1", fontStyle: "italic" }}>Add fields to see preview</div>
+              <div style={{ fontSize: 15, color: "#cbd5e1", fontStyle: "italic" }}>Add fields to see preview</div>
             ) : (
               <div style={{ display: "grid", gridTemplateColumns: createLayout === 2 ? "1fr 1fr" : "1fr", gap: 10 }}
                 className={createLayout === 2 ? "stack-mobile" : ""}>
@@ -1702,32 +1702,32 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                     style={{ background: "#f1f5f9", borderRadius: 10, padding: 14, outline: createFieldDragOver === f.id ? "2px dashed #3B82F6" : "none" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, userSelect: "none" }}>
                       <div draggable onDragStart={e => { e.stopPropagation(); handleFieldDragStart(f.id); }}
-                        style={{ cursor: "grab", color: "#cbd5e1", fontSize: 14, lineHeight: 1, letterSpacing: 2, width: 20, flexShrink: 0 }}
+                        style={{ cursor: "grab", color: "#cbd5e1", fontSize: 15, lineHeight: 1, letterSpacing: 2, width: 20, flexShrink: 0 }}
                         title="Drag to reorder">⠿</div>
                       <div style={{ flex: 1 }}>
-                        {f.header && <div style={{ fontSize: 13, fontWeight: 600, color: f.color, marginBottom: 4 }} dangerouslySetInnerHTML={{ __html: renderShortcodes(f.dateAutoFill ? getDateString(f.dateFormat || "MMMM Do, YYYY") : f.header) }} />}
-                        {f.description && <div style={{ fontSize: 12, color: "#64748b", marginBottom: 6, fontStyle: "italic" }} dangerouslySetInnerHTML={{ __html: renderShortcodes(f.description) }} />}
+                        {f.header && <div style={{ fontSize: 15, fontWeight: 600, color: f.color, marginBottom: 4 }} dangerouslySetInnerHTML={{ __html: renderShortcodes(f.dateAutoFill ? getDateString(f.dateFormat || "MMMM Do, YYYY") : f.header) }} />}
+                        {f.description && <div style={{ fontSize: 15, color: "#64748b", marginBottom: 6, fontStyle: "italic" }} dangerouslySetInnerHTML={{ __html: renderShortcodes(f.description) }} />}
                       </div>
                     </div>
-                    {f.type === "text" && <div style={{ padding: "8px 12px", borderRadius: 6, background: "#fff", fontSize: 13, color: "#94a3b8" }} dangerouslySetInnerHTML={{ __html: f.placeholder || "Text input..." }} />}
-                    {f.type === "textarea" && <div style={{ padding: "8px 12px", borderRadius: 6, background: "#fff", fontSize: 13, color: "#94a3b8", minHeight: 60 }} dangerouslySetInnerHTML={{ __html: f.placeholder || "Long text..." }} />}
+                    {f.type === "text" && <div style={{ padding: "8px 12px", borderRadius: 6, background: "#fff", fontSize: 15, color: "#94a3b8" }} dangerouslySetInnerHTML={{ __html: f.placeholder || "Text input..." }} />}
+                    {f.type === "textarea" && <div style={{ padding: "8px 12px", borderRadius: 6, background: "#fff", fontSize: 15, color: "#94a3b8", minHeight: 60 }} dangerouslySetInnerHTML={{ __html: f.placeholder || "Long text..." }} />}
                     {f.type === "checkbox" && (f.options || []).map((opt, oi) => (
-                      <div key={oi} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, fontSize: 13, color: "#94a3b8" }}>
+                      <div key={oi} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, fontSize: 15, color: "#94a3b8" }}>
                         <div style={{ width: 16, height: 16, borderRadius: 3, border: "1.5px solid #d1d5db", background: "#fff" }} />
                         {opt}
                       </div>
                     ))}
                     {f.type === "radio" && (f.options || []).map((opt, oi) => (
-                      <div key={oi} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, fontSize: 13, color: "#94a3b8" }}>
+                      <div key={oi} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, fontSize: 15, color: "#94a3b8" }}>
                         <div style={{ width: 16, height: 16, borderRadius: "50%", border: "1.5px solid #d1d5db", background: "#fff" }} />
                         {opt}
                       </div>
                     ))}
                     {f.type === "info" && f.description && (
-                      <div style={{ fontSize: 12, color: "#64748b", lineHeight: 1.5, fontStyle: "italic" }} dangerouslySetInnerHTML={{ __html: renderShortcodes(f.description) }} />
+                      <div style={{ fontSize: 15, color: "#64748b", lineHeight: 1.5, fontStyle: "italic" }} dangerouslySetInnerHTML={{ __html: renderShortcodes(f.description) }} />
                     )}
                     {f.type === "fill-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "fill-checklist") && (
-                      <div style={{ fontSize: 13, color: "#94a3b8", fontStyle: "italic" }} dangerouslySetInnerHTML={{ __html: f.placeholder || "Add checklist items..." }} />
+                      <div style={{ fontSize: 15, color: "#94a3b8", fontStyle: "italic" }} dangerouslySetInnerHTML={{ __html: f.placeholder || "Add checklist items..." }} />
                     )}
                     {f.type === "big-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "big-checklist") && (
                       <div>
@@ -1753,7 +1753,7 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                       </div>
                     )}
                     {f.type === "sync-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "sync-checklist") && (
-                      <div style={{ fontSize: 13, color: "#94a3b8", fontStyle: "italic" }} dangerouslySetInnerHTML={{ __html: f.placeholder || "Synced checklist items..." }} />
+                      <div style={{ fontSize: 15, color: "#94a3b8", fontStyle: "italic" }} dangerouslySetInnerHTML={{ __html: f.placeholder || "Synced checklist items..." }} />
                     )}
                   </div>
                 ))}
@@ -1773,7 +1773,7 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
       <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "16px clamp(16px,3vw,24px)", borderBottom: "1px solid #e2e8f0", background: "#fff", flexShrink: 0 }}>
           <button onClick={() => { setSubView("list"); setFillTemplateId(null); }}
-            style={{ padding: "6px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b" }}>← Back</button>
+            style={{ padding: "6px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>← Back</button>
           <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#1a2332", flex: 1 }}>{tItem.label}</h2>
         </div>
         <div style={{ flex: 1, display: "flex", overflow: "hidden", flexDirection: window.innerWidth < 768 ? "column" : "row" }}>
@@ -1783,20 +1783,20 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                 const displayHeader = f.dateAutoFill ? getDateString(f.dateFormat || "MMMM Do, YYYY") : f.header;
                 return (
                       <div key={f.id}>
-                        {displayHeader && <div style={{ fontSize: 13, fontWeight: 600, color: f.color, marginBottom: 4 }} dangerouslySetInnerHTML={{ __html: renderShortcodes(displayHeader) }} />}
-                        {f.description && <div style={{ fontSize: 12, color: "#64748b", marginBottom: 6, fontStyle: "italic" }} dangerouslySetInnerHTML={{ __html: renderShortcodes(f.description) }} />}
+                        {displayHeader && <div style={{ fontSize: 15, fontWeight: 600, color: f.color, marginBottom: 4 }} dangerouslySetInnerHTML={{ __html: renderShortcodes(displayHeader) }} />}
+                        {f.description && <div style={{ fontSize: 15, color: "#64748b", marginBottom: 6, fontStyle: "italic" }} dangerouslySetInnerHTML={{ __html: renderShortcodes(f.description) }} />}
                         {f.type === "text" && (
                           <input value={fillData[f.id] || ""} onChange={e => { setFillData(p => ({ ...p, [f.id]: e.target.value })); autoSaveFill(); }}
                             placeholder={f.placeholder?.replace(/<[^>]*>/g, "")}
-                            style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none", boxSizing: "border-box" }} />
+                            style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box" }} />
                         )}
                         {f.type === "textarea" && (
                           <textarea value={fillData[f.id] || ""} onChange={e => { setFillData(p => ({ ...p, [f.id]: e.target.value })); autoSaveFill(); }}
                             placeholder={f.placeholder?.replace(/<[^>]*>/g, "")}
-                            style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none", boxSizing: "border-box", minHeight: 100, resize: "vertical", fontFamily: "inherit" }} />
+                            style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box", minHeight: 100, resize: "vertical", fontFamily: "inherit" }} />
                         )}
                         {(f.type === "checkbox") && (f.options || []).map((opt, oi) => (
-                          <label key={oi} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, fontSize: 13, color: "#1a2332", cursor: "pointer" }}>
+                          <label key={oi} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, fontSize: 15, color: "#1a2332", cursor: "pointer" }}>
                             <input type="checkbox" checked={(fillData[f.id] || "").includes(opt)}
                               onChange={e => {
                                 const current = new Set((fillData[f.id] || "").split(",").filter(Boolean));
@@ -1808,14 +1808,14 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                           </label>
                         ))}
                         {(f.type === "radio") && (f.options || []).map((opt, oi) => (
-                          <label key={oi} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, fontSize: 13, color: "#1a2332", cursor: "pointer" }}>
+                          <label key={oi} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, fontSize: 15, color: "#1a2332", cursor: "pointer" }}>
                             <input type="radio" name={`field-${f.id}`} checked={fillData[f.id] === opt}
                               onChange={() => { setFillData(p => ({ ...p, [f.id]: opt })); autoSaveFill(); }} style={{ accentColor: "#3B82F6" }} />
                             {opt}
                           </label>
                         ))}
                         {f.type === "info" && (
-                          <div style={{ fontSize: 13, color: "#64748b", lineHeight: 1.6, marginBottom: 4 }}>{f.description ? <span dangerouslySetInnerHTML={{ __html: renderShortcodes(f.description) }} /> : null}</div>
+                          <div style={{ fontSize: 15, color: "#64748b", lineHeight: 1.6, marginBottom: 4 }}>{f.description ? <span dangerouslySetInnerHTML={{ __html: renderShortcodes(f.description) }} /> : null}</div>
                         )}
                         {f.type === "fill-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "fill-checklist") && (() => {
                           const items: {id:string,text:string,checked:boolean}[] = (() => { try { const p = JSON.parse(fillData[f.id] || "[]"); return Array.isArray(p) ? p : []; } catch { return []; } })();
@@ -1824,12 +1824,12 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                               <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
                                 <input placeholder={f.placeholder?.replace(/<[^>]*>/g, "") || "Add item..."}
                                   onKeyDown={e => { if (e.key === "Enter" && (e.target as HTMLInputElement).value.trim()) { const newItem = { id: crypto.randomUUID(), text: (e.target as HTMLInputElement).value.trim(), checked: false }; setFillData(p => ({ ...p, [f.id]: JSON.stringify([...items, newItem]) })); autoSaveFill(); (e.target as HTMLInputElement).value = ""; } }}
-                                  style={{ flex: 1, padding: "8px 12px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none" }} />
+                                  style={{ flex: 1, padding: "8px 12px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none" }} />
                                 <button onClick={() => { const inp = (document.getElementById(`fill-inp-${f.id}`) as HTMLInputElement); if (inp?.value?.trim()) { const newItem = { id: crypto.randomUUID(), text: inp.value.trim(), checked: false }; setFillData(p => ({ ...p, [f.id]: JSON.stringify([...items, newItem]) })); autoSaveFill(); inp.value = ""; } }}
-                                  style={{ padding: "8px 14px", borderRadius: 6, border: "none", background: "#3B82F6", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Add</button>
+                                  style={{ padding: "8px 14px", borderRadius: 6, border: "none", background: "#3B82F6", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Add</button>
                               </div>
                               {items.map((item, ii) => (
-                                <label key={item.id} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, fontSize: 13, color: "#1a2332", cursor: "pointer" }}>
+                                <label key={item.id} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, fontSize: 15, color: "#1a2332", cursor: "pointer" }}>
                                   <input type="checkbox" checked={item.checked} onChange={e => {
                                     const n = [...items]; n[ii] = { ...n[ii], checked: e.target.checked };
                                     setFillData(p => ({ ...p, [f.id]: JSON.stringify(n) })); autoSaveFill();
@@ -1938,12 +1938,12 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                               <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
                                 <input id={`sync-inp-${f.id}`} placeholder={f.placeholder?.replace(/<[^>]*>/g, "") || "Add task..."}
                                   onKeyDown={e => { if (e.key === "Enter" && (e.target as HTMLInputElement).value.trim()) { const newItem = { id: crypto.randomUUID(), text: (e.target as HTMLInputElement).value.trim(), checked: false }; setFillData(p => ({ ...p, [f.id]: JSON.stringify([...items, newItem]) })); autoSaveFill(); (e.target as HTMLInputElement).value = ""; } }}
-                                  style={{ flex: 1, padding: "8px 12px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none" }} />
+                                  style={{ flex: 1, padding: "8px 12px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none" }} />
                                 <button onClick={() => { const inp = document.getElementById(`sync-inp-${f.id}`) as HTMLInputElement; if (inp?.value?.trim()) { const newItem = { id: crypto.randomUUID(), text: inp.value.trim(), checked: false }; setFillData(p => ({ ...p, [f.id]: JSON.stringify([...items, newItem]) })); autoSaveFill(); inp.value = ""; } }}
-                                  style={{ padding: "8px 14px", borderRadius: 6, border: "none", background: "#3B82F6", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Add</button>
+                                  style={{ padding: "8px 14px", borderRadius: 6, border: "none", background: "#3B82F6", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Add</button>
                               </div>
                               {items.map((item, ii) => (
-                                <label key={item.id} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, fontSize: 13, color: "#1a2332", cursor: "pointer" }}>
+                                <label key={item.id} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, fontSize: 15, color: "#1a2332", cursor: "pointer" }}>
                                   <input type="checkbox" checked={item.checked} onChange={e => {
                                     const n = [...items]; n[ii] = { ...n[ii], checked: e.target.checked };
                                     setFillData(p => ({ ...p, [f.id]: JSON.stringify(n) })); autoSaveFill();
@@ -1952,7 +1952,7 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                                 </label>
                               ))}
                               {f.syncToTasks && (
-                                <div style={{ marginTop: 6, fontSize: 11, color: "#94a3b8", fontStyle: "italic" }}>
+                                <div style={{ marginTop: 6, fontSize: 15, color: "#94a3b8", fontStyle: "italic" }}>
                                   <PhosphorReact.ArrowsClockwise size={12} color="#94a3b8" /> Synced to Tasks
                                 </div>
                               )}
@@ -1962,14 +1962,14 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                       </div>
                     );})}
                   </div>
-              {fillSaveStatus && (<div style={{ marginTop: 16, textAlign: "center", fontSize: 12, color: fillSaveStatus === "saved" ? "#4CAF7D" : "#94a3b8", fontWeight: 600 }}>
+              {fillSaveStatus && (<div style={{ marginTop: 16, textAlign: "center", fontSize: 15, color: fillSaveStatus === "saved" ? "#4CAF7D" : "#94a3b8", fontWeight: 600 }}>
                 {fillSaveStatus === "saving" ? "Saving…" : "Saved ✓"}
               </div>
             )}
           </div>
 
           <div style={{ flex: 1, overflowY: "auto", padding: "clamp(12px,2vw,20px)", background: "#F8FAFC", borderLeft: window.innerWidth >= 768 ? "1px solid #e2e8f0" : "none", borderTop: window.innerWidth < 768 ? "1px solid #e2e8f0" : "none" }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "#64748b", marginBottom: 12 }}>PREVIEW</div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 12 }}>PREVIEW</div>
             <div style={{ fontSize: 16, fontWeight: 700, color: "#1a2332", marginBottom: 16 }}>{tItem.label}</div>
             {(() => {
               const colFields: Record<number, TemplateField[]> = { 1: [], 2: [] };
@@ -1977,14 +1977,14 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
               const hasCol2 = colFields[2].length > 0;
               return [1, 2].map(col => colFields[col].length === 0 ? null : (
                 <div key={col}>
-                  {hasCol2 && <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8, marginTop: col === 2 ? 16 : 0 }}>Column {col}</div>}
+                  {hasCol2 && <div style={{ fontSize: 15, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8, marginTop: col === 2 ? 16 : 0 }}>Column {col}</div>}
                   {colFields[col].map((f: any) => {
                     const displayHeader = f.dateAutoFill ? getDateString(f.dateFormat || "MMMM Do, YYYY") : f.header;
                     return (
                     <div key={f.id} style={{ background: "#f1f5f9", borderRadius: 10, padding: 14, marginBottom: 10 }}>
-                      {displayHeader && <div style={{ fontSize: 13, fontWeight: 600, color: f.color, marginBottom: 4 }} dangerouslySetInnerHTML={{ __html: renderShortcodes(displayHeader) }} />}
-                      {f.description && <div style={{ fontSize: 12, color: "#64748b", marginBottom: 6, fontStyle: "italic" }} dangerouslySetInnerHTML={{ __html: renderShortcodes(f.description) }} />}
-                      <div style={{ fontSize: 13, color: "#1a2332" }}>{f.type === "fill-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "fill-checklist") || f.type === "big-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "big-checklist") || f.type === "sync-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "sync-checklist") ? renderChecklistPreview(fillData[f.id], f.options, f.checklistLayout) : fillData[f.id] || (f.placeholder && f.type !== "checkbox" && f.type !== "radio" && f.type !== "info" ? <span style={{ color: "#94a3b8" }} dangerouslySetInnerHTML={{ __html: f.placeholder }} /> : <span style={{ color: "#cbd5e1", fontStyle: "italic" }}>Empty</span>)}</div>
+                      {displayHeader && <div style={{ fontSize: 15, fontWeight: 600, color: f.color, marginBottom: 4 }} dangerouslySetInnerHTML={{ __html: renderShortcodes(displayHeader) }} />}
+                      {f.description && <div style={{ fontSize: 15, color: "#64748b", marginBottom: 6, fontStyle: "italic" }} dangerouslySetInnerHTML={{ __html: renderShortcodes(f.description) }} />}
+                      <div style={{ fontSize: 15, color: "#1a2332" }}>{f.type === "fill-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "fill-checklist") || f.type === "big-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "big-checklist") || f.type === "sync-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "sync-checklist") ? renderChecklistPreview(fillData[f.id], f.options, f.checklistLayout) : fillData[f.id] || (f.placeholder && f.type !== "checkbox" && f.type !== "radio" && f.type !== "info" ? <span style={{ color: "#94a3b8" }} dangerouslySetInnerHTML={{ __html: f.placeholder }} /> : <span style={{ color: "#cbd5e1", fontStyle: "italic" }}>Empty</span>)}</div>
                     </div>
                     );
                   })}
@@ -2057,7 +2057,7 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
 
         {/* New Row */}
         <div onClick={() => { setRowModalInitial(""); setRowModalCallback(() => (name: string) => addRow(name)); setShowRowModal(true); }}
-          style={{ display: "flex", alignItems: "center", gap: 8, color: "#94a3b8", fontSize: 13, cursor: "pointer", padding: "6px 0" }}>
+          style={{ display: "flex", alignItems: "center", gap: 8, color: "#94a3b8", fontSize: 15, cursor: "pointer", padding: "6px 0" }}>
           <div style={{ width: 26, height: 26, borderRadius: "50%", border: "1.5px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, color: "#94a3b8" }}>+</div>
           New Row
         </div>
@@ -2070,7 +2070,7 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
               <div style={{ fontSize: 22, marginBottom: 4, display: "flex", justifyContent: "center" }}>
                 <IconGlyph name={t === "document" ? "Notebook" : "GitFork"} size={24} color="#94a3b8" />
               </div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "#64748b", marginBottom: 2 }}>
+              <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 2 }}>
                 {t === "document" ? "Playbook" : "Template"}
               </div>
             </div>
@@ -2085,11 +2085,11 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
           <div style={{ fontSize: 28, color: dragOverUpload ? "#3B82F6" : "#cbd5e1", marginBottom: 6 }}>
             <PhosphorReact.UploadSimple size={32} color={dragOverUpload ? "#3B82F6" : "#cbd5e1"} />
           </div>
-          <div style={{ fontSize: 13, color: dragOverUpload ? "#3B82F6" : "#94a3b8", fontWeight: 500, marginBottom: 4 }}>
+          <div style={{ fontSize: 15, color: dragOverUpload ? "#3B82F6" : "#94a3b8", fontWeight: 500, marginBottom: 4 }}>
             {dragOverUpload ? "Drop files here" : "Drag and drop files here"}
           </div>
-          <div style={{ fontSize: 12, color: "#cbd5e1", marginBottom: 8 }}>PDF, Word, Images, Text — 25MB max per file</div>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "6px 14px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#f8fafc", fontSize: 11, color: "#94a3b8", cursor: "pointer" }}>
+          <div style={{ fontSize: 15, color: "#cbd5e1", marginBottom: 8 }}>PDF, Word, Images, Text — 25MB max per file</div>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "6px 14px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#f8fafc", fontSize: 15, color: "#94a3b8", cursor: "pointer" }}>
             <PhosphorReact.FolderOpen size={14} color="#94a3b8" /> Select files from computer
           </div>
         </div>
@@ -2100,21 +2100,21 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
             style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2100, padding: 16 }}>
             <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 16, padding: 24, width: "100%", maxWidth: 380, boxShadow: "0 24px 64px rgba(0,0,0,0.2)" }}>
               <div style={{ fontSize: 15, fontWeight: 700, color: "#1a2332", marginBottom: 4 }}>Upload {fileUploadPopup.files.length} files</div>
-              <div style={{ fontSize: 13, color: "#64748b", marginBottom: 16 }}>How would you like to organize them?</div>
+              <div style={{ fontSize: 15, color: "#64748b", marginBottom: 16 }}>How would you like to organize them?</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
                 <button onClick={() => handleFileUpload(fileUploadPopup.files, fileUploadPopup.rowId, "one")}
-                  style={{ padding: "12px 16px", borderRadius: 10, border: "1.5px solid #e2e8f0", background: "#fff", cursor: "pointer", textAlign: "left", fontSize: 13, color: "#1a2332" }}>
+                  style={{ padding: "12px 16px", borderRadius: 10, border: "1.5px solid #e2e8f0", background: "#fff", cursor: "pointer", textAlign: "left", fontSize: 15, color: "#1a2332" }}>
                   <div style={{ fontWeight: 600, marginBottom: 2 }}>All as one playbook</div>
-                  <div style={{ fontSize: 11, color: "#94a3b8" }}>Combine all files into a single playbook</div>
+                  <div style={{ fontSize: 15, color: "#94a3b8" }}>Combine all files into a single playbook</div>
                 </button>
                 <button onClick={() => handleFileUpload(fileUploadPopup.files, fileUploadPopup.rowId, "separate")}
-                  style={{ padding: "12px 16px", borderRadius: 10, border: "1.5px solid #e2e8f0", background: "#fff", cursor: "pointer", textAlign: "left", fontSize: 13, color: "#1a2332" }}>
+                  style={{ padding: "12px 16px", borderRadius: 10, border: "1.5px solid #e2e8f0", background: "#fff", cursor: "pointer", textAlign: "left", fontSize: 15, color: "#1a2332" }}>
                   <div style={{ fontWeight: 600, marginBottom: 2 }}>Separate playbooks</div>
-                  <div style={{ fontSize: 11, color: "#94a3b8" }}>Create one playbook per file</div>
+                  <div style={{ fontSize: 15, color: "#94a3b8" }}>Create one playbook per file</div>
                 </button>
               </div>
               <button onClick={() => setFileUploadPopup(null)}
-                style={{ width: "100%", padding: "8px 0", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+                style={{ width: "100%", padding: "8px 0", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>Cancel</button>
             </div>
           </div>
         )}
@@ -2138,7 +2138,7 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                 <div key={i} style={{ display: "flex", alignItems: "center" }}>
                   <div style={{ width: 24, height: 24, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
                     background: createStep > i ? "#4CAF7D" : createStep === i ? "#3B82F6" : "#e2e8f0",
-                    color: "#fff", fontSize: 11, fontWeight: 700, transition: "all 0.2s" }}>
+                    color: "#fff", fontSize: 15, fontWeight: 700, transition: "all 0.2s" }}>
                     {createStep > i ? <IconGlyph name="Check" size={14} color="#fff" weight="bold" /> : i + 1}
                   </div>
                   {i < 2 && <div style={{ width: 32, height: 2, background: createStep > i ? "#4CAF7D" : "#e2e8f0", transition: "background 0.3s" }} />}
@@ -2149,9 +2149,9 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
             {createStep === 0 && (
               <div style={{ textAlign: "center" }}>
                 <div style={{ fontSize: 20, fontWeight: 700, color: "#1a2332", marginBottom: 4 }}>Create Playbook</div>
-                <div style={{ fontSize: 13, color: "#64748b", marginBottom: 20 }}>Name your playbook and choose a type</div>
+                <div style={{ fontSize: 15, color: "#64748b", marginBottom: 20 }}>Name your playbook and choose a type</div>
                 <input autoFocus value={createName} onChange={e => setCreateName(e.target.value)} placeholder="Playbook name..."
-                  style={{ width: "100%", padding: "12px 16px", borderRadius: 10, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none", marginBottom: 16, boxSizing: "border-box" }} />
+                  style={{ width: "100%", padding: "12px 16px", borderRadius: 10, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", marginBottom: 16, boxSizing: "border-box" }} />
                 <div style={{ display: "flex", gap: 12, justifyContent: "center", marginBottom: 20 }}>
                   {(["document","template"] as const).map(t => (
                     <div key={t} onClick={() => setCreateType(t)} style={{ flex: 1, maxWidth: 220, padding: "20px 16px", borderRadius: 12,
@@ -2160,10 +2160,10 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                       <div style={{ fontSize: 28, marginBottom: 8, display: "flex", justifyContent: "center" }}>
                         <IconGlyph name={t === "document" ? "Notebook" : "GitFork"} size={32} color={createType === t ? "#3B82F6" : "#64748b"} />
                       </div>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: "#1a2332", marginBottom: 4 }}>
+                      <div style={{ fontSize: 15, fontWeight: 600, color: "#1a2332", marginBottom: 4 }}>
                         {t === "document" ? "Playbook" : "Playbook Template"}
                       </div>
-                      <div style={{ fontSize: 11, color: "#64748b" }}>
+                      <div style={{ fontSize: 15, color: "#64748b" }}>
                         {t === "document"
                           ? "Standard operating procedures, guidelines, and scripts for your business"
                           : "Reusable templates for your team to copy and create new playbooks"}
@@ -2172,14 +2172,14 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                   ))}
                 </div>
                 <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-                  <button onClick={resetCreate} style={{ padding: "10px 24px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 13, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+                  <button onClick={resetCreate} style={{ padding: "10px 24px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>Cancel</button>
                   <button onClick={() => {
                     if (createType === "template") { setSubView("template-builder"); setShowCreate(false); }
                     else setCreateStep(1);
                   }} disabled={!createName.trim() || !createType}
                     style={{ padding: "10px 24px", borderRadius: 8, border: "none",
                       background: createName.trim() && createType ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0",
-                      color: "#fff", fontSize: 13, fontWeight: 600, cursor: createName.trim() && createType ? "pointer" : "default" }}>
+                      color: "#fff", fontSize: 15, fontWeight: 600, cursor: createName.trim() && createType ? "pointer" : "default" }}>
                     {createType === "template" ? "Build Template →" : "Next →"}
                   </button>
                 </div>
@@ -2189,7 +2189,7 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
             {createStep === 1 && createType === "document" && (
               <div>
                 <div style={{ fontSize: 20, fontWeight: 700, color: "#1a2332", marginBottom: 4, textAlign: "center" }}>Choose Mode</div>
-                <div style={{ fontSize: 13, color: "#64748b", marginBottom: 20, textAlign: "center" }}>How would you like to create this playbook?</div>
+                <div style={{ fontSize: 15, color: "#64748b", marginBottom: 20, textAlign: "center" }}>How would you like to create this playbook?</div>
                 <div style={{ display: "flex", gap: 12, justifyContent: "center", marginBottom: 20 }}>
                   {(["editor","file"] as const).map(m => (
                     <div key={m} onClick={() => setCreateDocMode(m)} style={{ flex: 1, maxWidth: 220, padding: "20px 16px", borderRadius: 12,
@@ -2198,10 +2198,10 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                       <div style={{ fontSize: 28, marginBottom: 8, display: "flex", justifyContent: "center" }}>
                         <IconGlyph name={m === "editor" ? "FileText" : "Paperclip"} size={32} color={createDocMode === m ? "#3B82F6" : "#64748b"} />
                       </div>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: "#1a2332", marginBottom: 4 }}>
+                      <div style={{ fontSize: 15, fontWeight: 600, color: "#1a2332", marginBottom: 4 }}>
                         {m === "editor" ? "Document Mode" : "Link / File Mode"}
                       </div>
-                      <div style={{ fontSize: 11, color: "#64748b" }}>
+                      <div style={{ fontSize: 15, color: "#64748b" }}>
                         {m === "editor"
                           ? "Create rich text with formatting, images, and tables"
                           : "Upload a PDF, document, or add links to resources"}
@@ -2210,11 +2210,11 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                   ))}
                 </div>
                 <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-                  <button onClick={() => setCreateStep(0)} style={{ padding: "10px 24px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 13, cursor: "pointer", color: "#64748b" }}>← Back</button>
+                  <button onClick={() => setCreateStep(0)} style={{ padding: "10px 24px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>← Back</button>
                   <button onClick={() => setCreateStep(2)} disabled={!createDocMode}
                     style={{ padding: "10px 24px", borderRadius: 8, border: "none",
                       background: createDocMode ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0",
-                      color: "#fff", fontSize: 13, fontWeight: 600, cursor: createDocMode ? "pointer" : "default" }}>Next →</button>
+                      color: "#fff", fontSize: 15, fontWeight: 600, cursor: createDocMode ? "pointer" : "default" }}>Next →</button>
                 </div>
               </div>
             )}
@@ -2224,17 +2224,17 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                 <div style={{ fontSize: 18, fontWeight: 700, color: "#1a2332", marginBottom: 16 }}>{createName}</div>
                 <RichEditor content={createContent} onChange={setCreateContent} placeholder="Start writing..." />
                 <div style={{ marginTop: 16 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>ATTACHMENTS</div>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>ATTACHMENTS</div>
                   {/* Files */}
                   {createFiles.map(f => (
-                    <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 6, background: "#f8fafc", marginBottom: 4, fontSize: 12, color: "#64748b" }}>
+                    <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 6, background: "#f8fafc", marginBottom: 4, fontSize: 15, color: "#64748b" }}>
                       <IconGlyph name="FileDoc" size={16} color="#64748b" />
                       <span style={{ flex: 1 }}>{f.name}</span>
                       <span style={{ color: "#94a3b8" }}>{(f.size / 1024).toFixed(0)}KB</span>
-                      <button onClick={() => setCreateFiles(p => p.filter(x => x.id !== f.id))} style={{ width: 20, height: 20, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 10, background: "#fee2e2", color: "#E85D75" }}>✕</button>
+                      <button onClick={() => setCreateFiles(p => p.filter(x => x.id !== f.id))} style={{ width: 20, height: 20, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 15, background: "#fee2e2", color: "#E85D75" }}>✕</button>
                     </div>
                   ))}
-                  <label style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 6, border: "1px dashed #d1d5db", cursor: "pointer", fontSize: 12, color: "#94a3b8", marginBottom: 8 }}>
+                  <label style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 6, border: "1px dashed #d1d5db", cursor: "pointer", fontSize: 15, color: "#94a3b8", marginBottom: 8 }}>
                     {createUploading ? "Uploading..." : "Upload File"}
                     <input type="file" onChange={handleCreateFileUpload} style={{ display: "none" }} accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg,.webp,.gif" />
                   </label>
@@ -2242,17 +2242,17 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                   {createLinks.map(l => (
                     <div key={l.id} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
                       <input value={l.title} onChange={e => updateCreateLink(l.id, { title: e.target.value })} placeholder="Link title"
-                        style={{ flex: 1, padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none" }} />
+                        style={{ flex: 1, padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none" }} />
                       <input value={l.url} onChange={e => updateCreateLink(l.id, { url: e.target.value })} placeholder="URL"
-                        style={{ flex: 2, padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none" }} />
-                      <button onClick={() => removeCreateLink(l.id)} style={{ width: 22, height: 22, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 10, background: "#fee2e2", color: "#E85D75" }}>✕</button>
+                        style={{ flex: 2, padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none" }} />
+                      <button onClick={() => removeCreateLink(l.id)} style={{ width: 22, height: 22, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 15, background: "#fee2e2", color: "#E85D75" }}>✕</button>
                     </div>
                   ))}
-                  <button onClick={handleCreateAddLink} style={{ display: "block", padding: "6px 14px", borderRadius: 6, border: "1px dashed #d1d5db", background: "transparent", fontSize: 12, cursor: "pointer", color: "#94a3b8", marginTop: 4 }}>+ Add Link</button>
+                  <button onClick={handleCreateAddLink} style={{ display: "block", padding: "6px 14px", borderRadius: 6, border: "1px dashed #d1d5db", background: "transparent", fontSize: 15, cursor: "pointer", color: "#94a3b8", marginTop: 4 }}>+ Add Link</button>
                 </div>
                 <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 20 }}>
-                  <button onClick={() => setCreateStep(1)} style={{ padding: "10px 24px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 13, cursor: "pointer", color: "#64748b" }}>← Back</button>
-                  <button onClick={handleCreateSave} style={{ padding: "10px 28px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Save</button>
+                  <button onClick={() => setCreateStep(1)} style={{ padding: "10px 24px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>← Back</button>
+                  <button onClick={handleCreateSave} style={{ padding: "10px 28px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Save</button>
                 </div>
               </div>
             )}
@@ -2261,36 +2261,36 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
               <div>
                 <div style={{ fontSize: 18, fontWeight: 700, color: "#1a2332", marginBottom: 16 }}>{createName}</div>
                 <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>FILES</div>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>FILES</div>
                   {createFiles.map(f => (
-                    <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 6, background: "#f8fafc", marginBottom: 4, fontSize: 12, color: "#64748b" }}>
+                    <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 6, background: "#f8fafc", marginBottom: 4, fontSize: 15, color: "#64748b" }}>
                       <IconGlyph name="FileDoc" size={16} color="#64748b" />
                       <span style={{ flex: 1 }}>{f.name}</span>
                       <span style={{ color: "#94a3b8" }}>{(f.size / 1024).toFixed(0)}KB</span>
-                      <button onClick={() => setCreateFiles(p => p.filter(x => x.id !== f.id))} style={{ width: 20, height: 20, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 10, background: "#fee2e2", color: "#E85D75" }}>✕</button>
+                      <button onClick={() => setCreateFiles(p => p.filter(x => x.id !== f.id))} style={{ width: 20, height: 20, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 15, background: "#fee2e2", color: "#E85D75" }}>✕</button>
                     </div>
                   ))}
-                  <label style={{ display: "block", padding: "20px", borderRadius: 8, border: "2px dashed #e2e8f0", cursor: "pointer", textAlign: "center", fontSize: 13, color: "#94a3b8", marginBottom: 8 }}>
+                  <label style={{ display: "block", padding: "20px", borderRadius: 8, border: "2px dashed #e2e8f0", cursor: "pointer", textAlign: "center", fontSize: 15, color: "#94a3b8", marginBottom: 8 }}>
                     {createUploading ? "Uploading..." : "Click to upload or drag and drop (max 25MB)"}
                     <input type="file" onChange={handleCreateFileUpload} style={{ display: "none" }} accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg,.webp,.gif" />
                   </label>
                 </div>
                 <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>LINKS</div>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>LINKS</div>
                   {createLinks.map(l => (
                     <div key={l.id} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
                       <input value={l.title} onChange={e => updateCreateLink(l.id, { title: e.target.value })} placeholder="Link title"
-                        style={{ flex: 1, padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none" }} />
+                        style={{ flex: 1, padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none" }} />
                       <input value={l.url} onChange={e => updateCreateLink(l.id, { url: e.target.value })} placeholder="URL"
-                        style={{ flex: 2, padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none" }} />
-                      <button onClick={() => removeCreateLink(l.id)} style={{ width: 22, height: 22, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 10, background: "#fee2e2", color: "#E85D75" }}>✕</button>
+                        style={{ flex: 2, padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none" }} />
+                      <button onClick={() => removeCreateLink(l.id)} style={{ width: 22, height: 22, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 15, background: "#fee2e2", color: "#E85D75" }}>✕</button>
                     </div>
                   ))}
-                  <button onClick={handleCreateAddLink} style={{ padding: "6px 14px", borderRadius: 6, border: "1px dashed #d1d5db", background: "transparent", fontSize: 12, cursor: "pointer", color: "#94a3b8" }}>+ Add Link</button>
+                  <button onClick={handleCreateAddLink} style={{ padding: "6px 14px", borderRadius: 6, border: "1px dashed #d1d5db", background: "transparent", fontSize: 15, cursor: "pointer", color: "#94a3b8" }}>+ Add Link</button>
                 </div>
                 <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 20 }}>
-                  <button onClick={() => setCreateStep(1)} style={{ padding: "10px 24px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 13, cursor: "pointer", color: "#64748b" }}>← Back</button>
-                  <button onClick={handleCreateSave} style={{ padding: "10px 28px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Save</button>
+                  <button onClick={() => setCreateStep(1)} style={{ padding: "10px 24px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>← Back</button>
+                  <button onClick={handleCreateSave} style={{ padding: "10px 28px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Save</button>
                 </div>
               </div>
             )}
@@ -2309,7 +2309,7 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
               </div>}
               <div style={{ flex: 1 }}>
                 <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#1a2332" }}>{detailItem.label}</h2>
-                <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>
+                <div style={{ fontSize: 15, color: "#94a3b8", marginTop: 2 }}>
                   {detailItem.type === "document" ? "Document" : detailItem.type === "template" ? "Template" : "Filled Playbook"}
                   {detailItem.type === "filled-template" && detailSaveStatus === "saved" && <span style={{ color: "#4CAF7D", fontWeight: 600, marginLeft: 6 }}>✓</span>}
                   {detailItem.type === "filled-template" && detailSaveStatus === "saving" && <span style={{ color: "#94a3b8", marginLeft: 6 }}>…</span>}
@@ -2334,16 +2334,16 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
             </div>
 
             {detailItem.content && (
-              <div id="playbook-content" style={{ fontSize: 14, lineHeight: 1.7, color: "#1a2332", padding: "20px 40px", border: "none", marginBottom: 16, maxWidth: 800, marginLeft: "auto", marginRight: "auto" }}
+              <div id="playbook-content" style={{ fontSize: 15, lineHeight: 1.7, color: "#1a2332", padding: "20px 40px", border: "none", marginBottom: 16, maxWidth: 800, marginLeft: "auto", marginRight: "auto" }}
                 dangerouslySetInnerHTML={{ __html: renderShortcodes(detailItem.content) }} />
             )}
 
             {detailItem.files && detailItem.files.length > 0 && (
               <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>FILES</div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>FILES</div>
                 {detailItem.files.map(f => (
                   <a key={f.id} href={getFileUrl(f.storagePath)} target="_blank" rel="noopener noreferrer"
-                    style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 6, background: "#f8fafc", marginBottom: 4, textDecoration: "none", fontSize: 13, color: "#1a2332" }}>
+                    style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 6, background: "#f8fafc", marginBottom: 4, textDecoration: "none", fontSize: 15, color: "#1a2332" }}>
                     <IconGlyph name="FileDoc" size={18} color="#64748b" />
                     <span style={{ flex: 1 }}>{f.name}</span>
                     <IconGlyph name="ArrowUpRight" size={14} color="#3B82F6" weight="bold" />
@@ -2354,12 +2354,12 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
 
             {detailItem.links && detailItem.links.length > 0 && (
               <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>LINKS</div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>LINKS</div>
                 {detailItem.links.map(l => (
                   <a key={l.id} href={l.url} target="_blank" rel="noopener noreferrer"
-                    style={{ display: "block", padding: "8px 12px", borderRadius: 6, background: "#f8fafc", marginBottom: 4, textDecoration: "none", fontSize: 13 }}>
+                    style={{ display: "block", padding: "8px 12px", borderRadius: 6, background: "#f8fafc", marginBottom: 4, textDecoration: "none", fontSize: 15 }}>
                     <div style={{ fontWeight: 600, color: "#1a2332", marginBottom: 2 }}>{l.title || l.url}</div>
-                    <div style={{ color: "#3B82F6", fontSize: 12, wordBreak: "break-all" }}>{l.url}</div>
+                    <div style={{ color: "#3B82F6", fontSize: 15, wordBreak: "break-all" }}>{l.url}</div>
                   </a>
                 ))}
               </div>
@@ -2367,30 +2367,30 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
 
             {detailItem.type === "filled-template" && detailItem.filledData && detailItem.templateId && (
               <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>CONTENT</div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>CONTENT</div>
                 {(() => {
                   const template = rows.flatMap(r => r.items).find(i => i.id === detailItem.templateId);
                   return template?.templateFields?.map(f => {
                     const displayHeader = f.dateAutoFill ? getDateString(f.dateFormat || "MMMM Do, YYYY") : f.header;
                     return (
                     <div key={f.id} style={{ background: "#f1f5f9", borderRadius: 8, padding: 12, marginBottom: 8 }}>
-                      {displayHeader && <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, color: f.color }} dangerouslySetInnerHTML={{ __html: renderShortcodes(displayHeader) }} />}
-                      {f.description && <div style={{ fontSize: 11, color: "#64748b", marginBottom: 6, fontStyle: "italic" }}>{f.description}</div>}
+                      {displayHeader && <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 4, color: f.color }} dangerouslySetInnerHTML={{ __html: renderShortcodes(displayHeader) }} />}
+                      {f.description && <div style={{ fontSize: 15, color: "#64748b", marginBottom: 6, fontStyle: "italic" }}>{f.description}</div>}
                       {f.type === "text" && (
                         <input value={detailFillData[f.id] || ""} onChange={e => { setDetailFillData(p => ({ ...p, [f.id]: e.target.value })); autoSaveDetail(); }}
                           placeholder={f.placeholder?.replace(/<[^>]*>/g, "")}
-                          style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+                          style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box" }} />
                       )}
                       {f.type === "textarea" && (
                         <textarea value={detailFillData[f.id] || ""} onChange={e => { setDetailFillData(p => ({ ...p, [f.id]: e.target.value })); autoSaveDetail(); }}
                           placeholder={f.placeholder?.replace(/<[^>]*>/g, "")}
-                          style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none", boxSizing: "border-box", minHeight: 60, resize: "vertical", fontFamily: "inherit" }} />
+                          style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box", minHeight: 60, resize: "vertical", fontFamily: "inherit" }} />
                       )}
                       {f.type === "info" && f.description && (
-                        <div style={{ fontSize: 13, color: "#64748b", lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: renderShortcodes(f.description) }} />
+                        <div style={{ fontSize: 15, color: "#64748b", lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: renderShortcodes(f.description) }} />
                       )}
                       {(f.type === "checkbox") && (f.options || []).map((opt, oi) => (
-                        <label key={oi} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, fontSize: 13, color: "#1a2332", cursor: "pointer" }}>
+                        <label key={oi} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, fontSize: 15, color: "#1a2332", cursor: "pointer" }}>
                           <input type="checkbox" checked={(detailFillData[f.id] || "").includes(opt)}
                             onChange={e => {
                               const current = new Set((detailFillData[f.id] || "").split(",").filter(Boolean));
@@ -2402,7 +2402,7 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                         </label>
                       ))}
                       {(f.type === "radio") && (f.options || []).map((opt, oi) => (
-                        <label key={oi} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, fontSize: 13, color: "#1a2332", cursor: "pointer" }}>
+                        <label key={oi} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, fontSize: 15, color: "#1a2332", cursor: "pointer" }}>
                           <input type="radio" name={`detail-${f.id}`} checked={detailFillData[f.id] === opt}
                             onChange={() => { setDetailFillData(p => ({ ...p, [f.id]: opt })); autoSaveDetail(); }} style={{ accentColor: "#3B82F6" }} />
                           {opt}
@@ -2415,12 +2415,12 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                             <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
                               <input placeholder={f.placeholder?.replace(/<[^>]*>/g, "") || "Add item..."}
                                 onKeyDown={e => { if (e.key === "Enter" && (e.target as HTMLInputElement).value.trim()) { const newItem = { id: crypto.randomUUID(), text: (e.target as HTMLInputElement).value.trim(), checked: false }; setDetailFillData(p => ({ ...p, [f.id]: JSON.stringify([...items, newItem]) })); autoSaveDetail(); (e.target as HTMLInputElement).value = ""; } }}
-                                style={{ flex: 1, padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none" }} />
+                                style={{ flex: 1, padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none" }} />
                               <button onClick={() => { const inp = document.getElementById(`detail-inp-${f.id}`) as HTMLInputElement; if (inp?.value?.trim()) { const newItem = { id: crypto.randomUUID(), text: inp.value.trim(), checked: false }; setDetailFillData(p => ({ ...p, [f.id]: JSON.stringify([...items, newItem]) })); autoSaveDetail(); inp.value = ""; } }}
-                                style={{ padding: "6px 12px", borderRadius: 6, border: "none", background: "#3B82F6", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Add</button>
+                                style={{ padding: "6px 12px", borderRadius: 6, border: "none", background: "#3B82F6", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Add</button>
                             </div>
                             {items.map((item, ii) => (
-                              <label key={item.id} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, fontSize: 13, color: "#1a2332", cursor: "pointer" }}>
+                              <label key={item.id} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, fontSize: 15, color: "#1a2332", cursor: "pointer" }}>
                                 <input type="checkbox" checked={item.checked} onChange={e => { const n = [...items]; n[ii] = { ...n[ii], checked: e.target.checked }; setDetailFillData(p => ({ ...p, [f.id]: JSON.stringify(n) })); autoSaveDetail(); }} style={{ accentColor: "#3B82F6" }} />
                                 <span style={{ textDecoration: item.checked ? "line-through" : "none", color: item.checked ? "#94a3b8" : "#1a2332" }}>{item.text}</span>
                               </label>
@@ -2445,87 +2445,87 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
             <div style={{ padding: "20px 24px", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "center", gap: 12 }}>
               <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#1a2332", flex: 1 }}>Edit {editSettingsItem.type === "template" ? "Template" : "Playbook"}</h2>
               <button onClick={() => setEditSettingsExpanded(true)}
-                style={{ width: 26, height: 26, borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#64748b" }} title="Expand">⛶</button>
+                style={{ width: 26, height: 26, borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, color: "#64748b" }} title="Expand">⛶</button>
             </div>
             <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}>
               <div style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>PLAYBOOK NAME</div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>PLAYBOOK NAME</div>
                 <input value={editSettingsName} onChange={e => setEditSettingsName(e.target.value)}
-                  style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none", boxSizing: "border-box" }} />
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box" }} />
               </div>
               <div style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>ICON</div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>ICON</div>
                 <IconPicker selected={editSettingsIcon} onSelect={setEditSettingsIcon} />
               </div>
               {editSettingsItem.type !== "template" && (
                 <>
                 {(editSettingsFiles.length > 0 || editSettingsLinks.length > 0 || !editSettingsContent) ? (
                   <div style={{ marginBottom: 14 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>ATTACHMENTS</div>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>ATTACHMENTS</div>
                     {editSettingsFiles.map(f => (
-                      <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 6, background: "#f8fafc", marginBottom: 4, fontSize: 12, color: "#64748b" }}>
+                      <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 6, background: "#f8fafc", marginBottom: 4, fontSize: 15, color: "#64748b" }}>
                         <IconGlyph name="FileDoc" size={16} color="#64748b" />
                         <span style={{ flex: 1 }}>{f.name}</span>
                         <span style={{ color: "#94a3b8" }}>{(f.size / 1024).toFixed(0)}KB</span>
-                        <button onClick={() => setEditSettingsFiles(p => p.filter(x => x.id !== f.id))} style={{ width: 20, height: 20, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 10, background: "#fee2e2", color: "#E85D75" }}>✕</button>
+                        <button onClick={() => setEditSettingsFiles(p => p.filter(x => x.id !== f.id))} style={{ width: 20, height: 20, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 15, background: "#fee2e2", color: "#E85D75" }}>✕</button>
                       </div>
                     ))}
-                    <label style={{ display: "block", padding: "14px", borderRadius: 8, border: "2px dashed #e2e8f0", cursor: "pointer", textAlign: "center", fontSize: 12, color: "#94a3b8", marginBottom: 8 }}>
+                    <label style={{ display: "block", padding: "14px", borderRadius: 8, border: "2px dashed #e2e8f0", cursor: "pointer", textAlign: "center", fontSize: 15, color: "#94a3b8", marginBottom: 8 }}>
                       {editSettingsUploading ? "Uploading..." : "Click to upload or drag and drop (max 25MB)"}
                       <input type="file" onChange={handleEditSettingsUpload} style={{ display: "none" }} accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg,.webp,.gif" />
                     </label>
                     {editSettingsLinks.map(l => (
                       <div key={l.id} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
                         <input value={l.title} onChange={e => setEditSettingsLinks(p => p.map(x => x.id === l.id ? { ...x, title: e.target.value } : x))} placeholder="Link title"
-                          style={{ flex: 1, padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none" }} />
+                          style={{ flex: 1, padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none" }} />
                         <input value={l.url} onChange={e => setEditSettingsLinks(p => p.map(x => x.id === l.id ? { ...x, url: e.target.value } : x))} placeholder="URL"
-                          style={{ flex: 2, padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none" }} />
-                        <button onClick={() => setEditSettingsLinks(p => p.filter(x => x.id !== l.id))} style={{ width: 22, height: 22, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 10, background: "#fee2e2", color: "#E85D75" }}>✕</button>
+                          style={{ flex: 2, padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none" }} />
+                        <button onClick={() => setEditSettingsLinks(p => p.filter(x => x.id !== l.id))} style={{ width: 22, height: 22, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 15, background: "#fee2e2", color: "#E85D75" }}>✕</button>
                       </div>
                     ))}
-                    <button onClick={() => setEditSettingsLinks(p => [...p, { id: crypto.randomUUID(), title: "", url: "" }])} style={{ padding: "6px 14px", borderRadius: 6, border: "1px dashed #d1d5db", background: "transparent", fontSize: 12, cursor: "pointer", color: "#94a3b8", marginTop: 4 }}>+ Add Link</button>
+                    <button onClick={() => setEditSettingsLinks(p => [...p, { id: crypto.randomUUID(), title: "", url: "" }])} style={{ padding: "6px 14px", borderRadius: 6, border: "1px dashed #d1d5db", background: "transparent", fontSize: 15, cursor: "pointer", color: "#94a3b8", marginTop: 4 }}>+ Add Link</button>
                   </div>
                 ) : (
                   <div style={{ marginBottom: 14 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>CONTENT</div>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>CONTENT</div>
                     <RichEditor content={editSettingsContent} onChange={setEditSettingsContent} />
                   </div>
                 )}
                 {(editSettingsContent && (editSettingsFiles.length > 0 || editSettingsLinks.length > 0)) && (
                   <div style={{ marginBottom: 14 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>ATTACHMENTS</div>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>ATTACHMENTS</div>
                     {editSettingsFiles.map(f => (
-                      <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 6, background: "#f8fafc", marginBottom: 4, fontSize: 12, color: "#64748b" }}>
+                      <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 6, background: "#f8fafc", marginBottom: 4, fontSize: 15, color: "#64748b" }}>
                         <IconGlyph name="FileDoc" size={16} color="#64748b" />
                         <span style={{ flex: 1 }}>{f.name}</span>
-                        <button onClick={() => setEditSettingsFiles(p => p.filter(x => x.id !== f.id))} style={{ width: 20, height: 20, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 10, background: "#fee2e2", color: "#E85D75" }}>✕</button>
+                        <button onClick={() => setEditSettingsFiles(p => p.filter(x => x.id !== f.id))} style={{ width: 20, height: 20, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 15, background: "#fee2e2", color: "#E85D75" }}>✕</button>
                       </div>
                     ))}
                     {editSettingsLinks.map(l => (
                       <div key={l.id} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
                         <input value={l.title} onChange={e => setEditSettingsLinks(p => p.map(x => x.id === l.id ? { ...x, title: e.target.value } : x))} placeholder="Link title"
-                          style={{ flex: 1, padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none" }} />
+                          style={{ flex: 1, padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none" }} />
                         <input value={l.url} onChange={e => setEditSettingsLinks(p => p.map(x => x.id === l.id ? { ...x, url: e.target.value } : x))} placeholder="URL"
-                          style={{ flex: 2, padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none" }} />
-                        <button onClick={() => setEditSettingsLinks(p => p.filter(x => x.id !== l.id))} style={{ width: 22, height: 22, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 10, background: "#fee2e2", color: "#E85D75" }}>✕</button>
+                          style={{ flex: 2, padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none" }} />
+                        <button onClick={() => setEditSettingsLinks(p => p.filter(x => x.id !== l.id))} style={{ width: 22, height: 22, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 15, background: "#fee2e2", color: "#E85D75" }}>✕</button>
                       </div>
                     ))}
-                    <button onClick={() => setEditSettingsLinks(p => [...p, { id: crypto.randomUUID(), title: "", url: "" }])} style={{ padding: "6px 14px", borderRadius: 6, border: "1px dashed #d1d5db", background: "transparent", fontSize: 12, cursor: "pointer", color: "#94a3b8", marginTop: 4 }}>+ Add Link</button>
+                    <button onClick={() => setEditSettingsLinks(p => [...p, { id: crypto.randomUUID(), title: "", url: "" }])} style={{ padding: "6px 14px", borderRadius: 6, border: "1px dashed #d1d5db", background: "transparent", fontSize: 15, cursor: "pointer", color: "#94a3b8", marginTop: 4 }}>+ Add Link</button>
                   </div>
                 )}
                 </>
               )}
               {(editSettingsItem.type === "document" || editSettingsItem.type === "filled-template") && (
                 <div style={{ marginBottom: 14, padding: 14, background: "#f8fafc", borderRadius: 10, border: "1px solid #e2e8f0" }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>RECURRENCE SETTINGS</div>
-                  <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "#64748b", cursor: "pointer" }}>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>RECURRENCE SETTINGS</div>
+                  <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 15, color: "#64748b", cursor: "pointer" }}>
                     <input type="checkbox" checked={editSettingsRecurrence.enabled} onChange={e => setEditSettingsRecurrence(p => ({ ...p, enabled: e.target.checked }))}
                       style={{ accentColor: "#3B82F6", margin: 0 }} /> Auto-reset this item
                   </label>
                   {editSettingsRecurrence.enabled && (
                     <>
                       <select value={editSettingsRecurrence.interval} onChange={e => setEditSettingsRecurrence(p => ({ ...p, interval: e.target.value as RecurrenceInterval }))}
-                        style={{ width: "100%", marginTop: 6, padding: "6px 10px", borderRadius: 6, border: "1px solid #e2e8f0", fontSize: 12, outline: "none" }}>
+                        style={{ width: "100%", marginTop: 6, padding: "6px 10px", borderRadius: 6, border: "1px solid #e2e8f0", fontSize: 15, outline: "none" }}>
                         <option value="daily">Every Day</option>
                         <option value="weekly">Every Week</option>
                         <option value="monthly">Every Month</option>
@@ -2536,10 +2536,10 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                       </select>
                       {editSettingsRecurrence.interval === "custom" && (
                         <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6 }}>
-                          <span style={{ fontSize: 12, color: "#64748b" }}>Every</span>
+                          <span style={{ fontSize: 15, color: "#64748b" }}>Every</span>
                           <input type="number" min={1} value={editSettingsRecurrence.customDays || 1} onChange={e => setEditSettingsRecurrence(p => ({ ...p, customDays: parseInt(e.target.value) || 1 }))}
-                            style={{ width: 60, padding: "4px 8px", borderRadius: 4, border: "1px solid #e2e8f0", fontSize: 12, outline: "none" }} />
-                          <span style={{ fontSize: 12, color: "#64748b" }}>days</span>
+                            style={{ width: 60, padding: "4px 8px", borderRadius: 4, border: "1px solid #e2e8f0", fontSize: 15, outline: "none" }} />
+                          <span style={{ fontSize: 15, color: "#64748b" }}>days</span>
                         </div>
                       )}
                     </>
@@ -2550,19 +2550,19 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
             <div style={{ padding: "16px 24px", borderTop: "1px solid #e2e8f0", display: "flex", alignItems: "center", gap: 10, justifyContent: "flex-end" }}>
               {deleteConfirmText ? (
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 13, color: "#E85D75", fontWeight: 600 }}>Are you sure?</span>
+                  <span style={{ fontSize: 15, color: "#E85D75", fontWeight: 600 }}>Are you sure?</span>
                   <button onClick={() => setDeleteConfirmText("")}
-                    style={{ padding: "6px 14px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+                    style={{ padding: "6px 14px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>Cancel</button>
                   <button onClick={deleteItem}
-                    style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: "#E85D75", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Yes, Delete</button>
+                    style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: "#E85D75", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Yes, Delete</button>
                 </div>
               ) : (
                 <>
-                  <button onClick={() => setDeleteConfirmText("pending")} style={{ padding: "8px 16px", borderRadius: 8, border: "1.5px solid #E85D75", background: "#fff", fontSize: 12, cursor: "pointer", color: "#E85D75", fontWeight: 600 }}>Delete</button>
-                  <button onClick={duplicateItem} style={{ padding: "8px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b" }}>Duplicate</button>
+                  <button onClick={() => setDeleteConfirmText("pending")} style={{ padding: "8px 16px", borderRadius: 8, border: "1.5px solid #E85D75", background: "#fff", fontSize: 15, cursor: "pointer", color: "#E85D75", fontWeight: 600 }}>Delete</button>
+                  <button onClick={duplicateItem} style={{ padding: "8px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>Duplicate</button>
                   <div style={{ flex: 1 }} />
-                  <button onClick={() => { setEditSettingsItem(null); setEditSettingsExpanded(false); setDeleteConfirmText(""); }} style={{ padding: "8px 18px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b" }}>Cancel</button>
-                  <button onClick={saveEditSettings} style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Save</button>
+                  <button onClick={() => { setEditSettingsItem(null); setEditSettingsExpanded(false); setDeleteConfirmText(""); }} style={{ padding: "8px 18px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+                  <button onClick={saveEditSettings} style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Save</button>
                 </>
               )}
             </div>
@@ -2575,50 +2575,50 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
         <div style={{ position: "fixed", inset: 0, zIndex: 2100, background: "#fff", display: "flex", flexDirection: "column" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px clamp(16px,3vw,24px)", borderBottom: "1px solid #e2e8f0", background: "#fff", flexShrink: 0 }}>
             <button onClick={() => setEditSettingsExpanded(false)}
-              style={{ padding: "6px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b" }}>← Collapse</button>
+              style={{ padding: "6px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>← Collapse</button>
             <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#1a2332", flex: 1 }}>Editing: {editSettingsName || editSettingsItem.label}</h2>
-            <button onClick={saveEditSettings} style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Save</button>
+            <button onClick={saveEditSettings} style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Save</button>
           </div>
           <div style={{ flex: 1, overflowY: "auto", padding: "clamp(16px,3vw,28px)", display: "flex", gap: 24, flexDirection: "row" }}>
             <div style={{ width: 280, flexShrink: 0 }}>
               <div style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>PLAYBOOK NAME</div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>PLAYBOOK NAME</div>
                 <input value={editSettingsName} onChange={e => setEditSettingsName(e.target.value)}
-                  style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none", boxSizing: "border-box" }} />
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box" }} />
               </div>
               <div style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>ICON</div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>ICON</div>
                 <IconPicker selected={editSettingsIcon} onSelect={setEditSettingsIcon} />
               </div>
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               {(editSettingsFiles.length > 0 || editSettingsLinks.length > 0 || !editSettingsContent) ? (
                 <div>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>ATTACHMENTS</div>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>ATTACHMENTS</div>
                   {editSettingsFiles.map(f => (
-                    <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 6, background: "#f8fafc", marginBottom: 4, fontSize: 12, color: "#64748b" }}>
+                    <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 6, background: "#f8fafc", marginBottom: 4, fontSize: 15, color: "#64748b" }}>
                       <IconGlyph name="FileDoc" size={16} color="#64748b" />
                       <span style={{ flex: 1 }}>{f.name}</span>
-                      <button onClick={() => setEditSettingsFiles(p => p.filter(x => x.id !== f.id))} style={{ width: 20, height: 20, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 10, background: "#fee2e2", color: "#E85D75" }}>✕</button>
+                      <button onClick={() => setEditSettingsFiles(p => p.filter(x => x.id !== f.id))} style={{ width: 20, height: 20, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 15, background: "#fee2e2", color: "#E85D75" }}>✕</button>
                     </div>
                   ))}
-                  <label style={{ display: "block", padding: "20px", borderRadius: 8, border: "2px dashed #e2e8f0", cursor: "pointer", textAlign: "center", fontSize: 13, color: "#94a3b8", marginBottom: 12 }}>
+                  <label style={{ display: "block", padding: "20px", borderRadius: 8, border: "2px dashed #e2e8f0", cursor: "pointer", textAlign: "center", fontSize: 15, color: "#94a3b8", marginBottom: 12 }}>
                     {editSettingsUploading ? "Uploading..." : "Click to upload or drag and drop (max 25MB)"}
                     <input type="file" onChange={handleEditSettingsUpload} style={{ display: "none" }} accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg,.webp,.gif" />
                   </label>
                   {editSettingsLinks.map(l => (
                     <div key={l.id} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
                       <input value={l.title} onChange={e => setEditSettingsLinks(p => p.map(x => x.id === l.id ? { ...x, title: e.target.value } : x))} placeholder="Link title"
-                        style={{ flex: 1, padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none" }} />
+                        style={{ flex: 1, padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none" }} />
                       <input value={l.url} onChange={e => setEditSettingsLinks(p => p.map(x => x.id === l.id ? { ...x, url: e.target.value } : x))} placeholder="URL"
-                        style={{ flex: 2, padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none" }} />
-                      <button onClick={() => setEditSettingsLinks(p => p.filter(x => x.id !== l.id))} style={{ width: 22, height: 22, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 10, background: "#fee2e2", color: "#E85D75" }}>✕</button>
+                        style={{ flex: 2, padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none" }} />
+                      <button onClick={() => setEditSettingsLinks(p => p.filter(x => x.id !== l.id))} style={{ width: 22, height: 22, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 15, background: "#fee2e2", color: "#E85D75" }}>✕</button>
                     </div>
                   ))}
-                  <button onClick={() => setEditSettingsLinks(p => [...p, { id: crypto.randomUUID(), title: "", url: "" }])} style={{ padding: "6px 14px", borderRadius: 6, border: "1px dashed #d1d5db", background: "transparent", fontSize: 12, cursor: "pointer", color: "#94a3b8" }}>+ Add Link</button>
+                  <button onClick={() => setEditSettingsLinks(p => [...p, { id: crypto.randomUUID(), title: "", url: "" }])} style={{ padding: "6px 14px", borderRadius: 6, border: "1px dashed #d1d5db", background: "transparent", fontSize: 15, cursor: "pointer", color: "#94a3b8" }}>+ Add Link</button>
                   {editSettingsContent && (
                     <div style={{ marginTop: 16 }}>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>CONTENT</div>
+                      <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>CONTENT</div>
                       <RichEditor content={editSettingsContent} onChange={setEditSettingsContent} />
                     </div>
                   )}
@@ -2645,16 +2645,16 @@ function EditAddRowModalCustom({ initial, onSave, onClose }: {
         <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#1a2332", marginBottom: 4 }}>
           {initial ? "Rename Row" : "New Row"}
         </h2>
-        <div style={{ fontSize: 13, color: "#64748b", marginBottom: 16 }}>Give your row a name</div>
+        <div style={{ fontSize: 15, color: "#64748b", marginBottom: 16 }}>Give your row a name</div>
         <input autoFocus value={name} onChange={e => setName(e.target.value)} placeholder="Row name..."
           onKeyDown={e => { if (e.key === "Enter" && name.trim()) onSave(name.trim()); }}
-          style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none", marginBottom: 16, boxSizing: "border-box" }} />
+          style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", marginBottom: 16, boxSizing: "border-box" }} />
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-          <button onClick={onClose} style={{ padding: "8px 18px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+          <button onClick={onClose} style={{ padding: "8px 18px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>Cancel</button>
           <button onClick={() => name.trim() && onSave(name.trim())} disabled={!name.trim()}
             style={{ padding: "8px 18px", borderRadius: 8, border: "none",
               background: name.trim() ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0",
-              color: "#fff", fontSize: 12, fontWeight: 600, cursor: name.trim() ? "pointer" : "default" }}>Save</button>
+              color: "#fff", fontSize: 15, fontWeight: 600, cursor: name.trim() ? "pointer" : "default" }}>Save</button>
         </div>
       </div>
     </div>
@@ -2682,35 +2682,35 @@ function PlaybookCard({ item, rowId, onDetail, onEdit, onStartFill, isSingleLink
       {item.icon && <div style={{ width: 44, height: 44, borderRadius: "50%", background: "#f8fafc", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 8 }}>
         <IconGlyph name={item.icon} size={20} color={activeColor} />
       </div>}
-      <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332", textAlign: "center", lineHeight: 1.3, marginBottom: 8 }}>{item.label}</div>
+      <div style={{ fontSize: 15, fontWeight: 600, color: "#1a2332", textAlign: "center", lineHeight: 1.3, marginBottom: 8 }}>{item.label}</div>
       {item.type === "template" ? (
         <div onClick={e => { e.stopPropagation(); onStartFill(item, rowId); }}
-          style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 6, background: "#EFF6FF", color: "#3B82F6", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+          style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 6, background: "#EFF6FF", color: "#3B82F6", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>
           + Add New
         </div>
       ) : item.type === "filled-template" ? (
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 6, background: "#F0FDF4", color: "#4CAF7D", fontSize: 11, fontWeight: 500 }}>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 6, background: "#F0FDF4", color: "#4CAF7D", fontSize: 15, fontWeight: 500 }}>
           <IconGlyph name="Check" size={12} color="#4CAF7D" weight="bold" /> View
         </div>
       ) : showAction ? (
         <a href={isSingleLink ? item.links![0].url : (isSingleFile ? getFileUrl(item.files![0].storagePath) : "#")}
           target="_blank" rel="noopener noreferrer"
           onClick={e => e.stopPropagation()}
-          style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 6, background: "#EFF6FF", color: "#3B82F6", fontSize: 11, fontWeight: 500, textDecoration: "none" }}>
+          style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 6, background: "#EFF6FF", color: "#3B82F6", fontSize: 15, fontWeight: 500, textDecoration: "none" }}>
           {actionLabel} <IconGlyph name="ArrowUpRight" size={12} color="#3B82F6" weight="bold" />
         </a>
       ) : isMulti ? (
-        <div style={{ fontSize: 11, color: "#94a3b8", textAlign: "center" }}>
+        <div style={{ fontSize: 15, color: "#94a3b8", textAlign: "center" }}>
           {item.links && item.links.length > 0 ? `${item.links.length} link${item.links.length > 1 ? "s" : ""}` : ""}
           {item.links && item.links.length > 0 && item.files && item.files.length > 0 ? " · " : ""}
           {item.files && item.files.length > 0 ? `${item.files.length} file${item.files.length > 1 ? "s" : ""}` : ""}
         </div>
       ) : item.content ? (
-        <div style={{ fontSize: 11, color: "#94a3b8" }}>View Document</div>
+        <div style={{ fontSize: 15, color: "#94a3b8" }}>View Document</div>
       ) : null}
       <div style={{ position: "absolute", top: 6, right: 6, display: "flex", gap: 2 }}>
         <div onClick={e => { e.stopPropagation(); onEdit(item); }}
-          style={{ width: 22, height: 22, borderRadius: 6, background: cardHov ? "#f1f5f9" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 11, color: "#94a3b8" }}>···</div>
+          style={{ width: 22, height: 22, borderRadius: 6, background: cardHov ? "#f1f5f9" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 15, color: "#94a3b8" }}>···</div>
       </div>
     </div>
   );

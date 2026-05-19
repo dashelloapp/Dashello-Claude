@@ -54,7 +54,7 @@ export default function AuthScreen() {
             alt="Dashello"
             style={{ height: 48, marginBottom: 12, objectFit: 'contain' }}
           />
-          <div style={{ fontSize: 14, color: '#94a3b8' }}>
+          <div style={{ fontSize: 15, color: '#94a3b8' }}>
             {mode === 'login' ? 'Sign in to your dashboard' : 'Create your account'}
           </div>
         </div>
@@ -78,18 +78,18 @@ export default function AuthScreen() {
           <div style={{
             marginTop: 12, padding: '10px 14px', borderRadius: 8,
             background: message.includes('Check') ? '#f0fdf4' : '#fef2f2',
-            color: message.includes('Check') ? '#15803d' : '#dc2626', fontSize: 13
+            color: message.includes('Check') ? '#15803d' : '#dc2626', fontSize: 15
           }}>{message}</div>
         )}
 
-        <div style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: '#94a3b8' }}>
+        <div style={{ textAlign: 'center', marginTop: 20, fontSize: 15, color: '#94a3b8' }}>
           {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
           <span onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setMessage('') }}
             style={{ color: '#3B82F6', cursor: 'pointer', fontWeight: 600 }}>
             {mode === 'login' ? 'Sign up' : 'Sign in'}
           </span>
         </div>
-        <div style={{ textAlign: 'center', marginTop: 16, fontSize: 12, color: '#cbd5e1' }}>
+        <div style={{ textAlign: 'center', marginTop: 16, fontSize: 15, color: '#cbd5e1' }}>
           <a href="https://dashello.co/terms-and-privacy/" target="_blank" rel="noreferrer"
             style={{ color: '#94a3b8', textDecoration: 'underline' }}>
             Privacy Policy & Terms

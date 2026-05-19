@@ -44,15 +44,22 @@ async function inviteTeamMember(email: string, orgId: string, level: OrgPermissi
       body: { email, orgId, level, invitedByName, orgName },
     });
     if (res.error) {
-      let msg = res.error.message;
+      let msg = res.error.message || "Unknown error";
       try {
-        const body = await res.error.context.json();
-        if (body?.error) msg = body.error;
+        const ctx = res.error.context;
+        if (ctx && typeof ctx.json === "function") {
+          const parsed = await ctx.json();
+          if (parsed?.error) msg = parsed.error;
+        } else if (ctx?.error) {
+          msg = ctx.error;
+        }
       } catch {}
+      console.error("invite-member error:", msg, res);
       throw new Error(msg);
     }
     return res.data;
   } catch (err: any) {
+    console.error("inviteTeamMember failed:", err);
     throw new Error(err.message || "Failed to reach the invite service. Make sure the edge function is deployed.");
   }
 }
@@ -1011,11 +1018,11 @@ function IconPicker({ selected, onSelect }: { selected: string; onSelect: (icon:
         borderRadius: 6, cursor: "pointer", marginBottom: 8,
         background: selected === ICON_NONE ? "#EFF6FF" : "#F8FAFC",
         border: selected === ICON_NONE ? "1.5px solid #3B82F6" : "1.5px solid #e2e8f0",
-        fontSize: 12, color: "#64748b"
+        fontSize: 15, color: "#64748b"
       }}>No icon</div>
 
       <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search icons..."
-        style={{ width: "100%", padding: "6px 10px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", marginBottom: 8, boxSizing: "border-box" }} />
+        style={{ width: "100%", padding: "6px 10px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", marginBottom: 8, boxSizing: "border-box" }} />
 
       {!search && (
         <div style={{ display: "flex", gap: 4, overflowX: "auto", marginBottom: 8, paddingBottom: 2 }}>
@@ -1023,7 +1030,7 @@ function IconPicker({ selected, onSelect }: { selected: string; onSelect: (icon:
             <button key={i} onClick={() => setActiveCategory(i)} style={{
               padding: "3px 8px", borderRadius: 20, border: "none", cursor: "pointer", flexShrink: 0,
               background: activeCategory === i ? "#3B82F6" : "#f1f5f9",
-              color: activeCategory === i ? "#fff" : "#64748b", fontSize: 10, fontWeight: 500
+              color: activeCategory === i ? "#fff" : "#64748b", fontSize: 15, fontWeight: 500
             }}>{cat.label}</button>
           ))}
         </div>
@@ -1046,7 +1053,7 @@ function IconPicker({ selected, onSelect }: { selected: string; onSelect: (icon:
       </div>
 
       {selected && selected !== ICON_NONE && (
-        <div style={{ marginTop: 6, fontSize: 12, color: "#64748b", display: "flex", alignItems: "center", gap: 6 }}>
+        <div style={{ marginTop: 6, fontSize: 15, color: "#64748b", display: "flex", alignItems: "center", gap: 6 }}>
           Selected: <IconGlyph name={selected} size={14} color="#3B82F6" />
           <span style={{ color: "#94a3b8" }}>{selected}</span>
         </div>
@@ -1061,8 +1068,8 @@ function IconPicker({ selected, onSelect }: { selected: string; onSelect: (icon:
 
 function TxnTable({ transactions }: { transactions: Transaction[] }) {
   const fmt = (n?: number) => n != null ? n.toLocaleString("en-US", { minimumFractionDigits: 2 }) : "";
-  const th: React.CSSProperties = { fontSize: 12, color: "#94a3b8", padding: "6px 8px", textAlign: "left", fontWeight: 500, borderBottom: "1px solid #f1f5f9" };
-  const td: React.CSSProperties = { fontSize: 12, color: "#475569", padding: "6px 8px", borderBottom: "1px solid #f8fafc" };
+  const th: React.CSSProperties = { fontSize: 15, color: "#94a3b8", padding: "6px 8px", textAlign: "left", fontWeight: 500, borderBottom: "1px solid #f1f5f9" };
+  const td: React.CSSProperties = { fontSize: 15, color: "#475569", padding: "6px 8px", borderBottom: "1px solid #f8fafc" };
   return (
     <div style={{ background: "#fff", borderRadius: "0 0 12px 12px", border: "1px solid #e2e8f0", borderTop: "none" }}>
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -1142,12 +1149,12 @@ function BottomThreeCards({ data, metricId, tasks, setTasks, userEmail, orgMembe
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 16 }}>
       <SectionCard>
         <div style={{ fontSize: 16, fontWeight: 700, color: "#1a2332", marginBottom: 8 }}>Projections</div>
-        <div style={{ fontSize: 12, color: "#94a3b8", fontStyle: "italic", marginBottom: 10 }}>Coming Soon</div>
+        <div style={{ fontSize: 15, color: "#94a3b8", fontStyle: "italic", marginBottom: 10 }}>Coming Soon</div>
         {[1, 2, 3].map(i => <div key={i} style={{ height: 8, borderRadius: 99, background: "#e2e8f0", marginBottom: 8, width: `${70 - i * 10}%`, opacity: 0.4 }} />)}
       </SectionCard>
       <SectionCard>
-        <div style={{ display: "inline-block", background: "#3B82F6", color: "#fff", borderRadius: 99, padding: "5px 14px", fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Suggestions</div>
-        <div style={{ fontSize: 12, color: "#94a3b8", fontStyle: "italic", marginBottom: 10 }}>Coming Soon</div>
+        <div style={{ display: "inline-block", background: "#3B82F6", color: "#fff", borderRadius: 99, padding: "5px 14px", fontSize: 15, fontWeight: 600, marginBottom: 8 }}>Suggestions</div>
+        <div style={{ fontSize: 15, color: "#94a3b8", fontStyle: "italic", marginBottom: 10 }}>Coming Soon</div>
         {[1, 2, 3].map(i => <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, opacity: 0.4 }}>
           <div style={{ width: 20, height: 20, borderRadius: "50%", border: "1.5px solid #d1d5db", flexShrink: 0 }} />
           <div style={{ height: 7, borderRadius: 99, background: "#e2e8f0", flex: 1 }} />
@@ -1155,47 +1162,47 @@ function BottomThreeCards({ data, metricId, tasks, setTasks, userEmail, orgMembe
       </SectionCard>
       <div style={{ position: "relative" }}>
       <SectionCard>
-        <div style={{ display: "inline-block", background: "#3B82F6", color: "#fff", borderRadius: 99, padding: "5px 14px", fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Next Actions</div>
+        <div style={{ display: "inline-block", background: "#3B82F6", color: "#fff", borderRadius: 99, padding: "5px 14px", fontSize: 15, fontWeight: 600, marginBottom: 8 }}>Next Actions</div>
         {linkedTasks.length > 0 && <button onClick={() => setExpandMetricActions(true)}
-          style={{ position: "absolute", bottom: 4, right: 4, width: 22, height: 22, borderRadius: 4, border: "none", background: "rgba(255,255,255,0.9)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#64748b", boxShadow: "0 1px 3px rgba(0,0,0,0.12)" }}
+          style={{ position: "absolute", bottom: 4, right: 4, width: 22, height: 22, borderRadius: 4, border: "none", background: "rgba(255,255,255,0.9)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, color: "#64748b", boxShadow: "0 1px 3px rgba(0,0,0,0.12)" }}
           title="View all next actions">⛶</button>}
         {linkedTasks.map(t => {
           const assigneeMember = (orgMembers || []).find(m => m.email === t.assignedTo);
           return (
             <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, position: "relative" }}>
-              <div onClick={() => toggleLinked(t.id)} style={{ width: 18, height: 18, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 9 }}>{t.done ? "✓" : ""}</div>
-              <span style={{ fontSize: 12, color: "#1a2332", flex: 1, textDecoration: t.done ? "line-through" : "none", minWidth: 0 }}>{t.text}</span>
+              <div onClick={() => toggleLinked(t.id)} style={{ width: 18, height: 18, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 15 }}>{t.done ? "✓" : ""}</div>
+              <span style={{ fontSize: 15, color: "#1a2332", flex: 1, textDecoration: t.done ? "line-through" : "none", minWidth: 0 }}>{t.text}</span>
               {assigneeMember ? (
                 assigneeMember.avatarUrl
                   ? <img src={assigneeMember.avatarUrl} alt="" style={{ width: 22, height: 22, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
-                  : <div style={{ width: 22, height: 22, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: "#94a3b8", flexShrink: 0 }}>
+                  : <div style={{ width: 22, height: 22, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, color: "#94a3b8", flexShrink: 0 }}>
                       {(assigneeMember.name?.[0] || assigneeMember.email[0] || "?").toUpperCase()}
                     </div>
               ) : null}
-              <div onClick={(e) => { menuTriggerElRef.current = e.currentTarget as HTMLElement; setMenuTaskId(menuTaskId === t.id ? null : t.id); }} style={{ width: 22, height: 22, borderRadius: "50%", background: "#F1F5F9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 9, color: "#94a3b8", flexShrink: 0 }}>···</div>
+              <div onClick={(e) => { menuTriggerElRef.current = e.currentTarget as HTMLElement; setMenuTaskId(menuTaskId === t.id ? null : t.id); }} style={{ width: 22, height: 22, borderRadius: "50%", background: "#F1F5F9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 15, color: "#94a3b8", flexShrink: 0 }}>···</div>
               {menuTaskId === t.id && (
                 <div ref={menuRef} style={{ ...menuPos, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 100, minWidth: 150, overflow: "hidden" }}>
-                  <div style={{ padding: "7px 12px", fontSize: 11, fontWeight: 600, color: "#64748b", borderBottom: "1px solid #f1f5f9" }}>Assign To</div>
+                  <div style={{ padding: "7px 12px", fontSize: 15, fontWeight: 600, color: "#64748b", borderBottom: "1px solid #f1f5f9" }}>Assign To</div>
                   {(orgMembers || []).filter(m => m.status === "active").map(m => (
                     <div key={m.id} onClick={() => { setTasks?.(prev => prev.map(x => x.id === t.id ? { ...x, assignedTo: m.email } : x)); setMenuTaskId(null); }}
-                      style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", cursor: "pointer", background: t.assignedTo === m.email ? "#EFF6FF" : "transparent", fontSize: 11, color: "#1a2332" }}
+                      style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", cursor: "pointer", background: t.assignedTo === m.email ? "#EFF6FF" : "transparent", fontSize: 15, color: "#1a2332" }}
                       onMouseEnter={e => e.currentTarget.style.background = "#f8fafc"}
                       onMouseLeave={e => e.currentTarget.style.background = t.assignedTo === m.email ? "#EFF6FF" : "transparent"}>
                       {m.avatarUrl ? <img src={m.avatarUrl} alt="" style={{ width: 18, height: 18, borderRadius: "50%", objectFit: "cover" }} />
-                        : <div style={{ width: 18, height: 18, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 7, fontWeight: 700, color: "#94a3b8" }}>{(m.name?.[0] || m.email[0] || "?").toUpperCase()}</div>}
+                        : <div style={{ width: 18, height: 18, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, color: "#94a3b8" }}>{(m.name?.[0] || m.email[0] || "?").toUpperCase()}</div>}
                       <span style={{ flex: 1 }}>{m.name || m.email.split("@")[0]}</span>
-                      {t.assignedTo === m.email && <span style={{ fontSize: 10, color: "#3B82F6" }}>✓</span>}
+                      {t.assignedTo === m.email && <span style={{ fontSize: 15, color: "#3B82F6" }}>✓</span>}
                     </div>
                   ))}
                   <div style={{ borderTop: "1px solid #f1f5f9" }}>
-                    <div style={{ padding: "7px 12px", fontSize: 11, fontWeight: 600, color: "#64748b" }}>Due Date</div>
+                    <div style={{ padding: "7px 12px", fontSize: 15, fontWeight: 600, color: "#64748b" }}>Due Date</div>
                     <div style={{ padding: "0 12px 7px" }}>
                       <input type="date" value={t.dueDate || ""} onChange={e => { setTasks?.(prev => prev.map(x => x.id === t.id ? { ...x, dueDate: e.target.value || undefined } : x)); setMenuTaskId(null); }}
-                        style={{ width: "100%", padding: "4px 6px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 11, outline: "none", boxSizing: "border-box" }} />
+                        style={{ width: "100%", padding: "4px 6px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box" }} />
                     </div>
                   </div>
                   <div onClick={() => { setTasks?.(prev => prev.filter(x => x.id !== t.id)); setMenuTaskId(null); }}
-                    style={{ padding: "8px 12px", fontSize: 11, cursor: "pointer", color: "#E85D75", borderTop: "1px solid #f1f5f9" }}
+                    style={{ padding: "8px 12px", fontSize: 15, cursor: "pointer", color: "#E85D75", borderTop: "1px solid #f1f5f9" }}
                     onMouseEnter={e => e.currentTarget.style.background = "#fff5f5"}
                     onMouseLeave={e => e.currentTarget.style.background = "transparent"}>Delete</div>
                 </div>
@@ -1207,30 +1214,30 @@ function BottomThreeCards({ data, metricId, tasks, setTasks, userEmail, orgMembe
           <div style={{ marginTop: 8 }}>
             <input value={actionText} onChange={e => setActionText(e.target.value)} placeholder="New action..."
               onKeyDown={e => { if (e.key === "Enter") handleAddAction(); }}
-              style={{ width: "100%", padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", boxSizing: "border-box", marginBottom: 6 }} />
+              style={{ width: "100%", padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box", marginBottom: 6 }} />
             <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
               <select value={actionAssignee} onChange={e => setActionAssignee(e.target.value)}
-                style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 11, outline: "none", background: "#fff" }}>
+                style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", background: "#fff" }}>
                 <option value={userEmail}>Me</option>
                 {(orgMembers || []).filter(m => m.status === "active" && m.email !== userEmail).map(m => (
                   <option key={m.id} value={m.email}>{m.name || m.email.split("@")[0]}</option>
                 ))}
               </select>
               <input type="date" value={actionDueDate} onChange={e => setActionDueDate(e.target.value)}
-                style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 11, outline: "none", boxSizing: "border-box" }} />
+                style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box" }} />
             </div>
             <div style={{ display: "flex", gap: 6 }}>
               <button onClick={handleAddAction} disabled={!actionText.trim()}
-                style={{ flex: 1, padding: "5px 14px", borderRadius: 6, border: "none", background: actionText.trim() ? "#3B82F6" : "#e2e8f0", color: "#fff", fontSize: 11, fontWeight: 600, cursor: actionText.trim() ? "pointer" : "not-allowed" }}>Add</button>
-              <button onClick={() => setShowAddAction(false)} style={{ flex: 1, padding: "5px 14px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 11, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+                style={{ flex: 1, padding: "5px 14px", borderRadius: 6, border: "none", background: actionText.trim() ? "#3B82F6" : "#e2e8f0", color: "#fff", fontSize: 15, fontWeight: 600, cursor: actionText.trim() ? "pointer" : "not-allowed" }}>Add</button>
+              <button onClick={() => setShowAddAction(false)} style={{ flex: 1, padding: "5px 14px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>Cancel</button>
             </div>
           </div>
         ) : (
-          <div onClick={() => setShowAddAction(true)} style={{ fontSize: 12, color: "#3B82F6", cursor: "pointer", fontWeight: 600, marginTop: 6, display: "flex", alignItems: "center", gap: 4 }}>
-            <span style={{ fontSize: 14 }}>+</span> Add Task
+          <div onClick={() => setShowAddAction(true)} style={{ fontSize: 15, color: "#3B82F6", cursor: "pointer", fontWeight: 600, marginTop: 6, display: "flex", alignItems: "center", gap: 4 }}>
+            <span style={{ fontSize: 15 }}>+</span> Add Task
           </div>
         )}
-        {linkedTasks.length === 0 && !showAddAction && <div style={{ fontSize: 12, color: "#cbd5e1", fontStyle: "italic" }}>No actions yet</div>}
+        {linkedTasks.length === 0 && !showAddAction && <div style={{ fontSize: 15, color: "#cbd5e1", fontStyle: "italic" }}>No actions yet</div>}
       </SectionCard>
       </div>
       {expandMetricActions && (
@@ -1244,39 +1251,39 @@ function BottomThreeCards({ data, metricId, tasks, setTasks, userEmail, orgMembe
                 const assigneeMember = (orgMembers || []).find(m => m.email === t.assignedTo);
                 return (
                   <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8, background: "#fff", border: "1px solid #f1f5f9", position: "relative" }}>
-                    <div onClick={() => { if (setTasks) setTasks(prev => prev.map(x => x.id === t.id ? { ...x, done: !x.done } : x)); }} style={{ width: 18, height: 18, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 9 }}>{t.done ? "✓" : ""}</div>
-                    <span style={{ fontSize: 13, color: "#1a2332", flex: 1, minWidth: 0 }}>{t.text}</span>
+                    <div onClick={() => { if (setTasks) setTasks(prev => prev.map(x => x.id === t.id ? { ...x, done: !x.done } : x)); }} style={{ width: 18, height: 18, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 15 }}>{t.done ? "✓" : ""}</div>
+                    <span style={{ fontSize: 15, color: "#1a2332", flex: 1, minWidth: 0 }}>{t.text}</span>
                     {assigneeMember && (
                       assigneeMember.avatarUrl
                         ? <img src={assigneeMember.avatarUrl} alt="" style={{ width: 22, height: 22, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
-                        : <div style={{ width: 22, height: 22, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: "#94a3b8", flexShrink: 0 }}>
+                        : <div style={{ width: 22, height: 22, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, color: "#94a3b8", flexShrink: 0 }}>
                             {(assigneeMember.name?.[0] || assigneeMember.email[0] || "?").toUpperCase()}
                           </div>
                     )}
-                    <div onClick={(e) => { menuTriggerElRef.current = e.currentTarget as HTMLElement; setMenuTaskId(menuTaskId === t.id ? null : t.id); }} style={{ width: 22, height: 22, borderRadius: "50%", background: "#F1F5F9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 9, color: "#94a3b8", flexShrink: 0 }}>···</div>
+                    <div onClick={(e) => { menuTriggerElRef.current = e.currentTarget as HTMLElement; setMenuTaskId(menuTaskId === t.id ? null : t.id); }} style={{ width: 22, height: 22, borderRadius: "50%", background: "#F1F5F9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 15, color: "#94a3b8", flexShrink: 0 }}>···</div>
                     {menuTaskId === t.id && (
                       <div ref={menuRef} style={{ ...menuPos, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 100, minWidth: 150, overflow: "hidden" }}>
-                        <div style={{ padding: "7px 12px", fontSize: 11, fontWeight: 600, color: "#64748b", borderBottom: "1px solid #f1f5f9" }}>Assign To</div>
+                        <div style={{ padding: "7px 12px", fontSize: 15, fontWeight: 600, color: "#64748b", borderBottom: "1px solid #f1f5f9" }}>Assign To</div>
                         {(orgMembers || []).filter(m => m.status === "active").map(m => (
                           <div key={m.id} onClick={() => { setTasks?.(prev => prev.map(x => x.id === t.id ? { ...x, assignedTo: m.email } : x)); setMenuTaskId(null); }}
-                            style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", cursor: "pointer", background: t.assignedTo === m.email ? "#EFF6FF" : "transparent", fontSize: 11, color: "#1a2332" }}
+                            style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", cursor: "pointer", background: t.assignedTo === m.email ? "#EFF6FF" : "transparent", fontSize: 15, color: "#1a2332" }}
                             onMouseEnter={e => e.currentTarget.style.background = "#f8fafc"}
                             onMouseLeave={e => e.currentTarget.style.background = t.assignedTo === m.email ? "#EFF6FF" : "transparent"}>
                             {m.avatarUrl ? <img src={m.avatarUrl} alt="" style={{ width: 18, height: 18, borderRadius: "50%", objectFit: "cover" }} />
-                              : <div style={{ width: 18, height: 18, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 7, fontWeight: 700, color: "#94a3b8" }}>{(m.name?.[0] || m.email[0] || "?").toUpperCase()}</div>}
+                              : <div style={{ width: 18, height: 18, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, color: "#94a3b8" }}>{(m.name?.[0] || m.email[0] || "?").toUpperCase()}</div>}
                             <span style={{ flex: 1 }}>{m.name || m.email.split("@")[0]}</span>
-                            {t.assignedTo === m.email && <span style={{ fontSize: 10, color: "#3B82F6" }}>✓</span>}
+                            {t.assignedTo === m.email && <span style={{ fontSize: 15, color: "#3B82F6" }}>✓</span>}
                           </div>
                         ))}
                         <div style={{ borderTop: "1px solid #f1f5f9" }}>
-                          <div style={{ padding: "7px 12px", fontSize: 11, fontWeight: 600, color: "#64748b" }}>Due Date</div>
+                          <div style={{ padding: "7px 12px", fontSize: 15, fontWeight: 600, color: "#64748b" }}>Due Date</div>
                           <div style={{ padding: "0 12px 7px" }}>
                             <input type="date" value={t.dueDate || ""} onChange={e => { setTasks?.(prev => prev.map(x => x.id === t.id ? { ...x, dueDate: e.target.value || undefined } : x)); setMenuTaskId(null); }}
-                              style={{ width: "100%", padding: "4px 6px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 11, outline: "none", boxSizing: "border-box" }} />
+                              style={{ width: "100%", padding: "4px 6px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box" }} />
                           </div>
                         </div>
                         <div onClick={() => { setTasks?.(prev => prev.filter(x => x.id !== t.id)); setMenuTaskId(null); }}
-                          style={{ padding: "8px 12px", fontSize: 11, cursor: "pointer", color: "#E85D75", borderTop: "1px solid #f1f5f9" }}
+                          style={{ padding: "8px 12px", fontSize: 15, cursor: "pointer", color: "#E85D75", borderTop: "1px solid #f1f5f9" }}
                           onMouseEnter={e => e.currentTarget.style.background = "#fff5f5"}
                           onMouseLeave={e => e.currentTarget.style.background = "transparent"}>Delete</div>
                       </div>
@@ -1289,27 +1296,27 @@ function BottomThreeCards({ data, metricId, tasks, setTasks, userEmail, orgMembe
               <div style={{ marginTop: 12 }}>
                 <input value={actionText} onChange={e => setActionText(e.target.value)} placeholder="New action..."
                   onKeyDown={e => { if (e.key === "Enter") handleAddAction(); }}
-                  style={{ width: "100%", padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", boxSizing: "border-box", marginBottom: 6 }} />
+                  style={{ width: "100%", padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box", marginBottom: 6 }} />
                 <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
                   <select value={actionAssignee} onChange={e => setActionAssignee(e.target.value)}
-                    style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 11, outline: "none", background: "#fff" }}>
+                    style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", background: "#fff" }}>
                     <option value={userEmail}>Me</option>
                     {(orgMembers || []).filter(m => m.status === "active" && m.email !== userEmail).map(m => (
                       <option key={m.id} value={m.email}>{m.name || m.email.split("@")[0]}</option>
                     ))}
                   </select>
                   <input type="date" value={actionDueDate} onChange={e => setActionDueDate(e.target.value)}
-                    style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 11, outline: "none", boxSizing: "border-box" }} />
+                    style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box" }} />
                 </div>
                 <div style={{ display: "flex", gap: 6 }}>
                   <button onClick={handleAddAction} disabled={!actionText.trim()}
-                    style={{ flex: 1, padding: "5px 14px", borderRadius: 6, border: "none", background: actionText.trim() ? "#3B82F6" : "#e2e8f0", color: "#fff", fontSize: 11, fontWeight: 600, cursor: actionText.trim() ? "pointer" : "not-allowed" }}>Add</button>
-                  <button onClick={() => setShowAddAction(false)} style={{ flex: 1, padding: "5px 14px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 11, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+                    style={{ flex: 1, padding: "5px 14px", borderRadius: 6, border: "none", background: actionText.trim() ? "#3B82F6" : "#e2e8f0", color: "#fff", fontSize: 15, fontWeight: 600, cursor: actionText.trim() ? "pointer" : "not-allowed" }}>Add</button>
+                  <button onClick={() => setShowAddAction(false)} style={{ flex: 1, padding: "5px 14px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>Cancel</button>
                 </div>
               </div>
             ) : (
-              <div onClick={() => setShowAddAction(true)} style={{ fontSize: 12, color: "#3B82F6", cursor: "pointer", fontWeight: 600, marginTop: 12, display: "flex", alignItems: "center", gap: 4 }}>
-                <span style={{ fontSize: 14 }}>+</span> Add Task
+              <div onClick={() => setShowAddAction(true)} style={{ fontSize: 15, color: "#3B82F6", cursor: "pointer", fontWeight: 600, marginTop: 12, display: "flex", alignItems: "center", gap: 4 }}>
+                <span style={{ fontSize: 15 }}>+</span> Add Task
               </div>
             )}
           </div>
@@ -1336,10 +1343,10 @@ function MetricChart({ history, rules, graphType, currentValue }: {
         height: 150, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
         background: "#F8FAFC", border: "1.5px dashed #e2e8f0", borderRadius: 10, padding: 12, gap: 6
       }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: "#94a3b8" }}>Insufficient Data</div>
-        <div style={{ fontSize: 11, color: "#cbd5e1", textAlign: "center", lineHeight: 1.4 }}>
+        <div style={{ fontSize: 15, fontWeight: 600, color: "#94a3b8" }}>Insufficient Data</div>
+        <div style={{ fontSize: 15, color: "#cbd5e1", textAlign: "center", lineHeight: 1.4 }}>
           {needed} more data point{needed === 1 ? "" : "s"} needed<br/>
-          <span style={{ fontSize: 10 }}>({history?.length ?? 0} of 5 recorded)</span>
+          <span style={{ fontSize: 15 }}>({history?.length ?? 0} of 5 recorded)</span>
         </div>
       </div>
     );
@@ -1509,7 +1516,7 @@ function ExpandableChart({ history, rules, graphType, currentValue }: {
       <div style={{ position: "relative" }}>
         <MetricChart history={history} rules={rules} graphType={graphType} currentValue={currentValue} />
         <button onClick={() => setExpanded(true)}
-          style={{ position: "absolute", bottom: 4, right: 4, width: 22, height: 22, borderRadius: 4, border: "none", background: "rgba(255,255,255,0.9)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#64748b", boxShadow: "0 1px 3px rgba(0,0,0,0.12)" }}
+          style={{ position: "absolute", bottom: 4, right: 4, width: 22, height: 22, borderRadius: 4, border: "none", background: "rgba(255,255,255,0.9)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, color: "#64748b", boxShadow: "0 1px 3px rgba(0,0,0,0.12)" }}
           title="Expand graph">⛶</button>
       </div>
       {expanded && <GraphExpandPopUp {...{ history, rules, graphType, currentValue, onClose: () => setExpanded(false) }} />}
@@ -1555,10 +1562,10 @@ function FiveAccountOverflowBanner({ overflowAmount, currencySymbol, metric, sib
       <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
         <span style={{ fontSize: 18 }}>🌊</span>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "#0F6E56", marginBottom: 3 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "#0F6E56", marginBottom: 3 }}>
             Five-Account Overflow
           </div>
-          <div style={{ fontSize: 12, color: "#0F6E56", lineHeight: 1.5, marginBottom: 10 }}>
+          <div style={{ fontSize: 15, color: "#0F6E56", lineHeight: 1.5, marginBottom: 10 }}>
             This account is <strong>{fmtVal(overflowAmount)}</strong> over your target. Move the excess to stay balanced?
           </div>
           
@@ -1567,7 +1574,7 @@ function FiveAccountOverflowBanner({ overflowAmount, currencySymbol, metric, sib
               <select 
                 value={selectedDestId} 
                 onChange={(e) => setSelectedDestId(e.target.value)}
-                style={{ padding: "6px 8px", borderRadius: 6, border: "1px solid #4CAF7D", fontSize: 12 }}
+                style={{ padding: "6px 8px", borderRadius: 6, border: "1px solid #4CAF7D", fontSize: 15 }}
               >
                 <option value="">Select Account...</option>
                 {siblings?.filter(s => metric && s.id !== metric.id).map(s => (
@@ -1585,7 +1592,7 @@ function FiveAccountOverflowBanner({ overflowAmount, currencySymbol, metric, sib
               style={{
                 padding: "8px 12px", borderRadius: 8, border: "none",
                 background: selectedDestId ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#cbd5e1", 
-                fontSize: 11, fontWeight: 700, cursor: selectedDestId ? "pointer" : "not-allowed", color: "#fff"
+                fontSize: 15, fontWeight: 700, cursor: selectedDestId ? "pointer" : "not-allowed", color: "#fff"
               }}
             >
               Move {fmtVal(overflowAmount)} {isProfit ? "to Investments" : ""}
@@ -1604,11 +1611,11 @@ function OutOfSyncBanner({ metric, onResyncCurrent, onResyncPrevious }: {
 }) {
   return (
     <div style={{ background: "#FFF5F5", border: "1.5px solid #E85D75", borderRadius: 10, padding: "10px 14px", marginBottom: 12 }}>
-      <div style={{ fontSize: 12, fontWeight: 700, color: "#E85D75", marginBottom: 4 }}>⚠ Out of Sync</div>
-      <div style={{ fontSize: 11, color: "#475569", marginBottom: 8, lineHeight: 1.4 }}>{metric?.outOfSyncReason ?? "This metric may not reflect the current bank balance."}</div>
+      <div style={{ fontSize: 15, fontWeight: 700, color: "#E85D75", marginBottom: 4 }}>⚠ Out of Sync</div>
+      <div style={{ fontSize: 15, color: "#475569", marginBottom: 8, lineHeight: 1.4 }}>{metric?.outOfSyncReason ?? "This metric may not reflect the current bank balance."}</div>
       <div style={{ display: "flex", gap: 6 }}>
-        <button onClick={onResyncCurrent} style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#E85D75", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Accept current</button>
-        <button onClick={onResyncPrevious} style={{ padding: "5px 12px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", color: "#475569", fontSize: 11, fontWeight: 500, cursor: "pointer" }}>Revert to last synced</button>
+        <button onClick={onResyncCurrent} style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#E85D75", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Accept current</button>
+        <button onClick={onResyncPrevious} style={{ padding: "5px 12px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", color: "#475569", fontSize: 15, fontWeight: 500, cursor: "pointer" }}>Revert to last synced</button>
       </div>
     </div>
   );
@@ -1651,7 +1658,7 @@ function RefreshButton({ onRefresh, lastSyncedAt, metricId }: {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
       {(timestamp ?? lastSyncedAt) ? (
-        <span style={{ fontSize: 10, color: "#94a3b8", fontStyle: "italic" }}>
+        <span style={{ fontSize: 15, color: "#94a3b8", fontStyle: "italic" }}>
           Synced {fmtTime((timestamp ?? lastSyncedAt)!)}
         </span>
       ) : null}
@@ -1664,9 +1671,9 @@ function RefreshButton({ onRefresh, lastSyncedAt, metricId }: {
         transition: "all 0.2s"
       }}>
         {state === "done" ? (
-          <span style={{ color: "#4CAF7D", fontSize: 14, fontWeight: 700 }}>✓</span>
+          <span style={{ color: "#4CAF7D", fontSize: 15, fontWeight: 700 }}>✓</span>
         ) : (
-          <span style={{ display: "inline-block", fontSize: 14, color: "#94a3b8", animation: state === "spinning" ? "spin 0.7s linear infinite" : "none" }}>↻</span>
+          <span style={{ display: "inline-block", fontSize: 15, color: "#94a3b8", animation: state === "spinning" ? "spin 0.7s linear infinite" : "none" }}>↻</span>
         )}
       </button>
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
@@ -1710,7 +1717,7 @@ function TopBarRefreshButton({ onRefresh, lastSyncedAt, isMobile }: {
         padding: isMobile ? 0 : "4px 10px", borderRadius: isMobile ? "50%" : 7, border: "1px solid #e2e8f0",
         background: state === "done" ? "#F0FDF4" : "#f8fafc",
         borderColor: state === "done" ? "#4CAF7D" : "#e2e8f0",
-        cursor: "pointer", fontSize: 11, fontWeight: 500,
+        cursor: "pointer", fontSize: 15, fontWeight: 500,
         color: state === "done" ? "#4CAF7D" : "#64748b",
         transition: "all 0.2s"
       }}>
@@ -1720,7 +1727,7 @@ function TopBarRefreshButton({ onRefresh, lastSyncedAt, isMobile }: {
         {!isMobile && (state === "done" ? "Synced" : "Refresh Data")}
       </button>
       {!isMobile && displaySynced && (
-        <span style={{ fontSize: 10, color: "#94a3b8", fontStyle: "italic" }}>
+        <span style={{ fontSize: 15, color: "#94a3b8", fontStyle: "italic" }}>
           Synced {fmtTime(displaySynced)}
         </span>
       )}
@@ -1783,7 +1790,7 @@ function CashBalanceInput({ value, currencySymbol, statValColor, statTextColor, 
             padding: "4px 10px", borderRadius: 20, border: "1.5px solid",
             borderColor: isColored ? "rgba(255,255,255,0.4)" : "#e2e8f0",
             background: isColored ? "rgba(255,255,255,0.15)" : "#fff",
-            fontSize: 11, fontWeight: 600, cursor: "pointer",
+            fontSize: 15, fontWeight: 600, cursor: "pointer",
             color: isColored ? "#fff" : "#3B82F6", flexShrink: 0
           }}>
             Post Transaction
@@ -1802,20 +1809,20 @@ function CashBalanceInput({ value, currencySymbol, statValColor, statTextColor, 
                 borderColor: txnType === t ? (t === "credit" ? "#4CAF7D" : "#E85D75") : "#e2e8f0",
                 background: txnType === t ? (t === "credit" ? "#F0FDF4" : "#FFF5F5") : "#fff",
                 color: txnType === t ? (t === "credit" ? "#4CAF7D" : "#E85D75") : "#94a3b8",
-                fontSize: 12, fontWeight: 600, cursor: "pointer", textTransform: "capitalize"
+                fontSize: 15, fontWeight: 600, cursor: "pointer", textTransform: "capitalize"
               }}>{t === "credit" ? "＋ Credit" : "－ Debit"}</button>
             ))}
           </div>
           {/* Amount */}
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-            <span style={{ fontSize: 13, color: "#64748b", flexShrink: 0 }}>{currencySymbol}</span>
+            <span style={{ fontSize: 15, color: "#64748b", flexShrink: 0 }}>{currencySymbol}</span>
             <input
               value={txnAmount}
               onChange={e => setTxnAmount(e.target.value.replace(/[^0-9.]/g, ""))}
               onKeyDown={e => { if (e.key === "Enter") handlePost(); }}
               placeholder="Amount"
               autoFocus
-              style={{ flex: 1, padding: "7px 10px", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none", boxSizing: "border-box" as const, color: "#1a2332", background: "#f8fafc" }}
+              style={{ flex: 1, padding: "7px 10px", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box" as const, color: "#1a2332", background: "#f8fafc" }}
             />
           </div>
           {/* Description */}
@@ -1824,22 +1831,22 @@ function CashBalanceInput({ value, currencySymbol, statValColor, statTextColor, 
             onChange={e => setTxnDesc(e.target.value)}
             onKeyDown={e => { if (e.key === "Enter") handlePost(); }}
             placeholder="Description (e.g. monthly deposit)"
-            style={{ width: "100%", padding: "7px 10px", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", boxSizing: "border-box" as const, marginBottom: 8, color: "#1a2332", background: "#f8fafc" }}
+            style={{ width: "100%", padding: "7px 10px", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box" as const, marginBottom: 8, color: "#1a2332", background: "#f8fafc" }}
           />
           {/* Transfer-to option (optional) — only shown if there are other Five-Account boxes */}
           {transferTargets.length > 0 && (
             <div style={{ marginBottom: 8, padding: "8px 10px", background: "#F0FDF4", border: "1px solid #c3e6d4", borderRadius: 7 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: "#0F6E56", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#0F6E56", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
                 Transfer to (optional)
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-                <label style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer", fontSize: 11, color: "#64748b" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer", fontSize: 15, color: "#64748b" }}>
                   <input type="checkbox" checked={transferToId === ""} onChange={() => setTransferToId("")}
                     style={{ accentColor: "#0F6E56", margin: 0 }} />
                   None
                 </label>
                 {transferTargets.map(t => (
-                  <label key={t.id} style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer", fontSize: 11, color: "#1a2332" }}>
+                  <label key={t.id} style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer", fontSize: 15, color: "#1a2332" }}>
                     <input type="checkbox" checked={transferToId === t.id}
                       onChange={() => setTransferToId(transferToId === t.id ? "" : t.id)}
                       style={{ accentColor: "#0F6E56", margin: 0 }} />
@@ -1848,7 +1855,7 @@ function CashBalanceInput({ value, currencySymbol, statValColor, statTextColor, 
                 ))}
               </div>
               {transferToId && (
-                <div style={{ fontSize: 10, color: "#0F6E56", marginTop: 6, fontStyle: "italic" }}>
+                <div style={{ fontSize: 15, color: "#0F6E56", marginTop: 6, fontStyle: "italic" }}>
                   ✓ Will post a matching {txnType === "credit" ? "debit" : "credit"} on {transferTargets.find(t => t.id === transferToId)?.label}
                 </div>
               )}
@@ -1861,18 +1868,18 @@ function CashBalanceInput({ value, currencySymbol, statValColor, statTextColor, 
             const next = txnType === "credit" ? cur + amt : Math.max(0, cur - amt);
             const fmt = (n: number) => `${currencySymbol}${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
             return (
-              <div style={{ fontSize: 11, color: "#64748b", marginBottom: 8, padding: "5px 8px", background: "#f1f5f9", borderRadius: 6 }}>
+              <div style={{ fontSize: 15, color: "#64748b", marginBottom: 8, padding: "5px 8px", background: "#f1f5f9", borderRadius: 6 }}>
                 {fmt(cur)} → <strong style={{ color: txnType === "credit" ? "#4CAF7D" : "#E85D75" }}>{fmt(next)}</strong>
               </div>
             );
           })()}
           {/* Buttons */}
           <div style={{ display: "flex", gap: 6 }}>
-            <button onClick={handleCancel} style={{ flex: 1, padding: "7px 0", borderRadius: 7, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b" }}>
+            <button onClick={handleCancel} style={{ flex: 1, padding: "7px 0", borderRadius: 7, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>
               Cancel
             </button>
             <button onClick={handlePost} disabled={!txnDesc.trim() || !txnAmount || parseFloat(txnAmount) <= 0}
-              style={{ flex: 2, padding: "7px 0", borderRadius: 7, border: "none", fontSize: 12, fontWeight: 600, cursor: txnDesc.trim() && txnAmount ? "pointer" : "not-allowed", background: txnDesc.trim() && txnAmount && parseFloat(txnAmount) > 0 ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0", color: txnDesc.trim() && txnAmount && parseFloat(txnAmount) > 0 ? "#fff" : "#94a3b8" }}>
+              style={{ flex: 2, padding: "7px 0", borderRadius: 7, border: "none", fontSize: 15, fontWeight: 600, cursor: txnDesc.trim() && txnAmount ? "pointer" : "not-allowed", background: txnDesc.trim() && txnAmount && parseFloat(txnAmount) > 0 ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0", color: txnDesc.trim() && txnAmount && parseFloat(txnAmount) > 0 ? "#fff" : "#94a3b8" }}>
               Post Transaction
             </button>
           </div>
@@ -1937,7 +1944,7 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
   const EditBtn = () => (
     <button onClick={onEdit} style={{
       background: "#9CA3AF", color: "#fff", border: "none", borderRadius: 8,
-      padding: "8px 20px", fontSize: 13, fontWeight: 600, cursor: "pointer"
+      padding: "8px 20px", fontSize: 15, fontWeight: 600, cursor: "pointer"
     }}>Edit Settings</button>
   );
 
@@ -1988,8 +1995,8 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
   <div style={{ marginBottom: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
     {/* Header Banner */}
     <div style={{ background: "linear-gradient(135deg,#EEF9F4,#E8F4FD)", border: "1px solid #c3e6d4", borderRadius: 12, padding: "10px 14px" }}>
-      <div style={{ fontSize: 12, fontWeight: 700, color: "#0F6E56", marginBottom: 2 }}>Five-Account System — {data.accountType.toUpperCase()}</div>
-      <div style={{ fontSize: 11, color: "#475569", lineHeight: 1.4 }}>{FIVE_DESC[data.accountType]}</div>
+      <div style={{ fontSize: 15, fontWeight: 700, color: "#0F6E56", marginBottom: 2 }}>Five-Account System — {data.accountType.toUpperCase()}</div>
+      <div style={{ fontSize: 15, color: "#475569", lineHeight: 1.4 }}>{FIVE_DESC[data.accountType]}</div>
     </div>
 
     {/* Dynamic Overflow Banner (Shows only if a color threshold is set) */}
@@ -2011,10 +2018,10 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
           justifyContent: "space-between"
         }}>
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: isFull ? "#065F46" : "#64748B" }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: isFull ? "#065F46" : "#64748B" }}>
               {isFull ? "THRESHOLD REACHED" : "THRESHOLD ACTIVE"}
             </div>
-            <div style={{ fontSize: 10, color: isFull ? "#047857" : "#94A3B8" }}>
+            <div style={{ fontSize: 15, color: isFull ? "#047857" : "#94A3B8" }}>
               {isFull 
                 ? `Limit of ${currency}${greenRule.value.toLocaleString()} reached. Funds are now diverting.` 
                 : `Fills to ${currency}${greenRule.value.toLocaleString()} before diverting surplus.`}
@@ -2027,12 +2034,12 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
   </div>
         )}
         {data.healthPct != null
-          ? <><div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332", marginBottom: 6 }}>Health — <strong>{data.healthPct}%</strong></div>
+          ? <><div style={{ fontSize: 15, fontWeight: 600, color: "#1a2332", marginBottom: 6 }}>Health — <strong>{data.healthPct}%</strong></div>
             <div style={{ height: 28, borderRadius: 99, background: "#e5e7eb", maxWidth: 260, overflow: "hidden", marginBottom: 20 }}>
               <div style={{ width: `${data.healthPct}%`, height: "100%", borderRadius: 99, background: accent }} /></div></>
           : <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332", marginBottom: 6 }}>Health — N/A</div>
-            <button style={{ padding: "6px 18px", borderRadius: 99, border: "1.5px solid #d1d5db", background: "#fff", fontSize: 12, cursor: "pointer" }}>Set A Goal</button>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "#1a2332", marginBottom: 6 }}>Health — N/A</div>
+            <button style={{ padding: "6px 18px", borderRadius: 99, border: "1.5px solid #d1d5db", background: "#fff", fontSize: 15, cursor: "pointer" }}>Set A Goal</button>
           </div>}
 
         {/* Balance + transactions */}
@@ -2040,7 +2047,7 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
           <div style={{ background: accent, borderRadius: "12px 12px 0 0", padding: "18px 20px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 12, color: statTextColor, marginBottom: 4 }}>Balance</div>
+                <div style={{ fontSize: 15, color: statTextColor, marginBottom: 4 }}>Balance</div>
                 {metric?.outOfSync && (
                   <OutOfSyncBanner
                     metric={metric}
@@ -2103,16 +2110,16 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
                   }, 0);
                   const formatted = `${currency}${total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
                   return (
-                    <div style={{ fontSize: 11, color: isColored ? "rgba(255,255,255,0.85)" : "#475569", marginTop: 6, fontWeight: 500 }}>
+                    <div style={{ fontSize: 15, color: isColored ? "rgba(255,255,255,0.85)" : "#475569", marginTop: 6, fontWeight: 500 }}>
                       Actual bank account balance: <strong>{formatted}</strong>
                     </div>
                   );
                 })()}
-                <div style={{ fontSize: 9, color: isColored ? "#fff" : "#94a3b8", marginTop: 4, fontWeight: isColored ? 500 : 400 }}>
+                <div style={{ fontSize: 15, color: isColored ? "#fff" : "#94a3b8", marginTop: 4, fontWeight: isColored ? 500 : 400 }}>
                   {metric?.lastSyncedAt ? `Synced ${new Date(metric.lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
                 </div>
               </div>
-              <button style={{ background: "#fff", border: "none", borderRadius: 20, padding: "5px 14px", fontSize: 12, cursor: "pointer", fontWeight: 600, flexShrink: 0, marginLeft: 14, color: "#1a2332" }}>Filter</button>
+              <button style={{ background: "#fff", border: "none", borderRadius: 20, padding: "5px 14px", fontSize: 15, cursor: "pointer", fontWeight: 600, flexShrink: 0, marginLeft: 14, color: "#1a2332" }}>Filter</button>
             </div>
           </div>
           <TxnTable transactions={liveTxns} />
@@ -2120,7 +2127,7 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
 
         {/* Chart */}
         <div style={{ border: "1px solid #e2e8f0", borderRadius: 12, padding: "12px 14px", marginBottom: 24 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332", marginBottom: 8 }}>History</div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: "#1a2332", marginBottom: 8 }}>History</div>
           <ExpandableChart history={history} rules={colorRules} graphType={graphType} currentValue={metric?.value ?? data.mainValue} />
         </div>
 
@@ -2154,7 +2161,7 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
             <div style={{ width: `${data.healthPct ?? 0}%`, height: "100%", borderRadius: 99, background: activeColor !== "gray" ? accent : "#e5e7eb", transition: "width 0.4s" }} />
           </div>
         </div>
-        <p style={{ textAlign: "center", fontSize: 13, marginBottom: 24, color: "#64748b" }}>Health Goal — <strong style={{ color: "#1a2332" }}>{data.healthPct ?? "N/A"}{data.healthPct != null ? "%" : ""}</strong></p>
+        <p style={{ textAlign: "center", fontSize: 15, marginBottom: 24, color: "#64748b" }}>Health Goal — <strong style={{ color: "#1a2332" }}>{data.healthPct ?? "N/A"}{data.healthPct != null ? "%" : ""}</strong></p>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 28, marginBottom: 8 }}>
           <button onClick={() => handleIncrement(-1)} style={{ width: 40, height: 40, borderRadius: "50%", border: "1.5px solid #d1d5db", background: "none", fontSize: 22, cursor: "pointer", color: "#6b7280" }}>−</button>
           {isEditingValue
@@ -2165,7 +2172,7 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
         </div>
         <div style={{ textAlign: "center", marginBottom: 28 }}>
           <div style={{ height: 2, background: "#1a2332", width: 220, margin: "0 auto 5px" }} />
-          <span style={{ fontSize: 12, fontStyle: "italic", color: "#94a3b8" }}>
+          <span style={{ fontSize: 15, fontStyle: "italic", color: "#94a3b8" }}>
             {metric?.lastSyncedAt ? `Synced ${new Date(metric.lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
           </span>
         </div>
@@ -2174,13 +2181,13 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
             <div style={{ fontSize: 15, fontWeight: 700, color: "#1a2332", marginBottom: 10 }}>Details</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 12px" }}>
               {data.stats.map((s, i) => <div key={i}>
-                <div style={{ fontSize: 11, color: "#94a3b8" }}>{s.label}</div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: "#1a2332" }}>{s.value}</div>
+                <div style={{ fontSize: 15, color: "#94a3b8" }}>{s.label}</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "#1a2332" }}>{s.value}</div>
               </div>)}
             </div>
           </SectionCard>
           <SectionCard>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332", marginBottom: 6 }}>History</div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "#1a2332", marginBottom: 6 }}>History</div>
             <ExpandableChart history={history} rules={colorRules} graphType={graphType} currentValue={localValue} />
           </SectionCard>
         </div>
@@ -2205,20 +2212,20 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
             </div>
           </div>
         {data.healthPct != null
-          ? <><div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332", marginBottom: 6 }}>Health — <strong>{data.healthPct}%</strong></div>
+          ? <><div style={{ fontSize: 15, fontWeight: 600, color: "#1a2332", marginBottom: 6 }}>Health — <strong>{data.healthPct}%</strong></div>
             <div style={{ height: 28, borderRadius: 99, background: "#e5e7eb", maxWidth: 260, overflow: "hidden", marginBottom: 20 }}>
               <div style={{ width: `${data.healthPct}%`, height: "100%", borderRadius: 99, background: accent }} /></div></>
           : <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332", marginBottom: 6 }}>Health — N/A</div>
-            <button style={{ padding: "6px 18px", borderRadius: 99, border: "1.5px solid #d1d5db", background: "#fff", fontSize: 12, cursor: "pointer" }}>Set A Goal</button>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "#1a2332", marginBottom: 6 }}>Health — N/A</div>
+            <button style={{ padding: "6px 18px", borderRadius: 99, border: "1.5px solid #d1d5db", background: "#fff", fontSize: 15, cursor: "pointer" }}>Set A Goal</button>
           </div>}
         <div style={{ background: accent, borderRadius: 16, padding: "18px 20px", marginBottom: 22 }}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
             <div>
-              <div style={{ fontSize: 11, color: statTextColor }}>Amount</div>
-              {metric?.lastSyncedAt && <div style={{ fontSize: 9, color: isColored ? "rgba(255,255,255,0.5)" : "#94a3b8" }}>Synced {new Date(metric.lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>}
+              <div style={{ fontSize: 15, color: statTextColor }}>Amount</div>
+              {metric?.lastSyncedAt && <div style={{ fontSize: 15, color: isColored ? "rgba(255,255,255,0.5)" : "#94a3b8" }}>Synced {new Date(metric.lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>}
             </div>
-            <button style={{ background: "#fff", border: "none", borderRadius: 20, padding: "3px 12px", fontSize: 11, cursor: "pointer", fontWeight: 600, color: "#1a2332" }}>Filter</button>
+            <button style={{ background: "#fff", border: "none", borderRadius: 20, padding: "3px 12px", fontSize: 15, cursor: "pointer", fontWeight: 600, color: "#1a2332" }}>Filter</button>
           </div>
           <CashBalanceInput value={data.mainValue} currencySymbol={metric?.currencySymbol ?? "$"}
             statValColor={statValColor} statTextColor={statTextColor} isColored={isColored}
@@ -2227,20 +2234,20 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
           {data.stats.map((s, i) => (
             <div key={i} style={{ marginBottom: 8 }}>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ fontSize: 11, color: statTextColor }}>{s.label}</span>
-                {s.synced && metric?.lastSyncedAt && <span style={{ fontSize: 9, color: isColored ? "rgba(255,255,255,0.5)" : "#94a3b8" }}>Synced {new Date(metric.lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>}
+                <span style={{ fontSize: 15, color: statTextColor }}>{s.label}</span>
+                {s.synced && metric?.lastSyncedAt && <span style={{ fontSize: 15, color: isColored ? "rgba(255,255,255,0.5)" : "#94a3b8" }}>Synced {new Date(metric.lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>}
               </div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: statValColor }}>{s.value}</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: statValColor }}>{s.value}</div>
             </div>
           ))}
         </div>
         <div style={{ marginBottom: 22 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332", marginBottom: 6 }}>Transaction History</div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: "#1a2332", marginBottom: 6 }}>Transaction History</div>
           <TxnTable transactions={txns} />
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 22, marginBottom: 26 }}>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332", marginBottom: 8 }}>Manually Adjust Metric</div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "#1a2332", marginBottom: 8 }}>Manually Adjust Metric</div>
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
               <button onClick={() => handleIncrement(-1)} style={{ width: 30, height: 30, borderRadius: "50%", border: "1.5px solid #d1d5db", background: "none", fontSize: 18, cursor: "pointer", color: "#9CA3AF" }}>−</button>
               <div>
@@ -2249,7 +2256,7 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
                     style={{ fontSize: 26, fontWeight: 700, color: "#1a2332", border: "none", borderBottom: "2px solid #3B82F6", outline: "none", width: 130, background: "transparent" }} />
                   : <div onClick={() => setIsEditingValue(true)} style={{ fontSize: 26, fontWeight: 700, color: "#1a2332", cursor: "text" }} title="Click to edit">{localValue}</div>}
                 {metric?.lastSyncedAt
-                  ? <div style={{ fontSize: 10, color: "#94a3b8", fontStyle: "italic" }}>{`Synced ${new Date(metric.lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}</div>
+                  ? <div style={{ fontSize: 15, color: "#94a3b8", fontStyle: "italic" }}>{`Synced ${new Date(metric.lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}</div>
                   : null
                 }
               </div>
@@ -2258,17 +2265,17 @@ function MetricModal({ data, metric, onClose, onEdit, onValueChange, userId, onR
             {metric?.equation && metric.equation.steps.length > 0 && (
               metric?.outOfSync ? (
                 <div style={{ background: "#FFF5F5", border: "1.5px solid #E85D75", borderRadius: 10, padding: "10px 14px", marginBottom: 12 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "#E85D75", marginBottom: 4 }}>⚠ Out of Sync</div>
-                  <div style={{ fontSize: 11, color: "#475569", marginBottom: 8, lineHeight: 1.4 }}>Value was manually edited and may not match equation output.</div>
-                  <button onClick={onResyncEquation} style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#E85D75", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Re-sync with equation</button>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#E85D75", marginBottom: 4 }}>⚠ Out of Sync</div>
+                  <div style={{ fontSize: 15, color: "#475569", marginBottom: 8, lineHeight: 1.4 }}>Value was manually edited and may not match equation output.</div>
+                  <button onClick={onResyncEquation} style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#E85D75", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Re-sync with equation</button>
                 </div>
               ) : (
                 <div style={{ background: "#F0FDF4", border: "1px solid #c3e6d4", borderRadius: 10, padding: "12px 14px", marginBottom: 12 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "#0F6E56", marginBottom: 4 }}>= Equation Active</div>
-                  <div style={{ fontSize: 12, color: "#1a2332", marginBottom: 6 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#0F6E56", marginBottom: 4 }}>= Equation Active</div>
+                  <div style={{ fontSize: 15, color: "#1a2332", marginBottom: 6 }}>
                     {buildEquationPreviewString(metric.equation.steps, [metric]) || "Equation set"}
                   </div>
-                  <div style={{ fontSize: 11, color: "#64748b" }}>This value is automatically computed. Edit the equation in metric settings.</div>
+                  <div style={{ fontSize: 15, color: "#64748b" }}>This value is automatically computed. Edit the equation in metric settings.</div>
                 </div>
               )
             )}
@@ -2301,18 +2308,18 @@ function PostTransactionModal({ prompt, currency, onConfirm, onCancel }: {
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 5000, padding: 16 }}>
       <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 16, padding: 24, width: "100%", maxWidth: 380, boxShadow: "0 24px 64px rgba(0,0,0,0.2)", overflowY: "auto", overflowX: "hidden", maxHeight: "92vh" }}>
         <div style={{ fontSize: 15, fontWeight: 700, color: "#1a2332", marginBottom: 4 }}>Post Transaction</div>
-        <div style={{ fontSize: 12, color: "#64748b", marginBottom: 16 }}>
+        <div style={{ fontSize: 15, color: "#64748b", marginBottom: 16 }}>
           Recording a <strong style={{ color: isCredit ? "#4CAF7D" : "#E85D75" }}>{isCredit ? `+${fmt(delta)} credit` : `${fmt(delta)} debit`}</strong> to this account.
         </div>
         <input
           value={desc} onChange={e => setDesc(e.target.value)} autoFocus
           onKeyDown={e => { if (e.key === "Enter" && desc.trim()) onConfirm(desc.trim()); }}
           placeholder="Transaction description (e.g. Q1 tax payment)"
-          style={{ width: "100%", padding: "8px 11px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none", boxSizing: "border-box", marginBottom: 14 }}
+          style={{ width: "100%", padding: "8px 11px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box", marginBottom: 14 }}
         />
         <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={onCancel} style={{ flex: 1, padding: "9px 0", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b" }}>Cancel (discard change)</button>
-          <button onClick={() => { if (desc.trim()) onConfirm(desc.trim()); }} style={{ flex: 1, padding: "9px 0", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Post</button>
+          <button onClick={onCancel} style={{ flex: 1, padding: "9px 0", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>Cancel (discard change)</button>
+          <button onClick={() => { if (desc.trim()) onConfirm(desc.trim()); }} style={{ flex: 1, padding: "9px 0", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Post</button>
         </div>
       </div>
     </div>
@@ -2345,30 +2352,30 @@ function FiveAccountColorRule({ rules, onChange }: {
     if (!isNaN(gn)) built.push({ id: "5a-green", color: "green", op: gop, value: gn });
     onChange(built);
   };
-  const inputStyle: React.CSSProperties = { padding: "6px 9px", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", boxSizing: "border-box", width: "100%", background: "#fff" };
+  const inputStyle: React.CSSProperties = { padding: "6px 9px", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box", width: "100%", background: "#fff" };
 
   const Row = ({ label, color, children }: { label: string; color: string; children: React.ReactNode }) => (
     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
       <span style={{ width: 9, height: 9, borderRadius: "50%", background: color, flexShrink: 0, display: "inline-block" }} />
-      <span style={{ fontSize: 11, color: "#64748b", width: 54, flexShrink: 0 }}>{label}</span>
+      <span style={{ fontSize: 15, color: "#64748b", width: 54, flexShrink: 0 }}>{label}</span>
       {children}
     </div>
   );
 
   return (
     <div style={{ background: "#F8FAFC", borderRadius: 10, padding: "10px 12px", border: "1px solid #e2e8f0" }}>
-      <div style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Color Thresholds</div>
+      <div style={{ fontSize: 15, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Color Thresholds</div>
       <Row label="Red — below" color="#E85D75">
         <input defaultValue={rv.current} onChange={e => { rv.current = e.target.value; }} onBlur={() => commit()} placeholder="Min threshold" style={inputStyle} />
       </Row>
       <Row label="Yellow — range" color="#F5A623">
         <input defaultValue={ymi.current} onChange={e => { ymi.current = e.target.value; }} onBlur={() => commit()} placeholder="From" style={{ ...inputStyle, width: "48%" }} />
-        <span style={{ fontSize: 11, color: "#94a3b8" }}>–</span>
+        <span style={{ fontSize: 15, color: "#94a3b8" }}>–</span>
         <input defaultValue={yma.current} onChange={e => { yma.current = e.target.value; }} onBlur={() => commit()} placeholder="To" style={{ ...inputStyle, width: "48%" }} />
       </Row>
       <Row label="Green — target" color="#4CAF7D">
        <select value={greenOp} onChange={e => { const v = e.target.value as "<=" | "=="; setGreenOp(v); commit(v); }}
-          style={{ padding: "6px 7px", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: 11, outline: "none", background: "#fff", flexShrink: 0 }}>
+          style={{ padding: "6px 7px", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", background: "#fff", flexShrink: 0 }}>
           <option value="==">Equals target</option>
           <option value="<=">At or below target</option>
         </select>
@@ -2412,35 +2419,35 @@ const opLabels: RuleOp[] = [">=", "<=", ">", "<", "==", "!=", "between"];
           <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#94a3b8" }}>×</button>
         </div>
         <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: "#1a2332", marginBottom: 10 }}>1. Select Condition</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "#1a2332", marginBottom: 10 }}>1. Select Condition</div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-            <span style={{ fontSize: 12, color: "#64748b", width: 80, flexShrink: 0 }}>If Metric is</span>
+            <span style={{ fontSize: 15, color: "#64748b", width: 80, flexShrink: 0 }}>If Metric is</span>
             <select value={op} onChange={e => setOp(e.target.value as RuleOp)}
-              style={{ flex: 1, padding: "7px 10px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", background: "#fff" }}>
+              style={{ flex: 1, padding: "7px 10px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", background: "#fff" }}>
               {opLabels.map(o => <option key={o} value={o}>{opDisplay[o]}</option>)}
             </select>
           </div>
           {op !== "between"
             ? <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 12, color: "#64748b", width: 80, flexShrink: 0 }}>Value</span>
+              <span style={{ fontSize: 15, color: "#64748b", width: 80, flexShrink: 0 }}>Value</span>
               <input value={val} onChange={e => setVal(e.target.value)} placeholder="Enter number"
-                style={{ flex: 1, padding: "7px 10px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none" }} />
+                style={{ flex: 1, padding: "7px 10px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none" }} />
             </div>
             : <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 12, color: "#64748b", width: 80, flexShrink: 0 }}>Min Value</span>
+                <span style={{ fontSize: 15, color: "#64748b", width: 80, flexShrink: 0 }}>Min Value</span>
                 <input value={val} onChange={e => setVal(e.target.value)} placeholder="Min"
-                  style={{ flex: 1, padding: "7px 10px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none" }} />
+                  style={{ flex: 1, padding: "7px 10px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none" }} />
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 12, color: "#64748b", width: 80, flexShrink: 0 }}>Max Value</span>
+                <span style={{ fontSize: 15, color: "#64748b", width: 80, flexShrink: 0 }}>Max Value</span>
                 <input value={val2} onChange={e => setVal2(e.target.value)} placeholder="Max"
-                  style={{ flex: 1, padding: "7px 10px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none" }} />
+                  style={{ flex: 1, padding: "7px 10px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none" }} />
               </div>
             </div>}
         </div>
         <div style={{ marginBottom: 22 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: "#1a2332", marginBottom: 10 }}>2. Select Color</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "#1a2332", marginBottom: 10 }}>2. Select Color</div>
           <div style={{ display: "flex", gap: 10 }}>
             {(["red", "yellow", "green"] as const).map(c => (
               <div key={c} onClick={() => setColor(c)} style={{
@@ -2450,12 +2457,12 @@ const opLabels: RuleOp[] = [">=", "<=", ">", "<", "==", "!=", "between"];
                 background: color === c ? MS[c].bg + "18" : "#fff"
               }}>
                 <span style={{ width: 12, height: 12, borderRadius: "50%", background: MS[c].bg, display: "inline-block" }} />
-                <span style={{ fontSize: 12, fontWeight: 600, color: color === c ? MS[c].bg : "#64748b", textTransform: "capitalize" }}>{c}</span>
+                <span style={{ fontSize: 15, fontWeight: 600, color: color === c ? MS[c].bg : "#64748b", textTransform: "capitalize" }}>{c}</span>
               </div>
             ))}
           </div>
         </div>
-        <button onClick={save} style={{ width: "100%", padding: "11px 0", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+        <button onClick={save} style={{ width: "100%", padding: "11px 0", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>
           Save Rule
         </button>
       </div>
@@ -2506,11 +2513,11 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
   const metricTypes: [MetricType, string][] = [["counter", "Counter"], ["percentage", "Percentage"], ["financial", "Financial"]];
 
   const SectionLabel = ({ children }: { children: string }) => (
-    <div style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>{children}</div>
+    <div style={{ fontSize: 15, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>{children}</div>
   );
 
   const Radio = ({ checked, onChange, label: rl, disabled }: { checked: boolean; onChange: () => void; label: string; disabled?: boolean }) => (
-    <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: disabled ? "not-allowed" : "pointer", fontSize: 12, color: disabled ? "#cbd5e1" : "#1a2332", marginBottom: 5 }}>
+    <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: disabled ? "not-allowed" : "pointer", fontSize: 15, color: disabled ? "#cbd5e1" : "#1a2332", marginBottom: 5 }}>
       <input type="radio" checked={checked} onChange={onChange} disabled={disabled} style={{ accentColor: "#3B82F6", margin: 0 }} />{rl}
     </label>
   );
@@ -2584,7 +2591,7 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
           </div>
 
           {isSynced && (
-            <div style={{ margin: "0 22px 6px", background: "#F0FDF4", border: "1px solid #c3e6d4", borderRadius: 8, padding: "6px 12px", fontSize: 11, color: "#0F6E56" }}>
+            <div style={{ margin: "0 22px 6px", background: "#F0FDF4", border: "1px solid #c3e6d4", borderRadius: 8, padding: "6px 12px", fontSize: 15, color: "#0F6E56" }}>
               ✓ Synced from Five-Account System
             </div>
           )}
@@ -2604,7 +2611,7 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
                     <div style={{ marginTop: 6 }}>
                       <SectionLabel>Currency</SectionLabel>
                       <select value={currency} onChange={e => setCurrency(e.target.value)}
-                        style={{ width: "100%", padding: "6px 10px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", background: "#fff" }}>
+                        style={{ width: "100%", padding: "6px 10px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", background: "#fff" }}>
                         {WORLD_CURRENCIES.map(c => <option key={c.symbol} value={c.symbol}>{c.symbol} — {c.name}</option>)}
                       </select>
                     </div>
@@ -2614,9 +2621,9 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
                 <div>
                   <SectionLabel>Current Value</SectionLabel>
                   <input value={rawValue} onChange={e => setRawValue(e.target.value.replace(/[^0-9.]/g, ""))} placeholder="Enter number"
-                    style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none", boxSizing: "border-box" }} />
+                    style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box" }} />
                   {rawValue && (
-                    <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>
+                    <div style={{ fontSize: 15, color: "#64748b", marginTop: 4 }}>
                       Preview: <strong style={{ color: "#3B82F6" }}>{previewValue}</strong>
                     </div>
                   )}
@@ -2625,9 +2632,9 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
                 <div>
                   <SectionLabel>Connected Apps</SectionLabel>
                   {(initial?.connectedApps ?? []).length === 0
-                    ? <div style={{ fontSize: 11, color: "#cbd5e1", fontStyle: "italic" }}>No apps connected yet</div>
+                    ? <div style={{ fontSize: 15, color: "#cbd5e1", fontStyle: "italic" }}>No apps connected yet</div>
                     : (initial?.connectedApps ?? []).map((a, i) => (
-                      <span key={i} style={{ display: "inline-block", background: "#EFF6FF", borderRadius: 8, padding: "3px 8px", fontSize: 11, color: "#3B82F6", marginRight: 4, marginBottom: 3 }}>{a}</span>
+                      <span key={i} style={{ display: "inline-block", background: "#EFF6FF", borderRadius: 8, padding: "3px 8px", fontSize: 15, color: "#3B82F6", marginRight: 4, marginBottom: 3 }}>{a}</span>
                     ))}
                 </div>
 
@@ -2654,14 +2661,14 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
                     <div style={{ background: "#F0FDF4", border: "1px solid #c3e6d4", borderRadius: 10, padding: "10px 12px" }}>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
                         <div>
-                          <div style={{ fontSize: 12, fontWeight: 600, color: "#1a2332" }}>Five-Account System</div>
-                          <div style={{ fontSize: 10, color: "#64748b", marginTop: 1 }}>Profit First budgeting method</div>
+                          <div style={{ fontSize: 15, fontWeight: 600, color: "#1a2332" }}>Five-Account System</div>
+                          <div style={{ fontSize: 15, color: "#64748b", marginTop: 1 }}>Profit First budgeting method</div>
                         </div>
                         <Toggle on={fiveOn} onChange={setFiveOn} />
                       </div>
                       {fiveOn && (
                         <>
-                          <div style={{ fontSize: 11, color: "#0F6E56", background: "#dcfce7", borderRadius: 6, padding: "8px 10px", marginBottom: 6 }}>
+                          <div style={{ fontSize: 15, color: "#0F6E56", background: "#dcfce7", borderRadius: 6, padding: "8px 10px", marginBottom: 6 }}>
                             <div style={{ fontWeight: 700, marginBottom: 4 }}>✓ Five-Account Math Active</div>
                             {FIVE_EQUATION_POINTS.map((pt, i) => (
                               <div key={i} style={{ marginBottom: 2, lineHeight: 1.4 }}>{pt}</div>
@@ -2670,7 +2677,7 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
 
                           {/* Case 1: brand-new (no group exists yet) → show "this will create 4 more" warning */}
                           {!initial && (
-                            <div style={{ fontSize: 11, color: "#92400e", background: "#fef3c7", border: "1px solid #fde68a", borderRadius: 6, padding: "5px 10px" }}>
+                            <div style={{ fontSize: 15, color: "#92400e", background: "#fef3c7", border: "1px solid #fde68a", borderRadius: 6, padding: "5px 10px" }}>
                               ⚠ This will create 4 more metric boxes so all 5 checking accounts are separated out based on your bank balance.
                             </div>
                           )}
@@ -2679,14 +2686,14 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
 
                           {/* Case 3: editing existing, group has missing siblings → show recreate warning */}
                           {initial && missingAccounts.length > 0 && groupAlreadyExists && (
-                            <div style={{ fontSize: 11, color: "#92400e", background: "#fef3c7", border: "1px solid #fde68a", borderRadius: 6, padding: "8px 10px" }}>
+                            <div style={{ fontSize: 15, color: "#92400e", background: "#fef3c7", border: "1px solid #fde68a", borderRadius: 6, padding: "8px 10px" }}>
                               <div style={{ marginBottom: 6 }}>
                                 ⚠ You're missing the <strong>{missingAccounts.join(", ").replace(/, ([^,]*)$/, " and $1")}</strong> metric box{missingAccounts.length > 1 ? "es" : ""}. Would you like to recreate {missingAccounts.length > 1 ? "them" : "it"}?
                               </div>
                               {onRecreateMissing && (
                                 <button
                                   onClick={() => { onRecreateMissing(missingAccounts); onClose(); }}
-                                  style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#92400e", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+                                  style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#92400e", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>
                                   Recreate {missingAccounts.length > 1 ? "Them" : "It"}
                                 </button>
                               )}
@@ -2708,12 +2715,12 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
                         if (!label.trim()) { setEquationError("Please name this metric box before creating an equation"); return; }
                         setEquationError("");
                         onCreateEquation?.({ label, icon, metricType: effectiveMetricType, currencySymbol: currency });
-                      }} style={{ padding: "8px 0", borderRadius: 8, border: "1.5px solid", borderColor: initial?.draftEquation ? "#cbd5e1" : initial?.equation ? "#4CAF7D" : "transparent", background: initial?.draftEquation ? "#fff" : initial?.equation ? "#F0FDF4" : "#64748b", color: initial?.draftEquation ? "#94a3b8" : initial?.equation ? "#4CAF7D" : "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+                      }} style={{ padding: "8px 0", borderRadius: 8, border: "1.5px solid", borderColor: initial?.draftEquation ? "#cbd5e1" : initial?.equation ? "#4CAF7D" : "transparent", background: initial?.draftEquation ? "#fff" : initial?.equation ? "#F0FDF4" : "#64748b", color: initial?.draftEquation ? "#94a3b8" : initial?.equation ? "#4CAF7D" : "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>
                         {initial?.draftEquation ? "Edit draft equation" : initial?.equation ? "Edit Live Equation" : "Create Equation"}
                       </button>
-                      <button onClick={openAddRule} style={{ padding: "8px 0", borderRadius: 8, border: "none", background: "#64748b", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Create Color Rule</button>
+                      <button onClick={openAddRule} style={{ padding: "8px 0", borderRadius: 8, border: "none", background: "#64748b", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Create Color Rule</button>
                     </div>
-                    {equationError && <div style={{ fontSize: 11, color: "#E85D75", marginTop: 4, textAlign: "center" }}>{equationError}</div>}
+                    {equationError && <div style={{ fontSize: 15, color: "#E85D75", marginTop: 4, textAlign: "center" }}>{equationError}</div>}
                     {rules.length > 0 && (
                       <div>
                         <SectionLabel>Active Color Rules</SectionLabel>
@@ -2723,13 +2730,13 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
                               <div>
                                 <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 1 }}>
                                   <span style={{ width: 9, height: 9, borderRadius: "50%", background: MS[r.color].bg, display: "inline-block" }} />
-                                  <span style={{ fontSize: 11, fontWeight: 600, color: "#1a2332", textTransform: "capitalize" }}>{r.color}</span>
+                                  <span style={{ fontSize: 15, fontWeight: 600, color: "#1a2332", textTransform: "capitalize" }}>{r.color}</span>
                                 </div>
-                                <div style={{ fontSize: 10, color: "#64748b" }}>If metric is {ruleDesc(r)}</div>
+                                <div style={{ fontSize: 15, color: "#64748b" }}>If metric is {ruleDesc(r)}</div>
                               </div>
                               <div style={{ display: "flex", gap: 6 }}>
-                                <button onClick={() => openEditRule(r)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: "#3B82F6", padding: 0 }}>Edit</button>
-                                <button onClick={() => removeRule(r.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: "#E85D75", padding: 0 }}>✕</button>
+                                <button onClick={() => openEditRule(r)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 15, color: "#3B82F6", padding: 0 }}>Edit</button>
+                                <button onClick={() => removeRule(r.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 15, color: "#E85D75", padding: 0 }}>✕</button>
           </div>
             </div>
           </div>
@@ -2749,7 +2756,7 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
                 <div>
                   <SectionLabel>Graph Type</SectionLabel>
                   {graphTypes.map(([g, l]) => (
-                    <label key={g} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12, color: "#1a2332", marginBottom: 5 }}>
+                    <label key={g} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 15, color: "#1a2332", marginBottom: 5 }}>
                       <input type="radio" checked={graphType === g} onChange={() => setGraphType(g)} style={{ accentColor: "#3B82F6", margin: 0 }} />{l}
                     </label>
                   ))}
@@ -2758,28 +2765,28 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
                 {/* Auto-reset (Section 7) */}
                 <div>
                   <SectionLabel>Auto-Reset Metric</SectionLabel>
-                  <div style={{ fontSize: 10, color: "#94a3b8", marginBottom: 6 }}>Automatically reset this metric to zero on a schedule.</div>
+                  <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 6 }}>Automatically reset this metric to zero on a schedule.</div>
                   {([
                     ["none", "Never (manual only)"],
                     ["daily", "Daily"],
                     ["weekly", "Weekly"],
                     ["monthly", "Monthly"],
                   ] as [ResetFrequency, string][]).map(([f, l]) => (
-                    <label key={f} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12, color: "#1a2332", marginBottom: 5 }}>
+                    <label key={f} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 15, color: "#1a2332", marginBottom: 5 }}>
                       <input type="radio" checked={resetFreq === f} onChange={() => setResetFreq(f)} style={{ accentColor: "#3B82F6", margin: 0 }} />{l}
                     </label>
                   ))}
                   {resetFreq !== "none" && (
                     <div style={{ background: "#F8FAFC", borderRadius: 8, padding: "8px 10px", border: "1px solid #e2e8f0", marginTop: 6 }}>
-                      <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", fontSize: 11, color: "#1a2332" }}>
+                      <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", fontSize: 15, color: "#1a2332" }}>
                         <div>
                           <div style={{ fontWeight: 600 }}>Record reset in history</div>
-                          <div style={{ fontSize: 10, color: "#64748b" }}>Keep the pre-reset value in the chart history</div>
+                          <div style={{ fontSize: 15, color: "#64748b" }}>Keep the pre-reset value in the chart history</div>
                         </div>
                         <Toggle on={resetKeepHistory} onChange={setResetKeepHistory} />
                       </label>
                       {initial?.lastResetAt && (
-                        <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 6, fontStyle: "italic" }}>
+                        <div style={{ fontSize: 15, color: "#94a3b8", marginTop: 6, fontStyle: "italic" }}>
                           Last reset: {new Date(initial.lastResetAt).toLocaleString()}
                         </div>
                       )}
@@ -2788,14 +2795,14 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
                 </div>
               </div>
             </div>
-          <button onClick={handleSave} style={{ width: "100%", padding: "12px 0", borderRadius: 8, border: "none", marginTop: 20, background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+          <button onClick={handleSave} style={{ width: "100%", padding: "12px 0", borderRadius: 8, border: "none", marginTop: 20, background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>
               Save
             </button>
-            {saveError && <div style={{ fontSize: 11, color: "#E85D75", marginTop: 5, textAlign: "center" }}>{saveError}</div>}
+            {saveError && <div style={{ fontSize: 15, color: "#E85D75", marginTop: 5, textAlign: "center" }}>{saveError}</div>}
 
             {initial && onDuplicate && (
               <div style={{ textAlign: "center", marginTop: 10 }}>
-                <button onClick={() => { onDuplicate(); onClose(); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#3B82F6", fontSize: 12, textDecoration: "underline" }}>
+                <button onClick={() => { onDuplicate(); onClose(); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#3B82F6", fontSize: 15, textDecoration: "underline" }}>
                   Duplicate Metric Box
                 </button>
               </div>
@@ -2803,17 +2810,17 @@ function MetricBoxSettingsModal({ initial, siblings, onSave, onDelete, onDuplica
 
             {(initial || onDelete) && !showDeleteConfirm && (
               <div style={{ textAlign: "center", marginTop: 8 }}>
-                <button onClick={() => setShowDeleteConfirm(true)} style={{ background: "none", border: "none", cursor: "pointer", color: "#E85D75", fontSize: 12, textDecoration: "underline" }}>
+                <button onClick={() => setShowDeleteConfirm(true)} style={{ background: "none", border: "none", cursor: "pointer", color: "#E85D75", fontSize: 15, textDecoration: "underline" }}>
                   Delete Metric Box
                 </button>
               </div>
             )}
             {showDeleteConfirm && (
               <div style={{ marginTop: 10, background: "#FFF5F5", borderRadius: 10, padding: "12px 14px", border: "1px solid #fecaca", textAlign: "center" }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "#E85D75", marginBottom: 8 }}>Are you sure you want to delete this metric box?</div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: "#E85D75", marginBottom: 8 }}>Are you sure you want to delete this metric box?</div>
                 <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                  <button onClick={() => setShowDeleteConfirm(false)} style={{ padding: "6px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b" }}>Cancel</button>
-                  <button onClick={() => { onDelete?.(); }} style={{ padding: "6px 16px", borderRadius: 8, border: "none", background: "#E85D75", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Yes, Delete</button>
+                  <button onClick={() => setShowDeleteConfirm(false)} style={{ padding: "6px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+                  <button onClick={() => { onDelete?.(); }} style={{ padding: "6px 16px", borderRadius: 8, border: "none", background: "#E85D75", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Yes, Delete</button>
                 </div>
               </div>
             )}
@@ -2842,9 +2849,9 @@ function EditAddRowModal({ initial, onSave, onClose }: { initial?: string; onSav
         <input value={name} onChange={e => setName(e.target.value)}
           onKeyDown={e => { if (e.key === "Enter" && name.trim()) { onSave(name.trim()); onClose(); } }}
           placeholder="Row name" autoFocus
-          style={{ width: "100%", padding: "8px 11px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none", boxSizing: "border-box", marginBottom: 18 }} />
+          style={{ width: "100%", padding: "8px 11px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box", marginBottom: 18 }} />
         <button onClick={() => { if (name.trim()) { onSave(name.trim()); onClose(); } }}
-          style={{ width: "100%", padding: "10px 0", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
+          style={{ width: "100%", padding: "10px 0", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>
           Save
         </button>
       </div>
@@ -2931,20 +2938,20 @@ function AddTeamModal({ orgId, orgs, setOrgs, orgMembers, setOrgMembers, teamRow
           <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#94a3b8" }}>×</button>
         </div>
         <h2 style={{ margin: "0 0 6px", fontSize: 20, fontWeight: 700, color: "#1a2332", textAlign: "center" }}>Add your team</h2>
-        <p style={{ margin: "0 0 20px", fontSize: 12, color: "#94a3b8", textAlign: "center" }}>Invite team members and assign them to a team.</p>
+        <p style={{ margin: "0 0 20px", fontSize: 15, color: "#94a3b8", textAlign: "center" }}>Invite team members and assign them to a team.</p>
         {rows.map((r, i) => (
           <div key={i} style={{ display: "grid", gridTemplateColumns: showTeamDropdown ? "1fr auto auto" : "1fr auto", gap: 8, marginBottom: 10, alignItems: "center" }}>
             <input data-team-email-input value={r.email} onChange={e => update(i, "email", e.target.value)} onKeyDown={e => handleKeyDown(e, i)} placeholder="Email"
-              style={{ padding: "8px 11px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none" }} />
+              style={{ padding: "8px 11px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none" }} />
              <select value={r.level} onChange={e => update(i, "level", e.target.value)}
-              style={{ padding: "7px 9px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", background: "#fff" }}>
+              style={{ padding: "7px 9px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", background: "#fff" }}>
               {allowedLevels.map(l => (
                 <option key={l} value={l}>{l.charAt(0).toUpperCase() + l.slice(1)}</option>
               ))}
             </select>
             {showTeamDropdown && (
               <select value={r.teamId} onChange={e => update(i, "teamId", e.target.value)}
-                style={{ padding: "7px 9px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", background: "#fff" }}>
+                style={{ padding: "7px 9px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", background: "#fff" }}>
                 {sortedTeams.map(t => (
                   <option key={t.id} value={t.id}>{t.name}</option>
                 ))}
@@ -2953,20 +2960,20 @@ function AddTeamModal({ orgId, orgs, setOrgs, orgMembers, setOrgMembers, teamRow
           </div>
         ))}
         <button onClick={addRow}
-          style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "#3B82F6", padding: "3px 0", marginBottom: 6, display: "flex", alignItems: "center", gap: 4 }}>
+          style={{ background: "none", border: "none", cursor: "pointer", fontSize: 15, color: "#3B82F6", padding: "3px 0", marginBottom: 6, display: "flex", alignItems: "center", gap: 4 }}>
           + Add more
         </button>
 
-        {error && <div style={{ marginBottom: 10, padding: "8px 12px", background: "#fef2f2", borderRadius: 8, fontSize: 12, color: "#dc2626" }}>{error}</div>}
+        {error && <div style={{ marginBottom: 10, padding: "8px 12px", background: "#fef2f2", borderRadius: 8, fontSize: 15, color: "#dc2626" }}>{error}</div>}
 
         {success.length > 0 && (
-          <div style={{ marginBottom: 10, padding: "8px 12px", background: "#f0fdf4", borderRadius: 8, fontSize: 12, color: "#15803d" }}>
+          <div style={{ marginBottom: 10, padding: "8px 12px", background: "#f0fdf4", borderRadius: 8, fontSize: 15, color: "#15803d" }}>
             Invited: {success.join(", ")}
           </div>
         )}
 
         <button onClick={handleSubmit} disabled={sending}
-          style={{ width: "100%", padding: "11px 0", borderRadius: 8, border: "none", background: sending ? "#94a3b8" : "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: sending ? "default" : "pointer" }}>
+          style={{ width: "100%", padding: "11px 0", borderRadius: 8, border: "none", background: sending ? "#94a3b8" : "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: sending ? "default" : "pointer" }}>
           {sending ? "Sending..." : "Add"}
         </button>
       </div>
@@ -3009,7 +3016,7 @@ function MetricBlock({ metric, onClick, onDragStart, onDragEnter, onDrop, isDrag
         outline: isDragOver ? "3px dashed #3B82F6" : "3px solid transparent",
       }}
     >
-      <div style={{ fontSize: 12, fontWeight: 600, color: textColor, lineHeight: 1.3, textAlign: "center", width: "100%" }}>
+      <div style={{ fontSize: 15, fontWeight: 600, color: textColor, lineHeight: 1.3, textAlign: "center", width: "100%" }}>
         {metric.label}
       </div>
       {hasIcon && (
@@ -3042,23 +3049,23 @@ function RowMenu({ onRename, onDelete, onClose, triggerRef }: { onRename?: () =>
     <div ref={menuRef} style={{ ...menuPos, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 100, minWidth: 170, overflow: "hidden" }}>
       {onRename && (
         <div onClick={() => { onRename(); onClose(); }}
-          style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
+          style={{ padding: "9px 14px", fontSize: 15, cursor: "pointer", color: "#1a2332" }}
           onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
           onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Rename row</div>
       )}
 
       {!confirmDelete
         ? <div onClick={() => setConfirmDelete(true)}
-            style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#E85D75" }}
+            style={{ padding: "9px 14px", fontSize: 15, cursor: "pointer", color: "#E85D75" }}
             onMouseEnter={e => (e.currentTarget.style.background = "#fff5f5")}
             onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Delete row</div>
         : <div style={{ padding: "10px 14px", borderTop: "1px solid #f1f5f9" }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: "#E85D75", marginBottom: 8 }}>Delete this row?</div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "#E85D75", marginBottom: 8 }}>Delete this row?</div>
             <div style={{ display: "flex", gap: 6 }}>
               <button onClick={() => setConfirmDelete(false)}
-                style={{ flex: 1, padding: "5px 0", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 11, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+                style={{ flex: 1, padding: "5px 0", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>Cancel</button>
               <button onClick={() => { onDelete(); onClose(); }}
-                style={{ flex: 1, padding: "5px 0", borderRadius: 6, border: "none", background: "#E85D75", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Delete</button>
+                style={{ flex: 1, padding: "5px 0", borderRadius: 6, border: "none", background: "#E85D75", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Delete</button>
             </div>
           </div>}
     </div>
@@ -3077,8 +3084,8 @@ function MobileMenu({ triggerRef, onClose, onChat, onCustomize }: { triggerRef: 
 
   return (
     <div ref={menuRef} style={{ ...menuPos, background: "#fff", borderRadius: 12, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 100, minWidth: 140, overflow: "hidden" }}>
-      <div onClick={() => { onChat(); onClose(); }} style={{ padding: "10px 16px", fontSize: 13, color: "#64748b", cursor: "pointer", borderBottom: "1px solid #f1f5f9" }}>Chat</div>
-      <div onClick={() => { onCustomize(); onClose(); }} style={{ padding: "10px 16px", fontSize: 13, color: "#64748b", cursor: "pointer" }}>Customize</div>
+      <div onClick={() => { onChat(); onClose(); }} style={{ padding: "10px 16px", fontSize: 15, color: "#64748b", cursor: "pointer", borderBottom: "1px solid #f1f5f9" }}>Chat</div>
+      <div onClick={() => { onCustomize(); onClose(); }} style={{ padding: "10px 16px", fontSize: 15, color: "#64748b", cursor: "pointer" }}>Customize</div>
     </div>
   );
 }
@@ -3097,10 +3104,10 @@ function HoverAvatar({ name, level, size = 28 }: { name: string; level: OrgPermi
       </div>
       {hover && (
         <div style={{ position: "absolute", bottom: "100%", left: "50%", transform: "translateX(-50%)", marginBottom: 6, zIndex: 500, background: "#fff", borderRadius: 10, boxShadow: "0 4px 16px rgba(0,0,0,0.15)", padding: "8px 12px", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ width: 32, height: 32, borderRadius: "50%", background: colors[colorIdx], display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{initial}</div>
+          <div style={{ width: 32, height: 32, borderRadius: "50%", background: colors[colorIdx], display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{initial}</div>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332" }}>{name}</div>
-            <div style={{ fontSize: 11, color: "#64748b", textTransform: "capitalize" }}>{level}</div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "#1a2332" }}>{name}</div>
+            <div style={{ fontSize: 15, color: "#64748b", textTransform: "capitalize" }}>{level}</div>
           </div>
         </div>
       )}
@@ -3215,7 +3222,7 @@ function DashSection({
           ))}
         </div>
         <div style={{ position: "relative" }}>
-          <div ref={rowMenuTriggerRef} onClick={() => setShowMenu(v => !v)} style={{ width: 26, height: 26, borderRadius: "50%", background: "#F1F5F9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 13, color: "#94a3b8" }}>···</div>
+          <div ref={rowMenuTriggerRef} onClick={() => setShowMenu(v => !v)} style={{ width: 26, height: 26, borderRadius: "50%", background: "#F1F5F9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 15, color: "#94a3b8" }}>···</div>
           {showMenu && <RowMenu triggerRef={rowMenuTriggerRef} onDelete={() => onRemoveSection(section.id)} onClose={() => setShowMenu(false)} />}
         </div>
         <div style={{ flex: 1 }} />
@@ -3395,7 +3402,7 @@ function GoalsPage({ goals, setGoals, sections, viewMode, onOpenOnboarding, onEd
               <span onClick={() => { setEditingGoalId(g.id); setEditingGoalValue(g.label); }}
                 style={{ flex: 1, fontSize: 15, fontWeight: 600, color: "#1a2332", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: "text" }}>{g.label}</span>
             )}
-            {g.due && <span style={{ fontSize: 12, color: "#94a3b8", whiteSpace: "nowrap" }}>{g.due}</span>}
+            {g.due && <span style={{ fontSize: 15, color: "#94a3b8", whiteSpace: "nowrap" }}>{g.due}</span>}
             <div onClick={() => onEditGoal(g)} style={{ width: 32, height: 32, borderRadius: 8, background: "#f8fafc", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }} title="Edit goal settings">
               <IconGlyph name="PencilSimple" size={16} color="#64748b" />
             </div>
@@ -3406,7 +3413,7 @@ function GoalsPage({ goals, setGoals, sections, viewMode, onOpenOnboarding, onEd
             <div style={{ flex: 1, height: 24, borderRadius: 99, background: "#e5e7eb", overflow: "hidden" }}>
               <div style={{ width: `${g.pct}%`, height: "100%", borderRadius: 99, background: barBg, transition: "width 0.3s" }} />
             </div>
-            <span style={{ fontSize: 13, fontWeight: 700, color: barBg, minWidth: 40, textAlign: "right" }}>{g.pct}%</span>
+            <span style={{ fontSize: 15, fontWeight: 700, color: barBg, minWidth: 40, textAlign: "right" }}>{g.pct}%</span>
           </div>
 
           {/* Expanded mode details */}
@@ -3421,8 +3428,8 @@ function GoalsPage({ goals, setGoals, sections, viewMode, onOpenOnboarding, onEd
                     return (
                       <div key={si} style={{ position: "relative" }}>
                         <MetricBlock metric={m} onClick={() => {}} onDragStart={() => {}} onDragEnter={() => {}} onDrop={() => {}} isDragOver={false} />
-                        <div style={{ position: "absolute", top: 4, left: 4, width: 22, height: 22, borderRadius: "50%", background: "#3B82F6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, zIndex: 2 }}>{si + 1}</div>
-                        <div style={{ position: "absolute", bottom: 4, right: 4, display: "flex", alignItems: "center", gap: 2, padding: "2px 6px", borderRadius: 99, background: met ? "rgba(76,175,125,0.85)" : "rgba(220,38,38,0.85)", color: "#fff", fontSize: 10, fontWeight: 600 }}>
+                        <div style={{ position: "absolute", top: 4, left: 4, width: 22, height: 22, borderRadius: "50%", background: "#3B82F6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, zIndex: 2 }}>{si + 1}</div>
+                        <div style={{ position: "absolute", bottom: 4, right: 4, display: "flex", alignItems: "center", gap: 2, padding: "2px 6px", borderRadius: 99, background: met ? "rgba(76,175,125,0.85)" : "rgba(220,38,38,0.85)", color: "#fff", fontSize: 15, fontWeight: 600 }}>
                           <span>{formatTarget(s.target)}</span>
                           {met ? <IconGlyph name="CheckCircle" size={10} color="#fff" weight="fill" /> : <IconGlyph name="XCircle" size={10} color="#fff" weight="fill" />}
                         </div>
@@ -3450,12 +3457,12 @@ function GoalsPage({ goals, setGoals, sections, viewMode, onOpenOnboarding, onEd
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 16, marginTop: 16 }}>
                 <SectionCard>
                   <div style={{ fontSize: 16, fontWeight: 700, color: "#1a2332", marginBottom: 8 }}>Projections</div>
-                  <div style={{ fontSize: 12, color: "#94a3b8", fontStyle: "italic", marginBottom: 10 }}>Coming Soon</div>
+                  <div style={{ fontSize: 15, color: "#94a3b8", fontStyle: "italic", marginBottom: 10 }}>Coming Soon</div>
                   {[1, 2, 3].map(i => <div key={i} style={{ height: 8, borderRadius: 99, background: "#e2e8f0", marginBottom: 8, width: `${70 - i * 10}%`, opacity: 0.4 }} />)}
                 </SectionCard>
                 <SectionCard>
-                  <div style={{ display: "inline-block", background: "#3B82F6", color: "#fff", borderRadius: 99, padding: "5px 14px", fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Suggestions</div>
-                  <div style={{ fontSize: 12, color: "#94a3b8", fontStyle: "italic", marginBottom: 10 }}>Coming Soon</div>
+                  <div style={{ display: "inline-block", background: "#3B82F6", color: "#fff", borderRadius: 99, padding: "5px 14px", fontSize: 15, fontWeight: 600, marginBottom: 8 }}>Suggestions</div>
+                  <div style={{ fontSize: 15, color: "#94a3b8", fontStyle: "italic", marginBottom: 10 }}>Coming Soon</div>
                   {[1, 2, 3].map(i => <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, opacity: 0.4 }}>
                     <div style={{ width: 20, height: 20, borderRadius: "50%", border: "1.5px solid #d1d5db", flexShrink: 0 }} />
                     <div style={{ height: 7, borderRadius: 99, background: "#e2e8f0", flex: 1 }} />
@@ -3463,52 +3470,52 @@ function GoalsPage({ goals, setGoals, sections, viewMode, onOpenOnboarding, onEd
                 </SectionCard>
                 <div style={{ position: "relative" }}>
                 <SectionCard>
-                  <div style={{ display: "inline-block", background: "#3B82F6", color: "#fff", borderRadius: 99, padding: "5px 14px", fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Next Actions</div>
+                  <div style={{ display: "inline-block", background: "#3B82F6", color: "#fff", borderRadius: 99, padding: "5px 14px", fontSize: 15, fontWeight: 600, marginBottom: 8 }}>Next Actions</div>
                   {(() => {
                     const linked = (tasks || []).filter(t => t.linkedGoalId === g.id && !t.done);
                     return (
                       <div style={{ display: "contents" }}>
                         {linked.length > 0 && <button onClick={(e) => { e.stopPropagation(); setGoalExpandActions(g.id); }}
-                          style={{ position: "absolute", bottom: 4, right: 4, width: 22, height: 22, borderRadius: 4, border: "none", background: "rgba(255,255,255,0.9)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#64748b", boxShadow: "0 1px 3px rgba(0,0,0,0.12)" }}
+                          style={{ position: "absolute", bottom: 4, right: 4, width: 22, height: 22, borderRadius: 4, border: "none", background: "rgba(255,255,255,0.9)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, color: "#64748b", boxShadow: "0 1px 3px rgba(0,0,0,0.12)" }}
                           title="View all next actions">⛶</button>}
                         {linked.map(t => {
                           const assigneeMember = (orgMembers || []).find(m => m.email === t.assignedTo);
                           return (
                             <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, position: "relative" }}>
                               <div onClick={(e) => { e.stopPropagation(); if (setTasks) setTasks(prev => prev.map(x => x.id === t.id ? { ...x, done: !x.done } : x)); }}
-                                style={{ width: 18, height: 18, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 9 }}>{t.done ? "✓" : ""}</div>
-                              <span style={{ fontSize: 12, color: "#1a2332", flex: 1, textDecoration: t.done ? "line-through" : "none", minWidth: 0 }}>{t.text}</span>
+                                style={{ width: 18, height: 18, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 15 }}>{t.done ? "✓" : ""}</div>
+                              <span style={{ fontSize: 15, color: "#1a2332", flex: 1, textDecoration: t.done ? "line-through" : "none", minWidth: 0 }}>{t.text}</span>
                               {assigneeMember ? (
                                 assigneeMember.avatarUrl
                                   ? <img src={assigneeMember.avatarUrl} alt="" style={{ width: 22, height: 22, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
-                                  : <div style={{ width: 22, height: 22, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: "#94a3b8", flexShrink: 0 }}>
+                                  : <div style={{ width: 22, height: 22, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, color: "#94a3b8", flexShrink: 0 }}>
                                       {(assigneeMember.name?.[0] || assigneeMember.email[0] || "?").toUpperCase()}
                                     </div>
                               ) : null}
-                              <div onClick={(e) => { e.stopPropagation(); goalMenuTriggerElRef.current = e.currentTarget as HTMLElement; setGoalMenuTaskId(goalMenuTaskId === t.id ? null : t.id); }} style={{ width: 22, height: 22, borderRadius: "50%", background: "#F1F5F9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 9, color: "#94a3b8", flexShrink: 0 }}>···</div>
+                              <div onClick={(e) => { e.stopPropagation(); goalMenuTriggerElRef.current = e.currentTarget as HTMLElement; setGoalMenuTaskId(goalMenuTaskId === t.id ? null : t.id); }} style={{ width: 22, height: 22, borderRadius: "50%", background: "#F1F5F9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 15, color: "#94a3b8", flexShrink: 0 }}>···</div>
                               {goalMenuTaskId === t.id && (
                                 <div ref={goalMenuRef} style={{ ...goalMenuPos, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 100, minWidth: 150, overflow: "hidden" }}>
-                                  <div style={{ padding: "7px 12px", fontSize: 11, fontWeight: 600, color: "#64748b", borderBottom: "1px solid #f1f5f9" }}>Assign To</div>
+                                  <div style={{ padding: "7px 12px", fontSize: 15, fontWeight: 600, color: "#64748b", borderBottom: "1px solid #f1f5f9" }}>Assign To</div>
                                   {(orgMembers || []).filter(m => m.status === "active").map(m => (
                                     <div key={m.id} onClick={() => { setTasks?.(prev => prev.map(x => x.id === t.id ? { ...x, assignedTo: m.email } : x)); setGoalMenuTaskId(null); }}
-                                      style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", cursor: "pointer", background: t.assignedTo === m.email ? "#EFF6FF" : "transparent", fontSize: 11, color: "#1a2332" }}
+                                      style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", cursor: "pointer", background: t.assignedTo === m.email ? "#EFF6FF" : "transparent", fontSize: 15, color: "#1a2332" }}
                                       onMouseEnter={e => e.currentTarget.style.background = "#f8fafc"}
                                       onMouseLeave={e => e.currentTarget.style.background = t.assignedTo === m.email ? "#EFF6FF" : "transparent"}>
                                       {m.avatarUrl ? <img src={m.avatarUrl} alt="" style={{ width: 18, height: 18, borderRadius: "50%", objectFit: "cover" }} />
-                                        : <div style={{ width: 18, height: 18, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 7, fontWeight: 700, color: "#94a3b8" }}>{(m.name?.[0] || m.email[0] || "?").toUpperCase()}</div>}
+                                        : <div style={{ width: 18, height: 18, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, color: "#94a3b8" }}>{(m.name?.[0] || m.email[0] || "?").toUpperCase()}</div>}
                                       <span style={{ flex: 1 }}>{m.name || m.email.split("@")[0]}</span>
-                                      {t.assignedTo === m.email && <span style={{ fontSize: 10, color: "#3B82F6" }}>✓</span>}
+                                      {t.assignedTo === m.email && <span style={{ fontSize: 15, color: "#3B82F6" }}>✓</span>}
                                     </div>
                                   ))}
                                   <div style={{ borderTop: "1px solid #f1f5f9" }}>
-                                    <div style={{ padding: "7px 12px", fontSize: 11, fontWeight: 600, color: "#64748b" }}>Due Date</div>
+                                    <div style={{ padding: "7px 12px", fontSize: 15, fontWeight: 600, color: "#64748b" }}>Due Date</div>
                                     <div style={{ padding: "0 12px 7px" }}>
                                       <input type="date" value={t.dueDate || ""} onChange={e => { setTasks?.(prev => prev.map(x => x.id === t.id ? { ...x, dueDate: e.target.value || undefined } : x)); setGoalMenuTaskId(null); }}
-                                        style={{ width: "100%", padding: "4px 6px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 11, outline: "none", boxSizing: "border-box" }} />
+                                        style={{ width: "100%", padding: "4px 6px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box" }} />
                                     </div>
                                   </div>
                                   <div onClick={() => { setTasks?.(prev => prev.filter(x => x.id !== t.id)); setGoalMenuTaskId(null); }}
-                                    style={{ padding: "8px 12px", fontSize: 11, cursor: "pointer", color: "#E85D75", borderTop: "1px solid #f1f5f9" }}
+                                    style={{ padding: "8px 12px", fontSize: 15, cursor: "pointer", color: "#E85D75", borderTop: "1px solid #f1f5f9" }}
                                     onMouseEnter={e => e.currentTarget.style.background = "#fff5f5"}
                                     onMouseLeave={e => e.currentTarget.style.background = "transparent"}>Delete</div>
                                 </div>
@@ -3516,37 +3523,37 @@ function GoalsPage({ goals, setGoals, sections, viewMode, onOpenOnboarding, onEd
                             </div>
                           );
                         })}
-                        {linked.length === 0 && !goalAddTask && <div style={{ fontSize: 12, color: "#cbd5e1", fontStyle: "italic" }}>No actions yet</div>}
+                        {linked.length === 0 && !goalAddTask && <div style={{ fontSize: 15, color: "#cbd5e1", fontStyle: "italic" }}>No actions yet</div>}
                         {goalAddTask?.goalId === g.id ? (
                           <div style={{ marginTop: 6 }}>
                             <input value={goalAddTask.text} onChange={e => setGoalAddTask({ ...goalAddTask, text: e.target.value })} placeholder="New action..."
                               onKeyDown={e => { if (e.key === "Enter" && goalAddTask.text.trim() && setTasks && userEmail) { setTasks(prev => [...prev, { id: crypto.randomUUID(), text: goalAddTask.text.trim(), done: false, assignedTo: goalAddTask.assignee || userEmail, createdBy: userEmail, linkedGoalId: g.id, createdAt: new Date().toISOString(), dueDate: goalAddTask.dueDate || undefined, priority: goalAddTask.priority || undefined }]); setGoalAddTask(null); } }}
-                              autoFocus style={{ width: "100%", padding: "6px 10px", borderRadius: 6, border: "1.5px solid #3B82F6", fontSize: 12, outline: "none", boxSizing: "border-box", marginBottom: 6 }} />
-                            <label style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, color: goalAddTask.priority ? "#F5A623" : "#94a3b8", cursor: "pointer", marginBottom: 4 }}>
+                              autoFocus style={{ width: "100%", padding: "6px 10px", borderRadius: 6, border: "1.5px solid #3B82F6", fontSize: 15, outline: "none", boxSizing: "border-box", marginBottom: 6 }} />
+                            <label style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 15, color: goalAddTask.priority ? "#F5A623" : "#94a3b8", cursor: "pointer", marginBottom: 4 }}>
                               <input type="checkbox" checked={goalAddTask.priority} onChange={e => setGoalAddTask({ ...goalAddTask, priority: e.target.checked })} style={{ accentColor: "#F5A623", margin: 0, width: 12, height: 12 }} />
                               {goalAddTask.priority ? "" : "Make priority?"}
                             </label>
                             <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
                               <select value={goalAddTask.assignee} onChange={e => setGoalAddTask({ ...goalAddTask, assignee: e.target.value })}
-                                style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 11, outline: "none", background: "#fff" }}>
+                                style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", background: "#fff" }}>
                                 <option value={userEmail}>Me</option>
                                 {(orgMembers || []).filter(m => m.status === "active" && m.email !== userEmail).map(m => (
                                   <option key={m.id} value={m.email}>{m.name || m.email.split("@")[0]}</option>
                                 ))}
                               </select>
                               <input type="date" value={goalAddTask.dueDate} onChange={e => setGoalAddTask({ ...goalAddTask, dueDate: e.target.value })}
-                                style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 11, outline: "none", boxSizing: "border-box" }} />
+                                style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box" }} />
                             </div>
                             <div style={{ display: "flex", gap: 6 }}>
                               <button onClick={() => { if (goalAddTask.text.trim() && setTasks && userEmail) { setTasks(prev => [...prev, { id: crypto.randomUUID(), text: goalAddTask.text.trim(), done: false, assignedTo: goalAddTask.assignee || userEmail, createdBy: userEmail, linkedGoalId: g.id, createdAt: new Date().toISOString(), dueDate: goalAddTask.dueDate || undefined, priority: goalAddTask.priority || undefined }]); setGoalAddTask(null); } }}
                                 disabled={!goalAddTask.text.trim()}
-                                style={{ flex: 1, padding: "5px 14px", borderRadius: 6, border: "none", background: goalAddTask.text.trim() ? "#3B82F6" : "#e2e8f0", color: "#fff", fontSize: 11, fontWeight: 600, cursor: goalAddTask.text.trim() ? "pointer" : "not-allowed" }}>Add</button>
-                              <button onClick={() => setGoalAddTask(null)} style={{ flex: 1, padding: "5px 14px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 11, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+                                style={{ flex: 1, padding: "5px 14px", borderRadius: 6, border: "none", background: goalAddTask.text.trim() ? "#3B82F6" : "#e2e8f0", color: "#fff", fontSize: 15, fontWeight: 600, cursor: goalAddTask.text.trim() ? "pointer" : "not-allowed" }}>Add</button>
+                              <button onClick={() => setGoalAddTask(null)} style={{ flex: 1, padding: "5px 14px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>Cancel</button>
                             </div>
                           </div>
                         ) : (
-                          <div onClick={() => setGoalAddTask({ goalId: g.id, text: "", assignee: userEmail || "", dueDate: "", priority: false })} style={{ fontSize: 12, color: "#3B82F6", cursor: "pointer", fontWeight: 600, marginTop: 6, display: "flex", alignItems: "center", gap: 4 }}>
-                            <span style={{ fontSize: 14 }}>+</span> Add Task
+                          <div onClick={() => setGoalAddTask({ goalId: g.id, text: "", assignee: userEmail || "", dueDate: "", priority: false })} style={{ fontSize: 15, color: "#3B82F6", cursor: "pointer", fontWeight: 600, marginTop: 6, display: "flex", alignItems: "center", gap: 4 }}>
+                            <span style={{ fontSize: 15 }}>+</span> Add Task
                           </div>
                         )}
                       </div>
@@ -3569,39 +3576,39 @@ function GoalsPage({ goals, setGoals, sections, viewMode, onOpenOnboarding, onEd
                   const assigneeMember = (orgMembers || []).find(m => m.email === t.assignedTo);
                   return (
                     <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8, background: "#fff", border: "1px solid #f1f5f9", position: "relative" }}>
-                      <div onClick={(e) => { e.stopPropagation(); if (setTasks) setTasks(prev => prev.map(x => x.id === t.id ? { ...x, done: !x.done } : x)); }} style={{ width: 18, height: 18, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 9 }}>{t.done ? "✓" : ""}</div>
-                      <span style={{ fontSize: 13, color: "#1a2332", flex: 1, minWidth: 0 }}>{t.text}</span>
+                      <div onClick={(e) => { e.stopPropagation(); if (setTasks) setTasks(prev => prev.map(x => x.id === t.id ? { ...x, done: !x.done } : x)); }} style={{ width: 18, height: 18, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 15 }}>{t.done ? "✓" : ""}</div>
+                      <span style={{ fontSize: 15, color: "#1a2332", flex: 1, minWidth: 0 }}>{t.text}</span>
                       {assigneeMember ? (
                         assigneeMember.avatarUrl
                           ? <img src={assigneeMember.avatarUrl} alt="" style={{ width: 22, height: 22, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
-                          : <div style={{ width: 22, height: 22, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: "#94a3b8", flexShrink: 0 }}>
+                          : <div style={{ width: 22, height: 22, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, color: "#94a3b8", flexShrink: 0 }}>
                               {(assigneeMember.name?.[0] || assigneeMember.email[0] || "?").toUpperCase()}
                             </div>
                       ) : null}
-                      <div onClick={(e) => { e.stopPropagation(); goalMenuTriggerElRef.current = e.currentTarget as HTMLElement; setGoalMenuTaskId(goalMenuTaskId === t.id ? null : t.id); }} style={{ width: 22, height: 22, borderRadius: "50%", background: "#F1F5F9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 9, color: "#94a3b8", flexShrink: 0 }}>···</div>
+                      <div onClick={(e) => { e.stopPropagation(); goalMenuTriggerElRef.current = e.currentTarget as HTMLElement; setGoalMenuTaskId(goalMenuTaskId === t.id ? null : t.id); }} style={{ width: 22, height: 22, borderRadius: "50%", background: "#F1F5F9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 15, color: "#94a3b8", flexShrink: 0 }}>···</div>
                       {goalMenuTaskId === t.id && (
                         <div ref={goalMenuRef} style={{ ...goalMenuPos, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 100, minWidth: 150, overflow: "hidden" }}>
-                          <div style={{ padding: "7px 12px", fontSize: 11, fontWeight: 600, color: "#64748b", borderBottom: "1px solid #f1f5f9" }}>Assign To</div>
+                          <div style={{ padding: "7px 12px", fontSize: 15, fontWeight: 600, color: "#64748b", borderBottom: "1px solid #f1f5f9" }}>Assign To</div>
                           {(orgMembers || []).filter(m => m.status === "active").map(m => (
                             <div key={m.id} onClick={() => { setTasks?.(prev => prev.map(x => x.id === t.id ? { ...x, assignedTo: m.email } : x)); setGoalMenuTaskId(null); }}
-                              style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", cursor: "pointer", background: t.assignedTo === m.email ? "#EFF6FF" : "transparent", fontSize: 11, color: "#1a2332" }}
+                              style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", cursor: "pointer", background: t.assignedTo === m.email ? "#EFF6FF" : "transparent", fontSize: 15, color: "#1a2332" }}
                               onMouseEnter={e => e.currentTarget.style.background = "#f8fafc"}
                               onMouseLeave={e => e.currentTarget.style.background = t.assignedTo === m.email ? "#EFF6FF" : "transparent"}>
                               {m.avatarUrl ? <img src={m.avatarUrl} alt="" style={{ width: 18, height: 18, borderRadius: "50%", objectFit: "cover" }} />
-                                : <div style={{ width: 18, height: 18, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 7, fontWeight: 700, color: "#94a3b8" }}>{(m.name?.[0] || m.email[0] || "?").toUpperCase()}</div>}
+                                : <div style={{ width: 18, height: 18, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, color: "#94a3b8" }}>{(m.name?.[0] || m.email[0] || "?").toUpperCase()}</div>}
                               <span style={{ flex: 1 }}>{m.name || m.email.split("@")[0]}</span>
-                              {t.assignedTo === m.email && <span style={{ fontSize: 10, color: "#3B82F6" }}>✓</span>}
+                              {t.assignedTo === m.email && <span style={{ fontSize: 15, color: "#3B82F6" }}>✓</span>}
                             </div>
                           ))}
                           <div style={{ borderTop: "1px solid #f1f5f9" }}>
-                            <div style={{ padding: "7px 12px", fontSize: 11, fontWeight: 600, color: "#64748b" }}>Due Date</div>
+                            <div style={{ padding: "7px 12px", fontSize: 15, fontWeight: 600, color: "#64748b" }}>Due Date</div>
                             <div style={{ padding: "0 12px 7px" }}>
                               <input type="date" value={t.dueDate || ""} onChange={e => { setTasks?.(prev => prev.map(x => x.id === t.id ? { ...x, dueDate: e.target.value || undefined } : x)); setGoalMenuTaskId(null); }}
-                                style={{ width: "100%", padding: "4px 6px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 11, outline: "none", boxSizing: "border-box" }} />
+                                style={{ width: "100%", padding: "4px 6px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box" }} />
                             </div>
                           </div>
                           <div onClick={() => { setTasks?.(prev => prev.filter(x => x.id !== t.id)); setGoalMenuTaskId(null); }}
-                            style={{ padding: "8px 12px", fontSize: 11, cursor: "pointer", color: "#E85D75", borderTop: "1px solid #f1f5f9" }}
+                            style={{ padding: "8px 12px", fontSize: 15, cursor: "pointer", color: "#E85D75", borderTop: "1px solid #f1f5f9" }}
                             onMouseEnter={e => e.currentTarget.style.background = "#fff5f5"}
                             onMouseLeave={e => e.currentTarget.style.background = "transparent"}>Delete</div>
                         </div>
@@ -3614,32 +3621,32 @@ function GoalsPage({ goals, setGoals, sections, viewMode, onOpenOnboarding, onEd
                 <div style={{ marginTop: 12 }}>
                   <input value={goalAddTask.text} onChange={e => setGoalAddTask({ ...goalAddTask, text: e.target.value })} placeholder="New action..."
                     onKeyDown={e => { if (e.key === "Enter" && goalAddTask.text.trim() && setTasks && userEmail) { setTasks(prev => [...prev, { id: crypto.randomUUID(), text: goalAddTask.text.trim(), done: false, assignedTo: goalAddTask.assignee || userEmail, createdBy: userEmail, linkedGoalId: g.id, createdAt: new Date().toISOString(), dueDate: goalAddTask.dueDate || undefined, priority: goalAddTask.priority || undefined }]); setGoalAddTask(null); } }}
-                    style={{ width: "100%", padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", boxSizing: "border-box", marginBottom: 6 }} />
-                  <label style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, color: goalAddTask.priority ? "#F5A623" : "#94a3b8", cursor: "pointer", marginBottom: 4 }}>
+                    style={{ width: "100%", padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box", marginBottom: 6 }} />
+                  <label style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 15, color: goalAddTask.priority ? "#F5A623" : "#94a3b8", cursor: "pointer", marginBottom: 4 }}>
                     <input type="checkbox" checked={goalAddTask.priority} onChange={e => setGoalAddTask({ ...goalAddTask, priority: e.target.checked })} style={{ accentColor: "#F5A623", margin: 0, width: 12, height: 12 }} />
                     {goalAddTask.priority ? "" : "Make priority?"}
                   </label>
                   <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
                     <select value={goalAddTask.assignee} onChange={e => setGoalAddTask({ ...goalAddTask, assignee: e.target.value })}
-                      style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 11, outline: "none", background: "#fff" }}>
+                      style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", background: "#fff" }}>
                       <option value={userEmail}>Me</option>
                       {(orgMembers || []).filter(m => m.status === "active" && m.email !== userEmail).map(m => (
                         <option key={m.id} value={m.email}>{m.name || m.email.split("@")[0]}</option>
                       ))}
                     </select>
                     <input type="date" value={goalAddTask.dueDate} onChange={e => setGoalAddTask({ ...goalAddTask, dueDate: e.target.value })}
-                      style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 11, outline: "none", boxSizing: "border-box" }} />
+                      style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box" }} />
                   </div>
                   <div style={{ display: "flex", gap: 6 }}>
                     <button onClick={() => { if (goalAddTask.text.trim() && setTasks && userEmail) { setTasks(prev => [...prev, { id: crypto.randomUUID(), text: goalAddTask.text.trim(), done: false, assignedTo: goalAddTask.assignee || userEmail, createdBy: userEmail, linkedGoalId: g.id, createdAt: new Date().toISOString(), dueDate: goalAddTask.dueDate || undefined, priority: goalAddTask.priority || undefined }]); setGoalAddTask(null); } }}
                       disabled={!goalAddTask.text.trim()}
-                      style={{ flex: 1, padding: "5px 14px", borderRadius: 6, border: "none", background: goalAddTask.text.trim() ? "#3B82F6" : "#e2e8f0", color: "#fff", fontSize: 11, fontWeight: 600, cursor: goalAddTask.text.trim() ? "pointer" : "not-allowed" }}>Add</button>
-                    <button onClick={() => setGoalAddTask(null)} style={{ flex: 1, padding: "5px 14px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 11, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+                      style={{ flex: 1, padding: "5px 14px", borderRadius: 6, border: "none", background: goalAddTask.text.trim() ? "#3B82F6" : "#e2e8f0", color: "#fff", fontSize: 15, fontWeight: 600, cursor: goalAddTask.text.trim() ? "pointer" : "not-allowed" }}>Add</button>
+                    <button onClick={() => setGoalAddTask(null)} style={{ flex: 1, padding: "5px 14px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>Cancel</button>
                   </div>
                 </div>
               ) : (
-                <div onClick={() => setGoalAddTask({ goalId: g.id, text: "", assignee: userEmail || "", dueDate: "", priority: false })} style={{ fontSize: 12, color: "#3B82F6", cursor: "pointer", fontWeight: 600, marginTop: 12, display: "flex", alignItems: "center", gap: 4 }}>
-                  <span style={{ fontSize: 14 }}>+</span> Add Task
+                <div onClick={() => setGoalAddTask({ goalId: g.id, text: "", assignee: userEmail || "", dueDate: "", priority: false })} style={{ fontSize: 15, color: "#3B82F6", cursor: "pointer", fontWeight: 600, marginTop: 12, display: "flex", alignItems: "center", gap: 4 }}>
+                  <span style={{ fontSize: 15 }}>+</span> Add Task
                 </div>
               )}
             </div>
@@ -3652,14 +3659,14 @@ function GoalsPage({ goals, setGoals, sections, viewMode, onOpenOnboarding, onEd
   const renderSection = (key: string, label: string, items: Goal[]) => (
     <div style={{ marginBottom: 16 }}>
       <div onClick={() => toggleSection(key)} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", padding: "8px 0", userSelect: "none" }}>
-        <span style={{ fontSize: 11, color: collapsed[key] ? "#3B82F6" : "#64748b", transition: "transform 0.2s", transform: collapsed[key] ? "rotate(-90deg)" : "rotate(0deg)" }}>▼</span>
-        <span style={{ fontSize: 13, fontWeight: 600, color: "#1a2332" }}>{label}</span>
-        <span style={{ fontSize: 11, color: "#94a3b8", background: "#f1f5f9", padding: "1px 8px", borderRadius: 99 }}>{items.length}</span>
+        <span style={{ fontSize: 15, color: collapsed[key] ? "#3B82F6" : "#64748b", transition: "transform 0.2s", transform: collapsed[key] ? "rotate(-90deg)" : "rotate(0deg)" }}>▼</span>
+        <span style={{ fontSize: 15, fontWeight: 600, color: "#1a2332" }}>{label}</span>
+        <span style={{ fontSize: 15, color: "#94a3b8", background: "#f1f5f9", padding: "1px 8px", borderRadius: 99 }}>{items.length}</span>
       </div>
       {!collapsed[key] && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {items.length === 0 ? (
-            <div style={{ padding: "20px 0", textAlign: "center", fontSize: 12, color: "#94a3b8" }}>
+            <div style={{ padding: "20px 0", textAlign: "center", fontSize: 15, color: "#94a3b8" }}>
               {key === "active" ? "No active goals. Create one!" : key === "drafted" ? "No drafted goals." : "No completed goals."}
             </div>
           ) : items.map(renderGoalCard)}
@@ -3672,7 +3679,7 @@ function GoalsPage({ goals, setGoals, sections, viewMode, onOpenOnboarding, onEd
     <div style={{ padding: "clamp(16px,4vw,32px)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24, flexWrap: "wrap" }}>
         <h1 style={{ margin: 0, fontSize: "clamp(20px,4vw,26px)", fontWeight: 700, color: "#1a2332" }}>Goals</h1>
-        <button onClick={onOpenOnboarding} style={{ padding: "7px 18px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", marginLeft: "auto" }}>⊕ Add Goal</button>
+        <button onClick={onOpenOnboarding} style={{ padding: "7px 18px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer", marginLeft: "auto" }}>⊕ Add Goal</button>
       </div>
       {renderSection("active", "Active", active)}
       {renderSection("drafted", "Drafted", drafted)}
@@ -3683,10 +3690,10 @@ function GoalsPage({ goals, setGoals, sections, viewMode, onOpenOnboarding, onEd
         <div style={{ position: "fixed", inset: 0, zIndex: 2000, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div style={{ background: "#fff", borderRadius: 16, padding: "28px 32px", maxWidth: 380, textAlign: "center", boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}>
             <div style={{ fontSize: 16, fontWeight: 700, color: "#1a2332", marginBottom: 12 }}>Mark goal as complete?</div>
-            <div style={{ fontSize: 13, color: "#64748b", marginBottom: 20 }}>Are you sure "<strong>{confirmComplete.label}</strong>" is finished?</div>
+            <div style={{ fontSize: 15, color: "#64748b", marginBottom: 20 }}>Are you sure "<strong>{confirmComplete.label}</strong>" is finished?</div>
             <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-              <button onClick={() => setConfirmComplete(null)} style={{ padding: "10px 24px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 13, cursor: "pointer", color: "#64748b" }}>Cancel</button>
-              <button onClick={() => handleCompleteGoal(confirmComplete)} style={{ padding: "10px 24px", borderRadius: 8, border: "none", background: "#4CAF7D", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Yes, Complete</button>
+              <button onClick={() => setConfirmComplete(null)} style={{ padding: "10px 24px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+              <button onClick={() => handleCompleteGoal(confirmComplete)} style={{ padding: "10px 24px", borderRadius: 8, border: "none", background: "#4CAF7D", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Yes, Complete</button>
             </div>
           </div>
         </div>
@@ -3771,7 +3778,7 @@ function GoalOnboarding({ sections, isMobile, onClose, onCreate }: { sections: S
             <div onClick={() => { if (i < page || (i === 0 && step1Complete) || (i === 1 && step2Complete)) setPage(i); }}
               style={{ width: 28, height: 28, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", cursor: i <= page ? "pointer" : "default",
                 background: (i === 0 && step1Complete) || (i === 1 && step2Complete) || i < page ? "#4CAF7D" : i === page ? "#3B82F6" : "#e2e8f0",
-                color: i <= page ? "#fff" : "#94a3b8", fontSize: 12, fontWeight: 700, transition: "all 0.2s" }}>
+                color: i <= page ? "#fff" : "#94a3b8", fontSize: 15, fontWeight: 700, transition: "all 0.2s" }}>
               {(i === 0 && step1Complete) || (i === 1 && step2Complete) || i < page ? <IconGlyph name="Check" size={16} color="#fff" weight="bold" /> : i + 1}
             </div>
             {i < 2 && <div style={{ width: 40, height: 2, background: ((i === 0 && step1Complete) || i < page) ? "#4CAF7D" : "#e2e8f0", transition: "background 0.3s" }} />}
@@ -3780,10 +3787,10 @@ function GoalOnboarding({ sections, isMobile, onClose, onCreate }: { sections: S
       </div>
       {/* Current step summary */}
       <div style={{ textAlign: "center" }}>
-        {page === 0 && <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332" }}>Step 1: Name, Deadline & Type</div>}
-        {page === 1 && <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332" }}>Step 2: {goalType === "metric" ? "Attach Metrics & Set Targets" : "Build Your Goal"}</div>}
-        {page === 2 && <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332" }}>Step 3: AI Projections</div>}
-        {page === 3 && <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332" }}>Review & Save</div>}
+        {page === 0 && <div style={{ fontSize: 15, fontWeight: 600, color: "#1a2332" }}>Step 1: Name, Deadline & Type</div>}
+        {page === 1 && <div style={{ fontSize: 15, fontWeight: 600, color: "#1a2332" }}>Step 2: {goalType === "metric" ? "Attach Metrics & Set Targets" : "Build Your Goal"}</div>}
+        {page === 2 && <div style={{ fontSize: 15, fontWeight: 600, color: "#1a2332" }}>Step 3: AI Projections</div>}
+        {page === 3 && <div style={{ fontSize: 15, fontWeight: 600, color: "#1a2332" }}>Review & Save</div>}
       </div>
     </div>
   );
@@ -3791,34 +3798,34 @@ function GoalOnboarding({ sections, isMobile, onClose, onCreate }: { sections: S
   const renderPage0 = () => (
     <div style={{ maxWidth: 420, margin: "0 auto", textAlign: "center" }}>
       <div style={{ fontSize: 22, fontWeight: 700, color: "#1a2332", marginBottom: 4 }}>Create Goal</div>
-      <div style={{ fontSize: 13, color: "#64748b", marginBottom: 24 }}>Name your goal and choose a type</div>
+      <div style={{ fontSize: 15, color: "#64748b", marginBottom: 24 }}>Name your goal and choose a type</div>
 
-      <input autoFocus value={goalName} onChange={e => setGoalName(e.target.value)} placeholder="Goal name..." style={{ width: "100%", padding: "12px 16px", borderRadius: 10, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none", marginBottom: 14, boxSizing: "border-box" }} />
+      <input autoFocus value={goalName} onChange={e => setGoalName(e.target.value)} placeholder="Goal name..." style={{ width: "100%", padding: "12px 16px", borderRadius: 10, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", marginBottom: 14, boxSizing: "border-box" }} />
 
       <div style={{ textAlign: "left", marginBottom: 8 }}>
-        <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>DEADLINE (optional)</div>
-        <input value={dueDate} onChange={e => setDueDate(e.target.value)} type="date" style={{ width: "100%", padding: "12px 16px", borderRadius: 10, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none", marginBottom: 6, boxSizing: "border-box" }} />
-        <div style={{ fontSize: 11, color: "#94a3b8", lineHeight: 1.4, marginBottom: 16 }}>
+        <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>DEADLINE (optional)</div>
+        <input value={dueDate} onChange={e => setDueDate(e.target.value)} type="date" style={{ width: "100%", padding: "12px 16px", borderRadius: 10, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", marginBottom: 6, boxSizing: "border-box" }} />
+        <div style={{ fontSize: 15, color: "#94a3b8", lineHeight: 1.4, marginBottom: 16 }}>
           Set a deadline to track progress against time. Without a deadline, this becomes an evergreen goal that shows your average health score.
         </div>
       </div>
 
-      <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 8, textAlign: "left" }}>GOAL TYPE</div>
+      <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 8, textAlign: "left" }}>GOAL TYPE</div>
       <div style={{ display: "flex", gap: 12, justifyContent: "center", marginBottom: 20 }}>
         {(["equation", "metric"] as GoalType[]).map(t => (
           <div key={t} onClick={() => setGoalType(t)} style={{ flex: 1, maxWidth: 200, padding: "20px 16px", borderRadius: 12, border: `2px solid ${goalType === t ? "#3B82F6" : "#e2e8f0"}`, background: goalType === t ? "#EFF6FF" : "#fff", cursor: "pointer", textAlign: "center", transition: "all 0.15s" }}>
             <div style={{ fontSize: 28, marginBottom: 8, display: "flex", justifyContent: "center" }}>
               {t === "equation" ? <IconGlyph name="ChartBar" size={32} color={goalType === t ? "#3B82F6" : "#64748b"} /> : <IconGlyph name="Gauge" size={32} color={goalType === t ? "#3B82F6" : "#64748b"} />}
             </div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: "#1a2332", marginBottom: 4 }}>{t === "equation" ? "Equation Goal" : "Metric Goal"}</div>
-            <div style={{ fontSize: 11, color: "#64748b" }}>{t === "equation" ? "Set targets on specific metrics" : "Track average health of metric boxes"}</div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "#1a2332", marginBottom: 4 }}>{t === "equation" ? "Equation Goal" : "Metric Goal"}</div>
+            <div style={{ fontSize: 15, color: "#64748b" }}>{t === "equation" ? "Set targets on specific metrics" : "Track average health of metric boxes"}</div>
           </div>
         ))}
       </div>
 
       <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-        <button onClick={onClose} style={{ padding: "10px 24px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 13, cursor: "pointer", color: "#64748b" }}>Cancel</button>
-        <button onClick={handlePage0Next} disabled={!step1Complete} style={{ padding: "10px 24px", borderRadius: 8, border: "none", background: step1Complete ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0", color: "#fff", fontSize: 13, fontWeight: 600, cursor: step1Complete ? "pointer" : "default" }}>Next →</button>
+        <button onClick={onClose} style={{ padding: "10px 24px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+        <button onClick={handlePage0Next} disabled={!step1Complete} style={{ padding: "10px 24px", borderRadius: 8, border: "none", background: step1Complete ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0", color: "#fff", fontSize: 15, fontWeight: 600, cursor: step1Complete ? "pointer" : "default" }}>Next →</button>
       </div>
     </div>
   );
@@ -3831,7 +3838,7 @@ function GoalOnboarding({ sections, isMobile, onClose, onCreate }: { sections: S
         <div style={{ fontSize: 22, fontWeight: 700, color: "#1a2332", marginBottom: 4, textAlign: "center" }}>
           {isEquationMode ? "Set Step Targets" : "Attach Metric Boxes"}
         </div>
-        <div style={{ fontSize: 13, color: "#64748b", marginBottom: 24, textAlign: "center" }}>
+        <div style={{ fontSize: 15, color: "#64748b", marginBottom: 24, textAlign: "center" }}>
           {isEquationMode ? "Add steps with targets to track" : "Search and attach metric boxes to track"}
         </div>
 
@@ -3844,11 +3851,11 @@ function GoalOnboarding({ sections, isMobile, onClose, onCreate }: { sections: S
               const met = isStep ? evaluateGoalStep(item as GoalStep, sections) : false;
               const health = !isStep && m ? computeMetricHealth(m) : 0;
               return (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", background: "#F8FAFC", borderRadius: 10, marginBottom: 6, fontSize: 13, border: "1px solid #f1f5f9" }}>
-                  <span style={{ width: 24, height: 24, borderRadius: "50%", background: "#3B82F6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{i + 1}</span>
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", background: "#F8FAFC", borderRadius: 10, marginBottom: 6, fontSize: 15, border: "1px solid #f1f5f9" }}>
+                  <span style={{ width: 24, height: 24, borderRadius: "50%", background: "#3B82F6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, flexShrink: 0 }}>{i + 1}</span>
                   <span style={{ flex: 1, color: "#1a2332", fontWeight: 500 }}>{m?.label ?? item.metricLabel}</span>
-                  {isStep && <span style={{ color: "#64748b", fontSize: 12 }}>{formatTarget((item as GoalStep).target)}</span>}
-                  {!isStep && <span style={{ color: "#64748b", fontSize: 12 }}>{health}%</span>}
+                  {isStep && <span style={{ color: "#64748b", fontSize: 15 }}>{formatTarget((item as GoalStep).target)}</span>}
+                  {!isStep && <span style={{ color: "#64748b", fontSize: 15 }}>{health}%</span>}
                   <span onClick={() => {
                     if (isStep) setSteps(p => p.filter((_, j) => j !== i));
                     else setAttachedMetrics(p => p.filter((_, j) => j !== i));
@@ -3862,10 +3869,10 @@ function GoalOnboarding({ sections, isMobile, onClose, onCreate }: { sections: S
         {/* Target configuration panel (for equation mode) */}
         {configMetric ? (
           <div style={{ background: "#fff", borderRadius: 12, border: "1.5px solid #3B82F6", padding: 18, marginBottom: 16 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: "#1a2332", marginBottom: 12 }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "#1a2332", marginBottom: 12 }}>
               Target for: <span style={{ color: "#3B82F6" }}>{configMetric.metricLabel}</span>
             </div>
-            <select value={configTargetType} onChange={e => setConfigTargetType(e.target.value as GoalTargetType)} style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none", marginBottom: 10 }}>
+            <select value={configTargetType} onChange={e => setConfigTargetType(e.target.value as GoalTargetType)} style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", marginBottom: 10 }}>
               <option value="color_rule">Color Rule</option>
               <option value="number_reach">Number Reached</option>
               <option value="number_range">Number Range Reached</option>
@@ -3873,39 +3880,39 @@ function GoalOnboarding({ sections, isMobile, onClose, onCreate }: { sections: S
             </select>
             {configTargetType === "number_reach" && (
               <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
-                <select value={configOp} onChange={e => setConfigOp(e.target.value as RuleOp)} style={{ padding: "8px 10px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none" }}>
+                <select value={configOp} onChange={e => setConfigOp(e.target.value as RuleOp)} style={{ padding: "8px 10px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none" }}>
                   {[">=", "<=", ">", "<", "==", "!="].map(op => <option key={op} value={op}>{op}</option>)}
                 </select>
-                <input value={configVal} onChange={e => setConfigVal(e.target.value)} type="number" placeholder="Value" style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none" }} />
+                <input value={configVal} onChange={e => setConfigVal(e.target.value)} type="number" placeholder="Value" style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none" }} />
               </div>
             )}
             {configTargetType === "number_range" && (
               <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
-                <input value={configVal} onChange={e => setConfigVal(e.target.value)} type="number" placeholder="Min" style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none" }} />
+                <input value={configVal} onChange={e => setConfigVal(e.target.value)} type="number" placeholder="Min" style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none" }} />
                 <span style={{ color: "#94a3b8" }}>to</span>
-                <input value={configVal2} onChange={e => setConfigVal2(e.target.value)} type="number" placeholder="Max" style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none" }} />
+                <input value={configVal2} onChange={e => setConfigVal2(e.target.value)} type="number" placeholder="Max" style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none" }} />
               </div>
             )}
             {configTargetType === "percentage" && (
               <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
-                <span style={{ fontSize: 13, color: "#64748b" }}>≥</span>
-                <input value={configPct} onChange={e => setConfigPct(e.target.value)} type="number" placeholder="80" style={{ width: 100, padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none" }} />
-                <span style={{ fontSize: 13, color: "#64748b" }}>% health</span>
+                <span style={{ fontSize: 15, color: "#64748b" }}>≥</span>
+                <input value={configPct} onChange={e => setConfigPct(e.target.value)} type="number" placeholder="80" style={{ width: 100, padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none" }} />
+                <span style={{ fontSize: 15, color: "#64748b" }}>% health</span>
               </div>
             )}
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button onClick={resetConfig} style={{ padding: "8px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b" }}>Cancel</button>
-              <button onClick={confirmStep} style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Add Step</button>
+              <button onClick={resetConfig} style={{ padding: "8px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+              <button onClick={confirmStep} style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Add Step</button>
             </div>
           </div>
         ) : (
           /* Search */
           <div>
-            <input autoFocus value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Start typing the name of a metric box..." style={{ width: "100%", padding: "12px 16px", borderRadius: 10, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none", marginBottom: 12, boxSizing: "border-box" }} />
+            <input autoFocus value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Start typing the name of a metric box..." style={{ width: "100%", padding: "12px 16px", borderRadius: 10, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", marginBottom: 12, boxSizing: "border-box" }} />
             {searchQuery.trim() && (
               <div style={{ maxHeight: 260, overflowY: "auto", border: "1px solid #f1f5f9", borderRadius: 10, marginBottom: 12 }}>
                 {filteredMetrics.length === 0 ? (
-                  <div style={{ padding: 20, textAlign: "center", fontSize: 12, color: "#94a3b8" }}>No metrics found</div>
+                  <div style={{ padding: 20, textAlign: "center", fontSize: 15, color: "#94a3b8" }}>No metrics found</div>
                 ) : filteredMetrics
                   .filter(m => isEquationMode ? !steps.some(s => s.metricLabel === m.metricLabel) : !attachedMetrics.some(a => a.metricLabel === m.metricLabel))
                   .slice(0, 8)
@@ -3913,11 +3920,11 @@ function GoalOnboarding({ sections, isMobile, onClose, onCreate }: { sections: S
                     <div key={i} onClick={() => {
                       if (isEquationMode) { setConfigMetric({ sectionLabel: m.sectionLabel, metricLabel: m.metricLabel }); setSearchQuery(""); }
                       else { setAttachedMetrics(p => [...p, { sectionLabel: m.sectionLabel, metricLabel: m.metricLabel, trackingMode: "average" }]); setSearchQuery(""); }
-                    }} style={{ padding: "12px 14px", borderBottom: i < Math.min(filteredMetrics.length, 8) - 1 ? "1px solid #f1f5f9" : "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 12, fontSize: 13, color: "#1a2332" }}>
+                    }} style={{ padding: "12px 14px", borderBottom: i < Math.min(filteredMetrics.length, 8) - 1 ? "1px solid #f1f5f9" : "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 12, fontSize: 15, color: "#1a2332" }}>
                       <span style={{ width: 10, height: 10, borderRadius: "50%", background: MS[m.color].bg, flexShrink: 0 }} />
                       <span style={{ flex: 1, fontWeight: 500 }}>{m.metricLabel}</span>
-                      <span style={{ color: "#94a3b8", fontSize: 12 }}>{m.value}</span>
-                      <span style={{ fontSize: 11, color: "#3B82F6", fontWeight: 600, flexShrink: 0 }}>{isEquationMode ? "Select →" : "+ Attach"}</span>
+                      <span style={{ color: "#94a3b8", fontSize: 15 }}>{m.value}</span>
+                      <span style={{ fontSize: 15, color: "#3B82F6", fontWeight: 600, flexShrink: 0 }}>{isEquationMode ? "Select →" : "+ Attach"}</span>
                     </div>
                   ))}
               </div>
@@ -3926,8 +3933,8 @@ function GoalOnboarding({ sections, isMobile, onClose, onCreate }: { sections: S
         )}
 
         <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 8 }}>
-          <button onClick={() => setPage(0)} style={{ padding: "10px 24px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 13, cursor: "pointer", color: "#64748b" }}>← Back</button>
-          <button onClick={() => setPage(2)} disabled={!step2Complete} style={{ padding: "10px 24px", borderRadius: 8, border: "none", background: step2Complete ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0", color: "#fff", fontSize: 13, fontWeight: 600, cursor: step2Complete ? "pointer" : "default" }}>
+          <button onClick={() => setPage(0)} style={{ padding: "10px 24px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>← Back</button>
+          <button onClick={() => setPage(2)} disabled={!step2Complete} style={{ padding: "10px 24px", borderRadius: 8, border: "none", background: step2Complete ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0", color: "#fff", fontSize: 15, fontWeight: 600, cursor: step2Complete ? "pointer" : "default" }}>
             {step2Complete ? "Next →" : isEquationMode ? "Add at least one step" : "Attach at least one metric"}
           </button>
         </div>
@@ -3938,27 +3945,27 @@ function GoalOnboarding({ sections, isMobile, onClose, onCreate }: { sections: S
   const renderPage2 = () => (
     <div style={{ maxWidth: 480, margin: "0 auto" }}>
       <div style={{ fontSize: 22, fontWeight: 700, color: "#1a2332", marginBottom: 4, textAlign: "center" }}>AI Projections</div>
-      <div style={{ fontSize: 13, color: "#64748b", marginBottom: 24, textAlign: "center" }}>Choose how far back to analyze</div>
+      <div style={{ fontSize: 15, color: "#64748b", marginBottom: 24, textAlign: "center" }}>Choose how far back to analyze</div>
 
       <div style={{ background: "#F8FAFC", borderRadius: 12, padding: 20, marginBottom: 20 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
           <IconGlyph name="Star" size={20} color="#F5A623" weight="fill" />
-          <div style={{ fontSize: 14, fontWeight: 600, color: "#1a2332" }}>Projections Filter</div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: "#1a2332" }}>Projections Filter</div>
         </div>
-        <select value={aiFilter} onChange={e => setAiFilter(e.target.value)} style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none", marginBottom: 12 }}>
+        <select value={aiFilter} onChange={e => setAiFilter(e.target.value)} style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", marginBottom: 12 }}>
           <option value="3months">Past 3 Months</option>
           <option value="7days">Past 7 Days</option>
           <option value="1year">Past Year</option>
           <option value="alltime">All Time</option>
         </select>
-        <div style={{ fontSize: 12, color: "#64748b", lineHeight: 1.5, fontStyle: "italic" }}>
+        <div style={{ fontSize: 15, color: "#64748b", lineHeight: 1.5, fontStyle: "italic" }}>
           AI projections will analyze your past data and tasks to predict future trends and keep your business on track.
         </div>
       </div>
 
       <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-        <button onClick={() => setPage(1)} style={{ padding: "10px 24px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 13, cursor: "pointer", color: "#64748b" }}>← Back</button>
-        <button onClick={() => setPage(3)} style={{ padding: "10px 24px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Next →</button>
+        <button onClick={() => setPage(1)} style={{ padding: "10px 24px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>← Back</button>
+        <button onClick={() => setPage(3)} style={{ padding: "10px 24px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Next →</button>
       </div>
     </div>
   );
@@ -3966,40 +3973,40 @@ function GoalOnboarding({ sections, isMobile, onClose, onCreate }: { sections: S
   const renderPage3 = () => (
     <div style={{ maxWidth: 520, margin: "0 auto" }}>
       <div style={{ fontSize: 22, fontWeight: 700, color: "#1a2332", marginBottom: 4, textAlign: "center" }}>Review Your Goal</div>
-      <div style={{ fontSize: 13, color: "#64748b", marginBottom: 24, textAlign: "center" }}>Check everything looks right before saving</div>
+      <div style={{ fontSize: 15, color: "#64748b", marginBottom: 24, textAlign: "center" }}>Check everything looks right before saving</div>
 
       {/* Goal header */}
       <div style={{ background: "#fff", borderRadius: 12, border: "1.5px solid #e2e8f0", padding: 18, marginBottom: 12 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
           <span style={{ flex: 1, fontSize: 16, fontWeight: 700, color: "#1a2332" }}>{goalName || "Untitled Goal"}</span>
-          <div onClick={() => setPage(0)} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 2, color: "#94a3b8", fontSize: 11 }}><IconGlyph name="PencilSimple" size={12} color="#94a3b8" /> Edit</div>
+          <div onClick={() => setPage(0)} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 2, color: "#94a3b8", fontSize: 15 }}><IconGlyph name="PencilSimple" size={12} color="#94a3b8" /> Edit</div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{ height: 24, flex: 1, borderRadius: 99, background: "#e5e7eb", overflow: "hidden" }}>
             <div style={{ width: `${0}%`, height: "100%", borderRadius: 99, background: "#94a3b8" }} />
           </div>
-          {dueDate && <span style={{ fontSize: 12, color: "#94a3b8" }}>Due: {dueDate}</span>}
-          <div onClick={() => setPage(0)} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 2, color: "#94a3b8", fontSize: 11 }}><IconGlyph name="PencilSimple" size={12} color="#94a3b8" /></div>
+          {dueDate && <span style={{ fontSize: 15, color: "#94a3b8" }}>Due: {dueDate}</span>}
+          <div onClick={() => setPage(0)} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 2, color: "#94a3b8", fontSize: 15 }}><IconGlyph name="PencilSimple" size={12} color="#94a3b8" /></div>
         </div>
       </div>
 
       {/* Metrics tracking */}
       <div style={{ background: "#fff", borderRadius: 12, border: "1.5px solid #e2e8f0", padding: 18, marginBottom: 12 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-          <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: "#1a2332" }}>Metrics Tracking This Goal</span>
-          <div onClick={() => setPage(1)} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 2, color: "#94a3b8", fontSize: 11 }}><IconGlyph name="PencilSimple" size={12} color="#94a3b8" /> Edit</div>
+          <span style={{ flex: 1, fontSize: 15, fontWeight: 600, color: "#1a2332" }}>Metrics Tracking This Goal</span>
+          <div onClick={() => setPage(1)} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 2, color: "#94a3b8", fontSize: 15 }}><IconGlyph name="PencilSimple" size={12} color="#94a3b8" /> Edit</div>
         </div>
         {(goalType === "equation" ? steps : attachedMetrics).length === 0 ? (
-          <div style={{ fontSize: 12, color: "#94a3b8", padding: "8px 0" }}>No metrics attached yet</div>
+          <div style={{ fontSize: 15, color: "#94a3b8", padding: "8px 0" }}>No metrics attached yet</div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {(goalType === "equation" ? steps : attachedMetrics).map((item: any, i: number) => {
               const m = findMetricByLabel(sections, item.sectionLabel, item.metricLabel);
               return (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "#F8FAFC", borderRadius: 8, fontSize: 13 }}>
-                  <span style={{ width: 24, height: 24, borderRadius: "50%", background: "#3B82F6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{i + 1}</span>
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "#F8FAFC", borderRadius: 8, fontSize: 15 }}>
+                  <span style={{ width: 24, height: 24, borderRadius: "50%", background: "#3B82F6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, flexShrink: 0 }}>{i + 1}</span>
                   <span style={{ flex: 1, color: "#1a2332" }}>{m?.label ?? item.metricLabel}</span>
-                  {goalType === "equation" && <span style={{ color: "#64748b", fontSize: 12 }}>{formatTarget((item as GoalStep).target)}</span>}
+                  {goalType === "equation" && <span style={{ color: "#64748b", fontSize: 15 }}>{formatTarget((item as GoalStep).target)}</span>}
                 </div>
               );
             })}
@@ -4011,16 +4018,16 @@ function GoalOnboarding({ sections, isMobile, onClose, onCreate }: { sections: S
       <div style={{ background: "#fff", borderRadius: 12, border: "1.5px solid #e2e8f0", padding: 18, marginBottom: 12 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <IconGlyph name="Star" size={16} color="#F5A623" weight="fill" />
-          <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: "#1a2332" }}>Projections</span>
-          <span style={{ fontSize: 12, color: "#64748b" }}>{aiFilter === "3months" ? "Past 3 Months" : aiFilter === "7days" ? "Past 7 Days" : aiFilter === "1year" ? "Past Year" : "All Time"}</span>
-          <div onClick={() => setPage(2)} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 2, color: "#94a3b8", fontSize: 11 }}><IconGlyph name="PencilSimple" size={12} color="#94a3b8" /> Edit</div>
+          <span style={{ flex: 1, fontSize: 15, fontWeight: 600, color: "#1a2332" }}>Projections</span>
+          <span style={{ fontSize: 15, color: "#64748b" }}>{aiFilter === "3months" ? "Past 3 Months" : aiFilter === "7days" ? "Past 7 Days" : aiFilter === "1year" ? "Past Year" : "All Time"}</span>
+          <div onClick={() => setPage(2)} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 2, color: "#94a3b8", fontSize: 15 }}><IconGlyph name="PencilSimple" size={12} color="#94a3b8" /> Edit</div>
         </div>
       </div>
 
       {/* Action buttons */}
       <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 20 }}>
-        <button onClick={() => setPage(2)} style={{ padding: "10px 24px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 13, cursor: "pointer", color: "#64748b" }}>← Back</button>
-        <button onClick={handleFinish} style={{ padding: "10px 24px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Save Goal</button>
+        <button onClick={() => setPage(2)} style={{ padding: "10px 24px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>← Back</button>
+        <button onClick={handleFinish} style={{ padding: "10px 24px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Save Goal</button>
       </div>
     </div>
   );
@@ -4088,8 +4095,8 @@ function GoalSettingsModal({ goal, sections, isMobile, onSave, onDuplicate, onDe
 
   const renderTargetConfig = (onConfirm: (target: GoalTarget) => void, onCancel: () => void) => (
     <div style={{ marginTop: 8 }}>
-      <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332", marginBottom: 10 }}>Target for: <span style={{ color: "#3B82F6" }}>{configMetric?.metricLabel}</span></div>
-      <select value={configTargetType} onChange={e => setConfigTargetType(e.target.value as GoalTargetType)} style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", marginBottom: 10 }}>
+      <div style={{ fontSize: 15, fontWeight: 600, color: "#1a2332", marginBottom: 10 }}>Target for: <span style={{ color: "#3B82F6" }}>{configMetric?.metricLabel}</span></div>
+      <select value={configTargetType} onChange={e => setConfigTargetType(e.target.value as GoalTargetType)} style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", marginBottom: 10 }}>
         <option value="color_rule">Color Rule</option>
         <option value="number_reach">Number Reached</option>
         <option value="number_range">Number Range Reached</option>
@@ -4097,28 +4104,28 @@ function GoalSettingsModal({ goal, sections, isMobile, onSave, onDuplicate, onDe
       </select>
       {configTargetType === "number_reach" && (
         <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
-          <select value={configOp} onChange={e => setConfigOp(e.target.value as RuleOp)} style={{ padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none" }}>
+          <select value={configOp} onChange={e => setConfigOp(e.target.value as RuleOp)} style={{ padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none" }}>
             {[">=", "<=", ">", "<", "==", "!="].map(op => <option key={op} value={op}>{op}</option>)}
           </select>
-          <input value={configVal} onChange={e => setConfigVal(e.target.value)} type="number" placeholder="Value" style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none" }} />
+          <input value={configVal} onChange={e => setConfigVal(e.target.value)} type="number" placeholder="Value" style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none" }} />
         </div>
       )}
       {configTargetType === "number_range" && (
         <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
-          <input value={configVal} onChange={e => setConfigVal(e.target.value)} type="number" placeholder="Min" style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none" }} />
+          <input value={configVal} onChange={e => setConfigVal(e.target.value)} type="number" placeholder="Min" style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none" }} />
           <span style={{ color: "#94a3b8" }}>to</span>
-          <input value={configVal2} onChange={e => setConfigVal2(e.target.value)} type="number" placeholder="Max" style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none" }} />
+          <input value={configVal2} onChange={e => setConfigVal2(e.target.value)} type="number" placeholder="Max" style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none" }} />
         </div>
       )}
       {configTargetType === "percentage" && (
         <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
-          <span style={{ fontSize: 13, color: "#64748b" }}>≥</span>
-          <input value={configPct} onChange={e => setConfigPct(e.target.value)} type="number" placeholder="80" style={{ width: 100, padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none" }} />
-          <span style={{ fontSize: 13, color: "#64748b" }}>% health</span>
+          <span style={{ fontSize: 15, color: "#64748b" }}>≥</span>
+          <input value={configPct} onChange={e => setConfigPct(e.target.value)} type="number" placeholder="80" style={{ width: 100, padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none" }} />
+          <span style={{ fontSize: 15, color: "#64748b" }}>% health</span>
         </div>
       )}
       <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-        <button onClick={onCancel} style={{ padding: "6px 14px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 11, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+        <button onClick={onCancel} style={{ padding: "6px 14px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>Cancel</button>
         <button onClick={() => {
           let target: GoalTarget;
           if (configTargetType === "number_reach") target = { type: "number_reach", operator: configOp, value: parseFloat(configVal) || 0 };
@@ -4126,7 +4133,7 @@ function GoalSettingsModal({ goal, sections, isMobile, onSave, onDuplicate, onDe
           else if (configTargetType === "percentage") target = { type: "percentage", percent: Math.min(100, Math.max(0, parseInt(configPct) || 100)) };
           else target = { type: "color_rule" };
           onConfirm(target);
-        }} style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Add Step</button>
+        }} style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Add Step</button>
       </div>
     </div>
   );
@@ -4143,27 +4150,27 @@ function GoalSettingsModal({ goal, sections, isMobile, onSave, onDuplicate, onDe
         {/* Name & Due Date */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
           <div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>LABEL</div>
-            <input value={edited.label} onChange={e => setEdited(p => ({ ...p, label: e.target.value }))} style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+            <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>LABEL</div>
+            <input value={edited.label} onChange={e => setEdited(p => ({ ...p, label: e.target.value }))} style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box" }} />
           </div>
           <div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>DUE DATE</div>
-            <input value={edited.due} onChange={e => setEdited(p => ({ ...p, due: e.target.value }))} type="date" style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+            <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>DUE DATE</div>
+            <input value={edited.due} onChange={e => setEdited(p => ({ ...p, due: e.target.value }))} type="date" style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box" }} />
           </div>
         </div>
 
         {/* Type & Status */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
           <div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>TYPE</div>
-            <select value={edited.type} onChange={e => setEdited(p => ({ ...p, type: e.target.value as GoalType }))} style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none" }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>TYPE</div>
+            <select value={edited.type} onChange={e => setEdited(p => ({ ...p, type: e.target.value as GoalType }))} style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none" }}>
               <option value="equation">Equation Goal</option>
               <option value="metric">Metric Goal</option>
             </select>
           </div>
           <div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>STATUS</div>
-            <select value={edited.status} onChange={e => setEdited(p => ({ ...p, status: e.target.value as GoalStatus }))} style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none" }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>STATUS</div>
+            <select value={edited.status} onChange={e => setEdited(p => ({ ...p, status: e.target.value as GoalStatus }))} style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none" }}>
               <option value="active">Active</option>
               <option value="drafted">Drafted</option>
               <option value="completed">Completed</option>
@@ -4174,15 +4181,15 @@ function GoalSettingsModal({ goal, sections, isMobile, onSave, onDuplicate, onDe
         {/* Steps section (for equation type) */}
         {edited.type === "equation" && (
           <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>STEPS ({edited.steps.length})</div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>STEPS ({edited.steps.length})</div>
             {edited.steps.map((s, i) => {
               const m = findMetricByLabel(sections, s.sectionLabel, s.metricLabel);
               const met = evaluateGoalStep(s, sections);
               return (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: met ? "#ECFDF5" : "#FEF2F2", borderRadius: 8, marginBottom: 4, fontSize: 13 }}>
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: met ? "#ECFDF5" : "#FEF2F2", borderRadius: 8, marginBottom: 4, fontSize: 15 }}>
                   <span style={{ fontWeight: 600, color: "#3B82F6", minWidth: 20 }}>{i + 1}.</span>
                   <span style={{ flex: 1, color: "#1a2332" }}>{m?.label ?? s.metricLabel}</span>
-                  <span style={{ color: "#64748b", fontSize: 12 }}>{formatTarget(s.target)}</span>
+                  <span style={{ color: "#64748b", fontSize: 15 }}>{formatTarget(s.target)}</span>
                   <span style={{ display: "flex", alignItems: "center" }}>{met ? <IconGlyph name="CheckCircle" size={14} color="#059669" weight="fill" /> : <IconGlyph name="XCircle" size={14} color="#DC2626" weight="fill" />}</span>
                   <span onClick={() => setEdited(p => ({ ...p, steps: p.steps.filter((_, j) => j !== i) }))} style={{ cursor: "pointer", color: "#E85D75", fontSize: 16 }}>×</span>
                 </div>
@@ -4193,13 +4200,13 @@ function GoalSettingsModal({ goal, sections, isMobile, onSave, onDuplicate, onDe
               resetConfig
             ) : (
               <div style={{ marginTop: 8 }}>
-                <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search to add a metric step..." style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+                <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search to add a metric step..." style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box" }} />
                 {searchQuery.trim() && (
                   <div style={{ maxHeight: 180, overflowY: "auto", border: "1px solid #f1f5f9", borderRadius: 8, marginTop: 4 }}>
                     {filteredMetrics.length === 0 ? (
-                      <div style={{ padding: 14, textAlign: "center", fontSize: 12, color: "#94a3b8" }}>No metrics found</div>
+                      <div style={{ padding: 14, textAlign: "center", fontSize: 15, color: "#94a3b8" }}>No metrics found</div>
                     ) : filteredMetrics.map((m, i) => (
-                      <div key={i} onClick={() => { setConfigMetric({ sectionLabel: m.sectionLabel, metricLabel: m.metricLabel }); setSearchQuery(""); }} style={{ padding: "8px 12px", borderBottom: i < filteredMetrics.length - 1 ? "1px solid #f1f5f9" : "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, fontSize: 12, color: "#1a2332" }}>
+                      <div key={i} onClick={() => { setConfigMetric({ sectionLabel: m.sectionLabel, metricLabel: m.metricLabel }); setSearchQuery(""); }} style={{ padding: "8px 12px", borderBottom: i < filteredMetrics.length - 1 ? "1px solid #f1f5f9" : "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, fontSize: 15, color: "#1a2332" }}>
                         <span style={{ width: 8, height: 8, borderRadius: "50%", background: MS[m.color].bg, flexShrink: 0 }} />
                         <span style={{ flex: 1 }}>{m.metricLabel}</span>
                         <span style={{ color: "#94a3b8" }}>{m.value}</span>
@@ -4215,16 +4222,16 @@ function GoalSettingsModal({ goal, sections, isMobile, onSave, onDuplicate, onDe
         {/* Attached metrics (for metric type) */}
         {edited.type === "metric" && (
           <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>ATTACHED METRICS</div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>ATTACHED METRICS</div>
             {edited.attachedMetrics.map((a, i) => {
               const m = findMetricByLabel(sections, a.sectionLabel, a.metricLabel);
               const health = m ? computeMetricHealth(m) : 0;
               return (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "#F8FAFC", borderRadius: 8, marginBottom: 4, fontSize: 13 }}>
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "#F8FAFC", borderRadius: 8, marginBottom: 4, fontSize: 15 }}>
                   <span style={{ width: 8, height: 8, borderRadius: "50%", background: health >= 80 ? "#4CAF7D" : health >= 50 ? "#F5A623" : "#E85D75", flexShrink: 0 }} />
                   <span style={{ flex: 1, color: "#1a2332" }}>{m?.label ?? a.metricLabel}</span>
-                  <span style={{ color: "#64748b", fontSize: 12 }}>{health}%</span>
-                  <select value={a.trackingMode} onChange={e => { const v = e.target.value as GoalTrackingMode; setEdited(p => ({ ...p, attachedMetrics: p.attachedMetrics.map((x, j) => j === i ? { ...x, trackingMode: v } : x) })); }} style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #e2e8f0", fontSize: 11, outline: "none" }}>
+                  <span style={{ color: "#64748b", fontSize: 15 }}>{health}%</span>
+                  <select value={a.trackingMode} onChange={e => { const v = e.target.value as GoalTrackingMode; setEdited(p => ({ ...p, attachedMetrics: p.attachedMetrics.map((x, j) => j === i ? { ...x, trackingMode: v } : x) })); }} style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #e2e8f0", fontSize: 15, outline: "none" }}>
                     <option value="average">Average</option>
                     <option value="off">Off</option>
                     <option value="direct">Direct</option>
@@ -4235,17 +4242,17 @@ function GoalSettingsModal({ goal, sections, isMobile, onSave, onDuplicate, onDe
               );
             })}
             <div style={{ marginTop: 8 }}>
-              <input value={searchQuery} onChange={e => { setSearchQuery(e.target.value); }} placeholder="Start typing the name of a metric box..." style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+              <input value={searchQuery} onChange={e => { setSearchQuery(e.target.value); }} placeholder="Start typing the name of a metric box..." style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box" }} />
               {searchQuery.trim() && (
                 <div style={{ maxHeight: 220, overflowY: "auto", border: "1px solid #f1f5f9", borderRadius: 8, marginTop: 4 }}>
                   {filteredMetrics.filter(m => !edited.attachedMetrics.some(a => a.metricLabel === m.metricLabel)).length === 0 ? (
-                    <div style={{ padding: 14, textAlign: "center", fontSize: 12, color: "#94a3b8" }}>No metrics found</div>
+                    <div style={{ padding: 14, textAlign: "center", fontSize: 15, color: "#94a3b8" }}>No metrics found</div>
                   ) : filteredMetrics.filter(m => !edited.attachedMetrics.some(a => a.metricLabel === m.metricLabel)).map((mmm, i) => (
-                    <div key={i} onClick={() => { setEdited(p => ({ ...p, attachedMetrics: [...p.attachedMetrics, { sectionLabel: mmm.sectionLabel, metricLabel: mmm.metricLabel, trackingMode: "average" }] })); setSearchQuery(""); }} style={{ padding: "8px 12px", borderBottom: i < filteredMetrics.length - 1 ? "1px solid #f1f5f9" : "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, fontSize: 12, color: "#1a2332" }}>
+                    <div key={i} onClick={() => { setEdited(p => ({ ...p, attachedMetrics: [...p.attachedMetrics, { sectionLabel: mmm.sectionLabel, metricLabel: mmm.metricLabel, trackingMode: "average" }] })); setSearchQuery(""); }} style={{ padding: "8px 12px", borderBottom: i < filteredMetrics.length - 1 ? "1px solid #f1f5f9" : "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, fontSize: 15, color: "#1a2332" }}>
                       <span style={{ width: 10, height: 10, borderRadius: "50%", background: MS[mmm.color].bg, flexShrink: 0 }} />
                       <span style={{ flex: 1, fontWeight: 500 }}>{mmm.metricLabel}</span>
-                      <span style={{ color: "#94a3b8", fontSize: 12 }}>{mmm.value}</span>
-                      <span style={{ fontSize: 11, color: "#3B82F6", fontWeight: 600, flexShrink: 0 }}>+ Attach</span>
+                      <span style={{ color: "#94a3b8", fontSize: 15 }}>{mmm.value}</span>
+                      <span style={{ fontSize: 15, color: "#3B82F6", fontWeight: 600, flexShrink: 0 }}>+ Attach</span>
                     </div>
                   ))}
                 </div>
@@ -4257,8 +4264,8 @@ function GoalSettingsModal({ goal, sections, isMobile, onSave, onDuplicate, onDe
         {/* Progress preview */}
         <div style={{ marginTop: 20, padding: "14px 16px", background: "#F8FAFC", borderRadius: 12 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: "#64748b" }}>Progress Preview</span>
-            <span style={{ fontSize: 14, fontWeight: 700, color: liveBarColor === "green" ? "#4CAF7D" : liveBarColor === "yellow" ? "#F5A623" : "#E85D75" }}>{livePct}%</span>
+            <span style={{ fontSize: 15, fontWeight: 600, color: "#64748b" }}>Progress Preview</span>
+            <span style={{ fontSize: 15, fontWeight: 700, color: liveBarColor === "green" ? "#4CAF7D" : liveBarColor === "yellow" ? "#F5A623" : "#E85D75" }}>{livePct}%</span>
           </div>
           <div style={{ height: 24, borderRadius: 99, background: "#e5e7eb", overflow: "hidden" }}>
             <div style={{ width: `${livePct}%`, height: "100%", borderRadius: 99, background: liveBarColor === "green" ? "#4CAF7D" : liveBarColor === "yellow" ? "#F5A623" : "#E85D75", transition: "width 0.3s" }} />
@@ -4267,16 +4274,16 @@ function GoalSettingsModal({ goal, sections, isMobile, onSave, onDuplicate, onDe
 
         {/* Save */}
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 20 }}>
-          <button onClick={handleClose} style={{ padding: "10px 24px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 13, cursor: "pointer", color: "#64748b" }}>Cancel</button>
-          <button onClick={saveGoal} style={{ padding: "10px 24px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Save</button>
+          <button onClick={handleClose} style={{ padding: "10px 24px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+          <button onClick={saveGoal} style={{ padding: "10px 24px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Save</button>
         </div>
 
         {/* Duplicate & Delete as links (like MetricBoxSettingsModal) */}
         <div style={{ display: "flex", justifyContent: "center", gap: 20, marginTop: 18, paddingTop: 18, borderTop: "1px solid #f1f5f9" }}>
-          <div onClick={() => { onDuplicate(makeGoal({ ...edited, label: edited.label + " (copy)", status: "drafted" })); }} style={{ fontSize: 12, color: "#3B82F6", cursor: "pointer", fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>
+          <div onClick={() => { onDuplicate(makeGoal({ ...edited, label: edited.label + " (copy)", status: "drafted" })); }} style={{ fontSize: 15, color: "#3B82F6", cursor: "pointer", fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>
             <IconGlyph name="Copy" size={14} color="#3B82F6" /> Duplicate Goal
           </div>
-          <div onClick={() => { if (confirm("Delete this goal?")) { onDelete(edited.id); onClose(); } }} style={{ fontSize: 12, color: "#E85D75", cursor: "pointer", fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>
+          <div onClick={() => { if (confirm("Delete this goal?")) { onDelete(edited.id); onClose(); } }} style={{ fontSize: 15, color: "#E85D75", cursor: "pointer", fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>
             <IconGlyph name="Trash" size={14} color="#E85D75" /> Delete Goal
           </div>
         </div>
@@ -4446,8 +4453,8 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
           <div style={{ background: "#fff", borderRadius: 16, padding: "20px", display: "flex", flexDirection: "column" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
               <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#1a2332", flex: 1 }}>Your Tasks</h2>
-              <div style={{ fontSize: 12, color: "#94a3b8" }}>Overall Progress</div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#4CAF7D" }}>{doneCount}/{totalCount}</div>
+              <div style={{ fontSize: 15, color: "#94a3b8" }}>Overall Progress</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#4CAF7D" }}>{doneCount}/{totalCount}</div>
             </div>
             {/* Progress bar */}
             <div style={{ height: 8, borderRadius: 99, background: "#e2e8f0", marginBottom: 16, overflow: "hidden" }}>
@@ -4457,9 +4464,9 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
             {priorityTasks.length > 0 && (
               <div style={{ marginBottom: 12 }}
                 onDragOver={e => e.preventDefault()} onDrop={handlePriorityZoneDrop}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#F5A623", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "#F5A623", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
                   <span>★ Priorities</span>
-                  <span style={{ fontSize: 11, fontWeight: 500, color: "#94a3b8", background: "#f1f5f9", padding: "1px 8px", borderRadius: 99 }}>{priorityTasks.length}</span>
+                  <span style={{ fontSize: 15, fontWeight: 500, color: "#94a3b8", background: "#f1f5f9", padding: "1px 8px", borderRadius: 99 }}>{priorityTasks.length}</span>
                 </div>
                 {priorityTasks.map(t => {
                   const assigneeMember = getMemberByEmail(t.assignedTo);
@@ -4469,8 +4476,8 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
                   return (
                     <div key={t.id} draggable onDragStart={() => handleTaskDragStart(t.id)} onDragOver={e => { e.preventDefault(); handleTaskDragOver(t.id); }} onDragLeave={() => setDragOverTaskId(null)} onDrop={e => { e.stopPropagation(); handleTaskDrop(t.id); }} onDragEnd={() => { dragTaskRef.current = null; setDragOverTaskId(null); }}
                       style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 8, background: isPastDue ? "#FEF2F2" : "#FFF8ED", border: isPastDue && dragOverTaskId !== t.id ? "1px solid #FECACA" : dragOverTaskId === t.id ? "2px dashed #3B82F6" : "1px solid #FDE68A", marginBottom: 6, fontSize: 15 }}>
-                      <div style={{ cursor: "grab", color: "#cbd5e1", fontSize: 13, lineHeight: 1, letterSpacing: 1, flexShrink: 0, userSelect: "none" }} title="Drag to reorder">⠿</div>
-                      <div onClick={() => toggle(t.id)} style={{ width: 24, height: 24, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "2px solid #F5A623", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 13 }}>{t.done ? "✓" : ""}</div>
+                      <div style={{ cursor: "grab", color: "#cbd5e1", fontSize: 15, lineHeight: 1, letterSpacing: 1, flexShrink: 0, userSelect: "none" }} title="Drag to reorder">⠿</div>
+                      <div onClick={() => toggle(t.id)} style={{ width: 24, height: 24, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "2px solid #F5A623", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 15 }}>{t.done ? "✓" : ""}</div>
                       {isEditing ? (
                         <input value={editText} onChange={e => setEditText(e.target.value)}
                           onBlur={() => { if (editText.trim()) setTasks(prev => prev.map(x => x.id === t.id ? { ...x, text: editText.trim() } : x)); setEditingTaskId(null); }}
@@ -4480,7 +4487,7 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
                         <div onClick={() => { setEditingTaskId(t.id); setEditText(t.text); setMenuTaskId(null); }} style={{ flex: 1, fontSize: 15, color: "#1a2332", fontWeight: 600, textDecoration: t.done ? "line-through" : "none", minWidth: 0, cursor: "text" }}>{t.text}</div>
                       )}
                       <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, position: "relative" }}>
-                        {t.dueDate && <div style={{ fontSize: 12, color: isPastDue ? "#E85D75" : isDueToday ? "#F5A623" : "#94a3b8", fontWeight: isPastDue || isDueToday ? 600 : 400, whiteSpace: "nowrap" }}>{isPastDue ? "Past Due" : isDueToday ? "Due Today" : formatDate(t.dueDate)}</div>}
+                        {t.dueDate && <div style={{ fontSize: 15, color: isPastDue ? "#E85D75" : isDueToday ? "#F5A623" : "#94a3b8", fontWeight: isPastDue || isDueToday ? 600 : 400, whiteSpace: "nowrap" }}>{isPastDue ? "Past Due" : isDueToday ? "Due Today" : formatDate(t.dueDate)}</div>}
                         {(t.linkedMetricId || t.linkedGoalId) && (
                           <div style={{ display: "flex", gap: 4 }}>
                             {t.linkedMetricId && <div onClick={() => onViewMetric(t.linkedMetricId!)} style={{ width: 22, height: 22, borderRadius: "50%", background: "#EFF6FF", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
@@ -4491,30 +4498,30 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
                             </div>}
                           </div>
                         )}
-                        <div onClick={(e) => { menuTriggerElRef.current = e.currentTarget as HTMLElement; setMenuTaskId(menuTaskId === t.id ? null : t.id); }} style={{ width: 24, height: 24, borderRadius: "50%", background: "#F1F5F9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 11, color: "#94a3b8", flexShrink: 0 }}>···</div>
+                        <div onClick={(e) => { menuTriggerElRef.current = e.currentTarget as HTMLElement; setMenuTaskId(menuTaskId === t.id ? null : t.id); }} style={{ width: 24, height: 24, borderRadius: "50%", background: "#F1F5F9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 15, color: "#94a3b8", flexShrink: 0 }}>···</div>
                         {menuTaskId === t.id && (
                           <div ref={menuRef} style={{ ...menuPos, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 100, minWidth: 160, overflow: "hidden" }}>
-                            <div style={{ padding: "8px 12px", fontSize: 11, fontWeight: 600, color: "#64748b", borderBottom: "1px solid #f1f5f9" }}>Assign To</div>
+                            <div style={{ padding: "8px 12px", fontSize: 15, fontWeight: 600, color: "#64748b", borderBottom: "1px solid #f1f5f9" }}>Assign To</div>
                             {orgMembers.filter(m => m.status === "active").map(m => (
                               <div key={m.id} onClick={() => { setTasks(prev => prev.map(x => x.id === t.id ? { ...x, assignedTo: m.email } : x)); setMenuTaskId(null); }}
                                 style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 12px", cursor: "pointer", background: t.assignedTo === m.email ? "#EFF6FF" : "transparent" }}
                                 onMouseEnter={e => e.currentTarget.style.background = "#f8fafc"}
                                 onMouseLeave={e => e.currentTarget.style.background = t.assignedTo === m.email ? "#EFF6FF" : "transparent"}>
                                 {m.avatarUrl ? <img src={m.avatarUrl} alt="" style={{ width: 18, height: 18, borderRadius: "50%", objectFit: "cover" }} />
-                                  : <div style={{ width: 18, height: 18, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 7, fontWeight: 700, color: "#94a3b8" }}>{(m.name?.[0] || m.email[0] || "?").toUpperCase()}</div>}
-                                <span style={{ fontSize: 12, color: "#1a2332", flex: 1 }}>{m.name || m.email.split("@")[0]}</span>
-                                {t.assignedTo === m.email && <span style={{ fontSize: 10, color: "#3B82F6" }}>✓</span>}
+                                  : <div style={{ width: 18, height: 18, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, color: "#94a3b8" }}>{(m.name?.[0] || m.email[0] || "?").toUpperCase()}</div>}
+                                <span style={{ fontSize: 15, color: "#1a2332", flex: 1 }}>{m.name || m.email.split("@")[0]}</span>
+                                {t.assignedTo === m.email && <span style={{ fontSize: 15, color: "#3B82F6" }}>✓</span>}
                               </div>
                             ))}
                             <div style={{ borderTop: "1px solid #f1f5f9" }}>
-                              <div style={{ padding: "7px 12px", fontSize: 11, fontWeight: 600, color: "#64748b" }}>Due Date</div>
+                              <div style={{ padding: "7px 12px", fontSize: 15, fontWeight: 600, color: "#64748b" }}>Due Date</div>
                               <div style={{ padding: "0 12px 7px" }}>
                                 <input type="date" value={t.dueDate || ""} onChange={e => { setTasks(prev => prev.map(x => x.id === t.id ? { ...x, dueDate: e.target.value || undefined } : x)); setMenuTaskId(null); }}
-                                  style={{ width: "100%", padding: "4px 6px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 11, outline: "none", boxSizing: "border-box" }} />
+                                  style={{ width: "100%", padding: "4px 6px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box" }} />
                               </div>
                             </div>
                             <div onClick={() => { setTasks(prev => prev.filter(x => x.id !== t.id)); setMenuTaskId(null); }}
-                              style={{ padding: "8px 12px", fontSize: 11, cursor: "pointer", color: "#E85D75", borderTop: "1px solid #f1f5f9" }}
+                              style={{ padding: "8px 12px", fontSize: 15, cursor: "pointer", color: "#E85D75", borderTop: "1px solid #f1f5f9" }}
                               onMouseEnter={e => e.currentTarget.style.background = "#fff5f5"}
                               onMouseLeave={e => e.currentTarget.style.background = "transparent"}>Delete</div>
                           </div>
@@ -4534,26 +4541,26 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
                   autoFocus
                   style={{ flex: 1, padding: "6px 8px", borderRadius: 6, border: "1.5px solid #F5A623", fontSize: 15, outline: "none" }} />
                 <div onClick={() => { if (priorityAddText.trim()) { setTasks(prev => [...prev, { id: crypto.randomUUID(), text: priorityAddText.trim(), done: false, assignedTo: userEmail, createdBy: userEmail, createdAt: new Date().toISOString(), priority: true }]); setPriorityAddText(""); setShowAddPriority(false); } else { setShowAddPriority(false); } }}
-                  style={{ fontSize: 11, color: "#F5A623", cursor: "pointer", fontWeight: 600 }}>Done</div>
+                  style={{ fontSize: 15, color: "#F5A623", cursor: "pointer", fontWeight: 600 }}>Done</div>
               </div>
             ) : (
-              <div onClick={() => setShowAddPriority(true)} style={{ display: "flex", alignItems: "center", gap: 8, color: "#F5A623", fontSize: 13, cursor: "pointer", padding: "4px 0", marginBottom: 12, fontWeight: 500 }}>
+              <div onClick={() => setShowAddPriority(true)} style={{ display: "flex", alignItems: "center", gap: 8, color: "#F5A623", fontSize: 15, cursor: "pointer", padding: "4px 0", marginBottom: 12, fontWeight: 500 }}>
                 <span style={{ fontSize: 16 }}>+</span> Add Priority
               </div>
             )}
             {/* Filter tabs + metric/goal tabs */}
             <div style={{ display: "flex", gap: 6, marginBottom: 12, overflowX: "auto", flexWrap: "nowrap", paddingBottom: 2, scrollbarWidth: "thin" }}>
-              <div onClick={() => setTaskFilter("current")} style={{ padding: "5px 14px", borderRadius: 20, fontSize: 12, fontWeight: 500, cursor: "pointer", background: taskFilter === "current" ? "#3B82F6" : "#f1f5f9", color: taskFilter === "current" ? "#fff" : "#64748b" }}>
+              <div onClick={() => setTaskFilter("current")} style={{ padding: "5px 14px", borderRadius: 20, fontSize: 15, fontWeight: 500, cursor: "pointer", background: taskFilter === "current" ? "#3B82F6" : "#f1f5f9", color: taskFilter === "current" ? "#fff" : "#64748b" }}>
                 Current ({tabFiltered.filter(t => !t.done).length})
               </div>
-              <div onClick={() => setTaskFilter("completed")} style={{ padding: "5px 14px", borderRadius: 20, fontSize: 12, fontWeight: 500, cursor: "pointer", background: taskFilter === "completed" ? "#3B82F6" : "#f1f5f9", color: taskFilter === "completed" ? "#fff" : "#64748b" }}>
+              <div onClick={() => setTaskFilter("completed")} style={{ padding: "5px 14px", borderRadius: 20, fontSize: 15, fontWeight: 500, cursor: "pointer", background: taskFilter === "completed" ? "#3B82F6" : "#f1f5f9", color: taskFilter === "completed" ? "#fff" : "#64748b" }}>
                 Completed ({myTasks.filter(t => t.done).length})
               </div>
               {allTabs.map(tab => {
                 const isActive = activeTab === `${tab.type}:${tab.id}`;
                 return (
                   <div key={`${tab.type}:${tab.id}`} onClick={() => setTaskTabFilter(isActive ? null : `${tab.type}:${tab.id}`)}
-                    style={{ padding: "5px 14px", borderRadius: 20, fontSize: 12, fontWeight: 500, cursor: "pointer", whiteSpace: "nowrap",
+                    style={{ padding: "5px 14px", borderRadius: 20, fontSize: 15, fontWeight: 500, cursor: "pointer", whiteSpace: "nowrap",
                       background: isActive ? "#3B82F6" : "#f1f5f9", color: isActive ? "#fff" : "#64748b" }}>{tab.label}</div>
                 );
               })}
@@ -4561,7 +4568,7 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
             {/* Task list */}
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               {displayedTasks.length === 0 && (
-                <div style={{ fontSize: 12, color: "#cbd5e1", fontStyle: "italic", padding: "12px 0", textAlign: "center" }}>
+                <div style={{ fontSize: 15, color: "#cbd5e1", fontStyle: "italic", padding: "12px 0", textAlign: "center" }}>
                   {taskFilter === "current" ? "No current tasks. Add one below!" : "No completed tasks yet."}
                 </div>
               )}
@@ -4573,18 +4580,18 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
                 return (
                   <div key={t.id} draggable onDragStart={() => handleTaskDragStart(t.id)} onDragOver={e => { e.preventDefault(); handleTaskDragOver(t.id); }} onDragLeave={() => setDragOverTaskId(null)} onDrop={e => { e.stopPropagation(); handleTaskDrop(t.id); }} onDragEnd={() => { dragTaskRef.current = null; setDragOverTaskId(null); }}
                     style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8, background: t.done ? "#f8fafc" : isPastDue ? "#FEF2F2" : isDueToday ? "#EFF6FF" : "#fff", border: dragOverTaskId === t.id ? "2px dashed #3B82F6" : isPastDue && !t.done ? "1px solid #FECACA" : isDueToday && !t.done ? "1px solid #93C5FD" : "none", opacity: t.done ? 0.6 : 1 }}>
-                    <div style={{ cursor: "grab", color: "#cbd5e1", fontSize: 12, lineHeight: 1, letterSpacing: 1, flexShrink: 0, userSelect: "none" }} title="Drag to reorder">⠿</div>
-                    <div onClick={() => toggle(t.id)} style={{ width: 20, height: 20, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 11 }}>{t.done ? "✓" : ""}</div>
+                    <div style={{ cursor: "grab", color: "#cbd5e1", fontSize: 15, lineHeight: 1, letterSpacing: 1, flexShrink: 0, userSelect: "none" }} title="Drag to reorder">⠿</div>
+                    <div onClick={() => toggle(t.id)} style={{ width: 20, height: 20, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 15 }}>{t.done ? "✓" : ""}</div>
                     {isEditing ? (
                       <input value={editText} onChange={e => setEditText(e.target.value)}
                         onBlur={() => { if (editText.trim()) setTasks(prev => prev.map(x => x.id === t.id ? { ...x, text: editText.trim() } : x)); setEditingTaskId(null); }}
                         onKeyDown={e => { if (e.key === "Enter") { if (editText.trim()) setTasks(prev => prev.map(x => x.id === t.id ? { ...x, text: editText.trim() } : x)); setEditingTaskId(null); } }}
-                        autoFocus style={{ flex: 1, padding: "4px 8px", borderRadius: 6, border: "1.5px solid #3B82F6", fontSize: 13, outline: "none" }} />
+                        autoFocus style={{ flex: 1, padding: "4px 8px", borderRadius: 6, border: "1.5px solid #3B82F6", fontSize: 15, outline: "none" }} />
                     ) : (
-                      <div onClick={() => { setEditingTaskId(t.id); setEditText(t.text); setMenuTaskId(null); }} style={{ flex: 1, fontSize: 13, color: "#1a2332", textDecoration: t.done ? "line-through" : "none", minWidth: 0, cursor: "text" }}>{t.text}</div>
+                      <div onClick={() => { setEditingTaskId(t.id); setEditText(t.text); setMenuTaskId(null); }} style={{ flex: 1, fontSize: 15, color: "#1a2332", textDecoration: t.done ? "line-through" : "none", minWidth: 0, cursor: "text" }}>{t.text}</div>
                     )}
                     <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, position: "relative" }}>
-                      {t.dueDate && <div style={{ fontSize: 11, color: isPastDue ? "#E85D75" : isDueToday ? "#3B82F6" : "#94a3b8", fontWeight: isPastDue || isDueToday ? 600 : 400, whiteSpace: "nowrap" }}>{isPastDue ? "Past Due" : isDueToday ? "Due Today" : formatDate(t.dueDate)}</div>}
+                      {t.dueDate && <div style={{ fontSize: 15, color: isPastDue ? "#E85D75" : isDueToday ? "#3B82F6" : "#94a3b8", fontWeight: isPastDue || isDueToday ? 600 : 400, whiteSpace: "nowrap" }}>{isPastDue ? "Past Due" : isDueToday ? "Due Today" : formatDate(t.dueDate)}</div>}
                       {(t.linkedMetricId || t.linkedGoalId) && (
                         <div style={{ display: "flex", gap: 4 }}>
                           {t.linkedMetricId && (
@@ -4600,30 +4607,30 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
                         </div>
                       )}
                       {/* Three-dot menu */}
-                      <div onClick={(e) => { menuTriggerElRef.current = e.currentTarget as HTMLElement; setMenuTaskId(menuTaskId === t.id ? null : t.id); }} style={{ width: 24, height: 24, borderRadius: "50%", background: "#F1F5F9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 11, color: "#94a3b8", flexShrink: 0 }}>···</div>
+                      <div onClick={(e) => { menuTriggerElRef.current = e.currentTarget as HTMLElement; setMenuTaskId(menuTaskId === t.id ? null : t.id); }} style={{ width: 24, height: 24, borderRadius: "50%", background: "#F1F5F9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 15, color: "#94a3b8", flexShrink: 0 }}>···</div>
                       {menuTaskId === t.id && (
                         <div ref={menuRef} style={{ ...menuPos, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 100, minWidth: 160, overflow: "hidden" }}>
-                          <div style={{ padding: "8px 12px", fontSize: 11, fontWeight: 600, color: "#64748b", borderBottom: "1px solid #f1f5f9" }}>Assign To</div>
+                          <div style={{ padding: "8px 12px", fontSize: 15, fontWeight: 600, color: "#64748b", borderBottom: "1px solid #f1f5f9" }}>Assign To</div>
                           {orgMembers.filter(m => m.status === "active").map(m => (
                             <div key={m.id} onClick={() => { setTasks(prev => prev.map(x => x.id === t.id ? { ...x, assignedTo: m.email } : x)); setMenuTaskId(null); }}
                               style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 12px", cursor: "pointer", background: t.assignedTo === m.email ? "#EFF6FF" : "transparent" }}
                               onMouseEnter={e => e.currentTarget.style.background = "#f8fafc"}
                               onMouseLeave={e => e.currentTarget.style.background = t.assignedTo === m.email ? "#EFF6FF" : "transparent"}>
                               {m.avatarUrl ? <img src={m.avatarUrl} alt="" style={{ width: 20, height: 20, borderRadius: "50%", objectFit: "cover" }} />
-                                : <div style={{ width: 20, height: 20, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 700, color: "#94a3b8" }}>{(m.name?.[0] || m.email[0] || "?").toUpperCase()}</div>}
-                              <span style={{ fontSize: 12, color: "#1a2332", flex: 1 }}>{m.name || m.email.split("@")[0]}</span>
-                              {t.assignedTo === m.email && <span style={{ fontSize: 11, color: "#3B82F6" }}>✓</span>}
+                                : <div style={{ width: 20, height: 20, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, color: "#94a3b8" }}>{(m.name?.[0] || m.email[0] || "?").toUpperCase()}</div>}
+                              <span style={{ fontSize: 15, color: "#1a2332", flex: 1 }}>{m.name || m.email.split("@")[0]}</span>
+                              {t.assignedTo === m.email && <span style={{ fontSize: 15, color: "#3B82F6" }}>✓</span>}
                             </div>
                           ))}
                           <div style={{ borderTop: "1px solid #f1f5f9" }}>
-                            <div style={{ padding: "8px 12px", fontSize: 11, fontWeight: 600, color: "#64748b" }}>Due Date</div>
+                            <div style={{ padding: "8px 12px", fontSize: 15, fontWeight: 600, color: "#64748b" }}>Due Date</div>
                             <div style={{ padding: "0 12px 8px" }}>
                               <input type="date" value={t.dueDate || ""} onChange={e => { setTasks(prev => prev.map(x => x.id === t.id ? { ...x, dueDate: e.target.value || undefined } : x)); setMenuTaskId(null); }}
-                                style={{ width: "100%", padding: "5px 8px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 11, outline: "none", boxSizing: "border-box" }} />
+                                style={{ width: "100%", padding: "5px 8px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box" }} />
                             </div>
                           </div>
                           <div onClick={() => { setTasks(prev => prev.filter(x => x.id !== t.id)); setMenuTaskId(null); }}
-                            style={{ padding: "9px 12px", fontSize: 12, cursor: "pointer", color: "#E85D75", borderTop: "1px solid #f1f5f9" }}
+                            style={{ padding: "9px 12px", fontSize: 15, cursor: "pointer", color: "#E85D75", borderTop: "1px solid #f1f5f9" }}
                             onMouseEnter={e => e.currentTarget.style.background = "#fff5f5"}
                             onMouseLeave={e => e.currentTarget.style.background = "transparent"}>Delete</div>
                         </div>
@@ -4632,7 +4639,7 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
                       {assigneeMember && (
                         assigneeMember.avatarUrl
                           ? <img src={assigneeMember.avatarUrl} alt="" style={{ width: 24, height: 24, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
-                          : <div style={{ width: 24, height: 24, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#94a3b8", flexShrink: 0 }}>
+                          : <div style={{ width: 24, height: 24, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, color: "#94a3b8", flexShrink: 0 }}>
                               {(assigneeMember.name?.[0] || assigneeMember.email[0] || "?").toUpperCase()}
                             </div>
                       )}
@@ -4648,19 +4655,19 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
                     placeholder="Type task and press Enter..."
                     autoFocus
                     onBlur={() => { if (!inlineAddText.trim()) setShowAdd(false); }}
-                    style={{ flex: 1, padding: "6px 8px", borderRadius: 6, border: "1.5px solid #3B82F6", fontSize: 13, outline: "none" }} />
+                    style={{ flex: 1, padding: "6px 8px", borderRadius: 6, border: "1.5px solid #3B82F6", fontSize: 15, outline: "none" }} />
                   <div onClick={() => { if (inlineAddText.trim()) { handleInlineAdd({ key: "Enter" } as any); } else { setShowAdd(false); } }}
-                    style={{ fontSize: 11, color: "#3B82F6", cursor: "pointer", fontWeight: 600 }}>Done</div>
+                    style={{ fontSize: 15, color: "#3B82F6", cursor: "pointer", fontWeight: 600 }}>Done</div>
                 </div>
               )}
             </div>
             {taskFilter === "completed" && completedTasks.length > 0 && (
               <div onClick={() => { if (confirm("Delete all completed tasks?")) setTasks(prev => prev.filter(t => !(t.assignedTo === userEmail && t.done))); }}
-                style={{ display: "flex", alignItems: "center", gap: 6, color: "#E85D75", fontSize: 12, cursor: "pointer", padding: "8px 0 0", marginTop: 10 }}>
+                style={{ display: "flex", alignItems: "center", gap: 6, color: "#E85D75", fontSize: 15, cursor: "pointer", padding: "8px 0 0", marginTop: 10 }}>
                 <IconGlyph name="Archive" size={14} color="#E85D75" /> Archive & Delete
               </div>
             )}
-            <div onClick={() => { setShowAdd(true); setTaskFilter("current"); }} style={{ display: "flex", alignItems: "center", gap: 8, color: "#94a3b8", fontSize: 13, cursor: "pointer", padding: "8px 0 0", marginTop: 10 }}>
+            <div onClick={() => { setShowAdd(true); setTaskFilter("current"); }} style={{ display: "flex", alignItems: "center", gap: 8, color: "#94a3b8", fontSize: 15, cursor: "pointer", padding: "8px 0 0", marginTop: 10 }}>
               <div style={{ width: 24, height: 24, borderRadius: "50%", border: "1.5px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, color: "#94a3b8" }}>+</div>
               Add New Task
             </div>
@@ -4668,19 +4675,19 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
 
           {/* Suggested Tasks */}
           <div style={{ background: "linear-gradient(135deg,#EFF6FF,#F0FDF4)", borderRadius: 16, border: "1px solid #e2e8f0", padding: "20px", display: "flex", flexDirection: "column" }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#1a2332", marginBottom: 4 }}>Suggested Tasks ✦</div>
-            <div style={{ fontSize: 11, color: "#64748b", marginBottom: 12, lineHeight: 1.5 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "#1a2332", marginBottom: 4 }}>Suggested Tasks ✦</div>
+            <div style={{ fontSize: 15, color: "#64748b", marginBottom: 12, lineHeight: 1.5 }}>
               These AI tasks are from the metric boxes you have access to. They recommend next steps for your business based on your data to increase the health score of your business.
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {suggestedTasks.length === 0 && (
-                <div style={{ fontSize: 12, color: "#cbd5e1", fontStyle: "italic", padding: "12px 0", textAlign: "center" }}>No AI suggestions yet. Use metric boxes to generate them.</div>
+                <div style={{ fontSize: 15, color: "#cbd5e1", fontStyle: "italic", padding: "12px 0", textAlign: "center" }}>No AI suggestions yet. Use metric boxes to generate them.</div>
               )}
               {suggestedTasks.slice(0, 10).map((st, i) => (
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "#fff", borderRadius: 8, border: "1px solid #e2e8f0" }}>
-                  <div onClick={() => addSuggestedTask(st.text)} style={{ width: 24, height: 24, borderRadius: "50%", border: "1.5px solid #3B82F6", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#3B82F6", fontSize: 14, flexShrink: 0, background: "#EFF6FF" }}>+</div>
-                  <div style={{ flex: 1, fontSize: 12, color: "#1a2332", minWidth: 0 }}>{st.text}</div>
-                  <span onClick={() => onViewMetric(st.metricId)} style={{ fontSize: 10, color: "#3B82F6", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap", flexShrink: 0 }}>
+                  <div onClick={() => addSuggestedTask(st.text)} style={{ width: 24, height: 24, borderRadius: "50%", border: "1.5px solid #3B82F6", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#3B82F6", fontSize: 15, flexShrink: 0, background: "#EFF6FF" }}>+</div>
+                  <div style={{ flex: 1, fontSize: 15, color: "#1a2332", minWidth: 0 }}>{st.text}</div>
+                  <span onClick={() => onViewMetric(st.metricId)} style={{ fontSize: 15, color: "#3B82F6", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap", flexShrink: 0 }}>
                     View Metrics →
                   </span>
                 </div>
@@ -4693,7 +4700,7 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <h2 style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 700, color: "#1a2332" }}>Team Tasks</h2>
           {teamMembersWithTasks.length === 0 && (
-            <div style={{ fontSize: 12, color: "#cbd5e1", fontStyle: "italic", padding: 20, textAlign: "center" }}>No team tasks yet.</div>
+            <div style={{ fontSize: 15, color: "#cbd5e1", fontStyle: "italic", padding: 20, textAlign: "center" }}>No team tasks yet.</div>
           )}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, alignContent: "start" }}>
             {teamMembersWithTasks.map(({ member, memberTasks }) => (
@@ -4702,32 +4709,32 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
                   {member.avatarUrl ? (
                     <img src={member.avatarUrl} alt="" style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
                   ) : (
-                    <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#94a3b8", flexShrink: 0 }}>
+                    <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, color: "#94a3b8", flexShrink: 0 }}>
                       {(member.name?.[0] || member.email[0] || "?").toUpperCase()}
                     </div>
                   )}
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#1a2332" }}>{capitalize(member.name) || member.email.split("@")[0]}</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#1a2332" }}>{capitalize(member.name) || member.email.split("@")[0]}</div>
                 </div>
-                <div style={{ padding: "5px 14px", borderRadius: 20, fontSize: 12, fontWeight: 500, background: "#3B82F6", color: "#fff", display: "inline-block", marginBottom: 8 }}>Next Actions</div>
+                <div style={{ padding: "5px 14px", borderRadius: 20, fontSize: 15, fontWeight: 500, background: "#3B82F6", color: "#fff", display: "inline-block", marginBottom: 8 }}>Next Actions</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}
               onDragOver={e => e.preventDefault()} onDrop={handleRegularZoneDrop}>
                   {memberTasks.slice(0, 3).map(t => {
                     const isDueToday = t.dueDate === todayStr;
                     return (
                     <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 6, background: t.done ? "#f8fafc" : t.priority ? "#FFF8ED" : isDueToday ? "#EFF6FF" : "#fff", border: isDueToday && !t.done ? "1px solid #93C5FD" : "none", opacity: t.done ? 0.6 : 1 }}>
-                      <div onClick={() => toggle(t.id)} style={{ width: 16, height: 16, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : t.priority ? "1.5px solid #F5A623" : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 8 }}>{t.done ? "✓" : ""}</div>
-                      <div style={{ flex: 1, fontSize: 12, color: "#1a2332", fontWeight: t.priority ? 600 : 400, textDecoration: t.done ? "line-through" : "none", minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.text}</div>
-                      {t.dueDate && <div style={{ fontSize: 10, color: isDueToday ? "#3B82F6" : "#94a3b8", fontWeight: isDueToday ? 600 : 400, whiteSpace: "nowrap", flexShrink: 0 }}>{isDueToday ? "Due Today" : formatDate(t.dueDate)}</div>}
+                      <div onClick={() => toggle(t.id)} style={{ width: 16, height: 16, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : t.priority ? "1.5px solid #F5A623" : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 15 }}>{t.done ? "✓" : ""}</div>
+                      <div style={{ flex: 1, fontSize: 15, color: "#1a2332", fontWeight: t.priority ? 600 : 400, textDecoration: t.done ? "line-through" : "none", minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.text}</div>
+                      {t.dueDate && <div style={{ fontSize: 15, color: isDueToday ? "#3B82F6" : "#94a3b8", fontWeight: isDueToday ? 600 : 400, whiteSpace: "nowrap", flexShrink: 0 }}>{isDueToday ? "Due Today" : formatDate(t.dueDate)}</div>}
                     </div>
                     );
                   })}
                   {memberTasks.length > 3 && (
-                    <div onClick={() => onViewTeamMember(member)} style={{ fontSize: 11, color: "#3B82F6", cursor: "pointer", fontWeight: 600, padding: "6px 0 0", textAlign: "center", marginTop: 4 }}>
+                    <div onClick={() => onViewTeamMember(member)} style={{ fontSize: 15, color: "#3B82F6", cursor: "pointer", fontWeight: 600, padding: "6px 0 0", textAlign: "center", marginTop: 4 }}>
                       View All ({memberTasks.length} tasks) →
                     </div>
                   )}
                   {memberTasks.length <= 3 && memberTasks.length > 0 && (
-                    <div onClick={() => onViewTeamMember(member)} style={{ fontSize: 11, color: "#3B82F6", cursor: "pointer", fontWeight: 600, padding: "4px 0 0", textAlign: "center" }}>
+                    <div onClick={() => onViewTeamMember(member)} style={{ fontSize: 15, color: "#3B82F6", cursor: "pointer", fontWeight: 600, padding: "4px 0 0", textAlign: "center" }}>
                       View All →
                     </div>
                   )}
@@ -4761,10 +4768,10 @@ function IntegrationsPage({ onSelectApp }: { onSelectApp: (app: typeof APPS[0]) 
   return (
     <div style={{ padding: "clamp(16px,4vw,32px)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20, flexWrap: "wrap" }}>
-        <h1 style={{ margin: 0, fontSize: "clamp(20px,4vw,26px)", fontWeight: 700, color: "#1a2332" }}>All Apps <span style={{ fontSize: 12, color: "#94a3b8", fontWeight: 400 }}>(Coming Soon)</span></h1>
+        <h1 style={{ margin: 0, fontSize: "clamp(20px,4vw,26px)", fontWeight: 700, color: "#1a2332" }}>All Apps <span style={{ fontSize: 15, color: "#94a3b8", fontWeight: 400 }}>(Coming Soon)</span></h1>
         <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search apps..."
-            style={{ padding: "7px 13px", borderRadius: 20, border: "1px solid #e2e8f0", fontSize: 12, outline: "none", width: 160 }} />
+            style={{ padding: "7px 13px", borderRadius: 20, border: "1px solid #e2e8f0", fontSize: 15, outline: "none", width: 160 }} />
         </div>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))", gap: 14, marginBottom: 28, opacity: 0.35, pointerEvents: "none", filter: "grayscale(0.7)", userSelect: "none" }}>
@@ -4775,23 +4782,23 @@ function IntegrationsPage({ onSelectApp }: { onSelectApp: (app: typeof APPS[0]) 
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
               <div style={{ fontSize: 24 }}>{app.logo}</div>
               <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: "#1a2332" }}>{app.name}</div>
-                <div style={{ fontSize: 11, color: "#94a3b8" }}>{app.desc}</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "#1a2332" }}>{app.name}</div>
+                <div style={{ fontSize: 15, color: "#94a3b8" }}>{app.desc}</div>
               </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 99, fontWeight: 600, background: app.connected ? "#DCFCE7" : "#F1F5F9", color: app.connected ? "#15803D" : "#94a3b8" }}>
+              <span style={{ fontSize: 15, padding: "2px 8px", borderRadius: 99, fontWeight: 600, background: app.connected ? "#DCFCE7" : "#F1F5F9", color: app.connected ? "#15803D" : "#94a3b8" }}>
                 {app.connected ? "Connected" : "Not Connected"}
               </span>
-              <span style={{ fontSize: 11, color: "#3B82F6", cursor: "pointer" }}>{app.connected ? "Manage →" : "Connect →"}</span>
+              <span style={{ fontSize: 15, color: "#3B82F6", cursor: "pointer" }}>{app.connected ? "Manage →" : "Connect →"}</span>
             </div>
           </div>
         ))}
       </div>
       <div style={{ background: "#EEF9F4", border: "1px solid #c3e6d4", borderRadius: 14, padding: 20 }}>
         <div style={{ fontSize: 15, fontWeight: 700, color: "#0F6E56", marginBottom: 6 }}>🏦 Phase 3: Live Bank Integration via Plaid</div>
-        <p style={{ margin: "0 0 10px", fontSize: 12, color: "#1e6b4e", lineHeight: 1.6 }}>Connect your real bank account through Plaid and Dashello will automatically calculate your Five-Account balances.</p>
-        <button style={{ padding: "9px 20px", borderRadius: 8, border: "none", background: "#0F6E56", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Connect Bank Account →</button>
+        <p style={{ margin: "0 0 10px", fontSize: 15, color: "#1e6b4e", lineHeight: 1.6 }}>Connect your real bank account through Plaid and Dashello will automatically calculate your Five-Account balances.</p>
+        <button style={{ padding: "9px 20px", borderRadius: 8, border: "none", background: "#0F6E56", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Connect Bank Account →</button>
       </div>
     </div>
   );
@@ -4800,24 +4807,24 @@ function IntegrationsPage({ onSelectApp }: { onSelectApp: (app: typeof APPS[0]) 
 function AppDetailPage({ app, onBack }: { app: typeof APPS[0]; onBack: () => void }) {
   return (
     <div style={{ padding: "clamp(16px,4vw,32px)" }}>
-      <button onClick={onBack} style={{ background: "none", border: "none", cursor: "pointer", color: "#3B82F6", fontSize: 13, marginBottom: 16, display: "flex", alignItems: "center", gap: 4 }}>← Back to All Apps</button>
+      <button onClick={onBack} style={{ background: "none", border: "none", cursor: "pointer", color: "#3B82F6", fontSize: 15, marginBottom: 16, display: "flex", alignItems: "center", gap: 4 }}>← Back to All Apps</button>
       <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20, flexWrap: "wrap" }}>
         <div style={{ fontSize: 32 }}>{app.logo}</div>
         <div>
           <h1 style={{ margin: 0, fontSize: "clamp(18px,4vw,24px)", fontWeight: 700, color: "#1a2332" }}>{app.name}</h1>
-          <div style={{ fontSize: 12, color: "#94a3b8" }}>{app.desc}</div>
+          <div style={{ fontSize: 15, color: "#94a3b8" }}>{app.desc}</div>
         </div>
         <div style={{ marginLeft: "auto" }}>
           {app.connected
-            ? <button style={{ padding: "7px 18px", borderRadius: 8, border: "1px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#E85D75" }}>Disconnect</button>
-            : <button style={{ padding: "7px 18px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Connect {app.name}</button>}
+            ? <button style={{ padding: "7px 18px", borderRadius: 8, border: "1px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#E85D75" }}>Disconnect</button>
+            : <button style={{ padding: "7px 18px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Connect {app.name}</button>}
         </div>
       </div>
       <SectionCard title="Workflows">
         {["Auto-create tasks from overdue invoices", "Notify team on lead stage change", "Weekly summary to Slack"].map((w, i) => (
           <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderBottom: i < 2 ? "1px solid #f1f5f9" : "none" }}>
             <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#4CAF7D", flexShrink: 0 }} />
-            <span style={{ fontSize: 13, color: "#1a2332", flex: 1 }}>{w}</span>
+            <span style={{ fontSize: 15, color: "#1a2332", flex: 1 }}>{w}</span>
             <Toggle on={i < 2} onChange={() => { }} />
           </div>
         ))}
@@ -4830,7 +4837,7 @@ function AppDetailPage({ app, onBack }: { app: typeof APPS[0]; onBack: () => voi
 // PAGE: TEAM
 // ═══════════════════════════════════════════════════════════════════════════
 
-function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, teamPermissions, setTeamPermissions, currentUserLevel, userEmail, onOpenInvite, onPreviewMember, onExitPreviewSave, previewFromSave, pendingMemberDetail, onClearPendingMember, tasks, setTasks, teamViewMode }: {
+function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, teamPermissions, setTeamPermissions, currentUserLevel, userEmail, onOpenInvite, onPreviewMember, onExitPreviewSave, previewFromSave, pendingMemberDetail, onClearPendingMember, tasks, setTasks, teamViewMode, menuPermissions }: {
   sections: Section[]; orgMembers: OrgMember[]; setOrgMembers: React.Dispatch<React.SetStateAction<OrgMember[]>>;
   teamRows: TeamRow[]; setTeamRows: React.Dispatch<React.SetStateAction<TeamRow[]>>;
   teamPermissions: TeamPermissions[]; setTeamPermissions: React.Dispatch<React.SetStateAction<TeamPermissions[]>>;
@@ -4842,6 +4849,7 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
   onClearPendingMember?: () => void;
   tasks?: Task[]; setTasks?: React.Dispatch<React.SetStateAction<Task[]>>;
   teamViewMode?: "row" | "expanded";
+  menuPermissions: Record<string, string[]>;
 }) {
   const [showAddTeam, setShowAddTeam] = useState(false);
   const [editingTeam, setEditingTeam] = useState<TeamRow | null>(null);
@@ -4960,12 +4968,12 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
       <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24, flexWrap: "wrap" }}>
         <h1 style={{ margin: 0, fontSize: "clamp(20px,4vw,26px)", fontWeight: 700, color: "#1a2332" }}>Team</h1>
         {isManager && (
-          <button onClick={onOpenInvite} style={{ padding: "7px 18px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", marginLeft: "auto" }}>+ Add Team Member</button>
+          <button onClick={onOpenInvite} style={{ padding: "7px 18px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer", marginLeft: "auto" }}>+ Add Team Member</button>
         )}
       </div>
 
       {sortedTeams.length === 0 && isManager && (
-        <div style={{ textAlign: "center", padding: 40, color: "#94a3b8", fontSize: 14 }}>
+        <div style={{ textAlign: "center", padding: 40, color: "#94a3b8", fontSize: 15 }}>
           No teams yet. Create one below.
         </div>
       )}
@@ -5040,7 +5048,7 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
                         position: "relative",
                       }}
                     >
-                      <div style={{ fontSize: 10, fontWeight: 700, color: levelColor, textTransform: "uppercase", letterSpacing: 0.5, textAlign: "center", width: "100%" }}>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: levelColor, textTransform: "uppercase", letterSpacing: 0.5, textAlign: "center", width: "100%" }}>
                         {isOwner ? "Owner" : member.level}
                       </div>
                       {member.avatarUrl ? (
@@ -5050,26 +5058,56 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
                           {(member.name?.[0] || member.email[0] || "?").toUpperCase()}
                         </div>
                       )}
-                      <div style={{ fontSize: 13, fontWeight: 700, color: "#1a2332", textAlign: "center", width: "100%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: "#1a2332", textAlign: "center", width: "100%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                         {capitalize(member.name) || member.email.split("@")[0]}
                       </div>
                       {isExpanded && (
                         <>
-                          <div style={{ fontSize: 10, color: "#64748b", textAlign: "center", width: "100%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          <div style={{ fontSize: 15, color: "#64748b", textAlign: "center", width: "100%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                             {member.email}
                           </div>
-                          <div style={{ fontSize: 10, color: "#94a3b8", textAlign: "center", width: "100%" }}>
+                          <div style={{ fontSize: 15, color: "#94a3b8", textAlign: "center", width: "100%" }}>
                             {allowedSections.length} rows - {metricCount} boxes
                           </div>
+                          {(() => {
+                            const pageList = [
+                              { id: "home", label: "Home" },
+                              { id: "goals", label: "Goals" },
+                              { id: "tasks", label: "Tasks" },
+                              { id: "integrations", label: "Integrations" },
+                              { id: "team", label: "Team" },
+                              { id: "settings", label: "Settings" },
+                              { id: "playbooks", label: "Playbooks" },
+                            ];
+                            const hidden = menuPermissions[member.level] || [];
+                            const accessible = pageList.filter(p => !hidden.includes(p.id) && !(member.level === "viewer" && (p.id === "integrations" || p.id === "team"))).map(p => p.label);
+                            return (
+                              <div style={{ fontSize: 15, color: "#94a3b8", textAlign: "center", width: "100%" }}>
+                                {accessible.join(" · ") || "No pages"}
+                              </div>
+                            );
+                          })()}
                           {memberPriorityTasks.length > 0 && (
-                            <div style={{ fontSize: 10, color: "#F5A623", fontWeight: 600, textAlign: "center", width: "100%" }}>
-                              {memberPriorityTasks.length} priority task{memberPriorityTasks.length !== 1 ? "s" : ""}
+                            <div style={{ width: "100%" }}>
+                              <div style={{ fontSize: 15, color: "#F5A623", fontWeight: 600, marginBottom: 4, textAlign: "center" }}>
+                                Priority Tasks
+                              </div>
+                              {memberPriorityTasks.slice(0, 3).map(t => (
+                                <div key={t.id} style={{ fontSize: 15, color: "#1a2332", textAlign: "center", width: "100%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.3 }}>
+                                  {t.text}
+                                </div>
+                              ))}
+                              {memberPriorityTasks.length > 3 && (
+                                <div style={{ fontSize: 15, color: "#94a3b8", textAlign: "center", width: "100%" }}>
+                                  +{memberPriorityTasks.length - 3} more
+                                </div>
+                              )}
                             </div>
                           )}
                         </>
                       )}
                       {isSelf && (
-                        <div style={{ background: levelColor, borderRadius: 99, padding: "2px 8px", fontSize: 9, fontWeight: 700, color: "#fff", marginTop: isExpanded ? 0 : -4 }}>
+                        <div style={{ background: levelColor, borderRadius: 99, padding: "2px 8px", fontSize: 15, fontWeight: 700, color: "#fff", marginTop: isExpanded ? 0 : -4 }}>
                           YOU
                         </div>
                       )}
@@ -5090,13 +5128,13 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
                     <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 700, color: "#94a3b8" }}>
                       {(member.email[0] || "?").toUpperCase()}
                     </div>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: "#94a3b8", textAlign: "center", width: "100%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: "#94a3b8", textAlign: "center", width: "100%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                       {member.email.split("@")[0]}
                     </div>
-                    <div style={{ fontSize: 9, color: "#94a3b8" }}>Pending</div>
+                    <div style={{ fontSize: 15, color: "#94a3b8" }}>Pending</div>
                     {isManager && (
                       <div onClick={(e) => { e.stopPropagation(); handleResendInvite(member); }}
-                        style={{ fontSize: 10, color: "#3B82F6", cursor: "pointer", fontWeight: 600 }}>
+                        style={{ fontSize: 15, color: "#3B82F6", cursor: "pointer", fontWeight: 600 }}>
                         Resend Invite
                       </div>
                     )}
@@ -5126,7 +5164,7 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
 
       {/* Add team button */}
       {isManager && (
-        <div onClick={() => setShowAddTeam(true)} style={{ display: "flex", alignItems: "center", gap: 8, color: "#94a3b8", fontSize: 13, cursor: "pointer", padding: "6px 0" }}>
+        <div onClick={() => setShowAddTeam(true)} style={{ display: "flex", alignItems: "center", gap: 8, color: "#94a3b8", fontSize: 15, cursor: "pointer", padding: "6px 0" }}>
           <div style={{ width: 26, height: 26, borderRadius: "50%", border: "1.5px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, color: "#94a3b8" }}>+</div>
           Add Team
         </div>
@@ -5151,26 +5189,42 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
               </div>
               )}
               <div style={{ fontSize: 18, fontWeight: 700, color: "#1a2332", marginBottom: 2 }}>{memberDetail.name || memberDetail.email}</div>
-              <div style={{ fontSize: 14, color: "#3B82F6", fontWeight: 600, textTransform: "capitalize", marginBottom: 16 }}>{memberDetail.level}</div>
+              <div style={{ fontSize: 15, color: "#3B82F6", fontWeight: 600, textTransform: "capitalize", marginBottom: 16 }}>{memberDetail.level}</div>
               <div style={{ textAlign: "left", background: "#f8fafc", borderRadius: 12, padding: "14px 16px", marginBottom: 18 }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>Access</div>
-                <div style={{ fontSize: 13, color: "#1a2332", marginBottom: 4 }}>
+                <div style={{ fontSize: 15, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>Access</div>
+                <div style={{ fontSize: 15, color: "#1a2332", marginBottom: 4 }}>
                   <strong>Rows:</strong> {allowedSections.length > 0 ? allowedSections.map(s => s.title).join(", ") : "None"}
                 </div>
-                <div style={{ fontSize: 13, color: "#1a2332" }}>
+                <div style={{ fontSize: 15, color: "#1a2332", marginBottom: 4 }}>
                   <strong>Metrics:</strong> {metricCount}
+                </div>
+                <div style={{ fontSize: 15, color: "#1a2332" }}>
+                  <strong>Pages:</strong> {(() => {
+                    const pageList = [
+                      { id: "home", label: "Home" },
+                      { id: "goals", label: "Goals" },
+                      { id: "tasks", label: "Tasks" },
+                      { id: "integrations", label: "Integrations" },
+                      { id: "team", label: "Team" },
+                      { id: "settings", label: "Settings" },
+                      { id: "playbooks", label: "Playbooks" },
+                    ];
+                    const hidden = menuPermissions[memberDetail.level] || [];
+                    const accessible = pageList.filter(p => !hidden.includes(p.id) && !(memberDetail.level === "viewer" && (p.id === "integrations" || p.id === "team"))).map(p => p.label);
+                    return accessible.length > 0 ? accessible.join(", ") : "None";
+                  })()}
                 </div>
               </div>
               {/* Tasks section */}
               {(tasks || []).filter(t => t.assignedTo === memberDetail.email && !t.done && t.priority).length > 0 && (
                 <div style={{ textAlign: "left", background: "#f8fafc", borderRadius: 12, padding: "14px 16px", marginBottom: 18 }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>Tasks</div>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>Tasks</div>
                   {(tasks || []).filter(t => t.assignedTo === memberDetail.email && !t.done && t.priority).map(t => (
                     <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                       <div onClick={(e) => { e.stopPropagation(); if (setTasks) setTasks(prev => prev.map(x => x.id === t.id ? { ...x, done: !x.done } : x)); }}
-                        style={{ width: 16, height: 16, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 8 }}>{t.done ? "✓" : ""}</div>
-                      <span style={{ fontSize: 12, color: "#1a2332", flex: 1, textDecoration: t.done ? "line-through" : "none", minWidth: 0 }}>{t.text}</span>
-                      {t.dueDate && <span style={{ fontSize: 10, color: "#94a3b8", whiteSpace: "nowrap" }}>{formatDate(t.dueDate)}</span>}
+                        style={{ width: 16, height: 16, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 15 }}>{t.done ? "✓" : ""}</div>
+                      <span style={{ fontSize: 15, color: "#1a2332", flex: 1, textDecoration: t.done ? "line-through" : "none", minWidth: 0 }}>{t.text}</span>
+                      {t.dueDate && <span style={{ fontSize: 15, color: "#94a3b8", whiteSpace: "nowrap" }}>{formatDate(t.dueDate)}</span>}
                     </div>
                   ))}
                 </div>
@@ -5184,7 +5238,7 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
                       width: "100%", padding: "10px 0", borderRadius: 8,
                       border: "1.5px solid #E8A317", background: "#fff",
                       color: otherActiveMembers.length === 0 ? "#cbd5e1" : "#E8A317",
-                      fontSize: 13, fontWeight: 600, cursor: otherActiveMembers.length === 0 ? "not-allowed" : "pointer",
+                      fontSize: 15, fontWeight: 600, cursor: otherActiveMembers.length === 0 ? "not-allowed" : "pointer",
                     }}>
                     Transfer Ownership{otherActiveMembers.length === 0 ? " (no other members)" : ""}
                   </button>
@@ -5193,7 +5247,7 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
                 {/* Admin/Owner viewing non-self, non-owner: Edit Permissions */}
                 {isManager && !isSelf && memberDetail.level !== "owner" && (
                   <button onClick={() => { setPermModalMember(memberDetail); setMemberDetail(null); }}
-                    style={{ width: "100%", padding: "10px 0", borderRadius: 8, border: "1.5px solid #3B82F6", background: "#fff", color: "#3B82F6", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                    style={{ width: "100%", padding: "10px 0", borderRadius: 8, border: "1.5px solid #3B82F6", background: "#fff", color: "#3B82F6", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>
                     Edit Permissions
                   </button>
                 )}
@@ -5205,19 +5259,19 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
                       setOrgMembers(prev => prev.map(m => m.id === memberDetail.id ? { ...m, teamId: e.target.value } : m));
                       setMemberDetail(null);
                     }}
-                      style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", background: "#fff" }}>
+                      style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", background: "#fff" }}>
                       {sortedTeamsList.map(t => (
                         <option key={t.id} value={t.id}>{t.name}</option>
                       ))}
                     </select>
-                    <span style={{ fontSize: 11, color: "#94a3b8", whiteSpace: "nowrap" }}>Change Team</span>
+                    <span style={{ fontSize: 15, color: "#94a3b8", whiteSpace: "nowrap" }}>Change Team</span>
                   </div>
                 )}
 
                 {/* Admin/Owner viewing non-self, non-owner: Delete */}
                 {isManager && !isSelf && memberDetail.level !== "owner" && (
                   <button onClick={() => { setDeleteConfirmMember(memberDetail); setMemberDetail(null); }}
-                    style={{ width: "100%", padding: "10px 0", borderRadius: 8, border: "1.5px solid #E85D75", background: "#fff", color: "#E85D75", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                    style={{ width: "100%", padding: "10px 0", borderRadius: 8, border: "1.5px solid #E85D75", background: "#fff", color: "#E85D75", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>
                     Delete Member
                   </button>
                 )}
@@ -5232,24 +5286,24 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
         <div onClick={() => setTransferringFrom(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000, padding: 16 }}>
           <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 20, padding: "28px", width: "100%", maxWidth: 400, boxShadow: "0 24px 64px rgba(0,0,0,0.18)" }}>
             <h3 style={{ margin: "0 0 16px", fontSize: 18, fontWeight: 700, color: "#1a2332" }}>Transfer Ownership</h3>
-            <p style={{ fontSize: 13, color: "#64748b", marginBottom: 16 }}>Select a team member to become the new owner. You will become an admin.</p>
+            <p style={{ fontSize: 15, color: "#64748b", marginBottom: 16 }}>Select a team member to become the new owner. You will become an admin.</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {orgMembers.filter(m => m.id !== transferringFrom.id && m.status === "active").map(m => (
                 <div key={m.id} onClick={() => handleTransferOwnership(m.id)}
                   style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 10, border: "1px solid #e2e8f0", cursor: "pointer", background: "#fff" }}
                   onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
                   onMouseLeave={e => (e.currentTarget.style.background = "#fff")}>
-                  <div style={{ width: 32, height: 32, borderRadius: "50%", background: MEMBER_COLORS[m.level] || "#4C9FE8", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
+                  <div style={{ width: 32, height: 32, borderRadius: "50%", background: MEMBER_COLORS[m.level] || "#4C9FE8", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
                     {(m.name?.[0] || m.email[0] || "?").toUpperCase()}
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332" }}>{m.name || m.email}</div>
-                    <div style={{ fontSize: 11, color: "#64748b", textTransform: "capitalize" }}>{m.level}</div>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: "#1a2332" }}>{m.name || m.email}</div>
+                    <div style={{ fontSize: 15, color: "#64748b", textTransform: "capitalize" }}>{m.level}</div>
                   </div>
                 </div>
               ))}
             </div>
-            <button onClick={() => setTransferringFrom(null)} style={{ marginTop: 16, width: "100%", padding: "10px 0", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", color: "#64748b", fontSize: 13, cursor: "pointer" }}>Cancel</button>
+            <button onClick={() => setTransferringFrom(null)} style={{ marginTop: 16, width: "100%", padding: "10px 0", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", color: "#64748b", fontSize: 15, cursor: "pointer" }}>Cancel</button>
           </div>
         </div>
       )}
@@ -5258,15 +5312,15 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
       {deleteConfirmMember && (
         <div onClick={() => setDeleteConfirmMember(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000, padding: 16 }}>
           <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 20, padding: "28px", width: "100%", maxWidth: 380, boxShadow: "0 24px 64px rgba(0,0,0,0.18)", textAlign: "center" }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: "#1a2332", marginBottom: 8 }}>Remove {deleteConfirmMember.name || deleteConfirmMember.email}?</div>
-            <p style={{ fontSize: 12, color: "#64748b", marginBottom: 18 }}>This member will lose access to this organization and its data.</p>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "#1a2332", marginBottom: 8 }}>Remove {deleteConfirmMember.name || deleteConfirmMember.email}?</div>
+            <p style={{ fontSize: 15, color: "#64748b", marginBottom: 18 }}>This member will lose access to this organization and its data.</p>
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={() => setDeleteConfirmMember(null)}
-                style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", color: "#64748b", fontSize: 13, cursor: "pointer" }}>
+                style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", color: "#64748b", fontSize: 15, cursor: "pointer" }}>
                 Cancel
               </button>
               <button onClick={() => { setOrgMembers(prev => prev.filter(m => m.id !== deleteConfirmMember.id)); setDeleteConfirmMember(null); }}
-                style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "none", background: "#E85D75", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "none", background: "#E85D75", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>
                 Delete
               </button>
             </div>
@@ -5285,25 +5339,25 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
                 <button onClick={() => setAddMemberTeamId(null)} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#94a3b8", padding: 0, lineHeight: 1 }}>×</button>
               </div>
               <h3 style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 700, color: "#1a2332" }}>Add to {team?.name || "Team"}</h3>
-              <p style={{ margin: "0 0 18px", fontSize: 12, color: "#94a3b8" }}>Select an existing member or invite a new one.</p>
+              <p style={{ margin: "0 0 18px", fontSize: 15, color: "#94a3b8" }}>Select an existing member or invite a new one.</p>
 
               {membersNotInTeam.length > 0 && (
                 <>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>Existing Members</div>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>Existing Members</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 18 }}>
                     {membersNotInTeam.map(m => (
                       <div key={m.id} onClick={() => handleAddExistingMember(m.id)}
                         style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 10, border: "1px solid #e2e8f0", cursor: "pointer", background: "#fff" }}
                         onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
                         onMouseLeave={e => (e.currentTarget.style.background = "#fff")}>
-                        <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#94a3b8", flexShrink: 0 }}>
+                        <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, color: "#94a3b8", flexShrink: 0 }}>
                           {(m.name?.[0] || m.email[0] || "?").toUpperCase()}
                         </div>
                         <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332" }}>{m.name || m.email.split("@")[0]}</div>
-                          <div style={{ fontSize: 11, color: "#64748b", textTransform: "capitalize" }}>{m.level}</div>
+                          <div style={{ fontSize: 15, fontWeight: 600, color: "#1a2332" }}>{m.name || m.email.split("@")[0]}</div>
+                          <div style={{ fontSize: 15, color: "#64748b", textTransform: "capitalize" }}>{m.level}</div>
                         </div>
-                        <div style={{ fontSize: 11, color: "#3B82F6", fontWeight: 600 }}>Add</div>
+                        <div style={{ fontSize: 15, color: "#3B82F6", fontWeight: 600 }}>Add</div>
                       </div>
                     ))}
                   </div>
@@ -5311,17 +5365,17 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
               )}
 
               <div style={{ borderTop: "1px solid #e2e8f0", paddingTop: 16 }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>Invite New Member</div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>Invite New Member</div>
                 <input value={addMemberEmail} onChange={e => setAddMemberEmail(e.target.value)} placeholder="Email"
-                  style={{ width: "100%", padding: "8px 11px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none", boxSizing: "border-box", marginBottom: 8 }} />
+                  style={{ width: "100%", padding: "8px 11px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box", marginBottom: 8 }} />
                 <select value={addMemberLevel} onChange={e => setAddMemberLevel(e.target.value as OrgPermissionLevel)}
-                  style={{ width: "100%", padding: "7px 9px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", background: "#fff", marginBottom: 10 }}>
+                  style={{ width: "100%", padding: "7px 9px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", background: "#fff", marginBottom: 10 }}>
                   {LEVEL_ORDER.slice(0, LEVEL_ORDER.indexOf(currentUserLevel) + 1).map(l => (
                     <option key={l} value={l}>{l.charAt(0).toUpperCase() + l.slice(1)}</option>
                   ))}
                 </select>
                 <button onClick={handleInviteNewMemberToTeam}
-                  style={{ width: "100%", padding: "9px 0", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                  style={{ width: "100%", padding: "9px 0", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>
                   Send Invite
                 </button>
               </div>
@@ -5401,29 +5455,29 @@ function TeamRowMenu({ isDefault, onEditPermissions, onRename, onDelete }: { isD
 
   return (
     <div style={{ position: "relative" }}>
-      <div ref={triggerRef} onClick={() => setOpen(v => !v)} style={{ width: 26, height: 26, borderRadius: "50%", background: "#F1F5F9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 13, color: "#94a3b8", flexShrink: 0 }}>···</div>
+      <div ref={triggerRef} onClick={() => setOpen(v => !v)} style={{ width: 26, height: 26, borderRadius: "50%", background: "#F1F5F9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 15, color: "#94a3b8", flexShrink: 0 }}>···</div>
       {open && (
         <div ref={menuRef} style={{ ...menuPos, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 100, minWidth: 170, overflow: "hidden" }}>
           <div onClick={() => { if (!isDefault) { setOpen(false); onEditPermissions(); } }}
-            style={{ padding: "9px 14px", fontSize: 13, cursor: isDefault ? "not-allowed" : "pointer", color: isDefault ? "#94a3b8" : "#1a2332" }}
+            style={{ padding: "9px 14px", fontSize: 15, cursor: isDefault ? "not-allowed" : "pointer", color: isDefault ? "#94a3b8" : "#1a2332" }}
             onMouseEnter={e => { if (!isDefault) e.currentTarget.style.background = "#f8fafc"; }}
             onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}>Edit Permissions{isDefault ? " (locked)" : ""}</div>
           <div onClick={() => { setOpen(false); onRename(); }}
-            style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
+            style={{ padding: "9px 14px", fontSize: 15, cursor: "pointer", color: "#1a2332" }}
             onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
             onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Edit Name</div>
           {!confirmDelete
             ? <div onClick={() => setConfirmDelete(true)}
-                style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#E85D75" }}
+                style={{ padding: "9px 14px", fontSize: 15, cursor: "pointer", color: "#E85D75" }}
                 onMouseEnter={e => (e.currentTarget.style.background = "#fff5f5")}
                 onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Delete Team</div>
             : <div style={{ padding: "10px 14px", borderTop: "1px solid #f1f5f9" }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#E85D75", marginBottom: 8 }}>Delete this team?</div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: "#E85D75", marginBottom: 8 }}>Delete this team?</div>
                 <div style={{ display: "flex", gap: 6 }}>
                   <button onClick={() => setConfirmDelete(false)}
-                    style={{ flex: 1, padding: "5px 0", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 11, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+                    style={{ flex: 1, padding: "5px 0", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>Cancel</button>
                   <button onClick={() => { onDelete(); setOpen(false); }}
-                    style={{ flex: 1, padding: "5px 0", borderRadius: 6, border: "none", background: "#E85D75", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Delete</button>
+                    style={{ flex: 1, padding: "5px 0", borderRadius: 6, border: "none", background: "#E85D75", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Delete</button>
                 </div>
               </div>}
         </div>
@@ -5498,15 +5552,15 @@ function TeamPermissionsModal({ teamName, sections, initialPermissions, onSave, 
           <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#1a2332" }}>Permissions for {teamName}</h3>
           <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#94a3b8" }}>×</button>
         </div>
-        <p style={{ fontSize: 12, color: "#94a3b8", marginBottom: 16 }}>Select which rows and metric boxes this team can access.</p>
+        <p style={{ fontSize: 15, color: "#94a3b8", marginBottom: 16 }}>Select which rows and metric boxes this team can access.</p>
 
         {sections.map(section => (
           <div key={section.id} style={{ marginBottom: 14, border: "1px solid #f1f5f9", borderRadius: 10, overflow: "hidden" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "#f8fafc", borderBottom: isSectionAllowed(section.id) ? "1px solid #f1f5f9" : "none" }}>
               <input type="checkbox" checked={isSectionAllowed(section.id)} onChange={e => toggleSection(section.id, e.target.checked)}
                 style={{ accentColor: "#3B82F6", width: 16, height: 16, cursor: "pointer", flexShrink: 0 }} />
-              <span style={{ fontSize: 13, fontWeight: 600, color: "#1a2332", flex: 1 }}>{section.title}</span>
-              <span style={{ fontSize: 11, color: "#94a3b8" }}>{section.metrics.length} box{section.metrics.length !== 1 ? "es" : ""}</span>
+              <span style={{ fontSize: 15, fontWeight: 600, color: "#1a2332", flex: 1 }}>{section.title}</span>
+              <span style={{ fontSize: 15, color: "#94a3b8" }}>{section.metrics.length} box{section.metrics.length !== 1 ? "es" : ""}</span>
             </div>
             {isSectionAllowed(section.id) && section.metrics.length > 0 && (
               <div style={{ padding: "6px 14px 10px 38px" }}>
@@ -5515,7 +5569,7 @@ function TeamPermissionsModal({ teamName, sections, initialPermissions, onSave, 
                     <input type="checkbox" checked={isMetricAllowed(section.id, m.id)}
                       onChange={e => toggleMetric(section.id, m.id, e.target.checked)}
                       style={{ accentColor: "#3B82F6", width: 14, height: 14, cursor: "pointer", flexShrink: 0 }} />
-                    <span style={{ fontSize: 12, color: "#475569" }}>{m.label}</span>
+                    <span style={{ fontSize: 15, color: "#475569" }}>{m.label}</span>
                   </label>
                 ))}
               </div>
@@ -5524,7 +5578,7 @@ function TeamPermissionsModal({ teamName, sections, initialPermissions, onSave, 
         ))}
 
         <button onClick={() => { onSave({ teamId: initialPermissions.teamId, allowedSectionIds, metricOverrides }); }}
-          style={{ width: "100%", padding: "10px 0", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer", marginTop: 8 }}>
+          style={{ width: "100%", padding: "10px 0", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer", marginTop: 8 }}>
           Save Permissions
         </button>
       </div>
@@ -5587,25 +5641,25 @@ function MemberPermissionsModal({ member, sections, initialPerms, onSave, onView
       <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 20, padding: "24px", width: "100%", maxWidth: 520, boxShadow: "0 20px 60px rgba(0,0,0,0.18)", overflowY: "auto", maxHeight: "90vh" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#4C9FE8", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: "#fff" }}>
+            <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#4C9FE8", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, color: "#fff" }}>
               {(member.name?.[0] || member.email[0] || "?").toUpperCase()}
             </div>
             <div>
               <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#1a2332" }}>{member.name || member.email}</h3>
-              <div style={{ fontSize: 11, color: "#64748b", textTransform: "capitalize" }}>{member.level}</div>
+              <div style={{ fontSize: 15, color: "#64748b", textTransform: "capitalize" }}>{member.level}</div>
             </div>
           </div>
           <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#94a3b8" }}>×</button>
         </div>
-        <p style={{ fontSize: 12, color: "#94a3b8", marginBottom: 16 }}>Select which rows and metric boxes this member can access.</p>
+        <p style={{ fontSize: 15, color: "#94a3b8", marginBottom: 16 }}>Select which rows and metric boxes this member can access.</p>
 
         {sections.map(section => (
           <div key={section.id} style={{ marginBottom: 12, border: "1px solid #f1f5f9", borderRadius: 10, overflow: "hidden" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "#f8fafc", borderBottom: isSectionAllowed(section.id) ? "1px solid #f1f5f9" : "none" }}>
               <input type="checkbox" checked={isSectionAllowed(section.id)} onChange={e => toggleSection(section.id, e.target.checked)}
                 style={{ accentColor: "#3B82F6", width: 16, height: 16, cursor: "pointer", flexShrink: 0 }} />
-              <span style={{ fontSize: 13, fontWeight: 600, color: "#1a2332", flex: 1 }}>{section.title}</span>
-              <span style={{ fontSize: 11, color: "#94a3b8" }}>{section.metrics.length} box{section.metrics.length !== 1 ? "es" : ""}</span>
+              <span style={{ fontSize: 15, fontWeight: 600, color: "#1a2332", flex: 1 }}>{section.title}</span>
+              <span style={{ fontSize: 15, color: "#94a3b8" }}>{section.metrics.length} box{section.metrics.length !== 1 ? "es" : ""}</span>
             </div>
             {isSectionAllowed(section.id) && section.metrics.length > 0 && (
               <div style={{ padding: "6px 14px 10px 38px" }}>
@@ -5614,7 +5668,7 @@ function MemberPermissionsModal({ member, sections, initialPerms, onSave, onView
                     <input type="checkbox" checked={isMetricAllowed(section.id, m.id)}
                       onChange={e => toggleMetric(section.id, m.id, e.target.checked)}
                       style={{ accentColor: "#3B82F6", width: 14, height: 14, cursor: "pointer", flexShrink: 0 }} />
-                    <span style={{ fontSize: 12, color: "#475569" }}>{m.label}</span>
+                    <span style={{ fontSize: 15, color: "#475569" }}>{m.label}</span>
                   </label>
                 ))}
               </div>
@@ -5624,11 +5678,11 @@ function MemberPermissionsModal({ member, sections, initialPerms, onSave, onView
 
         <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
           <button onClick={() => { onViewAs(currentPerms); }}
-            style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "1.5px solid #3B82F6", background: "#fff", color: "#3B82F6", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
+            style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "1.5px solid #3B82F6", background: "#fff", color: "#3B82F6", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>
             View as {member.name || member.email}
           </button>
           <button onClick={() => { onSave(currentPerms); }}
-            style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
+            style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>
             Save Permissions
           </button>
         </div>
@@ -5644,9 +5698,9 @@ function MemberPermissionsModal({ member, sections, initialPerms, onSave, onView
 function ProfileField({ label, value, onChange, disabled }: { label: string; value: string; onChange?: (v: string) => void; disabled?: boolean }) {
   return (
     <div style={{ marginBottom: 13 }}>
-      <label style={{ fontSize: 12, color: "#64748b", display: "block", marginBottom: 3 }}>{label}</label>
+      <label style={{ fontSize: 15, color: "#64748b", display: "block", marginBottom: 3 }}>{label}</label>
       <input value={value} onChange={e => onChange?.(e.target.value)} disabled={disabled}
-        style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none", boxSizing: "border-box" as const, background: disabled ? "#f8fafc" : "#fff", color: disabled ? "#94a3b8" : "#1a2332" }} />
+        style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box" as const, background: disabled ? "#f8fafc" : "#fff", color: disabled ? "#94a3b8" : "#1a2332" }} />
     </div>
   );
 }
@@ -5746,8 +5800,8 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
   const GrayPref = ({ label, sub }: { label: string; sub: string }) => (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid #f1f5f9", opacity: 0.45 }}>
       <div>
-        <div style={{ fontSize: 13, color: "#1a2332" }}>{label} <span style={{ fontSize: 10, color: "#94a3b8", fontStyle: "italic" }}>(coming soon)</span></div>
-        <div style={{ fontSize: 11, color: "#94a3b8" }}>{sub}</div>
+        <div style={{ fontSize: 15, color: "#1a2332" }}>{label} <span style={{ fontSize: 15, color: "#94a3b8", fontStyle: "italic" }}>(coming soon)</span></div>
+        <div style={{ fontSize: 15, color: "#94a3b8" }}>{sub}</div>
       </div>
       <Toggle on={false} onChange={() => { }} disabled />
     </div>
@@ -5768,19 +5822,19 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
             <input ref={fileRef} type="file" accept="image/*" onChange={handlePhotoUpload} style={{ display: "none" }} />
             <div>
               <div style={{ fontSize: 15, fontWeight: 700, color: "#1a2332" }}>{localProfile.full_name || "Your Name"}</div>
-              <button onClick={() => fileRef.current?.click()} style={{ fontSize: 11, color: "#3B82F6", background: "none", border: "none", cursor: "pointer", padding: 0 }}>{uploading ? "Uploading..." : "Change photo"}</button>
+              <button onClick={() => fileRef.current?.click()} style={{ fontSize: 15, color: "#3B82F6", background: "none", border: "none", cursor: "pointer", padding: 0 }}>{uploading ? "Uploading..." : "Change photo"}</button>
             </div>
           </div>
-          <h3 style={{ margin: "0 0 12px", fontSize: 14, fontWeight: 600, color: "#1a2332" }}>Account</h3>
+          <h3 style={{ margin: "0 0 12px", fontSize: 15, fontWeight: 600, color: "#1a2332" }}>Account</h3>
           <ProfileField label="Full Name" value={localProfile.full_name} onChange={v => setLocalProfile(p => ({ ...p, full_name: v }))} />
           <ProfileField label="Email" value={userEmail} disabled />
           <ProfileField label="Company" value={localProfile.company} onChange={currentUserLevel === "owner" || !currentUserLevel ? v => setLocalProfile(p => ({ ...p, company: v })) : undefined} disabled={currentUserLevel !== "owner" && currentUserLevel !== undefined} />
             <div style={{ position: "relative" }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>Timezone</div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>Timezone</div>
               <input value={localProfile.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone} onChange={e => { setLocalProfile(p => ({ ...p, timezone: e.target.value })); setTimezoneSearch(e.target.value); }}
                 onFocus={() => setTimezoneSearch(localProfile.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone)}
                 placeholder="Start typing to search..."
-                style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", boxSizing: "border-box" }} />
+                style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box" }} />
               {timezoneSearch && (() => {
                 const allTz = Intl.supportedValuesOf?.("timeZone") || [
                   "America/New_York","America/Chicago","America/Denver","America/Los_Angeles","America/Anchorage","Pacific/Honolulu",
@@ -5793,7 +5847,7 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
                   <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "#fff", borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 200, maxHeight: 200, overflowY: "auto", marginTop: 2 }}>
                     {filtered.map(tz => (
                       <div key={tz} onClick={() => { setLocalProfile(p => ({ ...p, timezone: tz })); setTimezoneSearch(""); }}
-                        style={{ padding: "7px 10px", fontSize: 11, cursor: "pointer", color: "#1a2332", borderBottom: "1px solid #f1f5f9" }}
+                        style={{ padding: "7px 10px", fontSize: 15, cursor: "pointer", color: "#1a2332", borderBottom: "1px solid #f1f5f9" }}
                         onMouseEnter={e => e.currentTarget.style.background = "#f8fafc"}
                         onMouseLeave={e => e.currentTarget.style.background = "transparent"}>{tz}</div>
                     ))}
@@ -5801,7 +5855,7 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
                 );
               })()}
             </div>
-          <button onClick={handleSave} disabled={saving} style={{ width: "100%", padding: "9px", borderRadius: 8, border: "none", background: saved ? "#4CAF7D" : "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", marginTop: 6 }}>
+          <button onClick={handleSave} disabled={saving} style={{ width: "100%", padding: "9px", borderRadius: 8, border: "none", background: saved ? "#4CAF7D" : "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer", marginTop: 6 }}>
             {saving ? "Saving..." : saved ? "✓ Saved!" : "Save Changes"}
           </button>
         </div>
@@ -5811,15 +5865,15 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
           {/* Plan — owner only */}
           {(currentUserLevel === "owner" || !currentUserLevel) && (
           <div style={{ background: "#fff", borderRadius: 14, padding: 20, border: "1px solid #f1f5f9", opacity: 0.55, pointerEvents: "none" as const }}>
-            <h3 style={{ margin: "0 0 14px", fontSize: 14, fontWeight: 600, color: "#94a3b8" }}>Plan</h3>
+            <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 600, color: "#94a3b8" }}>Plan</h3>
             {[{ name: "Free", features: "3 rows, 10 metrics" }, { name: "Pro", features: "Unlimited rows, integrations" }, { name: "Business", features: "Team access, all apps" }].map(p => (
               <div key={p.name} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8, marginBottom: 6, background: p.name === "Pro" ? "#EFF6FF" : "#F8FAFC", border: p.name === "Pro" ? "1.5px solid #3B82F6" : "1.5px solid transparent" }}>
                 <div style={{ width: 14, height: 14, borderRadius: "50%", border: "2px solid", borderColor: p.name === "Pro" ? "#3B82F6" : "#d1d5db", background: p.name === "Pro" ? "#3B82F6" : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>
                   {p.name === "Pro" && <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#fff" }} />}
                 </div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332" }}>{p.name}</div>
-                  <div style={{ fontSize: 11, color: "#94a3b8" }}>{p.features}</div>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: "#1a2332" }}>{p.name}</div>
+                  <div style={{ fontSize: 15, color: "#94a3b8" }}>{p.features}</div>
                 </div>
               </div>
             ))}
@@ -5829,19 +5883,19 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
           {/* Menu Visibility — owner only */}
           {(currentUserLevel === "owner" || !currentUserLevel) && (
           <div style={{ background: "#fff", borderRadius: 14, padding: 20, border: "1px solid #f1f5f9" }}>
-            <h3 style={{ margin: "0 0 14px", fontSize: 14, fontWeight: 600, color: "#1a2332" }}>Menu Visibility</h3>
-            <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 14 }}>Customize which menu items each role can access. Home is always visible.</div>
+            <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 600, color: "#1a2332" }}>Menu Visibility</h3>
+            <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 14 }}>Customize which menu items each role can access. Home is always visible.</div>
             {(["viewer","editor","admin"] as const).map(level => {
               const hidden = localProfile.menu_permissions?.[level] || [];
               return (
                 <div key={level} style={{ marginBottom: 12, background: "#F8FAFC", borderRadius: 10, padding: "12px 14px" }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "#1a2332", marginBottom: 8, textTransform: "capitalize" }}>{level}</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#1a2332", marginBottom: 8, textTransform: "capitalize" }}>{level}</div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                     {(["goals","tasks","playbooks","integrations","team","settings"] as const).map(item => {
                       const isHidden = hidden.includes(item);
                       const forcedOff = level === "viewer" && (item === "integrations" || item === "team");
                       return (
-                        <label key={item} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 6, background: forcedOff ? "#f1f5f9" : isHidden ? "#fff5f5" : "#F0FDF4", border: forcedOff ? "1px solid #e2e8f0" : isHidden ? "1px solid #fecaca" : "1px solid #c3e6d4", fontSize: 11, color: forcedOff ? "#94a3b8" : isHidden ? "#E85D75" : "#0F6E56", cursor: forcedOff ? "not-allowed" : "pointer", userSelect: "none", opacity: forcedOff ? 0.5 : 1 }}>
+                        <label key={item} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 6, background: forcedOff ? "#f1f5f9" : isHidden ? "#fff5f5" : "#F0FDF4", border: forcedOff ? "1px solid #e2e8f0" : isHidden ? "1px solid #fecaca" : "1px solid #c3e6d4", fontSize: 15, color: forcedOff ? "#94a3b8" : isHidden ? "#E85D75" : "#0F6E56", cursor: forcedOff ? "not-allowed" : "pointer", userSelect: "none", opacity: forcedOff ? 0.5 : 1 }}>
                           <input type="checkbox" checked={!forcedOff && !isHidden} disabled={forcedOff}
                             onChange={() => {
                               const next = isHidden ? hidden.filter(h => h !== item) : [...hidden, item];
@@ -5861,20 +5915,20 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
 
           {/* Preferences */}
           <div style={{ background: "#fff", borderRadius: 14, padding: 20, border: "1px solid #f1f5f9" }}>
-            <h3 style={{ margin: "0 0 14px", fontSize: 14, fontWeight: 600, color: "#1a2332" }}>Preferences</h3>
+            <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 600, color: "#1a2332" }}>Preferences</h3>
             <GrayPref label="Email notifications" sub="Daily digest of key metrics" />
             <GrayPref label="Dark mode" sub="Switch to dark theme" />
             <GrayPref label="Two-factor auth" sub="Require 2FA on login" />
             {/* Five-Account System — functional */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 0" }}>
               <div>
-                <div style={{ fontSize: 13, color: "#1a2332" }}>Five-Account System</div>
-                <div style={{ fontSize: 11, color: "#94a3b8" }}>Enable Profit First method globally</div>
+                <div style={{ fontSize: 15, color: "#1a2332" }}>Five-Account System</div>
+                <div style={{ fontSize: 15, color: "#94a3b8" }}>Enable Profit First method globally</div>
               </div>
               <Toggle on={localProfile.five_account_enabled} onChange={handleFiveAccountToggle} />
             </div>
             {fiveAccountConfirm && (
-              <div style={{ marginTop: 8, background: "#F0FDF4", border: "1px solid #c3e6d4", borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "#0F6E56", display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ marginTop: 8, background: "#F0FDF4", border: "1px solid #c3e6d4", borderRadius: 8, padding: "8px 12px", fontSize: 15, color: "#0F6E56", display: "flex", alignItems: "center", gap: 6 }}>
                 ✓ Five-Account System created — Finances row added to your dashboard.
               </div>
             )}
@@ -5882,11 +5936,11 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
             {/* Five-Account Configuration — shown when enabled */}
             {localProfile.five_account_enabled && (
               <div style={{ background: "#F0FDF4", border: "1px solid #c3e6d4", borderRadius: 10, padding: "12px 14px", marginTop: 8 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#0F6E56", marginBottom: 10 }}>Five-Account Configuration</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "#0F6E56", marginBottom: 10 }}>Five-Account Configuration</div>
 
                 {/* Bank account mode */}
                 <div style={{ marginBottom: 10 }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: "#1a2332", marginBottom: 6 }}>Bank Account Mode</div>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: "#1a2332", marginBottom: 6 }}>Bank Account Mode</div>
                   {([
                     ["one-business", "One business checking account", "Equation runs automatically across all 5 boxes."],
                     ["business-and-personal", "Business + personal checking (default)", "Equation runs for Overhead, Profit, Tax, Investments. Owner is manual."],
@@ -5897,8 +5951,8 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
                         onChange={() => onFiveAccountSettingsChange({ ...fiveAccountSettings, mode: val })}
                         style={{ accentColor: "#0F6E56", marginTop: 2, flexShrink: 0 }} />
                       <div>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: "#1a2332" }}>{label}</div>
-                        <div style={{ fontSize: 10, color: "#64748b" }}>{sub}</div>
+                        <div style={{ fontSize: 15, fontWeight: 600, color: "#1a2332" }}>{label}</div>
+                        <div style={{ fontSize: 15, color: "#64748b" }}>{sub}</div>
                       </div>
                     </label>
                   ))}
@@ -5906,13 +5960,13 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
 
                 {/* Monthly expenses */}
                 <div style={{ marginBottom: 8 }}>
-                  <label style={{ fontSize: 11, fontWeight: 600, color: "#1a2332", display: "block", marginBottom: 3 }}>Monthly Operating Expenses (incl. owner salary)</label>
+                  <label style={{ fontSize: 15, fontWeight: 600, color: "#1a2332", display: "block", marginBottom: 3 }}>Monthly Operating Expenses (incl. owner salary)</label>
                   <input type="number" value={fiveAccountSettings.monthlyExpenses || ""}
                     onChange={e => onFiveAccountSettingsChange({ ...fiveAccountSettings, monthlyExpenses: parseFloat(e.target.value) || 0 })}
                     placeholder="e.g. 25000"
-                    style={{ width: "100%", padding: "6px 10px", borderRadius: 7, border: "1.5px solid #c3e6d4", fontSize: 12, outline: "none", boxSizing: "border-box" }} />
+                    style={{ width: "100%", padding: "6px 10px", borderRadius: 7, border: "1.5px solid #c3e6d4", fontSize: 15, outline: "none", boxSizing: "border-box" }} />
                   {fiveAccountSettings.monthlyExpenses > 0 && (
-                    <div style={{ fontSize: 10, color: "#64748b", marginTop: 3 }}>
+                    <div style={{ fontSize: 15, color: "#64748b", marginTop: 3 }}>
                       Overhead target: <strong>${(fiveAccountSettings.monthlyExpenses * 2).toLocaleString()}</strong> &nbsp;·&nbsp;
                       Profit target: <strong>${(fiveAccountSettings.monthlyExpenses * 6).toLocaleString()}</strong>
                     </div>
@@ -5921,13 +5975,13 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
 
                 {/* Owner salary */}
                 <div style={{ marginBottom: 8 }}>
-                  <label style={{ fontSize: 11, fontWeight: 600, color: "#1a2332", display: "block", marginBottom: 3 }}>Total Owner's Salary (monthly)</label>
+                  <label style={{ fontSize: 15, fontWeight: 600, color: "#1a2332", display: "block", marginBottom: 3 }}>Total Owner's Salary (monthly)</label>
                  <input type="number" value={fiveAccountSettings.ownerSalary ?? ""}
                     onChange={e => onFiveAccountSettingsChange({ ...fiveAccountSettings, ownerSalary: parseFloat(e.target.value) || 0 })}
                     placeholder="e.g. 8000"
-                    style={{ width: "100%", padding: "6px 10px", borderRadius: 7, border: "1.5px solid #c3e6d4", fontSize: 12, outline: "none", boxSizing: "border-box" }} />
+                    style={{ width: "100%", padding: "6px 10px", borderRadius: 7, border: "1.5px solid #c3e6d4", fontSize: 15, outline: "none", boxSizing: "border-box" }} />
                   {fiveAccountSettings.ownerSalary > 0 && (
-                    <div style={{ fontSize: 10, color: "#64748b", marginTop: 3 }}>
+                    <div style={{ fontSize: 15, color: "#64748b", marginTop: 3 }}>
                       Annual: <strong>${(fiveAccountSettings.ownerSalary * 12).toLocaleString()}</strong>
                     </div>
                   )}
@@ -5936,8 +5990,8 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
                 {/* Post transaction toggle */}
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 0", borderTop: "1px solid #c3e6d4", marginTop: 6 }}>
                   <div>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: "#1a2332" }}>Post Transaction on Edit</div>
-                    <div style={{ fontSize: 10, color: "#64748b" }}>Prompt to log a transaction when a Five-Account value changes</div>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: "#1a2332" }}>Post Transaction on Edit</div>
+                    <div style={{ fontSize: 15, color: "#64748b" }}>Prompt to log a transaction when a Five-Account value changes</div>
                   </div>
                   <Toggle on={fiveAccountSettings.postTransactionEnabled}
                     onChange={v => onFiveAccountSettingsChange({ ...fiveAccountSettings, postTransactionEnabled: v })} />
@@ -5945,7 +5999,7 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
 
                 {/* Reset button */}
                 <button onClick={() => onFiveAccountSettingsChange(DEFAULT_FIVE_ACCOUNT_SETTINGS)}
-                  style={{ marginTop: 10, width: "100%", padding: "6px 0", borderRadius: 7, border: "1px solid #c3e6d4", background: "transparent", fontSize: 11, color: "#0F6E56", cursor: "pointer", fontWeight: 600 }}>
+                  style={{ marginTop: 10, width: "100%", padding: "6px 0", borderRadius: 7, border: "1px solid #c3e6d4", background: "transparent", fontSize: 15, color: "#0F6E56", cursor: "pointer", fontWeight: 600 }}>
                   Reset to Profit First Defaults
                 </button>
               </div>
@@ -5954,8 +6008,8 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
 
           {/* Health Score multipliers */}
           <div style={{ background: "#fff", borderRadius: 14, padding: 20, border: "1px solid #f1f5f9" }}>
-            <h3 style={{ margin: "0 0 6px", fontSize: 14, fontWeight: 600, color: "#1a2332" }}>Health Score</h3>
-            <p style={{ margin: "0 0 14px", fontSize: 11, color: "#94a3b8", lineHeight: 1.5 }}>
+            <h3 style={{ margin: "0 0 6px", fontSize: 15, fontWeight: 600, color: "#1a2332" }}>Health Score</h3>
+            <p style={{ margin: "0 0 14px", fontSize: 15, color: "#94a3b8", lineHeight: 1.5 }}>
               Adjust how each metric color contributes to your overall dashboard health score. Only boxes with color rules count.
             </p>
             {[
@@ -5966,7 +6020,7 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
               <div key={key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #f1f5f9" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ width: 10, height: 10, borderRadius: "50%", background: color, display: "inline-block" }} />
-                  <span style={{ fontSize: 13, color: "#1a2332" }}>{label}</span>
+                  <span style={{ fontSize: 15, color: "#1a2332" }}>{label}</span>
                 </div>
                 <input
                   type="number"
@@ -5980,11 +6034,11 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
                     await supabase.from("profiles").upsert({ id: userId, ...updated, updated_at: new Date().toISOString() });
                     onProfileSaved(updated);
                   }}
-                  style={{ width: 72, padding: "5px 9px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", textAlign: "right" }}
+                  style={{ width: 72, padding: "5px 9px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", textAlign: "right" }}
                 />
               </div>
             ))}
-            <div style={{ marginTop: 10, fontSize: 10, color: "#94a3b8", lineHeight: 1.5 }}>
+            <div style={{ marginTop: 10, fontSize: 15, color: "#94a3b8", lineHeight: 1.5 }}>
               Defaults: Green +1.0, Yellow +0.5, Red −1.0. A green box adds its full weight, yellow adds half, red subtracts a full weight.
             </div>
           </div>
@@ -6119,7 +6173,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
 
   const renderCheckbox = (idx: number, isEditing: boolean) => (
     (isEditing || checkedOrder.length > 0) ? (
-      <div onClick={e => { e.stopPropagation(); toggleChecked(idx); }} style={{ position: "absolute", top: 4, left: 4, width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", zIndex: 10, borderRadius: 4, border: "1.5px solid #94a3b8", background: checkedOrder.includes(idx) ? "#3B82F6" : "#fff", color: "#fff", fontSize: 11, fontWeight: 700, lineHeight: 1 }}>
+      <div onClick={e => { e.stopPropagation(); toggleChecked(idx); }} style={{ position: "absolute", top: 4, left: 4, width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", zIndex: 10, borderRadius: 4, border: "1.5px solid #94a3b8", background: checkedOrder.includes(idx) ? "#3B82F6" : "#fff", color: "#fff", fontSize: 15, fontWeight: 700, lineHeight: 1 }}>
         {checkedOrder.includes(idx) ? "✓" : ""}
       </div>
     ) : null
@@ -6515,21 +6569,21 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
           <h2 style={{ margin: 0, fontSize: isMobile ? 16 : 20, fontWeight: 700, color: "#1a2332" }}>Create Equation</h2>
           <div style={{ display: "flex", alignItems: "center", gap: 8, overflowX: "auto", whiteSpace: "nowrap", flexShrink: 0, scrollbarWidth: "none", msOverflowStyle: "none" }}>
             {checkedOrder.length >= 2 && (
-              <button onClick={handleGroupSelected} style={{ padding: "6px 16px", borderRadius: 8, border: "none", background: "#3B82F6", fontSize: 12, cursor: "pointer", color: "#fff", fontWeight: 600, flexShrink: 0 }}>
+              <button onClick={handleGroupSelected} style={{ padding: "6px 16px", borderRadius: 8, border: "none", background: "#3B82F6", fontSize: 15, cursor: "pointer", color: "#fff", fontWeight: 600, flexShrink: 0 }}>
                 Group Selected ({checkedOrder.length})
               </button>
             )}
-            <button onClick={handleUndo} disabled={undoStack.length === 0} style={{ width: 32, height: 32, borderRadius: "50%", border: "1.5px solid #e2e8f0", background: undoStack.length === 0 ? "#f8fafc" : "#fff", fontSize: 14, cursor: undoStack.length === 0 ? "not-allowed" : "pointer", color: undoStack.length === 0 ? "#cbd5e1" : "#64748b", display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>↺</button>
-            <button onClick={handleRedo} disabled={redoStack.length === 0} style={{ width: 32, height: 32, borderRadius: "50%", border: "1.5px solid #e2e8f0", background: redoStack.length === 0 ? "#f8fafc" : "#fff", fontSize: 14, cursor: redoStack.length === 0 ? "not-allowed" : "pointer", color: redoStack.length === 0 ? "#cbd5e1" : "#64748b", display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>↻</button>
+            <button onClick={handleUndo} disabled={undoStack.length === 0} style={{ width: 32, height: 32, borderRadius: "50%", border: "1.5px solid #e2e8f0", background: undoStack.length === 0 ? "#f8fafc" : "#fff", fontSize: 15, cursor: undoStack.length === 0 ? "not-allowed" : "pointer", color: undoStack.length === 0 ? "#cbd5e1" : "#64748b", display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>↺</button>
+            <button onClick={handleRedo} disabled={redoStack.length === 0} style={{ width: 32, height: 32, borderRadius: "50%", border: "1.5px solid #e2e8f0", background: redoStack.length === 0 ? "#f8fafc" : "#fff", fontSize: 15, cursor: redoStack.length === 0 ? "not-allowed" : "pointer", color: redoStack.length === 0 ? "#cbd5e1" : "#64748b", display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>↻</button>
             <button onClick={() => {
               if (confirmAction === "reset") { setConfirmAction(null); setSteps(initialEquation?.steps ?? []); setEditingStepIndex(null); }
               else { setConfirmAction("reset"); }
-            }} style={{ padding: "6px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: confirmAction === "reset" ? "#E85D75" : "#64748b", fontWeight: confirmAction === "reset" ? 600 : 400, flexShrink: 0 }}>{confirmAction === "reset" ? "Confirm Reset?" : "Reset"}</button>
+            }} style={{ padding: "6px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: confirmAction === "reset" ? "#E85D75" : "#64748b", fontWeight: confirmAction === "reset" ? 600 : 400, flexShrink: 0 }}>{confirmAction === "reset" ? "Confirm Reset?" : "Reset"}</button>
             <button onClick={() => {
               if (confirmAction === "delete") { setConfirmAction(null); setSteps([]); setEditingStepIndex(null); onSave({ steps: [] }); }
               else { setConfirmAction("delete"); }
-            }} style={{ padding: "6px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: confirmAction === "delete" ? "#E85D75" : "#64748b", fontWeight: confirmAction === "delete" ? 600 : 400, flexShrink: 0 }}>{confirmAction === "delete" ? "Confirm Delete?" : "Delete Equation"}</button>
-            <button onClick={onCancel} style={{ padding: "6px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b", flexShrink: 0 }}>Cancel</button>
+            }} style={{ padding: "6px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: confirmAction === "delete" ? "#E85D75" : "#64748b", fontWeight: confirmAction === "delete" ? 600 : 400, flexShrink: 0 }}>{confirmAction === "delete" ? "Confirm Delete?" : "Delete Equation"}</button>
+            <button onClick={onCancel} style={{ padding: "6px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b", flexShrink: 0 }}>Cancel</button>
           </div>
         </div>
 
@@ -6711,7 +6765,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                             />
                           ) : (
                             <div style={{ width: 140, minHeight: 140, borderRadius: 12, background: "#F8FAFC", border: "1.5px solid #e2e8f0", padding: "8px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-                              <div style={{ fontSize: 12, fontWeight: 600, color: "#1a2332", textAlign: "center" }}>{step.metricLabel ?? "?"}</div>
+                              <div style={{ fontSize: 15, fontWeight: 600, color: "#1a2332", textAlign: "center" }}>{step.metricLabel ?? "?"}</div>
                               <div style={{ fontSize: 15, fontWeight: 700, color: "#1a2332", textAlign: "center" }}>{step.metricValue ?? ""}</div>
                             </div>
                           )}
@@ -6846,11 +6900,11 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                   const renderAddMenu = (insertAt: number, menuKey: string) => (
                     showAddMenu && addAtIndex === insertAt ? (
                       <div key={menuKey} ref={addMenuRef} style={{ position: "absolute", left: 0, top: "100%", marginTop: 4, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 50, minWidth: 170, overflow: "hidden" }}>
-                        <div onClick={e => { e.stopPropagation(); setShowAddMenu(false); setForceSearch(true); setPendingOperator(false); setEditingStepIndex(null); setSearchQuery(""); setTimeout(() => searchRef.current?.focus(), 50); }} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
+                        <div onClick={e => { e.stopPropagation(); setShowAddMenu(false); setForceSearch(true); setPendingOperator(false); setEditingStepIndex(null); setSearchQuery(""); setTimeout(() => searchRef.current?.focus(), 50); }} style={{ padding: "9px 14px", fontSize: 15, cursor: "pointer", color: "#1a2332" }}
                           onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Metric</div>
-                        <div onClick={e => { e.stopPropagation(); handleAddNumberStep(); }} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
+                        <div onClick={e => { e.stopPropagation(); handleAddNumberStep(); }} style={{ padding: "9px 14px", fontSize: 15, cursor: "pointer", color: "#1a2332" }}
                           onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Number</div>
-                        <div onClick={e => { e.stopPropagation(); setShowAddMenu(false); setForceSearch(false); setPendingOperator(true); setEditingStepIndex(null); setSearchQuery(""); }} style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", color: "#1a2332" }}
+                        <div onClick={e => { e.stopPropagation(); setShowAddMenu(false); setForceSearch(false); setPendingOperator(true); setEditingStepIndex(null); setSearchQuery(""); }} style={{ padding: "9px 14px", fontSize: 15, cursor: "pointer", color: "#1a2332" }}
                           onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Math</div>
                       </div>
                     ) : null
@@ -6948,7 +7002,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                                 onDragEnd={() => { dragStepIdxRef.current = null; dragCountRef.current = 1; setDropLineIndex(null); dropLineIndexRef.current = null; }}
                                 style={{ position: "relative", display: "inline-flex", flexWrap: "wrap", gap: 6, padding: "8px 12px", border: `2px solid ${rpgIsSelected ? "#3B82F6" : "#e2e8f0"}`, borderRadius: 16, background: "#fff", alignItems: "flex-start", minWidth: `${140 * Math.max(0.6, Math.min(1, cardSize / 140))}px`, minHeight: `${140 * Math.max(0.6, Math.min(1, cardSize / 140))}px` }}>
                                 {rpgIsSelected && (
-                                  <div onClick={e => { e.stopPropagation(); handleRemoveGroup(g.startIdx); }} style={{ position: "absolute", top: -6, right: -6, width: 24, height: 24, borderRadius: "50%", background: "#3B82F6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 14, fontWeight: 700, zIndex: 20, boxShadow: "0 2px 6px rgba(0,0,0,0.15)" }}>×</div>
+                                  <div onClick={e => { e.stopPropagation(); handleRemoveGroup(g.startIdx); }} style={{ position: "absolute", top: -6, right: -6, width: 24, height: 24, borderRadius: "50%", background: "#3B82F6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 15, fontWeight: 700, zIndex: 20, boxShadow: "0 2px 6px rgba(0,0,0,0.15)" }}>×</div>
                                 )}
                                 {renderRange(g.startIdx + 1, g.startIdx + g.steps!.length - 1)}
                                 {dropLineIndex === g.startIdx + g.steps!.length - 1 && dropLineIndex > g.startIdx && dropLineIndex < g.startIdx + g.steps!.length && (
@@ -7028,7 +7082,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                               onDragEnd={() => { dragStepIdxRef.current = null; dragCountRef.current = 1; setDropLineIndex(null); dropLineIndexRef.current = null; }}
                               style={{ position: "relative", display: "inline-flex", flexWrap: "wrap", gap: 6, padding: "8px 12px", border: `2px solid ${pgIsSelected ? "#3B82F6" : "#e2e8f0"}`, borderRadius: 16, background: "#fff", alignItems: "flex-start", minWidth: `${140 * Math.max(0.6, Math.min(1, cardSize / 140))}px`, minHeight: `${140 * Math.max(0.6, Math.min(1, cardSize / 140))}px` }}>
                               {pgIsSelected && (
-                                <div onClick={e => { e.stopPropagation(); handleRemoveGroup(g.startIdx); }} style={{ position: "absolute", top: -6, right: -6, width: 24, height: 24, borderRadius: "50%", background: "#3B82F6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 14, fontWeight: 700, zIndex: 20, boxShadow: "0 2px 6px rgba(0,0,0,0.15)" }}>×</div>
+                                <div onClick={e => { e.stopPropagation(); handleRemoveGroup(g.startIdx); }} style={{ position: "absolute", top: -6, right: -6, width: 24, height: 24, borderRadius: "50%", background: "#3B82F6", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 15, fontWeight: 700, zIndex: 20, boxShadow: "0 2px 6px rgba(0,0,0,0.15)" }}>×</div>
                               )}
                               {renderRange(g.startIdx + 1, g.startIdx + g.steps!.length - 1)}
                               {dropLineIndex === g.startIdx + g.steps!.length - 1 && dropLineIndex > g.startIdx && dropLineIndex < g.startIdx + g.steps!.length && (
@@ -7076,40 +7130,40 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
           <div>
             {showMathPicker && (
               <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "#64748b", marginBottom: 10 }}>Select the math:</div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 10 }}>Select the math:</div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
                   <button onClick={() => handleSelectOperator("+")} style={{ padding: "14px 0", borderRadius: 16, border: "2px solid #e2e8f0", background: "#fff", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, cursor: "pointer", fontSize: 24, fontWeight: 700, color: "#3B82F6" }}
                     onMouseEnter={e => { e.currentTarget.style.borderColor = "#3B82F6"; e.currentTarget.style.background = "#EFF6FF"; }} onMouseLeave={e => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.background = "#fff"; }}>
                     <span>+</span>
-                    <span style={{ fontSize: 10, fontWeight: 500, color: "#94a3b8" }}>Add</span>
+                    <span style={{ fontSize: 15, fontWeight: 500, color: "#94a3b8" }}>Add</span>
                   </button>
                   <button onClick={() => handleSelectOperator("-")} style={{ padding: "14px 0", borderRadius: 16, border: "2px solid #e2e8f0", background: "#fff", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, cursor: "pointer", fontSize: 24, fontWeight: 700, color: "#3B82F6" }}
                     onMouseEnter={e => { e.currentTarget.style.borderColor = "#3B82F6"; e.currentTarget.style.background = "#EFF6FF"; }} onMouseLeave={e => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.background = "#fff"; }}>
                     <span>−</span>
-                    <span style={{ fontSize: 10, fontWeight: 500, color: "#94a3b8" }}>Subtract</span>
+                    <span style={{ fontSize: 15, fontWeight: 500, color: "#94a3b8" }}>Subtract</span>
                   </button>
                   <button onClick={() => handleSelectOperator("*")} style={{ padding: "14px 0", borderRadius: 16, border: "2px solid #e2e8f0", background: "#fff", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, cursor: "pointer", fontSize: 24, fontWeight: 700, color: "#3B82F6" }}
                     onMouseEnter={e => { e.currentTarget.style.borderColor = "#3B82F6"; e.currentTarget.style.background = "#EFF6FF"; }} onMouseLeave={e => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.background = "#fff"; }}>
                     <span>×</span>
-                    <span style={{ fontSize: 10, fontWeight: 500, color: "#94a3b8" }}>Multiply</span>
+                    <span style={{ fontSize: 15, fontWeight: 500, color: "#94a3b8" }}>Multiply</span>
                   </button>
                   <button onClick={() => handleSelectOperator("/")} style={{ padding: "14px 0", borderRadius: 16, border: "2px solid #e2e8f0", background: "#fff", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, cursor: "pointer", fontSize: 24, fontWeight: 700, color: "#3B82F6" }}
                     onMouseEnter={e => { e.currentTarget.style.borderColor = "#3B82F6"; e.currentTarget.style.background = "#EFF6FF"; }} onMouseLeave={e => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.background = "#fff"; }}>
                     <span>÷</span>
-                    <span style={{ fontSize: 10, fontWeight: 500, color: "#94a3b8" }}>Divide</span>
+                    <span style={{ fontSize: 15, fontWeight: 500, color: "#94a3b8" }}>Divide</span>
                   </button>
                   <button onClick={() => handleAddParentheses()} style={{ padding: "14px 0", borderRadius: 16, border: "2px solid #e2e8f0", background: "#fff", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, cursor: "pointer", fontSize: 24, fontWeight: 700, color: "#3B82F6" }}
                     onMouseEnter={e => { e.currentTarget.style.borderColor = "#3B82F6"; e.currentTarget.style.background = "#EFF6FF"; }} onMouseLeave={e => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.background = "#fff"; }}>
                     <span style={{ fontSize: 20 }}>( )</span>
-                    <span style={{ fontSize: 10, fontWeight: 500, color: "#94a3b8" }}>Group</span>
+                    <span style={{ fontSize: 15, fontWeight: 500, color: "#94a3b8" }}>Group</span>
                   </button>
                   <button onClick={() => handleAddFraction()} style={{ padding: "14px 0", borderRadius: 16, border: "2px solid #e2e8f0", background: "#fff", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, cursor: "pointer", fontSize: 24, fontWeight: 700, color: "#3B82F6" }}
                     onMouseEnter={e => { e.currentTarget.style.borderColor = "#3B82F6"; e.currentTarget.style.background = "#EFF6FF"; }} onMouseLeave={e => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.background = "#fff"; }}>
                     <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1 }}>
-                      <span style={{ padding: "0 4px 2px", borderBottom: "2px solid currentColor", fontSize: 14 }}>□</span>
-                      <span style={{ padding: "2px 4px 0", fontSize: 14 }}>□</span>
+                      <span style={{ padding: "0 4px 2px", borderBottom: "2px solid currentColor", fontSize: 15 }}>□</span>
+                      <span style={{ padding: "2px 4px 0", fontSize: 15 }}>□</span>
                     </span>
-                    <span style={{ fontSize: 10, fontWeight: 500, color: "#94a3b8" }}>Fraction</span>
+                    <span style={{ fontSize: 15, fontWeight: 500, color: "#94a3b8" }}>Fraction</span>
                   </button>
                 </div>
               </div>
@@ -7154,19 +7208,19 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
                   </div>
                 )}
                 {steps.length === 0 && (
-                  <button onClick={handleAddNumberStep} style={{ padding: "8px 20px", borderRadius: 8, border: "1px solid #e2e8f0", background: "#fff", color: "#334155", fontSize: 13, fontWeight: 500, cursor: "pointer", marginTop: 12, display: "block" }}>
+                  <button onClick={handleAddNumberStep} style={{ padding: "8px 20px", borderRadius: 8, border: "1px solid #e2e8f0", background: "#fff", color: "#334155", fontSize: 15, fontWeight: 500, cursor: "pointer", marginTop: 12, display: "block" }}>
                     Start with a Number
                   </button>
                 )}
                 {searchQuery.trim() && filteredMetrics.length === 0 && (
-                  <div style={{ padding: "20px", textAlign: "center", color: "#94a3b8", fontSize: 13 }}>
+                  <div style={{ padding: "20px", textAlign: "center", color: "#94a3b8", fontSize: 15 }}>
                     No metric boxes found matching "{searchQuery}"
                   </div>
                 )}
                 {steps.length === 0 && !searchQuery.trim() && filteredMetrics.length === 0 && (
                   <div style={{ padding: "40px 20px", textAlign: "center" }}>
-                    <div style={{ fontSize: 14, color: "#94a3b8", marginBottom: 6 }}>No metric boxes available</div>
-                    <div style={{ fontSize: 12, color: "#cbd5e1" }}>Create some metric boxes on your dashboard first</div>
+                    <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 6 }}>No metric boxes available</div>
+                    <div style={{ fontSize: 15, color: "#cbd5e1" }}>Create some metric boxes on your dashboard first</div>
                   </div>
                 )}
               </>
@@ -7177,7 +7231,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
         {/* Save — fixed */}
         {isMobile && targetMetric && steps.length > 0 && (
           <div style={{ borderTop: "1px solid #e2e8f0", padding: "12px 16px", background: "#F8FAFC" }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>
               Final Output
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -7221,7 +7275,7 @@ function EquationBuilderPage({ allMetrics, sections, initialEquation, targetMetr
       {!isMobile && targetMetric && steps.length > 0 && (
         <div style={{ flex: 1, maxWidth: "25%", minWidth: 220, background: "#F8FAFC", display: "flex", flexDirection: "column" }}>
           <div style={{ padding: "20px 20px", borderBottom: "1px solid #e2e8f0" }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em" }}>
               Final Output
             </div>
           </div>
@@ -7262,22 +7316,22 @@ function ChatPanel({ sections, onClose, isMobile }: { sections: Section[]; onClo
       </div>
       <div style={{ display: "flex", gap: 4, padding: "6px 10px", borderBottom: "1px solid #f1f5f9", overflowX: "auto" }}>
         {channels.map(ch => (
-          <button key={ch} onClick={() => setActive(ch)} style={{ padding: "3px 9px", borderRadius: 20, fontSize: 11, fontWeight: 500, border: "none", cursor: "pointer", flexShrink: 0, background: active === ch ? "#3B82F6" : "#f1f5f9", color: active === ch ? "#fff" : "#64748b" }}>{ch}</button>
+          <button key={ch} onClick={() => setActive(ch)} style={{ padding: "3px 9px", borderRadius: 20, fontSize: 15, fontWeight: 500, border: "none", cursor: "pointer", flexShrink: 0, background: active === ch ? "#3B82F6" : "#f1f5f9", color: active === ch ? "#fff" : "#64748b" }}>{ch}</button>
         ))}
       </div>
       <div style={{ flex: 1, overflowY: "auto", padding: "14px" }}>
         {display.map((m, i) => (
           <div key={i} style={{ display: "flex", gap: 8, marginBottom: 12, alignItems: "flex-start" }}>
-            <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#4C9FE8", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 600, color: "#fff" }}>{m.name[0]}</div>
+            <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#4C9FE8", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 600, color: "#fff" }}>{m.name[0]}</div>
             <div>
-              <div style={{ fontSize: 11, fontWeight: 600, color: "#1a2332", marginBottom: 1 }}>{m.name} <span style={{ color: "#94a3b8", fontWeight: 400 }}>{m.time}</span></div>
-              <div style={{ fontSize: 12, color: "#475569", lineHeight: 1.5 }}>{m.text}</div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: "#1a2332", marginBottom: 1 }}>{m.name} <span style={{ color: "#94a3b8", fontWeight: 400 }}>{m.time}</span></div>
+              <div style={{ fontSize: 15, color: "#475569", lineHeight: 1.5 }}>{m.text}</div>
             </div>
           </div>
         ))}
       </div>
       <div style={{ padding: "10px 14px", borderTop: "1px solid #f1f5f9" }}>
-        <input placeholder="Type Response..." style={{ width: "100%", padding: "8px 14px", borderRadius: 99, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", boxSizing: "border-box", background: "#f8fafc" }} />
+        <input placeholder="Type Response..." style={{ width: "100%", padding: "8px 14px", borderRadius: 99, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box", background: "#f8fafc" }} />
       </div>
     </div>
   );
@@ -7355,13 +7409,13 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
           <div style={{ width: 56, height: 56, borderRadius: "50%", background: "rgba(255,255,255,0.2)", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>
             {avatarUrl ? <img src={avatarUrl} alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ color: "#fff" }}>👤</span>}
           </div>
-          {!isMobile && <div onClick={onClose} style={{ position: "absolute", right: 0, width: 26, height: 26, borderRadius: "50%", border: "1.5px solid rgba(255,255,255,0.4)", background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#fff", fontSize: 14 }}>‹</div>}
+          {!isMobile && <div onClick={onClose} style={{ position: "absolute", right: 0, width: 26, height: 26, borderRadius: "50%", border: "1.5px solid rgba(255,255,255,0.4)", background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#fff", fontSize: 15 }}>‹</div>}
         </div>
         <div style={{ textAlign: "center", width: "100%" }}>
-          <div style={{ fontSize: 14, fontWeight: 400, color: "#fff" }}>{firstName ? `Welcome ${firstName}` : "Welcome"}</div>
+          <div style={{ fontSize: 15, fontWeight: 400, color: "#fff" }}>{firstName ? `Welcome ${firstName}` : "Welcome"}</div>
           {/* Org switcher */}
           <div ref={orgDropdownRef} style={{ position: "relative", display: "inline-block", marginTop: 2 }}>
-            <div onClick={onToggleOrgDropdown} style={{ fontSize: 14, fontWeight: 400, color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, opacity: 0.85 }}>
+            <div onClick={onToggleOrgDropdown} style={{ fontSize: 15, fontWeight: 400, color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, opacity: 0.85 }}>
               <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 160 }}>to {activeOrg?.isPersonal ? "your dashboard" : activeOrg?.name}</span>
               <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ flexShrink: 0, transform: showOrgDropdown ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>
                 <path d="M2 4L5 7L8 4" stroke="rgba(255,255,255,0.85)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -7371,7 +7425,7 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
               <div style={{ position: "absolute", top: 28, left: "50%", transform: "translateX(-50%)", zIndex: 110, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.15)", border: "1px solid #e2e8f0", minWidth: 180, overflow: "hidden" }}>
                 {orgs.map(org => (
                   <div key={org.id} onClick={() => onSwitchOrg(org)}
-                    style={{ padding: "10px 14px", fontSize: 13, cursor: "pointer", color: activeOrg?.id === org.id ? "#3B82F6" : "#1a2332", fontWeight: activeOrg?.id === org.id ? 600 : 400, background: activeOrg?.id === org.id ? "#EFF6FF" : "transparent", borderBottom: "1px solid #f1f5f9", textAlign: "left" }}
+                    style={{ padding: "10px 14px", fontSize: 15, cursor: "pointer", color: activeOrg?.id === org.id ? "#3B82F6" : "#1a2332", fontWeight: activeOrg?.id === org.id ? 600 : 400, background: activeOrg?.id === org.id ? "#EFF6FF" : "transparent", borderBottom: "1px solid #f1f5f9", textAlign: "left" }}
                     onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
                     onMouseLeave={e => (e.currentTarget.style.background = activeOrg?.id === org.id ? "#EFF6FF" : "transparent")}>
                     {org.name}
@@ -7391,11 +7445,11 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
                 cursor: item.comingSoon ? "default" : "pointer",
                 background: isActive ? "rgba(255,255,255,0.15)" : "transparent",
                 border: isActive ? "1.5px solid rgba(255,255,255,0.8)" : "1.5px solid transparent",
-                color: "#fff", fontSize: 12, fontWeight: isActive ? 600 : 400,
+                color: "#fff", fontSize: 15, fontWeight: isActive ? 600 : 400,
                 transition: "all 0.15s", opacity: item.comingSoon ? 0.55 : 1 }}>
               <IconGlyph name={item.icon} size={21} color="#fff" />
               <span style={{ whiteSpace: "nowrap" }}>{item.label}</span>
-              {item.comingSoon && <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 99, background: "rgba(255,255,255,0.2)", color: "rgba(255,255,255,0.7)", marginLeft: "auto", whiteSpace: "nowrap" }}>Soon</span>}
+              {item.comingSoon && <span style={{ fontSize: 15, padding: "1px 6px", borderRadius: 99, background: "rgba(255,255,255,0.2)", color: "rgba(255,255,255,0.7)", marginLeft: "auto", whiteSpace: "nowrap" }}>Soon</span>}
             </div>
           );
         })}
@@ -7405,7 +7459,7 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
   const barColors = { green: "#4CAF7D", yellow: "#F5A623", red: "#E85D75" };
   return (
     <div style={{ padding: "0 18px 8px" }}>
-      <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.7)", marginBottom: 6, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div style={{ fontSize: 15, fontWeight: 600, color: "rgba(255,255,255,0.7)", marginBottom: 6, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <span>Health</span>
         <span style={{ color: "#fff", fontWeight: 700 }}>{health.score}%</span>
       </div>
@@ -7416,7 +7470,7 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
           transition: "width 400ms ease, background 300ms ease"
         }} />
       </div>
-      <div style={{ fontSize: 9, color: "rgba(255,255,255,0.6)", marginTop: 4, textAlign: "center" }}>
+      <div style={{ fontSize: 15, color: "rgba(255,255,255,0.6)", marginTop: 4, textAlign: "center" }}>
         {health.counts.green}G · {health.counts.yellow}Y · {health.counts.red}R
         {health.counts.gray > 0 ? ` · ${health.counts.gray} unmatched` : ""}
       </div>
@@ -7425,56 +7479,56 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
 })()}
       {/* ── Sidebar Tasks Widget ── */}
       <div style={{ background: "#fff", borderRadius: 12, margin: "8px 12px 4px", padding: "12px 14px" }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: "#1a2332", marginBottom: 8 }}>Your Tasks</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: "#1a2332", marginBottom: 8 }}>Your Tasks</div>
         <div style={{ height: 6, borderRadius: 99, background: "#e2e8f0", marginBottom: 10, overflow: "hidden" }}>
           <div style={{ width: `${sidebarPct}%`, height: "100%", borderRadius: 99, background: "#4CAF7D", transition: "width 0.3s" }} />
         </div>
         {sidebarPriorityList.map(t => (
           <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 6px", cursor: "pointer", background: "#FFF8ED", borderRadius: 6, marginBottom: 2 }}
             onClick={() => sidebarToggle(t.id)}>
-            <div style={{ width: 16, height: 16, borderRadius: "50%", flexShrink: 0, border: t.done ? "none" : "1.5px solid #F5A623", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 8 }}>{t.done ? "✓" : ""}</div>
-            <span style={{ fontSize: 11, color: "#1a2332", flex: 1, fontWeight: 600, textDecoration: t.done ? "line-through" : "none", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.text}</span>
+            <div style={{ width: 16, height: 16, borderRadius: "50%", flexShrink: 0, border: t.done ? "none" : "1.5px solid #F5A623", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 15 }}>{t.done ? "✓" : ""}</div>
+            <span style={{ fontSize: 15, color: "#1a2332", flex: 1, fontWeight: 600, textDecoration: t.done ? "line-through" : "none", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.text}</span>
           </div>
         ))}
         {sidebarRegularList.map(t => (
           <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 0", cursor: "pointer" }}
             onClick={() => sidebarToggle(t.id)}>
-            <div style={{ width: 16, height: 16, borderRadius: "50%", flexShrink: 0, border: t.done ? "none" : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 8 }}>{t.done ? "✓" : ""}</div>
-            <span style={{ fontSize: 11, color: "#1a2332", flex: 1, textDecoration: t.done ? "line-through" : "none", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.text}</span>
+            <div style={{ width: 16, height: 16, borderRadius: "50%", flexShrink: 0, border: t.done ? "none" : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 15 }}>{t.done ? "✓" : ""}</div>
+            <span style={{ fontSize: 15, color: "#1a2332", flex: 1, textDecoration: t.done ? "line-through" : "none", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.text}</span>
           </div>
         ))}
-        <div onClick={() => onNav("tasks")} style={{ fontSize: 11, color: "#3B82F6", cursor: "pointer", fontWeight: 600, marginTop: 6, marginBottom: 8 }}>View all →</div>
+        <div onClick={() => onNav("tasks")} style={{ fontSize: 15, color: "#3B82F6", cursor: "pointer", fontWeight: 600, marginTop: 6, marginBottom: 8 }}>View all →</div>
 
         {sidebarShowAdd ? (
           <div>
             <input value={sidebarAddText} onChange={e => setSidebarAddText(e.target.value)}
               placeholder="New task..." autoFocus
               onKeyDown={e => { if (e.key === "Enter") sidebarAddTask(); }}
-              style={{ width: "100%", padding: "5px 8px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 11, outline: "none", boxSizing: "border-box", marginBottom: 4 }} />
-            <label style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 9, color: sidebarAddPriority ? "#F5A623" : "#94a3b8", cursor: "pointer", marginBottom: 4, alignSelf: "flex-start" }}>
+              style={{ width: "100%", padding: "5px 8px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box", marginBottom: 4 }} />
+            <label style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 15, color: sidebarAddPriority ? "#F5A623" : "#94a3b8", cursor: "pointer", marginBottom: 4, alignSelf: "flex-start" }}>
               <input type="checkbox" checked={sidebarAddPriority} onChange={e => setSidebarAddPriority(e.target.checked)} style={{ accentColor: "#F5A623", margin: 0, width: 12, height: 12 }} />
               {sidebarAddPriority ? "" : "Make priority?"}
             </label>
             <div style={{ display: "flex", gap: 4, marginBottom: 4 }}>
               <select value={sidebarAddAssignee} onChange={e => setSidebarAddAssignee(e.target.value)}
-                style={{ flex: 1, padding: "4px 6px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 10, outline: "none", background: "#fff" }}>
+                style={{ flex: 1, padding: "4px 6px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", background: "#fff" }}>
                 <option value={userEmail}>Me</option>
                 {orgMembers.filter(m => m.status === "active" && m.email !== userEmail).map(m => (
                   <option key={m.id} value={m.email}>{m.name || m.email.split("@")[0]}</option>
                 ))}
               </select>
               <input type="date" value={sidebarAddDueDate} onChange={e => setSidebarAddDueDate(e.target.value)}
-                style={{ flex: 1, padding: "4px 6px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 10, outline: "none", boxSizing: "border-box" }} />
+                style={{ flex: 1, padding: "4px 6px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box" }} />
             </div>
             <div style={{ display: "flex", gap: 4 }}>
               <button onClick={sidebarAddTask} disabled={!sidebarAddText.trim()}
-                style={{ flex: 1, padding: "4px 0", borderRadius: 6, border: "none", background: sidebarAddText.trim() ? "#3B82F6" : "#e2e8f0", color: "#fff", fontSize: 10, fontWeight: 600, cursor: sidebarAddText.trim() ? "pointer" : "not-allowed" }}>Add</button>
-              <button onClick={() => setSidebarShowAdd(false)} style={{ flex: 1, padding: "4px 0", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 10, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+                style={{ flex: 1, padding: "4px 0", borderRadius: 6, border: "none", background: sidebarAddText.trim() ? "#3B82F6" : "#e2e8f0", color: "#fff", fontSize: 15, fontWeight: 600, cursor: sidebarAddText.trim() ? "pointer" : "not-allowed" }}>Add</button>
+              <button onClick={() => setSidebarShowAdd(false)} style={{ flex: 1, padding: "4px 0", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>Cancel</button>
             </div>
           </div>
         ) : (
-          <div onClick={() => setSidebarShowAdd(true)} style={{ fontSize: 11, color: "#3B82F6", cursor: "pointer", fontWeight: 600, display: "flex", alignItems: "center", gap: 3 }}>
-            <span style={{ fontSize: 13 }}>+</span> Add New Task
+          <div onClick={() => setSidebarShowAdd(true)} style={{ fontSize: 15, color: "#3B82F6", cursor: "pointer", fontWeight: 600, display: "flex", alignItems: "center", gap: 3 }}>
+            <span style={{ fontSize: 15 }}>+</span> Add New Task
           </div>
         )}
       </div>
@@ -7482,9 +7536,9 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
       <div style={{ padding: "14px 18px", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, flexShrink: 0 }}>
         <img src="https://dashello.co/wp-content/uploads/2023/08/White-Logo-Full.png" alt="Dashello" style={{ height: 26, objectFit: "contain", maxWidth: "80%" }} />
         {(currentUserLevel === "owner" || currentUserLevel === "admin") && (
-          <button onClick={onOpenInviteModal} style={{ width: "100%", padding: "10px 0", borderRadius: 12, border: "none", background: "#fff", color: "#3B82F6", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Invite Team Members</button>
+          <button onClick={onOpenInviteModal} style={{ width: "100%", padding: "10px 0", borderRadius: 12, border: "none", background: "#fff", color: "#3B82F6", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Invite Team Members</button>
         )}
-        <button onClick={() => supabase.auth.signOut()} style={{ width: "100%", padding: "10px 0", borderRadius: 12, border: "2px solid rgba(255,255,255,0.6)", background: "transparent", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Sign Out</button>
+        <button onClick={() => supabase.auth.signOut()} style={{ width: "100%", padding: "10px 0", borderRadius: 12, border: "2px solid rgba(255,255,255,0.6)", background: "transparent", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Sign Out</button>
       </div>
     </aside>
   );
@@ -7649,7 +7703,7 @@ function HomePage({ sections, setSections, onClickMetric, onSectionRemoved, onFi
           orgMembers={orgMembers}
         />
       ))}
-      <div onClick={() => setShowAddRow(true)} style={{ display: "flex", alignItems: "center", gap: 8, color: "#94a3b8", fontSize: 13, cursor: "pointer", padding: "6px 0" }}>
+      <div onClick={() => setShowAddRow(true)} style={{ display: "flex", alignItems: "center", gap: 8, color: "#94a3b8", fontSize: 15, cursor: "pointer", padding: "6px 0" }}>
         <div style={{ width: 26, height: 26, borderRadius: "50%", border: "1.5px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, color: "#94a3b8" }}>+</div>
         New Row
       </div>
@@ -7667,10 +7721,10 @@ function BreadcrumbNav({ items, onNavigate }: {
   onNavigate: (key: string) => void;
 }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13, overflowX: "auto", whiteSpace: "nowrap", flexShrink: 0, scrollbarWidth: "none", msOverflowStyle: "none" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 15, overflowX: "auto", whiteSpace: "nowrap", flexShrink: 0, scrollbarWidth: "none", msOverflowStyle: "none" }}>
       {items.map((item, i) => (
         <Fragment key={item.key}>
-          {i > 0 && <span style={{ color: "#cbd5e1", fontWeight: 400, fontSize: 12 }}>/</span>}
+          {i > 0 && <span style={{ color: "#cbd5e1", fontWeight: 400, fontSize: 15 }}>/</span>}
           <span
             onClick={() => onNavigate(item.key)}
             style={{
@@ -8613,17 +8667,17 @@ const sidebarEl = (
         {isPreviewMode ? (
           <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px clamp(10px,3vw,26px)", borderBottom: "1px solid #E8EDF2", background: "#FFFBEB", flexShrink: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
-              <div style={{ padding: "3px 10px", borderRadius: 6, background: "#F59E0B", color: "#fff", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.04 }}>Preview Mode</div>
-              <span style={{ fontSize: 13, color: "#92400E" }}>Viewing as <strong>{previewMember?.name || previewMember?.email}</strong></span>
-              {previewLevel && <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 99, background: "#FDE68A", color: "#92400E", textTransform: "capitalize" }}>{previewLevel}</span>}
+              <div style={{ padding: "3px 10px", borderRadius: 6, background: "#F59E0B", color: "#fff", fontSize: 15, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.04 }}>Preview Mode</div>
+              <span style={{ fontSize: 15, color: "#92400E" }}>Viewing as <strong>{previewMember?.name || previewMember?.email}</strong></span>
+              {previewLevel && <span style={{ fontSize: 15, padding: "2px 8px", borderRadius: 99, background: "#FDE68A", color: "#92400E", textTransform: "capitalize" }}>{previewLevel}</span>}
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <button onClick={() => { setPreviewMember(null); setPreviewPerms(null); }}
-                style={{ padding: "6px 14px", borderRadius: 8, border: "1.5px solid #D97706", background: "#fff", color: "#92400E", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                style={{ padding: "6px 14px", borderRadius: 8, border: "1.5px solid #D97706", background: "#fff", color: "#92400E", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>
                 Exit Preview
               </button>
               <button onClick={() => { setPreviewFromSave(true); setPreviewMember(null); setPreviewPerms(null); setPage("team"); }}
-                style={{ padding: "6px 16px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                style={{ padding: "6px 16px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>
                 Save & Exit
               </button>
             </div>
@@ -8642,7 +8696,7 @@ const sidebarEl = (
               <div style={{ display: "flex", borderRadius: 8, border: "1px solid #e2e8f0", overflow: "hidden" }}>
                 {["Row", page === "goals" ? "Expanded" : "Column"].map((lbl, i) => (
                   <div key={lbl} onClick={() => { if (page === "goals") setGoalsViewMode(i === 0 ? "row" : "expanded"); if (page === "team") setTeamViewMode(i === 0 ? "row" : "expanded"); }}
-                    style={{ padding: isMobile ? "8px 12px" : "5px 13px", fontSize: 12, fontWeight: 500, cursor: "pointer", userSelect: "none",
+                    style={{ padding: isMobile ? "8px 12px" : "5px 13px", fontSize: 15, fontWeight: 500, cursor: "pointer", userSelect: "none",
                       background: (page === "home" && i === 0) || (page === "goals" && ((i === 0 && goalsViewMode === "row") || (i === 1 && goalsViewMode === "expanded"))) || (page === "team" && ((i === 0 && teamViewMode === "row") || (i === 1 && teamViewMode === "expanded"))) ? "#3B82F6" : "#fff",
                       color: (page === "home" && i === 0) || (page === "goals" && ((i === 0 && goalsViewMode === "row") || (i === 1 && goalsViewMode === "expanded"))) || (page === "team" && ((i === 0 && teamViewMode === "row") || (i === 1 && teamViewMode === "expanded"))) ? "#fff" : "#94a3b8" }}>{lbl}</div>
                 ))}
@@ -8683,14 +8737,14 @@ const sidebarEl = (
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               {(page === "home" || page === "goals" || page === "integrations" || page === "tasks") && <TopBarRefreshButton isMobile={isMobile} onRefresh={handleRefreshAll} lastSyncedAt={lastDashboardSync} />}
               <div style={{ position: "relative" }}>
-                <div ref={mobileMenuTriggerRef} onClick={() => setShowMobileMenu(v => !v)} style={{ width: 34, height: 34, borderRadius: "50%", border: "1.5px solid #e2e8f0", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 14, color: "#64748b" }}>‹</div>
+                <div ref={mobileMenuTriggerRef} onClick={() => setShowMobileMenu(v => !v)} style={{ width: 34, height: 34, borderRadius: "50%", border: "1.5px solid #e2e8f0", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 15, color: "#64748b" }}>‹</div>
                 {showMobileMenu && <MobileMenu triggerRef={mobileMenuTriggerRef} onClose={() => setShowMobileMenu(false)} onChat={() => setShowChat(v => !v)} onCustomize={() => setPage("integrations")} />}
               </div>
             </div>
           ) : (
             <>
-              <div onClick={() => setShowChat(v => !v)} style={{ padding: "6px 16px", borderRadius: 20, border: "1px solid #e2e8f0", fontSize: 12, color: "#64748b", cursor: "pointer", background: showChat ? "#EFF6FF" : "#fff", whiteSpace: "nowrap" }}>Chat</div>
-              <div onClick={() => setPage("integrations")} style={{ padding: "7px clamp(10px,2vw,20px)", borderRadius: 8, background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>Customize</div>
+              <div onClick={() => setShowChat(v => !v)} style={{ padding: "6px 16px", borderRadius: 20, border: "1px solid #e2e8f0", fontSize: 15, color: "#64748b", cursor: "pointer", background: showChat ? "#EFF6FF" : "#fff", whiteSpace: "nowrap" }}>Chat</div>
+              <div onClick={() => setPage("integrations")} style={{ padding: "7px clamp(10px,2vw,20px)", borderRadius: 8, background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>Customize</div>
             </>
           )}
         </div>
@@ -8707,7 +8761,7 @@ const sidebarEl = (
           {page === "tasks" && isPageAccessible("tasks") && <div style={{ flex: 1, overflowY: "auto" }}><TasksPage tasks={tasksData} setTasks={setTasksData} userEmail={userEmail} orgMembers={orgMembers} teamRows={teamRows} sections={sections} goals={goalsData} onViewMetric={id => setViewMetricId(id)} onViewGoal={id => setViewGoalId(id)} onViewTeamMember={m => { setPendingMemberDetail(m); }} timezone={profile.timezone} /></div>}
           {page === "integrations" && isPageAccessible("integrations") && <div style={{ flex: 1, overflowY: "auto" }}><IntegrationsPage onSelectApp={a => { setSelectedApp(a); setPage("app-detail"); }} /></div>}
           {page === "app-detail" && selectedApp && <div style={{ flex: 1, overflowY: "auto" }}><AppDetailPage app={selectedApp} onBack={() => setPage("integrations")} /></div>}
-          {page === "team" && isPageAccessible("team") && <div style={{ flex: 1, overflowY: "auto" }}><TeamPage sections={isPreviewMode && previewSections ? previewSections : sections} orgMembers={orgMembers} setOrgMembers={setOrgMembers} teamRows={teamRows} setTeamRows={setTeamRows} teamPermissions={teamPermissions} setTeamPermissions={setTeamPermissions} currentUserLevel={currentUserLevel} userEmail={userEmail} onOpenInvite={() => setShowInviteModal(true)} onPreviewMember={(member, perms) => { setPreviewMember(member); setPreviewPerms(perms); setPage("home"); }} onExitPreviewSave={() => { setPreviewFromSave(false); }} previewFromSave={previewFromSave} pendingMemberDetail={pendingMemberDetail} onClearPendingMember={() => setPendingMemberDetail(null)} tasks={tasksData} setTasks={setTasksData} teamViewMode={teamViewMode} /></div>}
+          {page === "team" && isPageAccessible("team") && <div style={{ flex: 1, overflowY: "auto" }}><TeamPage sections={isPreviewMode && previewSections ? previewSections : sections} orgMembers={orgMembers} setOrgMembers={setOrgMembers} teamRows={teamRows} setTeamRows={setTeamRows} teamPermissions={teamPermissions} setTeamPermissions={setTeamPermissions} currentUserLevel={currentUserLevel} userEmail={userEmail} onOpenInvite={() => setShowInviteModal(true)} onPreviewMember={(member, perms) => { setPreviewMember(member); setPreviewPerms(perms); setPage("home"); }} onExitPreviewSave={() => { setPreviewFromSave(false); }} previewFromSave={previewFromSave} pendingMemberDetail={pendingMemberDetail} onClearPendingMember={() => setPendingMemberDetail(null)} tasks={tasksData} setTasks={setTasksData} teamViewMode={teamViewMode} menuPermissions={profile.menu_permissions ?? {}} /></div>}
           {page === "settings" && isPageAccessible("settings") && <div style={{ flex: 1, overflowY: "auto" }}><SettingsPage userId={userId!} userEmail={userEmail} profile={profile} forceDisableFiveAccount={fiveAccountForceOff} onForceDisableAcknowledged={() => setFiveAccountForceOff(false)} onProfileSaved={p => setProfile(p)} onFiveAccountCreated={handleFiveAccountCreated} onFiveAccountDisabled={handleGlobalFiveAccountDisabled} fiveAccountSettings={fiveAccountSettings} onFiveAccountSettingsChange={handleUpdateSettings} currentUserLevel={currentUserLevel} /></div>}
           {page === "playbooks" && isPageAccessible("playbooks") && <PlaybooksPage userId={userId} tasks={tasksData} setTasks={setTasksData} userEmail={userEmail} />}
           {page === "equation-builder" && equationBuilderTarget && (
@@ -8833,7 +8887,7 @@ const sidebarEl = (
             <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 48 }}>
               <div style={{ fontSize: 72, fontWeight: 800, color: "#e2e8f0", marginBottom: 8 }}>404</div>
               <div style={{ fontSize: 18, color: "#64748b", marginBottom: 24 }}>Something isn't quite right.</div>
-              <button onClick={() => window.history.back()} style={{ padding: "10px 24px", borderRadius: 10, border: "none", background: "#3B82F6", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
+              <button onClick={() => window.history.back()} style={{ padding: "10px 24px", borderRadius: 10, border: "none", background: "#3B82F6", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>
                 Go to previous page
               </button>
             </div>
@@ -8978,14 +9032,14 @@ const sidebarEl = (
               {(pendingMemberDetail.name?.[0] || pendingMemberDetail.email[0] || "?").toUpperCase()}
             </div>
             <div style={{ fontSize: 18, fontWeight: 700, color: "#1a2332", marginBottom: 2 }}>{pendingMemberDetail.name || pendingMemberDetail.email}</div>
-            <div style={{ fontSize: 13, color: "#3B82F6", fontWeight: 600, textTransform: "capitalize", marginBottom: 16 }}>{pendingMemberDetail.level}</div>
+            <div style={{ fontSize: 15, color: "#3B82F6", fontWeight: 600, textTransform: "capitalize", marginBottom: 16 }}>{pendingMemberDetail.level}</div>
             {(tasksData || []).filter(t => t.assignedTo === pendingMemberDetail.email && !t.done && t.priority).length > 0 && (
               <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#F5A623", marginBottom: 8 }}>★ Priorities</div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: "#F5A623", marginBottom: 8 }}>★ Priorities</div>
                 {(tasksData || []).filter(t => t.assignedTo === pendingMemberDetail.email && !t.done && t.priority).map(t => (
                   <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 6, background: "#FFF8ED", marginBottom: 4 }}>
                     <div style={{ width: 16, height: 16, borderRadius: "50%", flexShrink: 0, border: "1.5px solid #F5A623", background: "transparent" }} />
-                    <span style={{ flex: 1, fontSize: 13, color: "#1a2332", fontWeight: 600, minWidth: 0 }}>{t.text}</span>
+                    <span style={{ flex: 1, fontSize: 15, color: "#1a2332", fontWeight: 600, minWidth: 0 }}>{t.text}</span>
                   </div>
                 ))}
               </div>
