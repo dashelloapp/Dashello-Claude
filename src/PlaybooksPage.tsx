@@ -1,5 +1,6 @@
 import { Node as TipTapNode, mergeAttributes } from "@tiptap/core";
 import { useState, useRef, useEffect, useCallback, Fragment, useLayoutEffect } from "react";
+import { useTranslation } from "./i18n";
 
 const IframeExtension = TipTapNode.create({
   name: "iframe",
@@ -355,6 +356,7 @@ function MenuBar({ editor, showSource, onToggleSource }: { editor: any; showSour
 function RichEditor({ content, onChange, placeholder }: {
   content: string; onChange: (html: string) => void; placeholder?: string;
 }) {
+  const { t: __ } = useTranslation();
   const [showPasteModal, setShowPasteModal] = useState(false);
   const [pasteResolve, setPasteResolve] = useState<((rich: boolean) => void) | null>(null);
   const [showSource, setShowSource] = useState(false);
@@ -436,9 +438,9 @@ function RichEditor({ content, onChange, placeholder }: {
       )}
       {showPasteModal && (
         <div style={{ position: "absolute", bottom: 12, left: "50%", transform: "translateX(-50%)", background: "#fff", borderRadius: 12, boxShadow: "0 8px 32px rgba(0,0,0,0.15)", border: "1px solid #e2e8f0", zIndex: 300, padding: 16, display: "flex", gap: 10, alignItems: "center" }}>
-          <span style={{ fontSize: 15, fontWeight: 600, color: "#1a2332" }}>Paste as:</span>
-          <button onClick={() => pasteResolve?.(false)} style={{ padding: "6px 14px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>Plain text</button>
-          <button onClick={() => pasteResolve?.(true)} style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: "#3B82F6", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Rich text</button>
+          <span style={{ fontSize: 15, fontWeight: 600, color: "#1a2332" }}>{__('playbooks.pasteAs', 'Paste as:')}</span>
+          <button onClick={() => pasteResolve?.(false)} style={{ padding: "6px 14px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>{__('playbooks.plainText', 'Plain text')}</button>
+          <button onClick={() => pasteResolve?.(true)} style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: "#3B82F6", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>{__('playbooks.richText', 'Rich text')}</button>
         </div>
       )}
     </div>
@@ -446,6 +448,7 @@ function RichEditor({ content, onChange, placeholder }: {
 }
 
 function RichEditorSmall({ content, onChange }: { content: string; onChange: (html: string) => void }) {
+  const { t: __ } = useTranslation();
   const [showPasteModal, setShowPasteModal] = useState(false);
   const [pasteResolve, setPasteResolve] = useState<((rich: boolean) => void) | null>(null);
   const editor = useEditor({
@@ -579,9 +582,9 @@ function RichEditorSmall({ content, onChange }: { content: string; onChange: (ht
       </div>
       {showPasteModal && (
         <div style={{ position: "absolute", bottom: 12, left: "50%", transform: "translateX(-50%)", background: "#fff", borderRadius: 12, boxShadow: "0 8px 32px rgba(0,0,0,0.15)", border: "1px solid #e2e8f0", zIndex: 300, padding: 12, display: "flex", gap: 8, alignItems: "center" }}>
-          <span style={{ fontSize: 15, fontWeight: 600, color: "#1a2332" }}>Paste as:</span>
-          <button onClick={() => pasteResolve?.(false)} style={{ padding: "4px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>Plain text</button>
-          <button onClick={() => pasteResolve?.(true)} style={{ padding: "4px 10px", borderRadius: 6, border: "none", background: "#3B82F6", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Rich text</button>
+          <span style={{ fontSize: 15, fontWeight: 600, color: "#1a2332" }}>{__('playbooks.pasteAs', 'Paste as:')}</span>
+          <button onClick={() => pasteResolve?.(false)} style={{ padding: "4px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>{__('playbooks.plainText', 'Plain text')}</button>
+          <button onClick={() => pasteResolve?.(true)} style={{ padding: "4px 10px", borderRadius: 6, border: "none", background: "#3B82F6", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>{__('playbooks.richText', 'Rich text')}</button>
         </div>
       )}
     </div>
@@ -674,12 +677,12 @@ function getDateString(format: string, date?: Date): string {
   return tokens.reduce((str, [re, val]) => str.replace(re, val), format);
 }
 
-  const renderChecklistPreview = (data: string | undefined, options?: string[], layout?: string) => {
-    if (!data) return <span style={{ color: "#cbd5e1", fontStyle: "italic" }}>No items</span>;
+  const renderChecklistPreview = (data: string | undefined, options?: string[], layout?: string, __: (k: string, f?: string) => string = () => "") => {
+    if (!data) return <span style={{ color: "#cbd5e1", fontStyle: "italic" }}>{__('playbooks.noItems', 'No items')}</span>;
     if (layout === "separate" && options) {
       const selected = new Set(data.split(",").filter(Boolean));
       const hasAny = options.some((_, oi) => selected.has(`opt-${oi}`));
-      if (!hasAny) return <span style={{ color: "#cbd5e1", fontStyle: "italic" }}>No items</span>;
+      if (!hasAny) return <span style={{ color: "#cbd5e1", fontStyle: "italic" }}>{__('playbooks.noItems', 'No items')}</span>;
       return options.map((opt, oi) => selected.has(`opt-${oi}`) ? (
         <div key={oi} style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2, fontSize: 15, textDecoration: "line-through", color: "#94a3b8" }}>
           <span>☑</span> {opt}
@@ -688,17 +691,18 @@ function getDateString(format: string, date?: Date): string {
     }
     try {
       const arr = JSON.parse(data);
-      if (!Array.isArray(arr) || arr.length === 0) return <span style={{ color: "#cbd5e1", fontStyle: "italic" }}>No items</span>;
+      if (!Array.isArray(arr) || arr.length === 0) return <span style={{ color: "#cbd5e1", fontStyle: "italic" }}>{__('playbooks.noItems', 'No items')}</span>;
       return arr.filter((x: any) => x.text).map((x: any, xi: number) => (
         <div key={xi} style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2, fontSize: 15, textDecoration: x.checked ? "line-through" : "none", color: x.checked ? "#94a3b8" : "#1a2332" }}>
           <span>{x.checked ? "☑" : "☐"}</span> {x.text}
         </div>
       ));
-    } catch { return <span style={{ color: "#cbd5e1", fontStyle: "italic" }}>No items</span>; }
+    } catch { return <span style={{ color: "#cbd5e1", fontStyle: "italic" }}>{__('playbooks.noItems', 'No items')}</span>; }
   };
 
   // ── Row Menu (smart-positioned ··· dropdown) ────────────────────────────
   function RowMenu({ row, onDelete }: { row: { id: string; title: string }; onDelete: (id: string) => void }) {
+    const { t: __ } = useTranslation();
     const [showMenu, setShowMenu] = useState(false);
     const [confirmDelete, setConfirmDelete] = useState(false);
     const triggerRef = useRef<HTMLDivElement>(null);
@@ -729,9 +733,9 @@ function getDateString(format: string, date?: Date): string {
                 <div style={{ fontSize: 15, fontWeight: 600, color: "#E85D75", marginBottom: 8 }}>Delete "{row.title}"?</div>
                 <div style={{ display: "flex", gap: 6 }}>
                   <button onClick={() => setConfirmDelete(false)}
-                    style={{ flex: 1, padding: "5px 0", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+                    style={{ flex: 1, padding: "5px 0", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>{__('common.cancel', 'Cancel')}</button>
                   <button onClick={() => { onDelete(row.id); }}
-                    style={{ flex: 1, padding: "5px 0", borderRadius: 6, border: "none", background: "#E85D75", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Delete</button>
+                    style={{ flex: 1, padding: "5px 0", borderRadius: 6, border: "none", background: "#E85D75", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>{__('common.delete', 'Delete')}</button>
                 </div>
               </div>
             )}
@@ -773,6 +777,7 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
     setTasks?: React.Dispatch<React.SetStateAction<any[]>>;
     userEmail?: string;
   }) {
+  const { t: __ } = useTranslation();
   const [rows, setRows] = useState<PlaybookRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -1388,18 +1393,18 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
         <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "16px clamp(16px,3vw,24px)", borderBottom: "1px solid #e2e8f0", background: "#fff", flexShrink: 0 }}>
           <button onClick={() => { setSubView("list"); resetCreate(); }}
             style={{ padding: "6px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>← Back</button>
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#1a2332", flex: 1 }}>Playbook Template Settings</h2>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#1a2332", flex: 1 }}>{__('playbooks.templateSettings', 'Playbook Template Settings')}</h2>
         </div>
         <div style={{ flex: 1, display: "flex", overflow: "hidden", flexDirection: window.innerWidth < 768 ? "column" : "row" }}>
           {/* LEFT: Editor */}
           <div style={{ flex: 1, overflowY: "auto", padding: "clamp(12px,2vw,20px)" }}>
               <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>TEMPLATE NAME</div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>{__('playbooks.templateName', 'TEMPLATE NAME')}</div>
                 <input value={createName} onChange={e => setCreateName(e.target.value)} placeholder="e.g. Impact Filter"
                   style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box" }} />
               </div>
               <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>ICON</div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>{__('playbooks.icon', 'ICON')}</div>
                 <IconPicker selected={createIcon} onSelect={setCreateIcon} />
               </div>
             <div style={{ marginBottom: 16 }}>
@@ -1427,7 +1432,7 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
               for (const f of createTemplateFields) cols[f.column || 1].push(f);
               return ([1, 2] as const).map(col => cols[col].length === 0 && col === 2 && createTemplateFields.every(f => (f.column || 1) === 1) ? null : (
                 <div key={col}>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, marginTop: col === 2 ? 20 : 0 }}>Column {col}</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, marginTop: col === 2 ? 20 : 0 }}>{__('playbooks.column', 'Column')} {col}</div>
                   {cols[col].map(f => {
                     const colFields = cols[col];
                     const idxInCol = colFields.indexOf(f);
@@ -1457,7 +1462,7 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                         return (<>
                       {f.type !== "checkbox" && f.type !== "radio" && f.type !== "info" && f.type !== "big-checklist" && f.type !== "fill-checklist" && f.type !== "sync-checklist" && (
                       <div style={{ marginBottom: 6 }}>
-                        <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 2 }}>Placeholder</div>
+                        <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 2 }}>{__('playbooks.placeholder', 'Placeholder')}</div>
                         <RichEditorSmall content={f.placeholder} onChange={html => updateField(f.id, { placeholder: html })} />
                       </div>
                       )}
@@ -1480,13 +1485,13 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                           {/* Subtype-specific settings */}
                           {(fType === "fill-checklist" || fType === "sync-checklist") && (
                             <div style={{ marginBottom: 6 }}>
-                              <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 2 }}>Placeholder</div>
+                              <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 2 }}>{__('playbooks.placeholder', 'Placeholder')}</div>
                               <RichEditorSmall content={f.placeholder} onChange={html => updateField(f.id, { placeholder: html })} />
                             </div>
                           )}
                           {fType === "big-checklist" && (
                             <div>
-                              <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 4 }}>Checklist Layout</div>
+                              <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 4 }}>{__('playbooks.checklistLayout', 'Checklist Layout')}</div>
                               <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
                                 {(["together","separate"] as const).map(l => (
                                   <label key={l} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 15, color: "#64748b", cursor: "pointer" }}>
@@ -1495,7 +1500,7 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                                   </label>
                                 ))}
                               </div>
-                              <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 4 }}>Checklist Mode</div>
+                              <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 4 }}>{__('playbooks.checklistMode', 'Checklist Mode')}</div>
                               <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
                                 {(["option","fill"] as const).map(m => (
                                   <label key={m} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 15, color: "#64748b", cursor: "pointer" }}>
@@ -1523,7 +1528,7 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                               )}
                               {f.bigChecklistMode === "option" && f.checklistLayout === "separate" && !f.checklistPredetermined && (
                                 <div>
-                                  <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 4 }}>Options</div>
+                                  <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 4 }}>{__('common.options', 'Options')}</div>
                                   {(f.options || []).map((opt, oi) => (
                                     <div key={oi} style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
                                       <input value={opt} onChange={e => { const opts = [...(f.options || [])]; opts[oi] = e.target.value; updateField(f.id, { options: opts }); }}
@@ -1552,14 +1557,14 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                                 </div>
                               )}
                               <div style={{ marginBottom: 6 }}>
-                                <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 2 }}>Size: {(f.textSize || 30)}px</div>
+                                <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 2 }}>{__('playbooks.size', 'Size')}: {(f.textSize || 30)}px</div>
                                 <input type="range" min={30} max={100} value={f.textSize || 30}
                                   onChange={e => updateField(f.id, { textSize: parseInt(e.target.value) })}
                                   style={{ width: "100%", accentColor: "#3B82F6" }} />
                               </div>
                               {f.checklistLayout !== "separate" && (
                                 <div style={{ marginBottom: 6 }}>
-                                  <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 2 }}>Placeholder</div>
+                                  <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 2 }}>{__('playbooks.placeholder', 'Placeholder')}</div>
                                   <RichEditorSmall content={f.placeholder} onChange={html => updateField(f.id, { placeholder: html })} />
                                 </div>
                               )}
@@ -1588,13 +1593,13 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                       })()}
                       {(f.type === "fill-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "fill-checklist") || f.type === "sync-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "sync-checklist")) && (
                       <div style={{ marginBottom: 6 }}>
-                        <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 2 }}>Placeholder</div>
+                        <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 2 }}>{__('playbooks.placeholder', 'Placeholder')}</div>
                         <RichEditorSmall content={f.placeholder} onChange={html => updateField(f.id, { placeholder: html })} />
                       </div>
                       )}
                       {f.type === "big-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "big-checklist") && (
                         <div style={{ marginBottom: 8 }}>
-                          <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 4 }}>Checklist Layout</div>
+                          <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 4 }}>{__('playbooks.checklistLayout', 'Checklist Layout')}</div>
                           <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
                             {(["together","separate"] as const).map(l => (
                               <label key={l} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 15, color: "#64748b", cursor: "pointer" }}>
@@ -1604,7 +1609,7 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                             ))}
                           </div>
                           {/* ── Big Checklist Mode (fill / option) ── */}
-                          <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 4 }}>Checklist Mode</div>
+                          <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 4 }}>{__('playbooks.checklistMode', 'Checklist Mode')}</div>
                           <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
                             {(["option","fill"] as const).map(m => (
                               <label key={m} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 15, color: "#64748b", cursor: "pointer" }}>
@@ -1616,14 +1621,14 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                           </div>
                           {/* ── Text Size Slider ── */}
                           <div style={{ marginBottom: 6 }}>
-                            <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 2 }}>Size: {(f.textSize || 30)}px</div>
+                            <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 2 }}>{__('playbooks.size', 'Size')}: {(f.textSize || 30)}px</div>
                             <input type="range" min={30} max={100} value={f.textSize || 30}
                               onChange={e => updateField(f.id, { textSize: parseInt(e.target.value) })}
                               style={{ width: "100%", accentColor: "#3B82F6" }} />
                           </div>
                           {f.checklistLayout === "separate" && (
                             <div>
-                              <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 4 }}>Options</div>
+                              <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 4 }}>{__('common.options', 'Options')}</div>
                               {(f.options || []).map((opt, oi) => (
                                 <div key={oi} style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
                                   <input value={opt} onChange={e => {
@@ -1643,7 +1648,7 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                           )}
                           {f.checklistLayout !== "separate" && (
                             <div style={{ marginBottom: 6 }}>
-                              <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 2 }}>Placeholder</div>
+                              <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 2 }}>{__('playbooks.placeholder', 'Placeholder')}</div>
                               <RichEditorSmall content={f.placeholder} onChange={html => updateField(f.id, { placeholder: html })} />
                             </div>
                           )}
@@ -1655,13 +1660,13 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                             <input type="checkbox" checked={!!f.syncToTasks} onChange={e => updateField(f.id, { syncToTasks: e.target.checked })}
                               style={{ accentColor: "#3B82F6", margin: 0 }} /> Sync to Tasks
                           </label>
-                          <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 2 }}>Placeholder</div>
+                          <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 2 }}>{__('playbooks.placeholder', 'Placeholder')}</div>
                           <RichEditorSmall content={f.placeholder} onChange={html => updateField(f.id, { placeholder: html })} />
                         </div>
                       )}
                       {(f.type === "checkbox" || f.type === "radio") && (
                         <div style={{ marginBottom: 6 }}>
-                          <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 4 }}>Options</div>
+                          <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 4 }}>{__('common.options', 'Options')}</div>
                           {(f.options || []).map((opt, oi) => (
                             <div key={oi} style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
                               <input value={opt} onChange={e => {
@@ -1698,16 +1703,16 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
             <div style={{ padding: "16px 0", borderTop: "1px solid #e2e8f0", display: "flex", alignItems: "center", gap: 10, justifyContent: "flex-end" }}>
               {editTemplateId && createDeleteConfirm ? (
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 15, color: "#E85D75", fontWeight: 600 }}>Are you sure?</span>
+                  <span style={{ fontSize: 15, color: "#E85D75", fontWeight: 600 }}>{__('common.areYouSure', 'Are you sure?')}</span>
                   <button onClick={() => setCreateDeleteConfirm(false)}
-                    style={{ padding: "6px 14px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+                    style={{ padding: "6px 14px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>{__('common.cancel', 'Cancel')}</button>
                   <button onClick={handleDeleteTemplate}
-                    style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: "#E85D75", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Yes, Delete</button>
+                    style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: "#E85D75", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>{__('common.yesDelete', 'Yes, Delete')}</button>
                 </div>
               ) : (
                 <>
-                  {editTemplateId && <button onClick={() => { setCreateDeleteConfirm(true); }} style={{ padding: "8px 16px", borderRadius: 8, border: "1.5px solid #E85D75", background: "#fff", fontSize: 15, cursor: "pointer", color: "#E85D75", fontWeight: 600 }}>Delete</button>}
-                  {editTemplateId && <button onClick={handleDuplicateTemplate} style={{ padding: "8px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>Duplicate</button>}
+                  {editTemplateId && <button onClick={() => { setCreateDeleteConfirm(true); }} style={{ padding: "8px 16px", borderRadius: 8, border: "1.5px solid #E85D75", background: "#fff", fontSize: 15, cursor: "pointer", color: "#E85D75", fontWeight: 600 }}>{__('common.delete', 'Delete')}</button>}
+                  {editTemplateId && <button onClick={handleDuplicateTemplate} style={{ padding: "8px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>{__('common.duplicate', 'Duplicate')}</button>}
                   <div style={{ flex: 1 }} />
                   <button onClick={handleCreateSave} disabled={!createName.trim()}
                     style={{ padding: "10px 28px", borderRadius: 8, border: "none",
@@ -1722,9 +1727,9 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
 
           {/* RIGHT: Preview */}
           <div style={{ flex: 1, overflowY: "auto", padding: "clamp(12px,2vw,20px)", background: "#F8FAFC", borderLeft: window.innerWidth >= 768 ? "1px solid #e2e8f0" : "none", borderTop: window.innerWidth < 768 ? "1px solid #e2e8f0" : "none" }}>
-            <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 12 }}>PREVIEW</div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 12 }}>{__('playbooks.preview', 'PREVIEW')}</div>
             <div style={{ fontSize: 16, fontWeight: 700, color: "#1a2332", marginBottom: 16 }}>{createName || "Template Name"}</div>
-            {createLayout === 2 && <div style={{ fontSize: 15, color: "#3B82F6", fontWeight: 600, marginBottom: 8 }}>Two-column layout</div>}
+            {createLayout === 2 && <div style={{ fontSize: 15, color: "#3B82F6", fontWeight: 600, marginBottom: 8 }}>{__('playbooks.twoColumn', 'Two-column layout')}</div>}
             {createTemplateFields.length === 0 ? (
               <div style={{ fontSize: 15, color: "#cbd5e1", fontStyle: "italic" }}>Add fields to see preview</div>
             ) : (
@@ -2006,7 +2011,7 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
           </div>
 
           <div style={{ flex: 1, overflowY: "auto", padding: "clamp(12px,2vw,20px)", background: "#F8FAFC", borderLeft: window.innerWidth >= 768 ? "1px solid #e2e8f0" : "none", borderTop: window.innerWidth < 768 ? "1px solid #e2e8f0" : "none" }}>
-            <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 12 }}>PREVIEW</div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 12 }}>{__('playbooks.preview', 'PREVIEW')}</div>
             <div style={{ fontSize: 16, fontWeight: 700, color: "#1a2332", marginBottom: 16 }}>{tItem.label}</div>
             {(() => {
               const colFields: Record<number, TemplateField[]> = { 1: [], 2: [] };
@@ -2014,14 +2019,14 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
               const hasCol2 = colFields[2].length > 0;
               return [1, 2].map(col => colFields[col].length === 0 ? null : (
                 <div key={col}>
-                  {hasCol2 && <div style={{ fontSize: 15, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8, marginTop: col === 2 ? 16 : 0 }}>Column {col}</div>}
+                  {hasCol2 && <div style={{ fontSize: 15, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8, marginTop: col === 2 ? 16 : 0 }}>{__('playbooks.column', 'Column')} {col}</div>}
                   {colFields[col].map((f: any) => {
                     const displayHeader = f.dateAutoFill ? getDateString(f.dateFormat || "MMMM Do, YYYY") : f.header;
                     return (
                     <div key={f.id} style={{ background: "#f1f5f9", borderRadius: 10, padding: 14, marginBottom: 10 }}>
                       {displayHeader && <div style={{ fontSize: 15, fontWeight: 600, color: f.color, marginBottom: 4 }} dangerouslySetInnerHTML={{ __html: renderShortcodes(displayHeader) }} />}
                       {f.description && <div style={{ fontSize: 15, color: "#64748b", marginBottom: 6, fontStyle: "italic" }} dangerouslySetInnerHTML={{ __html: renderShortcodes(f.description) }} />}
-                      <div style={{ fontSize: 15, color: "#1a2332" }}>{f.type === "fill-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "fill-checklist") || f.type === "big-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "big-checklist") || f.type === "sync-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "sync-checklist") ? renderChecklistPreview(fillData[f.id], f.options, f.checklistLayout) : fillData[f.id] || (f.placeholder && f.type !== "checkbox" && f.type !== "radio" && f.type !== "info" ? <span style={{ color: "#94a3b8" }} dangerouslySetInnerHTML={{ __html: f.placeholder }} /> : <span style={{ color: "#cbd5e1", fontStyle: "italic" }}>Empty</span>)}</div>
+                      <div style={{ fontSize: 15, color: "#1a2332" }}>{f.type === "fill-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "fill-checklist") || f.type === "big-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "big-checklist") || f.type === "sync-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "sync-checklist") ? renderChecklistPreview(fillData[f.id], f.options, f.checklistLayout, __) : fillData[f.id] || (f.placeholder && f.type !== "checkbox" && f.type !== "radio" && f.type !== "info" ? <span style={{ color: "#94a3b8" }} dangerouslySetInnerHTML={{ __html: f.placeholder }} /> : <span style={{ color: "#cbd5e1", fontStyle: "italic" }}>Empty</span>)}</div>
                     </div>
                     );
                   })}
@@ -2137,7 +2142,7 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
           <div onClick={() => setFileUploadPopup(null)}
             style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2100, padding: 16 }}>
             <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 16, padding: 24, width: "100%", maxWidth: 380, boxShadow: "0 24px 64px rgba(0,0,0,0.2)" }}>
-              <div style={{ fontSize: 15, fontWeight: 700, color: "#1a2332", marginBottom: 4 }}>Upload {fileUploadPopup.files.length} files</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#1a2332", marginBottom: 4 }}>{__('playbooks.uploadFiles', 'Upload')} {fileUploadPopup.files.length} {__('playbooks.files', 'files')}</div>
               <div style={{ fontSize: 15, color: "#64748b", marginBottom: 16 }}>How would you like to organize them?</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
                 <button onClick={() => handleFileUpload(fileUploadPopup.files, fileUploadPopup.rowId, "one")}
@@ -2147,12 +2152,12 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                 </button>
                 <button onClick={() => handleFileUpload(fileUploadPopup.files, fileUploadPopup.rowId, "separate")}
                   style={{ padding: "12px 16px", borderRadius: 10, border: "1.5px solid #e2e8f0", background: "#fff", cursor: "pointer", textAlign: "left", fontSize: 15, color: "#1a2332" }}>
-                  <div style={{ fontWeight: 600, marginBottom: 2 }}>Separate playbooks</div>
+                  <div style={{ fontWeight: 600, marginBottom: 2 }}>{__('playbooks.separate', 'Separate playbooks')}</div>
                   <div style={{ fontSize: 15, color: "#94a3b8" }}>Create one playbook per file</div>
                 </button>
               </div>
               <button onClick={() => setFileUploadPopup(null)}
-                style={{ width: "100%", padding: "8px 0", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+                style={{ width: "100%", padding: "8px 0", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>{__('common.cancel', 'Cancel')}</button>
             </div>
           </div>
         )}
@@ -2210,7 +2215,7 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                   ))}
                 </div>
                 <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-                  <button onClick={resetCreate} style={{ padding: "10px 24px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+                  <button onClick={resetCreate} style={{ padding: "10px 24px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>{__('common.cancel', 'Cancel')}</button>
                   <button onClick={() => {
                     if (createType === "template") { setSubView("template-builder"); setShowCreate(false); }
                     else setCreateStep(1);
@@ -2262,7 +2267,7 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                 <div style={{ fontSize: 18, fontWeight: 700, color: "#1a2332", marginBottom: 16 }}>{createName}</div>
                 <RichEditor content={createContent} onChange={setCreateContent} placeholder="Start writing..." />
                 <div style={{ marginTop: 16 }}>
-                  <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>ATTACHMENTS</div>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>{__('playbooks.attachments', 'ATTACHMENTS')}</div>
                   {/* Files */}
                   {createFiles.map(f => (
                     <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 6, background: "#f8fafc", marginBottom: 4, fontSize: 15, color: "#64748b" }}>
@@ -2290,7 +2295,7 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                 </div>
                 <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 20 }}>
                   <button onClick={() => setCreateStep(1)} style={{ padding: "10px 24px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>← Back</button>
-                  <button onClick={handleCreateSave} style={{ padding: "10px 28px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Save</button>
+                  <button onClick={handleCreateSave} style={{ padding: "10px 28px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>{__('common.save', 'Save')}</button>
                 </div>
               </div>
             )}
@@ -2299,7 +2304,7 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
               <div>
                 <div style={{ fontSize: 18, fontWeight: 700, color: "#1a2332", marginBottom: 16 }}>{createName}</div>
                 <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>FILES</div>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>{__('playbooks.files', 'FILES')}</div>
                   {createFiles.map(f => (
                     <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 6, background: "#f8fafc", marginBottom: 4, fontSize: 15, color: "#64748b" }}>
                       <IconGlyph name="FileDoc" size={16} color="#64748b" />
@@ -2314,7 +2319,7 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                   </label>
                 </div>
                 <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>LINKS</div>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>{__('playbooks.links', 'LINKS')}</div>
                   {createLinks.map(l => (
                     <div key={l.id} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
                       <input value={l.title} onChange={e => updateCreateLink(l.id, { title: e.target.value })} placeholder="Link title"
@@ -2328,7 +2333,7 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                 </div>
                 <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 20 }}>
                   <button onClick={() => setCreateStep(1)} style={{ padding: "10px 24px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>← Back</button>
-                  <button onClick={handleCreateSave} style={{ padding: "10px 28px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Save</button>
+                  <button onClick={handleCreateSave} style={{ padding: "10px 28px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>{__('common.save', 'Save')}</button>
                 </div>
               </div>
             )}
@@ -2378,7 +2383,7 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
 
             {detailItem.files && detailItem.files.length > 0 && (
               <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>FILES</div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>{__('playbooks.files', 'FILES')}</div>
                 {detailItem.files.map(f => (
                   <a key={f.id} href={getFileUrl(f.storagePath)} target="_blank" rel="noopener noreferrer"
                     style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 6, background: "#f8fafc", marginBottom: 4, textDecoration: "none", fontSize: 15, color: "#1a2332" }}>
@@ -2392,7 +2397,7 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
 
             {detailItem.links && detailItem.links.length > 0 && (
               <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>LINKS</div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>{__('playbooks.links', 'LINKS')}</div>
                 {detailItem.links.map(l => (
                   <a key={l.id} href={l.url} target="_blank" rel="noopener noreferrer"
                     style={{ display: "block", padding: "8px 12px", borderRadius: 6, background: "#f8fafc", marginBottom: 4, textDecoration: "none", fontSize: 15 }}>
@@ -2405,7 +2410,7 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
 
             {detailItem.type === "filled-template" && detailItem.filledData && detailItem.templateId && (
               <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>CONTENT</div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>{__('playbooks.content', 'CONTENT')}</div>
                 {(() => {
                   const template = rows.flatMap(r => r.items).find(i => i.id === detailItem.templateId);
                   return template?.templateFields?.map(f => {
@@ -2487,19 +2492,19 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
             </div>
             <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}>
               <div style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>PLAYBOOK NAME</div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>{__('playbooks.name', 'PLAYBOOK NAME')}</div>
                 <input value={editSettingsName} onChange={e => setEditSettingsName(e.target.value)}
                   style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box" }} />
               </div>
               <div style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>ICON</div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>{__('playbooks.icon', 'ICON')}</div>
                 <IconPicker selected={editSettingsIcon} onSelect={setEditSettingsIcon} />
               </div>
               {editSettingsItem.type !== "template" && (
                 <>
                 {(editSettingsFiles.length > 0 || editSettingsLinks.length > 0 || !editSettingsContent) ? (
                   <div style={{ marginBottom: 14 }}>
-                    <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>ATTACHMENTS</div>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>{__('playbooks.attachments', 'ATTACHMENTS')}</div>
                     {editSettingsFiles.map(f => (
                       <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 6, background: "#f8fafc", marginBottom: 4, fontSize: 15, color: "#64748b" }}>
                         <IconGlyph name="FileDoc" size={16} color="#64748b" />
@@ -2525,13 +2530,13 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                   </div>
                 ) : (
                   <div style={{ marginBottom: 14 }}>
-                    <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>CONTENT</div>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>{__('playbooks.content', 'CONTENT')}</div>
                     <RichEditor content={editSettingsContent} onChange={setEditSettingsContent} />
                   </div>
                 )}
                 {(editSettingsContent && (editSettingsFiles.length > 0 || editSettingsLinks.length > 0)) && (
                   <div style={{ marginBottom: 14 }}>
-                    <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>ATTACHMENTS</div>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>{__('playbooks.attachments', 'ATTACHMENTS')}</div>
                     {editSettingsFiles.map(f => (
                       <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 6, background: "#f8fafc", marginBottom: 4, fontSize: 15, color: "#64748b" }}>
                         <IconGlyph name="FileDoc" size={16} color="#64748b" />
@@ -2555,7 +2560,7 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
               )}
               {(editSettingsItem.type === "document" || editSettingsItem.type === "filled-template") && (
                 <div style={{ marginBottom: 14, padding: 14, background: "#f8fafc", borderRadius: 10, border: "1px solid #e2e8f0" }}>
-                  <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>RECURRENCE SETTINGS</div>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>{__('playbooks.recurrence', 'RECURRENCE SETTINGS')}</div>
                   <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 15, color: "#64748b", cursor: "pointer" }}>
                     <input type="checkbox" checked={editSettingsRecurrence.enabled} onChange={e => setEditSettingsRecurrence(p => ({ ...p, enabled: e.target.checked }))}
                       style={{ accentColor: "#3B82F6", margin: 0 }} /> Auto-reset this item
@@ -2588,19 +2593,19 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
             <div style={{ padding: "16px 24px", borderTop: "1px solid #e2e8f0", display: "flex", alignItems: "center", gap: 10, justifyContent: "flex-end" }}>
               {deleteConfirmText ? (
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 15, color: "#E85D75", fontWeight: 600 }}>Are you sure?</span>
+                  <span style={{ fontSize: 15, color: "#E85D75", fontWeight: 600 }}>{__('common.areYouSure', 'Are you sure?')}</span>
                   <button onClick={() => setDeleteConfirmText("")}
-                    style={{ padding: "6px 14px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+                    style={{ padding: "6px 14px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>{__('common.cancel', 'Cancel')}</button>
                   <button onClick={deleteItem}
-                    style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: "#E85D75", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Yes, Delete</button>
+                    style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: "#E85D75", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>{__('common.yesDelete', 'Yes, Delete')}</button>
                 </div>
               ) : (
                 <>
-                  <button onClick={() => setDeleteConfirmText("pending")} style={{ padding: "8px 16px", borderRadius: 8, border: "1.5px solid #E85D75", background: "#fff", fontSize: 15, cursor: "pointer", color: "#E85D75", fontWeight: 600 }}>Delete</button>
-                  <button onClick={duplicateItem} style={{ padding: "8px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>Duplicate</button>
+                  <button onClick={() => setDeleteConfirmText("pending")} style={{ padding: "8px 16px", borderRadius: 8, border: "1.5px solid #E85D75", background: "#fff", fontSize: 15, cursor: "pointer", color: "#E85D75", fontWeight: 600 }}>{__('common.delete', 'Delete')}</button>
+                  <button onClick={duplicateItem} style={{ padding: "8px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>{__('common.duplicate', 'Duplicate')}</button>
                   <div style={{ flex: 1 }} />
-                  <button onClick={() => { setEditSettingsItem(null); setEditSettingsExpanded(false); setDeleteConfirmText(""); }} style={{ padding: "8px 18px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>Cancel</button>
-                  <button onClick={saveEditSettings} style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Save</button>
+                  <button onClick={() => { setEditSettingsItem(null); setEditSettingsExpanded(false); setDeleteConfirmText(""); }} style={{ padding: "8px 18px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>{__('common.cancel', 'Cancel')}</button>
+                  <button onClick={saveEditSettings} style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>{__('common.save', 'Save')}</button>
                 </>
               )}
             </div>
@@ -2615,24 +2620,24 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
             <button onClick={() => setEditSettingsExpanded(false)}
               style={{ padding: "6px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>← Collapse</button>
             <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#1a2332", flex: 1 }}>Editing: {editSettingsName || editSettingsItem.label}</h2>
-            <button onClick={saveEditSettings} style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Save</button>
+            <button onClick={saveEditSettings} style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>{__('common.save', 'Save')}</button>
           </div>
           <div style={{ flex: 1, overflowY: "auto", padding: "clamp(16px,3vw,28px)", display: "flex", gap: 24, flexDirection: "row" }}>
             <div style={{ width: 280, flexShrink: 0 }}>
               <div style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>PLAYBOOK NAME</div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>{__('playbooks.name', 'PLAYBOOK NAME')}</div>
                 <input value={editSettingsName} onChange={e => setEditSettingsName(e.target.value)}
                   style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box" }} />
               </div>
               <div style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>ICON</div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>{__('playbooks.icon', 'ICON')}</div>
                 <IconPicker selected={editSettingsIcon} onSelect={setEditSettingsIcon} />
               </div>
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               {(editSettingsFiles.length > 0 || editSettingsLinks.length > 0 || !editSettingsContent) ? (
                 <div>
-                  <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>ATTACHMENTS</div>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>{__('playbooks.attachments', 'ATTACHMENTS')}</div>
                   {editSettingsFiles.map(f => (
                     <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 6, background: "#f8fafc", marginBottom: 4, fontSize: 15, color: "#64748b" }}>
                       <IconGlyph name="FileDoc" size={16} color="#64748b" />
@@ -2656,7 +2661,7 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                   <button onClick={() => setEditSettingsLinks(p => [...p, { id: crypto.randomUUID(), title: "", url: "" }])} style={{ padding: "6px 14px", borderRadius: 6, border: "1px dashed #d1d5db", background: "transparent", fontSize: 15, cursor: "pointer", color: "#94a3b8" }}>+ Add Link</button>
                   {editSettingsContent && (
                     <div style={{ marginTop: 16 }}>
-                      <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>CONTENT</div>
+                      <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>{__('playbooks.content', 'CONTENT')}</div>
                       <RichEditor content={editSettingsContent} onChange={setEditSettingsContent} />
                     </div>
                   )}
@@ -2674,9 +2679,10 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
 
 // ── Inline Row Edit Modal ────────────────────────────────────────────────
 function EditAddRowModalCustom({ initial, onSave, onClose }: {
-  initial: string; onSave: (name: string) => void; onClose: () => void;
+  initial?: string; onSave: (name: string) => void; onClose: () => void;
 }) {
-  const [name, setName] = useState(initial);
+  const { t: __ } = useTranslation();
+  const [name, setName] = useState(initial ?? "");
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 16 }}>
       <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 16, padding: 28, width: "100%", maxWidth: 380, boxShadow: "0 24px 64px rgba(0,0,0,0.2)" }}>
@@ -2688,11 +2694,11 @@ function EditAddRowModalCustom({ initial, onSave, onClose }: {
           onKeyDown={e => { if (e.key === "Enter" && name.trim()) onSave(name.trim()); }}
           style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", marginBottom: 16, boxSizing: "border-box" }} />
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-          <button onClick={onClose} style={{ padding: "8px 18px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+          <button onClick={onClose} style={{ padding: "8px 18px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>{__('common.cancel', 'Cancel')}</button>
           <button onClick={() => name.trim() && onSave(name.trim())} disabled={!name.trim()}
             style={{ padding: "8px 18px", borderRadius: 8, border: "none",
               background: name.trim() ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0",
-              color: "#fff", fontSize: 15, fontWeight: 600, cursor: name.trim() ? "pointer" : "default" }}>Save</button>
+              color: "#fff", fontSize: 15, fontWeight: 600, cursor: name.trim() ? "pointer" : "default" }}>{__('common.save', 'Save')}</button>
         </div>
       </div>
     </div>
@@ -2700,11 +2706,12 @@ function EditAddRowModalCustom({ initial, onSave, onClose }: {
 }
 
 function PlaybookCard({ item, rowId, onDetail, onEdit, onStartFill, isSingleLink, isSingleFile, isMulti, showAction, actionLabel, onDragStart, onDragEnter, onDrop }: {
-  item: PlaybookItem; rowId: string; onDetail: (i: PlaybookItem) => void; onEdit: (i: PlaybookItem) => void;
-  onStartFill: (i: PlaybookItem, rid: string) => void;
-  isSingleLink: boolean; isSingleFile: boolean; isMulti: boolean; showAction: boolean; actionLabel: string;
-  onDragStart: () => void; onDragEnter: () => void; onDrop: () => void;
+  item: PlaybookItem; rowId: string;
+  onDetail: (item: PlaybookItem) => void; onEdit: (item: PlaybookItem) => void; onStartFill: (item: PlaybookItem, rid: string) => void;
+  isSingleLink?: boolean; isSingleFile?: boolean; isMulti?: boolean; showAction?: boolean; actionLabel?: string;
+  onDragStart?: () => void; onDragEnter?: () => void; onDrop?: () => void;
 }) {
+  const { t: __ } = useTranslation();
   const [cardHov, setCardHov] = useState(false);
   const activeColor = item.type === "template" ? "#3B82F6" : item.type === "filled-template" ? "#4CAF7D" : "#64748b";
   return (
@@ -2744,7 +2751,7 @@ function PlaybookCard({ item, rowId, onDetail, onEdit, onStartFill, isSingleLink
           {item.files && item.files.length > 0 ? `${item.files.length} file${item.files.length > 1 ? "s" : ""}` : ""}
         </div>
       ) : item.content ? (
-        <div style={{ fontSize: 15, color: "#94a3b8" }}>View Document</div>
+        <div style={{ fontSize: 15, color: "#94a3b8" }}>{__('playbooks.viewDocument', 'View Document')}</div>
       ) : null}
       <div style={{ position: "absolute", top: 6, right: 6, display: "flex", gap: 2 }}>
         <div onClick={e => { e.stopPropagation(); onEdit(item); }}
