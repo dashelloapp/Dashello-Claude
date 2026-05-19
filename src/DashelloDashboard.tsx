@@ -3421,6 +3421,457 @@ function DashSection({
 // PAGE: GOALS
 // ═══════════════════════════════════════════════════════════════════════════
 
+// ─── Decision Making Filter ───────────────────────────────────────────────
+interface DecisionOption {
+  id: string;
+  label: string;
+  pros: string[];
+  cons: string[];
+  connections: { proIndex: number; conIndex: number }[];
+}
+
+function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
+  tasks?: Task[]; setTasks?: React.Dispatch<React.SetStateAction<Task[]>>;
+  userEmail?: string;
+}) {
+  const [options, setOptions] = useState<DecisionOption[]>([
+    { id: crypto.randomUUID(), label: "Option A", pros: [""], cons: [""], connections: [] },
+    { id: crypto.randomUUID(), label: "Option B", pros: [""], cons: [""], connections: [] },
+    { id: crypto.randomUUID(), label: "Option C", pros: [""], cons: [""], connections: [] },
+  ]);
+  const [favoriteOptionId, setFavoriteOptionId] = useState<string | null>(null);
+  const [showQuickStart, setShowQuickStart] = useState(false);
+  const [showConvert, setShowConvert] = useState(false);
+  const [convertText, setConvertText] = useState("");
+  const [dragging, setDragging] = useState<{ optionId: string; proIndex: number; startX: number; startY: number; currentX: number; currentY: number } | null>(null);
+  const dotRefs = useRef<Record<string, HTMLElement | null>>({});
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const addOption = () => {
+    const letter = String.fromCharCode(65 + options.length);
+    setOptions([...options, { id: crypto.randomUUID(), label: `Option ${letter}`, pros: [""], cons: [""], connections: [] }]);
+  };
+
+  const removeOption = (id: string) => {
+    setOptions(options.filter(o => o.id !== id));
+    if (favoriteOptionId === id) setFavoriteOptionId(null);
+  };
+
+  const updateLabel = (id: string, label: string) => {
+    setOptions(options.map(o => o.id === id ? { ...o, label } : o));
+  };
+
+  const addPro = (optionId: string) => {
+    setOptions(options.map(o => o.id === optionId ? { ...o, pros: [...o.pros, ""] } : o));
+  };
+
+  const updatePro = (optionId: string, index: number, value: string) => {
+    setOptions(options.map(o => o.id === optionId ? { ...o, pros: o.pros.map((p, i) => i === index ? value : p) } : o));
+  };
+
+  const removePro = (optionId: string, index: number) => {
+    setOptions(options.map(o => o.id === optionId ? {
+      ...o,
+      pros: o.pros.filter((_, i) => i !== index),
+      connections: o.connections.filter(c => c.proIndex !== index).map(c => ({
+        proIndex: c.proIndex > index ? c.proIndex - 1 : c.proIndex,
+        conIndex: c.conIndex,
+      })),
+    } : o));
+  };
+
+  const addCon = (optionId: string) => {
+    setOptions(options.map(o => o.id === optionId ? { ...o, cons: [...o.cons, ""] } : o));
+  };
+
+  const updateCon = (optionId: string, index: number, value: string) => {
+    setOptions(options.map(o => o.id === optionId ? { ...o, cons: o.cons.map((c, i) => i === index ? value : c) } : o));
+  };
+
+  const removeCon = (optionId: string, index: number) => {
+    setOptions(options.map(o => o.id === optionId ? {
+      ...o,
+      cons: o.cons.filter((_, i) => i !== index),
+      connections: o.connections.filter(c => c.conIndex !== index).map(c => ({
+        proIndex: c.proIndex,
+        conIndex: c.conIndex > index ? c.conIndex - 1 : c.conIndex,
+      })),
+    } : o));
+  };
+
+  const handleProDotMouseDown = (e: React.MouseEvent, optionId: string, proIndex: number) => {
+    e.preventDefault();
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setDragging({
+      optionId,
+      proIndex,
+      startX: e.clientX - rect.left,
+      startY: e.clientY - rect.top,
+      currentX: e.clientX - rect.left,
+      currentY: e.clientY - rect.top,
+    });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!dragging) return;
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setDragging({ ...dragging, currentX: e.clientX - rect.left, currentY: e.clientY - rect.top });
+  };
+
+  const handleMouseUp = (e: React.MouseEvent) => {
+    if (!dragging) return;
+    const target = e.target as HTMLElement;
+    const conDot = target.closest("[data-con-dot]") as HTMLElement | null;
+    if (conDot) {
+      const optionId = conDot.dataset.optionId!;
+      const conIndex = parseInt(conDot.dataset.conIndex!, 10);
+      if (optionId === dragging.optionId) {
+        setOptions(options.map(o => {
+          if (o.id !== optionId) return o;
+          const exists = o.connections.some(c => c.proIndex === dragging.proIndex && c.conIndex === conIndex);
+          if (exists) return o;
+          return { ...o, connections: [...o.connections, { proIndex: dragging.proIndex, conIndex }] };
+        }));
+      }
+    }
+    setDragging(null);
+  };
+
+  const removeConnection = (optionId: string, proIndex: number, conIndex: number) => {
+    setOptions(options.map(o => o.id === optionId ? {
+      ...o,
+      connections: o.connections.filter(c => !(c.proIndex === proIndex && c.conIndex === conIndex)),
+    } : o));
+  };
+
+  const handleConvertToPriority = () => {
+    if (!convertText.trim() || !setTasks || !userEmail) return;
+    setTasks(prev => [...prev, {
+      id: crypto.randomUUID(), text: convertText.trim(), done: false,
+      assignedTo: userEmail, createdBy: userEmail, createdAt: new Date().toISOString(),
+      priority: true,
+    }]);
+    setShowConvert(false);
+    setConvertText("");
+  };
+
+  const favoriteOption = options.find(o => o.id === favoriteOptionId);
+
+  // SVG path for a connection line
+  const getConnectionPath = (option: DecisionOption, proIndex: number, conIndex: number) => {
+    const proDot = dotRefs.current[`pro-${option.id}-${proIndex}`];
+    const conDot = dotRefs.current[`con-${option.id}-${conIndex}`];
+    if (!proDot || !conDot || !containerRef.current) return null;
+    const containerRect = containerRef.current.getBoundingClientRect();
+    const proRect = proDot.getBoundingClientRect();
+    const conRect = conDot.getBoundingClientRect();
+    const x1 = proRect.left - containerRect.left + proRect.width / 2;
+    const y1 = proRect.top - containerRect.top + proRect.height / 2;
+    const x2 = conRect.left - containerRect.left + conRect.width / 2;
+    const y2 = conRect.top - containerRect.top + conRect.height / 2;
+    const cx1 = x1 + (x2 - x1) * 0.4;
+    const cy1 = y1;
+    const cx2 = x2 - (x2 - x1) * 0.4;
+    const cy2 = y2;
+    return `M ${x1} ${y1} C ${cx1} ${cy1} ${cx2} ${cy2} ${x2} ${y2}`;
+  };
+
+  const renderColumn = (option: DecisionOption) => {
+    const isFavorite = option.id === favoriteOptionId;
+    return (
+      <div key={option.id} style={{
+        flex: "1 1 240px", minWidth: 220,
+        background: isFavorite ? "#EFF6FF" : "#fff",
+        borderRadius: 12, border: isFavorite ? "2px solid #3B82F6" : "1px solid #e2e8f0",
+        padding: 16, display: "flex", flexDirection: "column", gap: 8, position: "relative",
+        opacity: favoriteOptionId && !isFavorite ? 0.5 : 1,
+        transition: "opacity 0.2s, border-color 0.2s",
+      }}>
+        {/* Column header */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+          <input value={option.label} onChange={e => updateLabel(option.id, e.target.value)}
+            style={{ flex: 1, fontSize: 15, fontWeight: 700, color: "#1a2332", border: "none", background: "transparent", outline: "none", fontFamily: "inherit", padding: "2px 0" }} />
+          <div onClick={() => {
+            if (favoriteOptionId === option.id) setFavoriteOptionId(null);
+            else setFavoriteOptionId(option.id);
+          }} style={{ cursor: "pointer", fontSize: 18, color: isFavorite ? "#F5A623" : "#cbd5e1", transition: "color 0.2s" }} title={isFavorite ? "Remove as favorite" : "Set as favorite"}>
+            {isFavorite ? "★" : "☆"}
+          </div>
+          <div onClick={() => removeOption(option.id)} style={{ cursor: "pointer", fontSize: 15, color: "#cbd5e1" }} title="Delete option">×</div>
+        </div>
+
+        {/* Pros */}
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: "#4CAF7D", marginBottom: 4 }}>Pros</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 3 }} data-pros-list>
+            {option.pros.map((pro, pi) => (
+              <div key={pi} style={{ display: "flex", alignItems: "center", gap: 4, position: "relative" }}>
+                <span style={{ fontSize: 15, color: "#4CAF7D" }}>+</span>
+                <input value={pro} onChange={e => updatePro(option.id, pi, e.target.value)}
+                  placeholder="Add a pro..."
+                  style={{ flex: 1, fontSize: 14, color: "#1a2332", border: "none", background: "transparent", outline: "none", fontFamily: "inherit", padding: "2px 0", minWidth: 0 }} />
+                {pro.trim() && (
+                  <div ref={el => { dotRefs.current[`pro-${option.id}-${pi}`] = el; }}
+                    data-pro-dot={`${option.id}-${pi}`}
+                    onMouseDown={e => handleProDotMouseDown(e, option.id, pi)}
+                    style={{ width: 10, height: 10, borderRadius: "50%", background: "#4CAF7D", cursor: "crosshair", flexShrink: 0 }} title="Drag to connect to a con" />
+                )}
+                {option.pros.length > 1 && (
+                  <div onClick={() => removePro(option.id, pi)} style={{ cursor: "pointer", fontSize: 15, color: "#cbd5e1", flexShrink: 0 }}>×</div>
+                )}
+              </div>
+            ))}
+          </div>
+          <div onClick={() => addPro(option.id)} style={{ fontSize: 13, color: "#4CAF7D", cursor: "pointer", marginTop: 2, display: "flex", alignItems: "center", gap: 2 }}>
+            <span style={{ fontSize: 13 }}>+</span> Add pro
+          </div>
+        </div>
+
+        {/* Cons */}
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: "#E85D75", marginBottom: 4 }}>Cons</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 3 }} data-cons-list>
+            {option.cons.map((con, ci) => (
+              <div key={ci} style={{ display: "flex", alignItems: "center", gap: 4, position: "relative" }}>
+                <span style={{ fontSize: 15, color: "#E85D75" }}>−</span>
+                <input value={con} onChange={e => updateCon(option.id, ci, e.target.value)}
+                  placeholder="Add a con..."
+                  style={{ flex: 1, fontSize: 14, color: "#1a2332", border: "none", background: "transparent", outline: "none", fontFamily: "inherit", padding: "2px 0", minWidth: 0 }} />
+                {con.trim() && (
+                  <div ref={el => { dotRefs.current[`con-${option.id}-${ci}`] = el; }}
+                    data-con-dot="true" data-option-id={option.id} data-con-index={ci}
+                    style={{ width: 10, height: 10, borderRadius: "50%", background: "#E85D75", cursor: "crosshair", flexShrink: 0 }} title="Drop here to connect from a pro" />
+                )}
+                {option.cons.length > 1 && (
+                  <div onClick={() => removeCon(option.id, ci)} style={{ cursor: "pointer", fontSize: 15, color: "#cbd5e1", flexShrink: 0 }}>×</div>
+                )}
+              </div>
+            ))}
+          </div>
+          <div onClick={() => addCon(option.id)} style={{ fontSize: 13, color: "#E85D75", cursor: "pointer", marginTop: 2, display: "flex", alignItems: "center", gap: 2 }}>
+            <span style={{ fontSize: 13 }}>+</span> Add con
+          </div>
+        </div>
+
+        {/* Connection lines for this option */}
+        {option.connections.map((conn, ci) => {
+          const path = getConnectionPath(option, conn.proIndex, conn.conIndex);
+          if (!path) return null;
+          return (
+            <svg key={ci} style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 5, overflow: "visible" }}>
+              <path d={path} fill="none" stroke="#3B82F6" strokeWidth={1.5} strokeDasharray="4 2" opacity={0.6} />
+              <circle onClick={() => removeConnection(option.id, conn.proIndex, conn.conIndex)}
+                style={{ cursor: "pointer", pointerEvents: "all" }}
+                cx={(() => { const p = getConnectionPath(option, conn.proIndex, conn.conIndex); if (!p) return 0; const pts = p.match(/[\d.]+/g); return pts ? (parseFloat(pts[pts.length-2]) + parseFloat(pts[0])) / 2 : 0; })()}
+                cy={(() => { const p = getConnectionPath(option, conn.proIndex, conn.conIndex); if (!p) return 0; const pts = p.match(/[\d.]+/g); return pts ? (parseFloat(pts[pts.length-1]) + parseFloat(pts[1])) / 2 : 0; })()}
+                r={5} fill="#3B82F6" opacity={0.3} />
+            </svg>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const quickStartGuide = (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 99999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+      onClick={() => setShowQuickStart(false)}>
+      <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 16, padding: 28, width: "90vw", maxWidth: 640, maxHeight: "90vh", overflow: "auto", position: "relative", fontSize: 15, lineHeight: 1.6, color: "#1a2332" }}>
+        <button onClick={() => setShowQuickStart(false)}
+          style={{ position: "absolute", top: 12, right: 16, width: 28, height: 28, borderRadius: "50%", border: "none", background: "#f1f5f9", cursor: "pointer", fontSize: 16, color: "#64748b", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+        <div style={{ fontSize: 18, fontWeight: 700, color: "#1a2332", marginBottom: 16 }}>Decision Making Filter — Quick Start Guide</div>
+
+        <div style={{ fontSize: 15, color: "#64748b", marginBottom: 16 }}>
+          The Decision Making Filter is a structured method for making thoughtful, grounded decisions. It helps you move from confusion to clarity by naming your options, weighing pros and cons, connecting opposing factors, and checking in with yourself before committing to an action. Below is a concise walkthrough of the method.
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {[
+            { n: "1", title: "Name the decision", body: "Identify the practical choice you need to make. Be specific: What are you deciding? Is it real — meaning you actually can choose? Make sure you have the authority and the information you need." },
+            { n: "2", title: "Set up your options", body: "Create one column per option using the + button. Give each a clear, concrete label (e.g., 'Stay at current job' vs. 'Accept new offer'). Start with 2-3, add more if needed." },
+            { n: "3", title: "List pros for each option", body: "Under each column, add every benefit or advantage you can think of. Use the + Add pro button. Don't filter or judge yet — just get everything down." },
+            { n: "4", title: "List cons for each option", body: "Similarly, add every drawback or risk under each column using + Add con. Be honest about downsides, even uncomfortable ones." },
+            { n: "5", title: "Connect pros to cons", body: "Drag the small green dot next to a pro and drop it onto a red dot next to a con to draw a connection line. This pairs opposing factors so you can see trade-offs clearly. Click a connection dot to remove it." },
+            { n: "6", title: "Step back and reflect", body: "Review everything. Which option serves your deepest values? Which one feels most true to who you are? Imagine describing each choice to someone you trust — what does that reveal?" },
+            { n: "7", title: "Check your inner freedom", body: "Ask yourself: Am I attached to one option out of fear, pride, or pressure? Am I avoiding a hard truth? Take a moment to breathe, and ask to be guided toward what is best — not just easiest." },
+            { n: "8", title: "Pick a favorite", body: "Click the star icon on the column that feels right — not perfect, just most aligned. The starred option will appear highlighted in the preview section below." },
+            { n: "9", title: "Review your preview", body: "The favorite option appears below in full color. Read through it. Does it still feel right? Does the wording need adjusting?" },
+            { n: "10", title: "Sleep on it (if you can)", body: "If time allows, step away. Come back later and see if the same option still resonates. Notice whether you feel peace, enthusiasm, or hesitation." },
+            { n: "11", title: "Convert to a priority", body: "Once you're at peace with your decision, click 'Convert to Priority'. This creates a new priority task on your Tasks page. You can edit the text before converting to make sure it is an actionable, present-tense statement (e.g., 'Draft the proposal' or 'Schedule the family meeting')." },
+          ].map(s => (
+            <div key={s.n} style={{ display: "flex", gap: 10 }}>
+              <div style={{ width: 24, height: 24, borderRadius: "50%", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", flexShrink: 0, marginTop: 1 }}>{s.n}</div>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 15 }}>{s.title}</div>
+                <div style={{ fontSize: 14, color: "#64748b" }}>{s.body}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ marginTop: 16, padding: 12, background: "#F0FDF4", borderRadius: 10, fontSize: 14, color: "#0F6E56", lineHeight: 1.5 }}>
+          <strong>Pro tip:</strong> The goal of this process is not a perfect decision — it's a <em>peaceful</em> one. When you can look at your choice with clarity and calm, you're ready to move forward.
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ marginTop: 24 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#1a2332" }}>Decision Making Filter</div>
+        <div onClick={() => setShowQuickStart(true)} style={{ fontSize: 13, color: "#3B82F6", cursor: "pointer", fontWeight: 500, textDecoration: "underline", textUnderlineOffset: 2 }}>View Quick Start Guide</div>
+      </div>
+
+      <div style={{ position: "relative" }}>
+        <div ref={containerRef}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={() => setDragging(null)}
+          style={{ display: "flex", gap: 12, flexWrap: "wrap", overflow: "visible" }}>
+          {options.map(renderColumn)}
+
+          {/* Add column button */}
+          <div onClick={addOption} style={{
+            flex: "1 1 240px", minWidth: 220, minHeight: 200,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            borderRadius: 12, border: "2px dashed #e2e8f0", cursor: "pointer",
+            color: "#94a3b8", fontSize: 15, fontWeight: 600, transition: "border-color 0.2s",
+          }}>
+            + Add Option
+          </div>
+        </div>
+
+        {/* Drag preview line */}
+        {dragging && (
+          <svg style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 50 }}>
+            <path d={`M ${dragging.startX} ${dragging.startY} C ${dragging.startX + (dragging.currentX - dragging.startX) * 0.4} ${dragging.startY} ${dragging.currentX - (dragging.currentX - dragging.startX) * 0.4} ${dragging.currentY} ${dragging.currentX} ${dragging.currentY}`}
+              fill="none" stroke="#3B82F6" strokeWidth={2} strokeDasharray="5 3" opacity={0.7} />
+          </svg>
+        )}
+      </div>
+
+      {/* Favorite preview section */}
+      {favoriteOption && (
+        <div style={{ marginTop: 16, padding: 20, background: "#F0FDF4", borderRadius: 12, border: "2px solid #4CAF7D" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+            <span style={{ fontSize: 20, color: "#F5A623" }}>★</span>
+            <span style={{ fontSize: 16, fontWeight: 700, color: "#1a2332" }}>Your Favorite Option: {favoriteOption.label}</span>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 12 }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#4CAF7D", marginBottom: 4 }}>Pros</div>
+              <ul style={{ margin: 0, paddingLeft: 20, fontSize: 14, color: "#1a2332", lineHeight: 1.6 }}>
+                {favoriteOption.pros.filter(p => p.trim()).map((p, i) => <li key={i}>{p}</li>)}
+                {favoriteOption.pros.filter(p => p.trim()).length === 0 && <li style={{ color: "#94a3b8" }}>No pros listed</li>}
+              </ul>
+            </div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#E85D75", marginBottom: 4 }}>Cons</div>
+              <ul style={{ margin: 0, paddingLeft: 20, fontSize: 14, color: "#1a2332", lineHeight: 1.6 }}>
+                {favoriteOption.cons.filter(c => c.trim()).map((c, i) => <li key={i}>{c}</li>)}
+                {favoriteOption.cons.filter(c => c.trim()).length === 0 && <li style={{ color: "#94a3b8" }}>No cons listed</li>}
+              </ul>
+            </div>
+          </div>
+
+          {/* Connections in preview */}
+          {favoriteOption.connections.length > 0 && (
+            <div style={{ marginBottom: 12, padding: 8, background: "#fff", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>Connected Pairs</div>
+              {favoriteOption.connections.map((conn, ci) => (
+                <div key={ci} style={{ fontSize: 13, color: "#475569", display: "flex", gap: 6, alignItems: "center", padding: "2px 0" }}>
+                  <span style={{ color: "#4CAF7D" }}>+ {favoriteOption.pros[conn.proIndex] || "(empty)"}</span>
+                  <span style={{ color: "#94a3b8" }}>↔</span>
+                  <span style={{ color: "#E85D75" }}>− {favoriteOption.cons[conn.conIndex] || "(empty)"}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Reflection guide */}
+          <div style={{ marginBottom: 12, padding: 12, background: "#fff", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "#1a2332", marginBottom: 8 }}>Reflection Guide</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 14, color: "#475569" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                <input type="checkbox" style={{ accentColor: "#3B82F6" }} /> Have you slept on it?
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                <input type="checkbox" style={{ accentColor: "#3B82F6" }} /> Are you at peace with this choice?
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                <input type="checkbox" style={{ accentColor: "#3B82F6" }} /> Does this align with your deepest values?
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                <input type="checkbox" style={{ accentColor: "#3B82F6" }} /> Have you truly discerned it well?
+              </label>
+            </div>
+          </div>
+
+          {/* Convert to priority */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button onClick={() => {
+              const label = favoriteOption.label;
+              const pros = favoriteOption.pros.filter(p => p.trim());
+              const text = pros.length > 0 ? `${label}: ${pros[0]}` : label;
+              setConvertText(text);
+              setShowConvert(true);
+            }} style={{
+              padding: "8px 20px", borderRadius: 8, border: "none",
+              background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff",
+              fontSize: 15, fontWeight: 700, cursor: "pointer",
+            }}>
+              Convert to Priority
+            </button>
+            <span style={{ fontSize: 14, color: "#94a3b8" }}>Creates an actionable priority on your Tasks page</span>
+          </div>
+        </div>
+      )}
+
+      {favoriteOption === null && options.some(o => o.pros.some(p => p.trim()) || o.cons.some(c => c.trim())) && (
+        <div style={{ marginTop: 12, padding: 14, background: "#FFF8ED", borderRadius: 10, border: "1px solid #F5A623", fontSize: 14, color: "#92400E", display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 18 }}>💡</span>
+          Click the star <span style={{ color: "#F5A623" }}>☆</span> on any option to mark it as your favorite and see a detailed preview below.
+        </div>
+      )}
+
+      {/* Convert modal */}
+      {showConvert && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 99999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+          onClick={() => setShowConvert(false)}>
+          <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 16, padding: 28, width: "90vw", maxWidth: 480, position: "relative" }}>
+            <button onClick={() => setShowConvert(false)}
+              style={{ position: "absolute", top: 12, right: 16, width: 28, height: 28, borderRadius: "50%", border: "none", background: "#f1f5f9", cursor: "pointer", fontSize: 16, color: "#64748b", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#1a2332", marginBottom: 4 }}>Convert to Priority</div>
+            <div style={{ fontSize: 14, color: "#64748b", marginBottom: 12 }}>Edit the text below to make it an actionable priority (present tense, action-oriented).</div>
+            <input value={convertText} onChange={e => setConvertText(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") handleConvertToPriority(); }}
+              autoFocus
+              style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #3B82F6", fontSize: 15, outline: "none", boxSizing: "border-box", marginBottom: 12 }} />
+            <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 12 }}>
+              Tip: Use present tense action verbs — e.g., "Draft the proposal", "Schedule the team meeting", "Change the diaper"
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={handleConvertToPriority} disabled={!convertText.trim()}
+                style={{ flex: 1, padding: "9px 0", borderRadius: 8, border: "none", background: convertText.trim() ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0", color: "#fff", fontSize: 15, fontWeight: 700, cursor: convertText.trim() ? "pointer" : "not-allowed" }}>
+                Create Priority
+              </button>
+              <button onClick={() => setShowConvert(false)}
+                style={{ flex: 1, padding: "9px 0", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showQuickStart && quickStartGuide}
+    </div>
+  );
+}
+
 function GoalsPage({ goals, setGoals, sections, viewMode, onOpenOnboarding, onEditGoal, onDuplicateGoal, tasks, setTasks, userEmail, orgMembers }: {
   goals: Goal[]; setGoals: (g: Goal[]) => void; sections: Section[];
   viewMode: "row" | "expanded";
@@ -3775,6 +4226,9 @@ function GoalsPage({ goals, setGoals, sections, viewMode, onOpenOnboarding, onEd
       {renderSection("active", "Active", active)}
       {renderSection("drafted", "Drafted", drafted)}
       {renderSection("completed", "Completed", completed)}
+
+      {/* Decision Making Filter */}
+      <DecisionMakingFilter tasks={tasks} setTasks={setTasks} userEmail={userEmail} />
 
       {/* Completion confirmation dialog */}
       {confirmComplete && (
