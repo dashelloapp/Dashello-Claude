@@ -5892,6 +5892,8 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
   health_red_multiplier: -1.0,
   menu_permissions: {} as Record<string, string[]>,
   timezone: "",
+  acc_header_size: 30,
+  acc_min_body: 15,
 });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -5904,13 +5906,6 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
     window.addEventListener("beforeunload", h);
     return () => window.removeEventListener("beforeunload", h);
   }, [dirty]);
-  const [accHeaderSize, setAccHeaderSize] = useState<number>(() => parseInt(localStorage.getItem("acc_header_size") || "30") || 30);
-  const [accMinBody, setAccMinBody] = useState<number>(() => parseInt(localStorage.getItem("acc_min_body") || "15") || 15);
-  useEffect(() => {
-    localStorage.setItem("acc_header_size", String(accHeaderSize));
-    localStorage.setItem("acc_min_body", String(accMinBody));
-    applyAccessibilitySettings(accHeaderSize, accMinBody);
-  }, [accHeaderSize, accMinBody]);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -5926,7 +5921,10 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
       health_red_multiplier: data.health_red_multiplier ?? -1.0,
       menu_permissions: data.menu_permissions ?? {},
       timezone: data.timezone ?? "",
+      acc_header_size: data.acc_header_size ?? 30,
+      acc_min_body: data.acc_min_body ?? 15,
     });
+    if (data) applyAccessibilitySettings(data.acc_header_size ?? 30, data.acc_min_body ?? 15);
   });
 }, [userId]);
 
@@ -6221,47 +6219,44 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
             <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 600, color: "#1a2332" }}>{__('settings.accessibility', 'Accessibility')}</h3>
             <div style={{ marginBottom: 14 }}>
               <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>{__('settings.headerSize', 'Header Size')} (px)</div>
-              <input type="number" min={15} max={36} value={accHeaderSize}
+              <input type="number" min={15} max={36} value={localProfile.acc_header_size}
                 onChange={e => {
                   const v = parseInt(e.target.value);
                   if (isNaN(v)) return;
-                  if (v < 15) setAccHeaderSize(15);
-                  else setAccHeaderSize(Math.min(v, 36));
+                  setLocalProfile(p => ({ ...p, acc_header_size: v < 15 ? 15 : Math.min(v, 36) }));
+                  setDirty(true);
                 }}
                 style={{ width: 80, padding: "5px 9px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none" }}
               />
-              {accHeaderSize < 15 && <span style={{ fontSize: 15, color: "#E85D75", marginLeft: 8 }}>{__('settings.headerMinError', "Can't go lower than 15px")}</span>}
-              <div style={{ marginTop: 8, fontSize: accHeaderSize, fontWeight: 700, color: "#1a2332" }}>
-                {__('settings.headerPreview', 'Preview Heading')} — {accHeaderSize}px
+              {localProfile.acc_header_size < 15 && <span style={{ fontSize: 15, color: "#E85D75", marginLeft: 8 }}>{__('settings.headerMinError', "Can't go lower than 15px")}</span>}
+              <div style={{ marginTop: 8, fontSize: localProfile.acc_header_size, fontWeight: 700, color: "#1a2332" }}>
+                {__('settings.headerPreview', 'Preview Heading')} — {localProfile.acc_header_size}px
               </div>
             </div>
             <div style={{ marginBottom: 14 }}>
               <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>{__('settings.bodyTextSize', 'Minimum Body Text Size')} (px)</div>
-              <input type="number" min={11} max={24} value={accMinBody}
+              <input type="number" min={11} max={24} value={localProfile.acc_min_body}
                 onChange={e => {
                   const v = parseInt(e.target.value);
                   if (isNaN(v)) return;
-                  if (v < 11) setAccMinBody(11);
-                  else setAccMinBody(Math.min(v, 24));
+                  setLocalProfile(p => ({ ...p, acc_min_body: v < 11 ? 11 : Math.min(v, 24) }));
+                  setDirty(true);
                 }}
                 style={{ width: 80, padding: "5px 9px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none" }}
               />
-              {accMinBody < 11 && <span style={{ fontSize: 15, color: "#E85D75", marginLeft: 8 }}>{__('settings.bodyMinError', "Can't go lower than 11px")}</span>}
-              <div style={{ marginTop: 8, fontSize: accMinBody, color: "#64748b" }}>
-                {__('settings.bodyPreview', 'Preview body text')} — {accMinBody}px
+              {localProfile.acc_min_body < 11 && <span style={{ fontSize: 15, color: "#E85D75", marginLeft: 8 }}>{__('settings.bodyMinError', "Can't go lower than 11px")}</span>}
+              <div style={{ marginTop: 8, fontSize: localProfile.acc_min_body, color: "#64748b" }}>
+                {__('settings.bodyPreview', 'Preview body text')} — {localProfile.acc_min_body}px
               </div>
             </div>
             <LanguageSelector />
-            <div style={{ fontSize: 15, color: "#94a3b8", lineHeight: 1.5 }}>
-              {__('settings.changeApply', 'Changes apply immediately.')}
-            </div>
           </div>
         </div>
         <div style={{ position: "sticky", bottom: 0, background: "#F8FAFC", padding: "16px 0", display: "flex", justifyContent: "center", zIndex: 100 }}>
           <button onClick={async () => {
               setSaving(true);
               const { error } = await supabase.from("profiles").upsert({ id: userId, ...localProfile, updated_at: new Date().toISOString() });
-              if (!error) { onProfileSaved({ ...localProfile }); setSaved(true); setDirty(false); setTimeout(() => setSaved(false), 3000); }
+              if (!error) { onProfileSaved({ ...localProfile }); applyAccessibilitySettings(localProfile.acc_header_size, localProfile.acc_min_body); setSaved(true); setDirty(false); setTimeout(() => setSaved(false), 3000); }
               setSaving(false);
             }} disabled={saving}
             style={{ padding: "12px 48px", borderRadius: 8, border: "none", background: saved ? "#4CAF7D" : dirty ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0", color: "#fff", fontSize: 15, fontWeight: 600, cursor: dirty && !saving ? "pointer" : "default" }}>
@@ -8022,7 +8017,10 @@ export default function DashelloDashboard() {
     health_red_multiplier: -1.0,
     menu_permissions: {} as Record<string, string[]>,
     timezone: "",
+    acc_header_size: 30,
+    acc_min_body: 15,
   });
+  useEffect(() => { applyAccessibilitySettings(profile.acc_header_size ?? 30, profile.acc_min_body ?? 15); }, [profile.acc_header_size, profile.acc_min_body]);
   const [fiveAccountSettings, setFiveAccountSettings] = useState<FiveAccountSettings>(DEFAULT_FIVE_ACCOUNT_SETTINGS);
   // --- SETTINGS UPDATE LOGIC ---
  const handleUpdateSettings = (newSettings: FiveAccountSettings) => {
@@ -8247,6 +8245,8 @@ export default function DashelloDashboard() {
   health_red_multiplier: prof.health_red_multiplier ?? -1.0,
   menu_permissions: prof.menu_permissions ?? {},
   timezone: prof.timezone ?? "",
+  acc_header_size: prof.acc_header_size ?? 30,
+  acc_min_body: prof.acc_min_body ?? 15,
 });
       setDbReady(true);
     }
