@@ -75,7 +75,7 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
   const [showQuickStart, setShowQuickStart] = useState(false);
   const [showConvert, setShowConvert] = useState(false);
   const [convertText, setConvertText] = useState("");
-  const [dragging, setDragging] = useState<{ optionId: string; proIndex: number; startX: number; startY: number; currentX: number; currentY: number } | null>(null);
+  const [dragging, setDragging] = useState<{ optionId: string; source: "pro" | "con"; index: number; startX: number; startY: number; currentX: number; currentY: number } | null>(null);
   const [saveError, setSaveError] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [completedDecisions, setCompletedDecisions] = useState<CompletedDecision[]>([]);
@@ -169,14 +169,13 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
     e.preventDefault();
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
-    setDragging({
-      optionId,
-      proIndex,
-      startX: e.clientX - rect.left,
-      startY: e.clientY - rect.top,
-      currentX: e.clientX - rect.left,
-      currentY: e.clientY - rect.top,
-    });
+    setDragging({ optionId, source: "pro", index: proIndex, startX: e.clientX - rect.left, startY: e.clientY - rect.top, currentX: e.clientX - rect.left, currentY: e.clientY - rect.top });
+  };
+  const handleConDotMouseDown = (e: React.MouseEvent, optionId: string, conIndex: number) => {
+    e.preventDefault();
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setDragging({ optionId, source: "con", index: conIndex, startX: e.clientX - rect.left, startY: e.clientY - rect.top, currentX: e.clientX - rect.left, currentY: e.clientY - rect.top });
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -189,13 +188,16 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
   const handleMouseUp = (e: React.MouseEvent) => {
     if (!dragging) return;
     const target = e.target as HTMLElement;
+    const proDot = target.closest("[data-pro-dot]") as HTMLElement | null;
     const conDot = target.closest("[data-con-dot]") as HTMLElement | null;
-    if (conDot) {
-      const optionId = conDot.dataset.optionId!;
-      const conIndex = parseInt(conDot.dataset.conIndex!, 10);
+    const otherDot = dragging.source === "pro" ? conDot : proDot;
+    if (otherDot) {
+      const optionId = otherDot.dataset.optionId || dragging.optionId;
       if (optionId === dragging.optionId) {
+        const proIndex = dragging.source === "pro" ? dragging.index : parseInt(otherDot.dataset.proIndex ?? "0", 10);
+        const conIndex = dragging.source === "con" ? dragging.index : parseInt(otherDot.dataset.conIndex ?? "0", 10);
         setOptions(options.map(o => o.id !== optionId ? o : {
-          ...o, connections: [...o.connections, { proIndex: dragging.proIndex, conIndex }]
+          ...o, connections: [...o.connections, { proIndex, conIndex }]
         }));
       }
     }
@@ -390,7 +392,7 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
                   )}
                   {pro.trim() && (
                     <div ref={el => { dotRefs.current[`pro-${option.id}-${pi}`] = el; }}
-                      data-pro-dot={`${option.id}-${pi}`}
+                      data-pro-dot="true" data-option-id={option.id} data-pro-index={pi}
                       onMouseDown={e => handleProDotMouseDown(e, option.id, pi)}
                       style={{ width: 10, height: 10, borderRadius: "50%", background: "#4CAF7D", cursor: "crosshair", flexShrink: 0, marginLeft: 2 }} title="Drag to connect to a con" />
                   )}
@@ -411,6 +413,7 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
                   {con.trim() && (
                     <div ref={el => { dotRefs.current[`con-${option.id}-${ci}`] = el; }}
                       data-con-dot="true" data-option-id={option.id} data-con-index={ci}
+                      onMouseDown={e => handleConDotMouseDown(e, option.id, ci)}
                       style={{ width: 10, height: 10, borderRadius: "50%", background: "#E85D75", cursor: "crosshair", flexShrink: 0, marginRight: 2 }} title="Drop here to connect from a pro" />
                   )}
                   <span style={{ fontSize: 13, color: "#E85D75", flexShrink: 0 }}>−</span>
@@ -584,10 +587,10 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
   return (
     <div style={{ marginTop: 24 }}>
       <div style={{ marginBottom: 4 }}>
-        <div style={{ fontSize: "clamp(20px,4vw,26px)", fontWeight: 700, color: "#1a2332", marginBottom: 2 }}>Decision Making Filter</div>
+        <div style={{ fontSize: "clamp(20px,4vw,26px)", fontWeight: 700, color: "#1a2332", marginBottom: 2 }}>Decisions</div>
       </div>
 
-      {renderCollapsibleHeader("current", "Current Decision", "RocketLaunch", "#3B82F6")}
+      {renderCollapsibleHeader("current", "Decision Making Filter", "Funnel", "#3B82F6")}
       {!collapsed["current"] && <div style={{ background: "#fff", borderRadius: 16, padding: 20, border: "1px solid #e2e8f0" }}>
       {/* Step 1: Identify the decision to be made */}
       <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
@@ -774,7 +777,7 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
       }}>Save Draft</button>
 
       {/* Active Decisions */}
-      {renderSection("active", "Active Decisions", "RocketLaunch", "#3B82F6", activeDecisions, renderSavedCard)}
+      {renderSection("active", "Current Decisions", "RocketLaunch", "#3B82F6", activeDecisions, renderSavedCard)}
 
       {/* Saved Decisions */}
       {renderSection("saved", "Saved Decisions", "Notebook", "#F5A623", savedDrafts, renderSavedCard)}
