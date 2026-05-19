@@ -6,7 +6,7 @@ const IframeExtension = TipTapNode.create({
   group: "block",
   atom: true,
   addAttributes() {
-    return { src: { default: null }, style: { default: "width:100%;max-width:560px;height:315px;border:none;border-radius:8px" }, allowfullscreen: { default: "true" } };
+    return { src: { default: null }, style: { default: "width:100%;height:315px;border:none;border-radius:0" }, allowfullscreen: { default: "true" } };
   },
   parseHTML() { return [{ tag: "iframe" }]; },
   renderHTML({ HTMLAttributes }) { return ["iframe", mergeAttributes(HTMLAttributes)]; },
@@ -203,7 +203,7 @@ interface PlaybookRow {
 }
 
 // ── TipTap Rich Text Editor ───────────────────────────────────────────────
-function MenuBar({ editor }: { editor: any }) {
+function MenuBar({ editor, showSource, onToggleSource }: { editor: any; showSource?: boolean; onToggleSource?: () => void }) {
   if (!editor) return null;
   const [showTablePicker, setShowTablePicker] = useState(false);
   const tablePickerRef = useRef<HTMLDivElement>(null);
@@ -340,10 +340,10 @@ function MenuBar({ editor }: { editor: any }) {
             background: editor.isActive("table") ? "#dbeafe" : "transparent", color: "#64748b" }}>
           <PhosphorReact.Table size={16} color={editor.isActive("table") ? "#3B82F6" : "currentColor"} /></button>
       </div>
-      <button onClick={() => editor.chain().focus().toggleCodeBlock().run()} title="Code block"
+      <button onClick={() => onToggleSource?.()} title={showSource ? "Rich text mode" : "Source code mode"}
         style={{ width: 28, height: 28, borderRadius: 4, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-          background: editor.isActive("codeBlock") ? "#dbeafe" : "transparent", color: "#64748b" }}>
-        <PhosphorReact.Code size={16} color={editor.isActive("codeBlock") ? "#3B82F6" : "currentColor"} /></button>
+          background: showSource ? "#dbeafe" : "transparent", color: showSource ? "#3B82F6" : "#64748b" }}>
+        <PhosphorReact.Code size={16} color={showSource ? "#3B82F6" : "currentColor"} /></button>
       <div style={{ flex: 1 }} />
       <input type="color" value={editor.getAttributes("textStyle").color || "#000000"}
         onChange={e => editor.chain().focus().setColor(e.target.value).run()} title="Text color"
@@ -357,6 +357,8 @@ function RichEditor({ content, onChange, placeholder }: {
 }) {
   const [showPasteModal, setShowPasteModal] = useState(false);
   const [pasteResolve, setPasteResolve] = useState<((rich: boolean) => void) | null>(null);
+  const [showSource, setShowSource] = useState(false);
+  const [sourceHtml, setSourceHtml] = useState(content || "");
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
@@ -365,12 +367,18 @@ function RichEditor({ content, onChange, placeholder }: {
       ImageExt,
       LinkExt.configure({ openOnClick: true }),
       TableExt.configure({ resizable: true }),
-      TableRow, TableCell, TableHeader,
+      TableRow,
+      TableCell.configure({ 
+        HTMLAttributes: { style: "border:1px solid #d1d5db;padding:6px 10px" },
+      }),
+      TableHeader.configure({
+        HTMLAttributes: { style: "border:1px solid #d1d5db;padding:6px 10px;background:#f8fafc;font-weight:600" },
+      }),
       TextStyle, Color, Highlight,
       IframeExtension,
     ],
     content: content || "",
-    onUpdate: ({ editor }) => onChange(editor.getHTML()),
+    onUpdate: ({ editor }) => { if (!showSource) onChange(editor.getHTML()); },
     editorProps: {
       attributes: { class: "prose" as string, style: "min-height: 280px; outline: none; cursor: text;" },
       handlePaste: (view, event) => {
@@ -402,13 +410,30 @@ function RichEditor({ content, onChange, placeholder }: {
     }
   }, [content]);
 
+  useEffect(() => {
+    if (!showSource && editor && sourceHtml !== editor.getHTML()) {
+      editor.commands.setContent(sourceHtml || "");
+      onChange(sourceHtml);
+    }
+  }, [showSource]);
+
   return (
     <div style={{ border: "1.5px solid #e2e8f0", borderRadius: 10, overflow: "hidden", position: "relative" }}>
-      <MenuBar editor={editor} />
+      <MenuBar editor={editor} showSource={showSource} onToggleSource={() => {
+        if (!showSource && editor) {
+          setSourceHtml(editor.getHTML());
+        }
+        setShowSource(v => !v);
+      }} />
+      {showSource ? (
+        <textarea value={sourceHtml} onChange={e => { setSourceHtml(e.target.value); onChange(e.target.value); }}
+          style={{ width: "100%", minHeight: 300, maxHeight: 500, padding: "12px 16px", border: "none", fontSize: 12, fontFamily: "'SF Mono','Fira Code',monospace", outline: "none", resize: "vertical", boxSizing: "border-box" }} />
+      ) : (
       <div style={{ padding: "12px 16px", minHeight: 300, maxHeight: 500, overflowY: "auto", fontSize: 14, lineHeight: 1.6, color: "#1a2332", cursor: "text" }}
         onClick={() => editor?.chain().focus().run()}>
         <EditorContent editor={editor} />
       </div>
+      )}
       {showPasteModal && (
         <div style={{ position: "absolute", bottom: 12, left: "50%", transform: "translateX(-50%)", background: "#fff", borderRadius: 12, boxShadow: "0 8px 32px rgba(0,0,0,0.15)", border: "1px solid #e2e8f0", zIndex: 300, padding: 16, display: "flex", gap: 10, alignItems: "center" }}>
           <span style={{ fontSize: 13, fontWeight: 600, color: "#1a2332" }}>Paste as:</span>
@@ -568,17 +593,38 @@ async function downloadPdf(elementId: string, filename: string) {
   const el = document.getElementById(elementId);
   if (!el) return;
   try {
-    const canvas = await html2canvas(el, { scale: 2, useCORS: true, logging: false, allowTaint: true });
+    const canvas = await html2canvas(el, { scale: 2, useCORS: true, logging: false, allowTaint: true, height: el.scrollHeight, windowHeight: el.scrollHeight });
     const imgData = canvas.toDataURL("image/png");
     const pdf = new jsPDF("p", "in", "letter");
     const margin = 0.75;
-    const pdfW = pdf.internal.pageSize.getWidth() - margin * 2;
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    const pdfW = pageW - margin * 2;
     const pdfH = (canvas.height * pdfW) / canvas.width;
-    const maxH = pdf.internal.pageSize.getHeight() - margin * 2;
-    if (pdfH <= maxH) {
+    const pageContentH = pageH - margin * 2;
+    if (pdfH <= pageContentH) {
       pdf.addImage(imgData, "PNG", margin, margin, pdfW, pdfH);
     } else {
-      pdf.addImage(imgData, "PNG", margin, margin, pdfW, pdfH);
+      let remaining = pdfH;
+      let srcY = 0;
+      const pageImgH = (pageContentH * canvas.width) / pdfW;
+      let pageNum = 0;
+      while (remaining > 0) {
+        if (pageNum > 0) pdf.addPage();
+        const h = Math.min(pageImgH, canvas.height - srcY);
+        const pageCanvas = document.createElement("canvas");
+        pageCanvas.width = canvas.width;
+        pageCanvas.height = h;
+        const ctx = pageCanvas.getContext("2d");
+        if (!ctx) break;
+        ctx.drawImage(canvas, 0, srcY, canvas.width, h, 0, 0, canvas.width, h);
+        const pageData = pageCanvas.toDataURL("image/png");
+        const renderH = (h * pdfW) / canvas.width;
+        pdf.addImage(pageData, "PNG", margin, margin, pdfW, renderH);
+        srcY += h;
+        remaining -= h;
+        pageNum++;
+      }
     }
     pdf.save(filename);
   } catch {}
@@ -2361,9 +2407,9 @@ function PlaybookCard({ item, rowId, onDetail, onEdit, onStartFill, isSingleLink
         transform: cardHov ? "translateY(-3px)" : "none",
         transition: "transform 0.15s, box-shadow 0.15s",
         boxShadow: cardHov ? "0 10px 28px rgba(0,0,0,0.12)" : "0 2px 8px rgba(0,0,0,0.06)" }}>
-      <div style={{ width: 44, height: 44, borderRadius: "50%", background: item.icon ? "#f8fafc" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 8 }}>
-        {item.icon ? <IconGlyph name={item.icon} size={20} color={activeColor} /> : null}
-      </div>
+      {item.icon && <div style={{ width: 44, height: 44, borderRadius: "50%", background: "#f8fafc", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 8 }}>
+        <IconGlyph name={item.icon} size={20} color={activeColor} />
+      </div>}
       <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2332", textAlign: "center", lineHeight: 1.3, marginBottom: 8 }}>{item.label}</div>
       {item.type === "template" ? (
         <div onClick={e => { e.stopPropagation(); onStartFill(item, rowId); }}

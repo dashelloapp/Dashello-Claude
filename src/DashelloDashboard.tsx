@@ -7240,6 +7240,29 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
           );
         })}
       </nav>
+      {/* ── Health Progress ── */}
+      {health.hasData && (() => {
+  const barColors = { green: "#4CAF7D", yellow: "#F5A623", red: "#E85D75" };
+  return (
+    <div style={{ padding: "0 18px 8px" }}>
+      <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.7)", marginBottom: 6, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span>Health</span>
+        <span style={{ color: "#fff", fontWeight: 700 }}>{health.score}%</span>
+      </div>
+      <div style={{ width: "100%", height: 24, background: "rgba(255,255,255,0.2)", borderRadius: 99, overflow: "hidden" }}>
+        <div style={{
+          width: `${health.score}%`, height: "100%",
+          background: barColors[health.barColor], borderRadius: 99,
+          transition: "width 400ms ease, background 300ms ease"
+        }} />
+      </div>
+      <div style={{ fontSize: 9, color: "rgba(255,255,255,0.6)", marginTop: 4, textAlign: "center" }}>
+        {health.counts.green}G · {health.counts.yellow}Y · {health.counts.red}R
+        {health.counts.gray > 0 ? ` · ${health.counts.gray} unmatched` : ""}
+      </div>
+    </div>
+  );
+})()}
       {/* ── Sidebar Tasks Widget ── */}
       <div style={{ background: "#fff", borderRadius: 12, margin: "8px 12px 4px", padding: "12px 14px" }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: "#1a2332", marginBottom: 8 }}>Your Tasks</div>
@@ -7289,29 +7312,6 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
         )}
       </div>
       </div>
-      <div style={{ borderTop: "1px solid rgba(255,255,255,0.15)", margin: "0 18px 10px" }} />
-      {health.hasData && (() => {
-  const barColors = { green: "#4CAF7D", yellow: "#F5A623", red: "#E85D75" };
-  return (
-    <div style={{ padding: "0 18px 14px" }}>
-      <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.7)", marginBottom: 6, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span>Health</span>
-        <span style={{ color: "#fff", fontWeight: 700 }}>{health.score}%</span>
-      </div>
-      <div style={{ width: "100%", height: 24, background: "rgba(255,255,255,0.2)", borderRadius: 99, overflow: "hidden" }}>
-        <div style={{
-          width: `${health.score}%`, height: "100%",
-          background: barColors[health.barColor], borderRadius: 99,
-          transition: "width 400ms ease, background 300ms ease"
-        }} />
-      </div>
-      <div style={{ fontSize: 9, color: "rgba(255,255,255,0.6)", marginTop: 4, textAlign: "center" }}>
-        {health.counts.green}G · {health.counts.yellow}Y · {health.counts.red}R
-        {health.counts.gray > 0 ? ` · ${health.counts.gray} unmatched` : ""}
-      </div>
-    </div>
-  );
-})()}
       <div style={{ padding: "14px 18px", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, flexShrink: 0 }}>
         <img src="https://dashello.co/wp-content/uploads/2023/08/White-Logo-Full.png" alt="Dashello" style={{ height: 26, objectFit: "contain", maxWidth: "80%" }} />
         {(currentUserLevel === "owner" || currentUserLevel === "admin") && (
