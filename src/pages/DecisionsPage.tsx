@@ -46,19 +46,23 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
   const [dragging, setDragging] = useState<{ optionId: string; source: "pro" | "con"; index: number; startX: number; startY: number; currentX: number; currentY: number } | null>(null);
   const dotRefs = useRef<Record<string, HTMLElement | null>>({});
   const containerRef = useRef<HTMLDivElement>(null);
+  const focusTarget = useRef<{ id: string } | null>(null);
 
-  useEffect(() => { const data = { options, favoriteOptionId, decisionStatement }; localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }, [options, favoriteOptionId, decisionStatement]);
-  useEffect(() => { localStorage.setItem("decision-filter-saved", JSON.stringify(savedDecisions)); }, [savedDecisions]);
-  useEffect(() => { localStorage.setItem("decision-filter-completed", JSON.stringify(completedDecisions)); }, [completedDecisions]);
-  useEffect(() => { try { const saved = localStorage.getItem("decision-filter-completed"); if (saved) setCompletedDecisions(JSON.parse(saved)); } catch {} }, []);
+  useEffect(() => {
+    if (focusTarget.current) {
+      const el = document.getElementById(focusTarget.current.id);
+      if (el) { el.focus(); }
+      focusTarget.current = null;
+    }
+  });
 
   const addOption = () => { const letter = String.fromCharCode(65 + options.length); setOptions([...options, { id: crypto.randomUUID(), label: `Option ${letter}`, pros: [""], cons: [""], connections: [] }]); };
   const removeOption = (id: string) => { setOptions(options.filter(o => o.id !== id)); if (favoriteOptionId === id) setFavoriteOptionId(null); };
   const updateLabel = (id: string, label: string) => { setOptions(options.map(o => o.id === id ? { ...o, label } : o)); };
-  const addPro = (optionId: string) => { setOptions(options.map(o => o.id === optionId ? { ...o, pros: [...o.pros, ""] } : o)); };
+  const addPro = (optionId: string) => { setOptions(options.map(o => o.id === optionId ? { ...o, pros: [...o.pros, ""] } : o)); focusTarget.current = { id: `pro-${optionId}-${options.find(o => o.id === optionId)?.pros.length || 0}` }; };
   const updatePro = (optionId: string, index: number, value: string) => { setOptions(options.map(o => o.id === optionId ? { ...o, pros: o.pros.map((p, i) => i === index ? value : p) } : o)); };
   const removePro = (optionId: string, index: number) => { setOptions(options.map(o => o.id === optionId ? { ...o, pros: o.pros.filter((_, i) => i !== index), connections: o.connections.filter(c => c.proIndex !== index).map(c => ({ proIndex: c.proIndex > index ? c.proIndex - 1 : c.proIndex, conIndex: c.conIndex })) } : o)); };
-  const addCon = (optionId: string) => { setOptions(options.map(o => o.id === optionId ? { ...o, cons: [...o.cons, ""] } : o)); };
+  const addCon = (optionId: string) => { setOptions(options.map(o => o.id === optionId ? { ...o, cons: [...o.cons, ""] } : o)); focusTarget.current = { id: `con-${optionId}-${options.find(o => o.id === optionId)?.cons.length || 0}` }; };
   const updateCon = (optionId: string, index: number, value: string) => { setOptions(options.map(o => o.id === optionId ? { ...o, cons: o.cons.map((c, i) => i === index ? value : c) } : o)); };
   const removeCon = (optionId: string, index: number) => { setOptions(options.map(o => o.id === optionId ? { ...o, cons: o.cons.filter((_, i) => i !== index), connections: o.connections.filter(c => c.conIndex !== index).map(c => ({ proIndex: c.proIndex, conIndex: c.conIndex > index ? c.conIndex - 1 : c.conIndex })) } : o)); };
   const handleProDotMouseDown = (e: React.MouseEvent, optionId: string, proIndex: number) => { e.preventDefault(); const rect = containerRef.current?.getBoundingClientRect(); if (!rect) return; setDragging({ optionId, source: "pro", index: proIndex, startX: e.clientX - rect.left, startY: e.clientY - rect.top, currentX: e.clientX - rect.left, currentY: e.clientY - rect.top }); };
@@ -92,7 +96,7 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
               {option.pros.map((pro, pi) => (
                 <div key={pi} style={{ display: "flex", alignItems: "center", gap: 3 }}>
                   <span style={{ fontSize: 13, color: "#4CAF7D", flexShrink: 0 }}>+</span>
-                  <input value={pro} onChange={e => updatePro(option.id, pi, e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); if (pro.trim()) addPro(option.id); } }} placeholder="Add a pro..." style={{ flex: 1, fontSize: 13, color: "#1a2332", border: "none", background: "transparent", outline: "none", fontFamily: "inherit", padding: "1px 0", minWidth: 0 }} />
+                  <input id={`pro-${option.id}-${pi}`} value={pro} onChange={e => updatePro(option.id, pi, e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); if (pro.trim()) addPro(option.id); } }} placeholder="Add a pro..." style={{ flex: 1, fontSize: 13, color: "#1a2332", border: "none", background: "transparent", outline: "none", fontFamily: "inherit", padding: "1px 0", minWidth: 0 }} />
                   {option.pros.length > 1 && <div onClick={() => removePro(option.id, pi)} style={{ cursor: "pointer", fontSize: 13, color: "#cbd5e1", flexShrink: 0 }}>×</div>}
                   {pro.trim() && <div ref={el => { dotRefs.current[`pro-${option.id}-${pi}`] = el; }} data-pro-dot="true" data-option-id={option.id} data-pro-index={pi} onMouseDown={e => handleProDotMouseDown(e, option.id, pi)} style={{ width: 14, height: 14, borderRadius: "50%", background: "#4CAF7D", cursor: "crosshair", flexShrink: 0, marginLeft: 2 }} title="Drag to connect to a con" />}
                 </div>
@@ -107,7 +111,7 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
                 <div key={ci} style={{ display: "flex", alignItems: "center", gap: 3 }}>
                   {con.trim() && <div ref={el => { dotRefs.current[`con-${option.id}-${ci}`] = el; }} data-con-dot="true" data-option-id={option.id} data-con-index={ci} onMouseDown={e => handleConDotMouseDown(e, option.id, ci)} style={{ width: 14, height: 14, borderRadius: "50%", background: "#E85D75", cursor: "crosshair", flexShrink: 0, marginRight: 2 }} title="Drop here to connect from a pro" />}
                   <span style={{ fontSize: 13, color: "#E85D75", flexShrink: 0 }}>−</span>
-                  <input value={con} onChange={e => updateCon(option.id, ci, e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); if (con.trim()) addCon(option.id); } }} placeholder="Add a con..." style={{ flex: 1, fontSize: 13, color: "#1a2332", border: "none", background: "transparent", outline: "none", fontFamily: "inherit", padding: "1px 0", minWidth: 0 }} />
+                  <input id={`con-${option.id}-${ci}`} value={con} onChange={e => updateCon(option.id, ci, e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); if (con.trim()) addCon(option.id); } }} placeholder="Add a con..." style={{ flex: 1, fontSize: 13, color: "#1a2332", border: "none", background: "transparent", outline: "none", fontFamily: "inherit", padding: "1px 0", minWidth: 0 }} />
                   {option.cons.length > 1 && <div onClick={() => removeCon(option.id, ci)} style={{ cursor: "pointer", fontSize: 13, color: "#cbd5e1", flexShrink: 0 }}>×</div>}
                 </div>
               ))}
