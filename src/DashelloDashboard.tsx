@@ -3327,7 +3327,7 @@ function GoalsPage({ goals, setGoals, sections, viewMode, onOpenOnboarding, onEd
 }) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({ active: false, drafted: false, completed: false });
   const [confirmComplete, setConfirmComplete] = useState<Goal | null>(null);
-  const [goalAddTask, setGoalAddTask] = useState<{ goalId: string; text: string; assignee: string; dueDate: string } | null>(null);
+  const [goalAddTask, setGoalAddTask] = useState<{ goalId: string; text: string; assignee: string; dueDate: string; priority: boolean } | null>(null);
   const [goalExpandActions, setGoalExpandActions] = useState<string | null>(null);
   const [goalMenuTaskId, setGoalMenuTaskId] = useState<string | null>(null);
   const goalMenuRef = useRef<HTMLDivElement>(null);
@@ -3514,8 +3514,12 @@ function GoalsPage({ goals, setGoals, sections, viewMode, onOpenOnboarding, onEd
                         {goalAddTask?.goalId === g.id ? (
                           <div style={{ marginTop: 6 }}>
                             <input value={goalAddTask.text} onChange={e => setGoalAddTask({ ...goalAddTask, text: e.target.value })} placeholder="New action..."
-                              onKeyDown={e => { if (e.key === "Enter" && goalAddTask.text.trim() && setTasks && userEmail) { setTasks(prev => [...prev, { id: crypto.randomUUID(), text: goalAddTask.text.trim(), done: false, assignedTo: goalAddTask.assignee || userEmail, createdBy: userEmail, linkedGoalId: g.id, createdAt: new Date().toISOString(), dueDate: goalAddTask.dueDate || undefined }]); setGoalAddTask(null); } }}
+                              onKeyDown={e => { if (e.key === "Enter" && goalAddTask.text.trim() && setTasks && userEmail) { setTasks(prev => [...prev, { id: crypto.randomUUID(), text: goalAddTask.text.trim(), done: false, assignedTo: goalAddTask.assignee || userEmail, createdBy: userEmail, linkedGoalId: g.id, createdAt: new Date().toISOString(), dueDate: goalAddTask.dueDate || undefined, priority: goalAddTask.priority || undefined }]); setGoalAddTask(null); } }}
                               autoFocus style={{ width: "100%", padding: "6px 10px", borderRadius: 6, border: "1.5px solid #3B82F6", fontSize: 12, outline: "none", boxSizing: "border-box", marginBottom: 6 }} />
+                            <label style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, color: goalAddTask.priority ? "#F5A623" : "#94a3b8", cursor: "pointer", marginBottom: 4 }}>
+                              <input type="checkbox" checked={goalAddTask.priority} onChange={e => setGoalAddTask({ ...goalAddTask, priority: e.target.checked })} style={{ accentColor: "#F5A623", margin: 0, width: 12, height: 12 }} />
+                              {goalAddTask.priority ? "" : "Make priority?"}
+                            </label>
                             <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
                               <select value={goalAddTask.assignee} onChange={e => setGoalAddTask({ ...goalAddTask, assignee: e.target.value })}
                                 style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 11, outline: "none", background: "#fff" }}>
@@ -3528,14 +3532,14 @@ function GoalsPage({ goals, setGoals, sections, viewMode, onOpenOnboarding, onEd
                                 style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 11, outline: "none", boxSizing: "border-box" }} />
                             </div>
                             <div style={{ display: "flex", gap: 6 }}>
-                              <button onClick={() => { if (goalAddTask.text.trim() && setTasks && userEmail) { setTasks(prev => [...prev, { id: crypto.randomUUID(), text: goalAddTask.text.trim(), done: false, assignedTo: goalAddTask.assignee || userEmail, createdBy: userEmail, linkedGoalId: g.id, createdAt: new Date().toISOString(), dueDate: goalAddTask.dueDate || undefined }]); setGoalAddTask(null); } }}
+                              <button onClick={() => { if (goalAddTask.text.trim() && setTasks && userEmail) { setTasks(prev => [...prev, { id: crypto.randomUUID(), text: goalAddTask.text.trim(), done: false, assignedTo: goalAddTask.assignee || userEmail, createdBy: userEmail, linkedGoalId: g.id, createdAt: new Date().toISOString(), dueDate: goalAddTask.dueDate || undefined, priority: goalAddTask.priority || undefined }]); setGoalAddTask(null); } }}
                                 disabled={!goalAddTask.text.trim()}
                                 style={{ flex: 1, padding: "5px 14px", borderRadius: 6, border: "none", background: goalAddTask.text.trim() ? "#3B82F6" : "#e2e8f0", color: "#fff", fontSize: 11, fontWeight: 600, cursor: goalAddTask.text.trim() ? "pointer" : "not-allowed" }}>Add</button>
                               <button onClick={() => setGoalAddTask(null)} style={{ flex: 1, padding: "5px 14px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 11, cursor: "pointer", color: "#64748b" }}>Cancel</button>
                             </div>
                           </div>
                         ) : (
-                          <div onClick={() => setGoalAddTask({ goalId: g.id, text: "", assignee: userEmail || "", dueDate: "" })} style={{ fontSize: 12, color: "#3B82F6", cursor: "pointer", fontWeight: 600, marginTop: 6, display: "flex", alignItems: "center", gap: 4 }}>
+                          <div onClick={() => setGoalAddTask({ goalId: g.id, text: "", assignee: userEmail || "", dueDate: "", priority: false })} style={{ fontSize: 12, color: "#3B82F6", cursor: "pointer", fontWeight: 600, marginTop: 6, display: "flex", alignItems: "center", gap: 4 }}>
                             <span style={{ fontSize: 14 }}>+</span> Add Task
                           </div>
                         )}
@@ -3603,8 +3607,12 @@ function GoalsPage({ goals, setGoals, sections, viewMode, onOpenOnboarding, onEd
               {goalAddTask?.goalId === g.id ? (
                 <div style={{ marginTop: 12 }}>
                   <input value={goalAddTask.text} onChange={e => setGoalAddTask({ ...goalAddTask, text: e.target.value })} placeholder="New action..."
-                    onKeyDown={e => { if (e.key === "Enter" && goalAddTask.text.trim() && setTasks && userEmail) { setTasks(prev => [...prev, { id: crypto.randomUUID(), text: goalAddTask.text.trim(), done: false, assignedTo: goalAddTask.assignee || userEmail, createdBy: userEmail, linkedGoalId: g.id, createdAt: new Date().toISOString(), dueDate: goalAddTask.dueDate || undefined }]); setGoalAddTask(null); } }}
+                    onKeyDown={e => { if (e.key === "Enter" && goalAddTask.text.trim() && setTasks && userEmail) { setTasks(prev => [...prev, { id: crypto.randomUUID(), text: goalAddTask.text.trim(), done: false, assignedTo: goalAddTask.assignee || userEmail, createdBy: userEmail, linkedGoalId: g.id, createdAt: new Date().toISOString(), dueDate: goalAddTask.dueDate || undefined, priority: goalAddTask.priority || undefined }]); setGoalAddTask(null); } }}
                     style={{ width: "100%", padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", boxSizing: "border-box", marginBottom: 6 }} />
+                  <label style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, color: goalAddTask.priority ? "#F5A623" : "#94a3b8", cursor: "pointer", marginBottom: 4 }}>
+                    <input type="checkbox" checked={goalAddTask.priority} onChange={e => setGoalAddTask({ ...goalAddTask, priority: e.target.checked })} style={{ accentColor: "#F5A623", margin: 0, width: 12, height: 12 }} />
+                    {goalAddTask.priority ? "" : "Make priority?"}
+                  </label>
                   <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
                     <select value={goalAddTask.assignee} onChange={e => setGoalAddTask({ ...goalAddTask, assignee: e.target.value })}
                       style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 11, outline: "none", background: "#fff" }}>
@@ -3617,14 +3625,14 @@ function GoalsPage({ goals, setGoals, sections, viewMode, onOpenOnboarding, onEd
                       style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 11, outline: "none", boxSizing: "border-box" }} />
                   </div>
                   <div style={{ display: "flex", gap: 6 }}>
-                    <button onClick={() => { if (goalAddTask.text.trim() && setTasks && userEmail) { setTasks(prev => [...prev, { id: crypto.randomUUID(), text: goalAddTask.text.trim(), done: false, assignedTo: goalAddTask.assignee || userEmail, createdBy: userEmail, linkedGoalId: g.id, createdAt: new Date().toISOString(), dueDate: goalAddTask.dueDate || undefined }]); setGoalAddTask(null); } }}
+                    <button onClick={() => { if (goalAddTask.text.trim() && setTasks && userEmail) { setTasks(prev => [...prev, { id: crypto.randomUUID(), text: goalAddTask.text.trim(), done: false, assignedTo: goalAddTask.assignee || userEmail, createdBy: userEmail, linkedGoalId: g.id, createdAt: new Date().toISOString(), dueDate: goalAddTask.dueDate || undefined, priority: goalAddTask.priority || undefined }]); setGoalAddTask(null); } }}
                       disabled={!goalAddTask.text.trim()}
                       style={{ flex: 1, padding: "5px 14px", borderRadius: 6, border: "none", background: goalAddTask.text.trim() ? "#3B82F6" : "#e2e8f0", color: "#fff", fontSize: 11, fontWeight: 600, cursor: goalAddTask.text.trim() ? "pointer" : "not-allowed" }}>Add</button>
                     <button onClick={() => setGoalAddTask(null)} style={{ flex: 1, padding: "5px 14px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 11, cursor: "pointer", color: "#64748b" }}>Cancel</button>
                   </div>
                 </div>
               ) : (
-                <div onClick={() => setGoalAddTask({ goalId: g.id, text: "", assignee: userEmail || "", dueDate: "" })} style={{ fontSize: 12, color: "#3B82F6", cursor: "pointer", fontWeight: 600, marginTop: 12, display: "flex", alignItems: "center", gap: 4 }}>
+                <div onClick={() => setGoalAddTask({ goalId: g.id, text: "", assignee: userEmail || "", dueDate: "", priority: false })} style={{ fontSize: 12, color: "#3B82F6", cursor: "pointer", fontWeight: 600, marginTop: 12, display: "flex", alignItems: "center", gap: 4 }}>
                   <span style={{ fontSize: 14 }}>+</span> Add Task
                 </div>
               )}
@@ -4517,7 +4525,7 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
               </div>
             )}
             {/* Filter tabs + metric/goal tabs */}
-            <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 6, marginBottom: 12, overflowX: "auto", flexWrap: "nowrap", paddingBottom: 2, scrollbarWidth: "thin" }}>
               <div onClick={() => setTaskFilter("current")} style={{ padding: "5px 14px", borderRadius: 20, fontSize: 12, fontWeight: 500, cursor: "pointer", background: taskFilter === "current" ? "#3B82F6" : "#f1f5f9", color: taskFilter === "current" ? "#fff" : "#64748b" }}>
                 Current ({tabFiltered.filter(t => !t.done).length})
               </div>
