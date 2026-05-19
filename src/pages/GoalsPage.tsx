@@ -75,6 +75,7 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
   const [showQuickStart, setShowQuickStart] = useState(false);
   const [showConvert, setShowConvert] = useState(false);
   const [convertText, setConvertText] = useState("");
+  const [saveError, setSaveError] = useState("");
   const [dragging, setDragging] = useState<{ optionId: string; proIndex: number; startX: number; startY: number; currentX: number; currentY: number } | null>(null);
   const [reorderingId, setReorderingId] = useState<string | null>(null);
   const [completedDecisions, setCompletedDecisions] = useState<CompletedDecision[]>([]);
@@ -320,7 +321,11 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
   };
 
   const handleSaveForLater = () => {
-    if (!decisionStatement.trim()) return;
+    if (!decisionStatement.trim()) {
+      setSaveError("Please complete Step 1 first — write out your decision to be made.");
+      return;
+    }
+    setSaveError("");
     const snapshot: DecisionSnapshot = {
       id: crypto.randomUUID(),
       decisionStatement,
@@ -653,7 +658,7 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
         <div style={{ width: 24, height: 24, borderRadius: "50%", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", flexShrink: 0, marginTop: 1 }}>1</div>
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 600, fontSize: 14, color: "#1a2332", marginBottom: 6 }}>Identify the decision to be made</div>
-          <textarea value={decisionStatement} onChange={e => setDecisionStatement(e.target.value)}
+          <textarea value={decisionStatement} onChange={e => { setDecisionStatement(e.target.value); setSaveError(""); }}
             placeholder='What decision are you facing? Be specific and concrete - e.g., "Whether to accept the job offer from Company B" or "I will either stay at my current role or take the new position"'
             rows={2}
             style={{ width: "100%", fontSize: 14, color: "#1a2332", border: "1.5px solid #e2e8f0", borderRadius: 8, background: "#fff", outline: "none", fontFamily: "inherit", padding: "8px 10px", resize: "vertical", boxSizing: "border-box" }} />
@@ -849,7 +854,8 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
       </div>{/* end steps 1-11 white container */}
 
       {/* Save Draft button */}
-      <button onClick={handleSaveForLater} disabled={!decisionStatement.trim()} style={{
+      {saveError && <div style={{ marginTop: 8, fontSize: 13, color: "#E85D75", textAlign: "center", fontWeight: 500 }}>{saveError}</div>}
+      <button onClick={() => { if (!decisionStatement.trim()) { setSaveError("Please complete Step 1 first — write out your decision to be made."); return; } setSaveError(""); handleSaveForLater(); }} style={{
         marginTop: 12, padding: "10px 24px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff",
         fontSize: 14, cursor: decisionStatement.trim() ? "pointer" : "not-allowed", color: "#F5A623", fontWeight: 600, opacity: decisionStatement.trim() ? 1 : 0.5, display: "block", width: "100%", textAlign: "center",
       }}>Save Draft</button>
