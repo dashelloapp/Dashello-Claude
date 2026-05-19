@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
 import AuthScreen from './components/AuthScreen'
 import DashelloDashboard from './DashelloDashboard'
@@ -29,18 +29,11 @@ function DashelloLoader({ color = '#fafafa', size = 80 }: { color?: string; size
 export default function App() {
   const [session, setSession] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const loadStartRef = useRef(Date.now())
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      const elapsed = Date.now() - loadStartRef.current;
-      const remaining = 1200 - elapsed;
-      if (remaining > 0) {
-        setTimeout(() => { setSession(session); setLoading(false); }, remaining);
-      } else {
-        setSession(session);
-        setLoading(false);
-      }
+      setSession(session);
+      setLoading(false);
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
