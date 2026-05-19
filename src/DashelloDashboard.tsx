@@ -3734,7 +3734,7 @@ function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
         </div>
 
         {/* Pros (left) / Cons (right) side by side */}
-        <div style={{ display: "flex", gap: 8, flex: 1 }}>
+        <div style={{ display: "flex", gap: 6, flex: 1 }}>
           {/* Pros column */}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: "#4CAF7D", marginBottom: 4 }}>Pros</div>
@@ -3748,6 +3748,12 @@ function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
                   {option.pros.length > 1 && (
                     <div onClick={() => removePro(option.id, pi)} style={{ cursor: "pointer", fontSize: 13, color: "#cbd5e1", flexShrink: 0 }}>×</div>
                   )}
+                  {pro.trim() && (
+                    <div ref={el => { dotRefs.current[`pro-${option.id}-${pi}`] = el; }}
+                      data-pro-dot={`${option.id}-${pi}`}
+                      onMouseDown={e => handleProDotMouseDown(e, option.id, pi)}
+                      style={{ width: 10, height: 10, borderRadius: "50%", background: "#4CAF7D", cursor: "crosshair", flexShrink: 0, marginLeft: 2 }} title="Drag to connect to a con" />
+                  )}
                 </div>
               ))}
               <div onClick={() => addPro(option.id)} style={{ fontSize: 12, color: "#4CAF7D", cursor: "pointer", display: "flex", alignItems: "center", gap: 2 }}>
@@ -3756,22 +3762,17 @@ function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
             </div>
           </div>
 
-          {/* Dot gutter */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 6, justifyContent: "flex-start", paddingTop: 22, flexShrink: 0 }}>
-            {option.pros.map((pro, pi) => pro.trim() ? (
-              <div key={pi} ref={el => { dotRefs.current[`pro-${option.id}-${pi}`] = el; }}
-                data-pro-dot={`${option.id}-${pi}`}
-                onMouseDown={e => handleProDotMouseDown(e, option.id, pi)}
-                style={{ width: 10, height: 10, borderRadius: "50%", background: "#4CAF7D", cursor: "crosshair", flexShrink: 0 }} title="Drag to connect to a con" />
-            ) : <div key={pi} style={{ width: 10, height: 10 }} />)}
-          </div>
-
           {/* Cons column */}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: "#E85D75", marginBottom: 4 }}>Cons</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
               {option.cons.map((con, ci) => (
                 <div key={ci} style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                  {con.trim() && (
+                    <div ref={el => { dotRefs.current[`con-${option.id}-${ci}`] = el; }}
+                      data-con-dot="true" data-option-id={option.id} data-con-index={ci}
+                      style={{ width: 10, height: 10, borderRadius: "50%", background: "#E85D75", cursor: "crosshair", flexShrink: 0, marginRight: 2 }} title="Drop here to connect from a pro" />
+                  )}
                   {option.cons.length > 1 && (
                     <div onClick={() => removeCon(option.id, ci)} style={{ cursor: "pointer", fontSize: 13, color: "#cbd5e1", flexShrink: 0 }}>×</div>
                   )}
@@ -3786,15 +3787,6 @@ function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
               </div>
             </div>
           </div>
-        </div>
-
-        {/* Con dots (on the right edge) */}
-        <div style={{ position: "absolute", right: 16, display: "flex", flexDirection: "column", gap: 6, top: 80 }}>
-          {option.cons.map((con, ci) => con.trim() ? (
-            <div key={ci} ref={el => { dotRefs.current[`con-${option.id}-${ci}`] = el; }}
-              data-con-dot="true" data-option-id={option.id} data-con-index={ci}
-              style={{ width: 10, height: 10, borderRadius: "50%", background: "#E85D75", cursor: "crosshair", flexShrink: 0 }} title="Drop here to connect from a pro" />
-          ) : null)}
         </div>
 
         {/* Connection lines for this option */}
