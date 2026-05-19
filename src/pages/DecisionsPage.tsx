@@ -94,9 +94,9 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
     return (
       <div key={option.id} style={{ flex: "1 1 100%", minWidth: 0, maxWidth: "100%", background: isFavorite ? "#EFF6FF" : "#fff", borderRadius: 12, border: isFavorite ? "2px solid #3B82F6" : "1px solid #e2e8f0", padding: "16px", display: "flex", flexDirection: "column", gap: 10, position: "relative", opacity: favoriteOptionId && !isFavorite ? 0.5 : 1, transition: "opacity 0.2s, border-color 0.2s", boxSizing: "border-box" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+          <div onClick={() => { if (favoriteOptionId === option.id) setFavoriteOptionId(null); else setFavoriteOptionId(option.id); }} style={{ cursor: "pointer", fontSize: 22, color: isFavorite ? "#F5A623" : "#cbd5e1", transition: "color 0.2s", flexShrink: 0 }} title={isFavorite ? "Remove as favorite" : "Set as favorite"}>{isFavorite ? "★" : "☆"}</div>
           <input value={option.label} onChange={e => updateLabel(option.id, e.target.value)} style={{ flex: 1, fontSize: 16, fontWeight: 700, color: "#1a2332", border: "none", background: "transparent", outline: "none", fontFamily: "inherit", padding: "4px 0" }} />
-          <div onClick={() => { if (favoriteOptionId === option.id) setFavoriteOptionId(null); else setFavoriteOptionId(option.id); }} style={{ cursor: "pointer", fontSize: 20, color: isFavorite ? "#F5A623" : "#cbd5e1", transition: "color 0.2s" }} title={isFavorite ? "Remove as favorite" : "Set as favorite"}>{isFavorite ? "★" : "☆"}</div>
-          <div onClick={() => removeOption(option.id)} style={{ cursor: "pointer", fontSize: 16, color: "#cbd5e1" }} title="Delete option">×</div>
+          <div onClick={() => removeOption(option.id)} style={{ width: 28, height: 28, borderRadius: "50%", border: "none", background: "#fee2e2", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 16, color: "#E85D75", flexShrink: 0 }} title="Delete option">×</div>
         </div>
         <div style={{ display: "flex", gap: 32, flex: 1, flexWrap: "wrap" }}>
           <div style={{ flex: "1 1 160px", minWidth: 0 }}>
