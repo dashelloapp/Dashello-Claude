@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Analytics } from '@vercel/analytics/react'
 import { supabase } from './lib/supabase'
 import AuthScreen from './components/AuthScreen'
 import DashelloDashboard from './DashelloDashboard'
@@ -28,7 +29,17 @@ export default function App() {
     </div>
   )
 
-  if (!session) return <AuthScreen />
+  if (!session) return (
+    <>
+      <AuthScreen />
+      <Analytics />
+    </>
+  )
 
-  return <DashelloDashboard />
+  return (
+    <>
+      <DashelloDashboard />
+      <Analytics />
+    </>
+  )
 }
