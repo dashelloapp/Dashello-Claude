@@ -775,7 +775,26 @@ function getDateString(format: string, date?: Date): string {
   const [createLayout, setCreateLayout] = useState<1 | 2>(1);
   const [createRecurrence, setCreateRecurrence] = useState<RecurrenceConfig>({ enabled: false, interval: "monthly" });
   const [editTemplateId, setEditTemplateId] = useState<string | null>(null);
-
+  const [createDeleteConfirm, setCreateDeleteConfirm] = useState(false);
+  const handleDeleteTemplate = async () => {
+    if (!editTemplateId) return;
+    const updated = rows.map(r => ({ ...r, items: r.items.filter(i => i.id !== editTemplateId) })).filter(r => r.items.length > 0);
+    setRows(updated);
+    if (userId) await saveUserData("playbooks", userId, updated);
+    setSubView("list");
+    resetCreate();
+  };
+  const handleDuplicateTemplate = async () => {
+    if (!editTemplateId) return;
+    const existing = rows.flatMap(r => r.items).find(i => i.id === editTemplateId);
+    if (!existing) return;
+    const dup: PlaybookItem = { ...existing, id: crypto.randomUUID(), label: existing.label + " (Copy)", createdAt: new Date().toISOString() };
+    const updated = rows.map(r => r.items.some(i => i.id === editTemplateId) ? { ...r, items: [...r.items, dup] } : r);
+    setRows(updated);
+    if (userId) await saveUserData("playbooks", userId, updated);
+    setSubView("list");
+    resetCreate();
+  };
   // Template fill state
   const [fillTemplateId, setFillTemplateId] = useState<string | null>(null);
   const [fillTemplateRowId, setFillTemplateRowId] = useState<string | null>(null);
@@ -1317,6 +1336,25 @@ function getDateString(format: string, date?: Date): string {
                 <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>ICON</div>
                 <IconPicker selected={createIcon} onSelect={setCreateIcon} />
               </div>
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>LAYOUT</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                {([1, 2] as const).map(c => (
+                  <label key={c} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "#64748b", cursor: "pointer" }}>
+                    <input type="radio" name="createLayout" checked={createLayout === c} onChange={() => setCreateLayout(c)}
+                      style={{ accentColor: "#3B82F6", margin: 0 }} /> {c} Column{c > 1 ? "s" : ""}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
+              {(["text","textarea","checkbox","radio","info"] as TemplateFieldType[]).map(t => (
+                <button key={t} onClick={() => addField(t)}
+                  style={{ padding: "5px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 10, cursor: "pointer", color: "#64748b", textTransform: "capitalize" }}>
+                  + {t === "textarea" ? "Text Area" : t === "info" ? "Info" : t === "checkbox" ? "Checkbox" : t === "radio" ? "Radio" : "Text"}
+                </button>
+              ))}
+            </div>
 
             {(() => {
               const cols: Record<number, TemplateField[]> = { 1: [], 2: [] };
@@ -1591,31 +1629,29 @@ function getDateString(format: string, date?: Date): string {
                 </div>
               ));
             })()}
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>LAYOUT</div>
-              <div style={{ display: "flex", gap: 8 }}>
-                {([1, 2] as const).map(c => (
-                  <label key={c} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "#64748b", cursor: "pointer" }}>
-                    <input type="radio" name="createLayout" checked={createLayout === c} onChange={() => setCreateLayout(c)}
-                      style={{ accentColor: "#3B82F6", margin: 0 }} /> {c} Column{c > 1 ? "s" : ""}
-                  </label>
-                ))}
-              </div>
+            <div style={{ padding: "16px 0", borderTop: "1px solid #e2e8f0", display: "flex", alignItems: "center", gap: 10, justifyContent: "flex-end" }}>
+              {editTemplateId && createDeleteConfirm ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 13, color: "#E85D75", fontWeight: 600 }}>Are you sure?</span>
+                  <button onClick={() => setCreateDeleteConfirm(false)}
+                    style={{ padding: "6px 14px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+                  <button onClick={handleDeleteTemplate}
+                    style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: "#E85D75", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Yes, Delete</button>
+                </div>
+              ) : (
+                <>
+                  {editTemplateId && <button onClick={() => { setCreateDeleteConfirm(true); }} style={{ padding: "8px 16px", borderRadius: 8, border: "1.5px solid #E85D75", background: "#fff", fontSize: 12, cursor: "pointer", color: "#E85D75", fontWeight: 600 }}>Delete</button>}
+                  {editTemplateId && <button onClick={handleDuplicateTemplate} style={{ padding: "8px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b" }}>Duplicate</button>}
+                  <div style={{ flex: 1 }} />
+                  <button onClick={handleCreateSave} disabled={!createName.trim()}
+                    style={{ padding: "10px 28px", borderRadius: 8, border: "none",
+                      background: createName.trim() ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0",
+                      color: "#fff", fontSize: 13, fontWeight: 600, cursor: createName.trim() ? "pointer" : "default" }}>
+                    Save Template
+                  </button>
+                </>
+              )}
             </div>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
-              {(["text","textarea","checkbox","radio","info"] as TemplateFieldType[]).map(t => (
-                <button key={t} onClick={() => addField(t)}
-                  style={{ padding: "5px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 10, cursor: "pointer", color: "#64748b", textTransform: "capitalize" }}>
-                  + {t === "textarea" ? "Text Area" : t === "info" ? "Info" : t === "checkbox" ? "Checkbox" : t === "radio" ? "Radio" : "Text"}
-                </button>
-              ))}
-            </div>
-            <button onClick={handleCreateSave} disabled={!createName.trim()}
-              style={{ padding: "10px 28px", borderRadius: 8, border: "none",
-                background: createName.trim() ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0",
-                color: "#fff", fontSize: 13, fontWeight: 600, cursor: createName.trim() ? "pointer" : "default" }}>
-              Save Template
-            </button>
           </div>
 
           {/* RIGHT: Preview */}
