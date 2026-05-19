@@ -4370,7 +4370,7 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
   const priorityTasks = myTasks.filter(t => t.priority && !t.done);
   const nonPriority = myTasks.filter(t => !t.priority);
   const currentTasks = nonPriority.filter(t => !t.done);
-  const completedTasks = nonPriority.filter(t => t.done);
+  const completedTasks = myTasks.filter(t => t.done);
   const doneCount = completedTasks.length;
   const totalCount = myTasks.length;
   const pct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
@@ -4383,7 +4383,8 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
     taskTabFilter.startsWith("metric:") ? nonPriority.filter(t => t.linkedMetricId === taskTabFilter.replace("metric:", "")) :
     nonPriority
   ) : nonPriority;
-  const displayedTasks = taskFilter === "current" ? tabFiltered.filter(t => !t.done) : tabFiltered.filter(t => t.done);
+
+  const displayedTasks = taskFilter === "current" ? tabFiltered.filter(t => !t.done) : (taskFilter === "completed" ? myTasks.filter(t => t.done) : tabFiltered.filter(t => t.done));
 
   const handleInlineAdd = (e: React.KeyboardEvent) => {
     if (e.key !== "Enter" || !inlineAddText.trim()) return;
@@ -4530,7 +4531,7 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
                 Current ({tabFiltered.filter(t => !t.done).length})
               </div>
               <div onClick={() => setTaskFilter("completed")} style={{ padding: "5px 14px", borderRadius: 20, fontSize: 12, fontWeight: 500, cursor: "pointer", background: taskFilter === "completed" ? "#3B82F6" : "#f1f5f9", color: taskFilter === "completed" ? "#fff" : "#64748b" }}>
-                Completed ({tabFiltered.filter(t => t.done).length})
+                Completed ({myTasks.filter(t => t.done).length})
               </div>
               {allTabs.map(tab => {
                 const isActive = activeTab === `${tab.type}:${tab.id}`;
