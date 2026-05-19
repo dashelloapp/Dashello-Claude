@@ -6038,7 +6038,7 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
             </div>
         </div>
 
-        {/* Column 2: Plan + Preferences */}
+        {/* Plan */}
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {/* Plan — owner only */}
           {(currentUserLevel === "owner" || !currentUserLevel) && (
@@ -6057,8 +6057,10 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
             ))}
           </div>
           )}
+        </div>
 
-          {/* Preferences + Five-Account */}
+        {/* Preferences + Five-Account */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div style={{ background: "#fff", borderRadius: 14, padding: 20, border: "1px solid #f1f5f9" }}>
             <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 600, color: "#1a2332" }}>{__('common.preferences', 'Preferences')}</h3>
             <GrayPref label="Email notifications" sub="Daily digest of key metrics" />
@@ -6150,6 +6152,7 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
               </div>
             )}
           </div>
+        </div>
 
           {/* Health Score multipliers */}
           <div style={{ background: "#fff", borderRadius: 14, padding: 20, border: "1px solid #f1f5f9" }}>
@@ -6182,10 +6185,8 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
               </div>
             ))}
           </div>
-        </div>
 
-        {/* Column 3: Menu Visibility */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* Menu Visibility */}
           {(currentUserLevel === "owner" || !currentUserLevel) && (
           <div style={{ background: "#fff", borderRadius: 14, padding: 20, border: "1px solid #f1f5f9" }}>
             <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 600, color: "#1a2332" }}>{__('common.menuVisibility', 'Menu Visibility')}</h3>
@@ -6217,42 +6218,6 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
             })}
           </div>
           )}
-        </div>
-
-        {/* Column 4: Health Score + Accessibility */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-
-          {/* Health Score multipliers */}
-          <div style={{ background: "#fff", borderRadius: 14, padding: 20, border: "1px solid #f1f5f9" }}>
-            <h3 style={{ margin: "0 0 6px", fontSize: 15, fontWeight: 600, color: "#1a2332" }}>{__('common.healthScore', 'Health Score')}</h3>
-            <p style={{ margin: "0 0 14px", fontSize: 15, color: "#94a3b8", lineHeight: 1.5 }}>
-              Adjust how each metric color contributes to your overall dashboard health score. Only boxes with color rules count.
-            </p>
-            {[
-              { key: "health_green_multiplier" as const, label: "Green multiplier", color: "#4CAF7D" },
-              { key: "health_yellow_multiplier" as const, label: "Yellow multiplier", color: "#F5A623" },
-              { key: "health_red_multiplier" as const, label: "Red multiplier", color: "#E85D75" },
-            ].map(({ key, label, color }) => (
-              <div key={key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #f1f5f9" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ width: 10, height: 10, borderRadius: "50%", background: color, display: "inline-block" }} />
-                  <span style={{ fontSize: 15, color: "#1a2332" }}>{label}</span>
-                </div>
-                <input
-                  type="number"
-                  step={0.1}
-                  value={localProfile[key]}
-                  onChange={e => {
-                    const v = parseFloat(e.target.value);
-                    if (isNaN(v)) return;
-                    setLocalProfile(p => ({ ...p, [key]: v }));
-                    setDirtyBoth(true);
-                  }}
-                  style={{ width: 72, padding: "5px 9px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", textAlign: "right" }}
-                />
-              </div>
-            ))}
-          </div>
 
           {/* Accessibility */}
           <div style={{ background: "#fff", borderRadius: 14, padding: 20, border: "1px solid #f1f5f9" }}>
@@ -6306,7 +6271,6 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
             </div>
             <LanguageSelector />
           </div>
-        </div>
         <div style={{ position: "sticky", bottom: 0, background: "#F8FAFC", padding: "16px 0", display: "flex", justifyContent: "center", zIndex: 100 }}>
           <button onClick={async () => {
               setSaving(true);
