@@ -1375,16 +1375,6 @@ function ChatPanel({ sections, onClose, isMobile }: { sections: Section[]; onClo
 // SIDEBAR
 // ═══════════════════════════════════════════════════════════════════════════
 
-const NAV: { icon: string; label: string; page: Page; comingSoon?: boolean }[] = [
-  { icon: "House", label: "Home", page: "home" },
-  { icon: "Target", label: "Goals", page: "goals" },
-  { icon: "CheckSquare", label: "Tasks", page: "tasks" },
-  { icon: "Notebook", label: "Playbooks", page: "playbooks" },
-  { icon: "Plugs", label: "Integrations", page: "integrations", comingSoon: true },
-  { icon: "Users", label: "Team", page: "team" },
-  { icon: "Gear", label: "Settings", page: "settings" },
-];
-
 function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, health, activeOrg, orgs, showOrgDropdown, onToggleOrgDropdown, onSwitchOrg, currentUserLevel, onOpenInviteModal, menuPermissions, tasks, setTasks, orgMembers, userEmail }: {
   active: Page; onNav: (p: Page) => void; onClose: () => void;
   isMobile: boolean; avatarUrl?: string; firstName?: string;
@@ -1403,59 +1393,184 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
     document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h);
   }, [showOrgDropdown, onToggleOrgDropdown]);
 
-  // Count priority tasks for current user
-  const priorityCount = (tasks || []).filter(t => t.assignedTo === userEmail && t.priority && !t.done).length;
+  const pc = ({ green: { bg: "#F0FDF4", border: "#4CAF7D", accent: "#4CAF7D" }, yellow: { bg: "#FFF8ED", border: "#F5A623", accent: "#F5A623" }, red: { bg: "#FEF2F2", border: "#E85D75", accent: "#E85D75" }, gray: { bg: "#FFF8ED", border: "#F5A623", accent: "#F5A623" } } as Record<string, { bg: string; border: string; accent: string }>)[health?.barColor || "yellow"]!;
+  const hiddenItems = currentUserLevel === "owner" ? [] : (menuPermissions[currentUserLevel] || []);
+  const NAV = [
+    { icon: "House", label: "Home", page: "home" as Page },
+    { icon: "Target", label: "Goals", page: "goals" as Page },
+    { icon: "CheckSquare", label: "Tasks", page: "tasks" as Page },
+    { icon: "Notebook", label: "Playbooks", page: "playbooks" as Page },
+    { icon: "Plugs", label: "Integrations", page: "integrations" as Page, comingSoon: true },
+    { icon: "Users", label: "Team", page: "team" as Page },
+    { icon: "Gear", label: "Settings", page: "settings" as Page },
+  ];
+  const filteredNav = NAV.filter(item => {
+    if (item.page === "home") return true;
+    const key = item.label.toLowerCase();
+    if (currentUserLevel === "viewer" && (key === "integrations" || key === "team")) return false;
+    return !hiddenItems.includes(key);
+  });
+
+  const [sidebarShowAdd, setSidebarShowAdd] = useState(false);
+  const [sidebarAddText, setSidebarAddText] = useState("");
+  const [sidebarAddAssignee, setSidebarAddAssignee] = useState(userEmail || "");
+  const [sidebarAddDueDate, setSidebarAddDueDate] = useState("");
+  const [sidebarAddPriority, setSidebarAddPriority] = useState(false);
+  const mySidebarTasks = tasks.filter(t => t.assignedTo === userEmail);
+  const sidebarDoneCount = mySidebarTasks.filter(t => t.done).length;
+  const sidebarTotalCount = mySidebarTasks.length;
+  const sidebarPct = sidebarTotalCount > 0 ? Math.round((sidebarDoneCount / sidebarTotalCount) * 100) : 0;
+  const sidebarPriorityList = mySidebarTasks.filter(t => t.priority && !t.done);
+  const sidebarRegularList = mySidebarTasks.filter(t => !t.priority && !t.done).slice(0, 5);
+  const sidebarToggle = (id: string) => setTasks(prev => prev.map(t => t.id === id ? { ...t, done: !t.done } : t));
+  const sidebarAddTask = () => {
+    if (!sidebarAddText.trim()) return;
+    setTasks(prev => [{
+      id: crypto.randomUUID(), text: sidebarAddText.trim(), done: false,
+      assignedTo: sidebarAddAssignee || userEmail, createdBy: userEmail,
+      createdAt: new Date().toISOString(), dueDate: sidebarAddDueDate || undefined,
+      priority: sidebarAddPriority || undefined,
+    }, ...prev]);
+    setSidebarAddText("");
+    setSidebarAddDueDate("");
+    setSidebarAddPriority(false);
+  };
 
   return (
-    <div style={{ width: isMobile ? "100%" : 68, background: "#F8FAFC", borderRight: isMobile ? "none" : "1px solid #e2e8f0", display: "flex", flexDirection: "column", alignItems: "center", padding: isMobile ? "16px" : "16px 0", gap: isMobile ? 14 : 16, flexShrink: 0, overflowY: "auto", justifyContent: isMobile ? "flex-start" : "space-between", height: isMobile ? "100%" : "100vh", position: isMobile ? "relative" : "sticky", top: 0, boxSizing: "border-box" }}>
-      <div style={{ display: "flex", flexDirection: isMobile ? "row" : "column", alignItems: "center", gap: isMobile ? 6 : 20, width: "100%" }}>
-        {/* Avatar or org icon */}
-        <div onClick={onOpenInviteModal} style={{ position: "relative", cursor: "pointer" }}>
-          {avatarUrl ? <img src={avatarUrl} alt="" style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
-            : <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#3B82F6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{(firstName?.[0] || "U").toUpperCase()}</div>}
-          {/* Org dropdown trigger */}
-          {orgs.length > 1 && <div onClick={e => { e.stopPropagation(); onToggleOrgDropdown(); }} style={{ position: "absolute", bottom: -2, right: -2, width: 16, height: 16, borderRadius: "50%", background: "#fff", border: "1.5px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 9, color: "#94a3b8" }}>▼</div>}
-        </div>
-
-        {/* Org dropdown */}
-        {showOrgDropdown && (
-          <div ref={orgDropdownRef} style={{ position: "absolute", top: 48, left: 0, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 100, minWidth: 180, overflow: "hidden" }}>
-            {orgs.map(org => (
-              <div key={org.id} onClick={() => onSwitchOrg(org)} style={{ padding: "10px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, fontSize: 15, color: org.id === activeOrg?.id ? "#3B82F6" : "#1a2332", fontWeight: org.id === activeOrg?.id ? 600 : 400 }}>
-                <div style={{ width: 24, height: 24, borderRadius: "50%", background: org.id === activeOrg?.id ? "#EFF6FF" : "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: "#64748b" }}>{org.name[0]}</div>
-                <div style={{ flex: 1, minWidth: 0 }}>{org.name}</div>
-                {org.isPersonal && <span style={{ fontSize: 15, color: "#94a3b8" }}>👤</span>}
-              </div>
-            ))}
+    <aside style={{ width: 240, flexShrink: 0, background: "linear-gradient(135deg,#3B82F6,#06B6D4)", display: "flex", flexDirection: "column", boxShadow: "2px 0 12px rgba(0,0,0,0.06)", height: "100dvh" } as React.CSSProperties}>
+      <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none", display: "flex", flexDirection: "column" }}>
+      <div style={{ padding: "28px 18px 20px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", position: "relative", marginBottom: 12 }}>
+          <div style={{ width: 56, height: 56, borderRadius: "50%", background: "rgba(255,255,255,0.2)", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>
+            {avatarUrl ? <img src={avatarUrl} alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ color: "#fff" }}>👤</span>}
           </div>
-        )}
-
-        {/* Navigation icons */}
-        {NAV.map(n => {
-          const isActive = active === n.page;
+          {!isMobile && <div onClick={onClose} style={{ position: "absolute", right: 0, width: 26, height: 26, borderRadius: "50%", border: "1.5px solid rgba(255,255,255,0.4)", background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#fff", fontSize: 15 }}>‹</div>}
+        </div>
+        <div style={{ textAlign: "center", width: "100%" }}>
+          <div style={{ fontSize: 15, fontWeight: 400, color: "#fff" }}>{firstName ? `${__('common.welcome', 'Welcome')} ${firstName}` : __('common.welcome', 'Welcome')}</div>
+          <div ref={orgDropdownRef} style={{ position: "relative", display: "inline-block", marginTop: 2 }}>
+            <div onClick={onToggleOrgDropdown} style={{ fontSize: 15, fontWeight: 400, color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, opacity: 0.85 }}>
+              <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 160 }}>{__('nav.to', 'to')} {activeOrg?.isPersonal ? __('nav.yourDashboard', 'your dashboard') : activeOrg?.name}</span>
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ flexShrink: 0, transform: showOrgDropdown ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>
+                <path d="M2 4L5 7L8 4" stroke="rgba(255,255,255,0.85)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+            {showOrgDropdown && (
+              <div style={{ position: "absolute", top: 28, left: "50%", transform: "translateX(-50%)", zIndex: 110, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.15)", border: "1px solid #e2e8f0", minWidth: 180, overflow: "hidden" }}>
+                {orgs.map(org => (
+                  <div key={org.id} onClick={() => onSwitchOrg(org)}
+                    style={{ padding: "10px 14px", fontSize: 15, cursor: "pointer", color: activeOrg?.id === org.id ? "#3B82F6" : "#1a2332", fontWeight: activeOrg?.id === org.id ? 600 : 400, background: activeOrg?.id === org.id ? "#EFF6FF" : "transparent", borderBottom: "1px solid #f1f5f9", textAlign: "left" }}
+                    onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
+                    onMouseLeave={e => (e.currentTarget.style.background = activeOrg?.id === org.id ? "#EFF6FF" : "transparent")}>
+                    {org.name}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+      <nav style={{ flex: 1, padding: "6px 12px" }}>
+        {filteredNav.map(item => {
+          const isActive = active === item.page;
           return (
-            <div key={n.page} onClick={() => { if (!n.comingSoon) onNav(n.page); }}
-              style={{ position: "relative", width: isMobile ? "auto" : 36, height: isMobile ? "auto" : 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: n.comingSoon ? "not-allowed" : "pointer", background: isActive ? "#EFF6FF" : "transparent", opacity: n.comingSoon ? 0.4 : 1, gap: isMobile ? 8 : 0, padding: isMobile ? "6px 12px" : 0 }}
-              title={n.comingSoon ? `${n.label} (Coming Soon)` : n.label}>
-              <IconGlyph name={n.icon} size={isMobile ? 18 : 20} color={isActive ? "#3B82F6" : "#94a3b8"} weight={isActive ? "fill" : "regular"} />
-              {isMobile && <span style={{ fontSize: 15, color: isActive ? "#3B82F6" : "#64748b", fontWeight: isActive ? 600 : 400 }}>{n.label}</span>}
-              {n.page === "tasks" && priorityCount > 0 && (
-                <div style={{ position: "absolute", top: 0, right: 0, width: 16, height: 16, borderRadius: "50%", background: "#E85D75", color: "#fff", fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  {priorityCount > 9 ? "9+" : priorityCount}
-                </div>
-              )}
+            <div key={item.label} onClick={() => { if (!item.comingSoon) onNav(item.page); }}
+              style={{ display: "flex", alignItems: "center", gap: 9, padding: "9px 12px", borderRadius: 99, marginBottom: 3,
+                cursor: item.comingSoon ? "default" : "pointer",
+                background: isActive ? "rgba(255,255,255,0.15)" : "transparent",
+                border: isActive ? "1.5px solid rgba(255,255,255,0.8)" : "1.5px solid transparent",
+                color: "#fff", fontSize: 15, fontWeight: isActive ? 600 : 400,
+                transition: "all 0.15s", opacity: item.comingSoon ? 0.55 : 1 }}>
+              <IconGlyph name={item.icon} size={21} color="#fff" />
+              <span style={{ whiteSpace: "nowrap" }}>{__('nav.' + item.page, item.label)}</span>
+              {item.comingSoon && <span style={{ fontSize: 15, padding: "1px 6px", borderRadius: 99, background: "rgba(255,255,255,0.2)", color: "rgba(255,255,255,0.7)", marginLeft: "auto", whiteSpace: "nowrap" }}>{__('common.soon', 'Soon')}</span>}
             </div>
           );
         })}
-      </div>
-
-      {/* Health indicator at the bottom */}
-      {!isMobile && (
-        <div onClick={() => onNav("home")} style={{ cursor: "pointer", width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: health.barColor === "green" ? "#F0FDF4" : health.barColor === "yellow" ? "#FFF8ED" : "#FEF2F2" }}>
-          <div style={{ width: 12, height: 12, borderRadius: "50%", background: health.barColor === "green" ? "#4CAF7D" : health.barColor === "yellow" ? "#F5A623" : "#E85D75" }} />
+      </nav>
+      {/* ── Health Progress ── */}
+      {health.hasData && (() => {
+        const barColors = { green: "#4CAF7D", yellow: "#F5A623", red: "#E85D75" };
+        return (
+          <div style={{ padding: "0 18px 8px" }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "rgba(255,255,255,0.7)", marginBottom: 6, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span>{__('common.health', 'Health')}</span>
+              <span style={{ color: "#fff", fontWeight: 700 }}>{health.score}%</span>
+            </div>
+            <div style={{ width: "100%", height: 24, background: "#fff", borderRadius: 99, overflow: "hidden" }}>
+              <div style={{ width: `${health.score}%`, height: "100%", background: barColors[health.barColor], borderRadius: 99, transition: "width 400ms ease, background 300ms ease" }} />
+            </div>
+            <div style={{ fontSize: 15, color: "rgba(255,255,255,0.6)", marginTop: 4, textAlign: "center" }}>
+              {health.counts.green}G · {health.counts.yellow}Y · {health.counts.red}R
+              {health.counts.gray > 0 ? ` · ${health.counts.gray} unmatched` : ""}
+            </div>
+          </div>
+        );
+      })()}
+      {/* ── Sidebar Tasks Widget ── */}
+      <div style={{ background: "#fff", borderRadius: 12, margin: "8px 12px 4px", padding: "12px 14px" }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: "#1a2332", marginBottom: 8 }}>{__('common.yourTasks', 'Your Tasks')}</div>
+        <div style={{ height: 6, borderRadius: 99, background: "#e2e8f0", marginBottom: 10, overflow: "hidden" }}>
+          <div style={{ width: `${sidebarPct}%`, height: "100%", borderRadius: 99, background: "#4CAF7D", transition: "width 0.3s" }} />
         </div>
-      )}
-    </div>
+        {sidebarPriorityList.map(t => (
+          <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 6px", cursor: "pointer", background: pc.bg, borderRadius: 6, marginBottom: 2 }}
+            onClick={() => sidebarToggle(t.id)}>
+            <div style={{ width: 16, height: 16, borderRadius: "50%", flexShrink: 0, border: t.done ? "none" : `1.5px solid ${pc.accent}`, background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 15 }}>{t.done ? "✓" : ""}</div>
+            <span style={{ fontSize: 15, color: "#1a2332", flex: 1, fontWeight: 600, textDecoration: t.done ? "line-through" : "none", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.text}</span>
+          </div>
+        ))}
+        {sidebarRegularList.map(t => (
+          <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 0", cursor: "pointer" }}
+            onClick={() => sidebarToggle(t.id)}>
+            <div style={{ width: 16, height: 16, borderRadius: "50%", flexShrink: 0, border: t.done ? "none" : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 15 }}>{t.done ? "✓" : ""}</div>
+            <span style={{ fontSize: 15, color: "#1a2332", flex: 1, textDecoration: t.done ? "line-through" : "none", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.text}</span>
+          </div>
+        ))}
+        <div onClick={() => onNav("tasks")} style={{ fontSize: 15, color: "#3B82F6", cursor: "pointer", fontWeight: 600, marginTop: 6, marginBottom: 8 }}>{__('common.viewAll', 'View all →')}</div>
+
+        {sidebarShowAdd ? (
+          <div>
+            <input value={sidebarAddText} onChange={e => setSidebarAddText(e.target.value)}
+              placeholder="New task..." autoFocus
+              onKeyDown={e => { if (e.key === "Enter") sidebarAddTask(); }}
+              style={{ width: "100%", padding: "5px 8px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box", marginBottom: 4 }} />
+            <label style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 15, color: sidebarAddPriority ? "#F5A623" : "#94a3b8", cursor: "pointer", marginBottom: 4, alignSelf: "flex-start" }}>
+              <input type="checkbox" checked={sidebarAddPriority} onChange={e => setSidebarAddPriority(e.target.checked)} style={{ accentColor: "#F5A623", margin: 0, width: 12, height: 12 }} />
+              {sidebarAddPriority ? "" : __('sidebar.makePriority', 'Make priority?')}
+            </label>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 4 }}>
+              <select value={sidebarAddAssignee} onChange={e => setSidebarAddAssignee(e.target.value)}
+                style={{ width: "100%", padding: "4px 6px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", background: "#fff", boxSizing: "border-box" }}>
+                <option value={userEmail}>Me</option>
+                {orgMembers.filter(m => m.status === "active" && m.email !== userEmail).map(m => (
+                  <option key={m.id} value={m.email}>{m.name || m.email.split("@")[0]}</option>
+                ))}
+              </select>
+              <input type="date" value={sidebarAddDueDate} onChange={e => setSidebarAddDueDate(e.target.value)}
+                style={{ width: "100%", padding: "4px 6px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box" }} />
+            </div>
+            <div style={{ display: "flex", gap: 4 }}>
+              <button onClick={sidebarAddTask} disabled={!sidebarAddText.trim()}
+                style={{ flex: 1, padding: "4px 0", borderRadius: 6, border: "none", background: sidebarAddText.trim() ? "#3B82F6" : "#e2e8f0", color: "#fff", fontSize: 15, fontWeight: 600, cursor: sidebarAddText.trim() ? "pointer" : "not-allowed" }}>{__('common.add', 'Add')}</button>
+              <button onClick={() => setSidebarShowAdd(false)} style={{ flex: 1, padding: "4px 0", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>{__('common.cancel', 'Cancel')}</button>
+            </div>
+          </div>
+        ) : (
+          <div onClick={() => setSidebarShowAdd(true)} style={{ fontSize: 15, color: "#3B82F6", cursor: "pointer", fontWeight: 600, display: "flex", alignItems: "center", gap: 3 }}>
+            <span style={{ fontSize: 15 }}>+</span> {__('sidebar.addNewTask', 'Add New Task')}
+          </div>
+        )}
+      </div>
+      <div style={{ padding: "14px 18px", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, flexShrink: 0 }}>
+        <img src="https://dashello.co/wp-content/uploads/2023/08/White-Logo-Full.png" alt="Dashello" style={{ height: 26, objectFit: "contain", maxWidth: "80%" }} />
+        {(currentUserLevel === "owner" || currentUserLevel === "admin") && (
+          <button onClick={onOpenInviteModal} style={{ width: "100%", padding: "10px 0", borderRadius: 12, border: "none", background: "#fff", color: "#3B82F6", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>{__('sidebar.inviteTeam', 'Invite Team Members')}</button>
+        )}
+        <button onClick={() => supabase.auth.signOut()} style={{ width: "100%", padding: "10px 0", borderRadius: 12, border: "2px solid rgba(255,255,255,0.6)", background: "transparent", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>{__('sidebar.signOut', 'Sign Out')}</button>
+      </div>
+      </div>
+    </aside>
   );
 }
 
