@@ -1280,6 +1280,39 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
     setFileUploadPopup(null);
   };
 
+  // ── Link detection ────────────────────────────────────────────────────
+  const detectLinkTitle = (url: string): string => {
+    const u = url.toLowerCase();
+    if (/(youtube\.com|youtu\.be)/.test(u)) return "Video";
+    if (u.includes("loom.com")) return "Video";
+    if (u.includes("vimeo.com")) return "Video";
+    if (/docs\.google\.com\/document/.test(u)) return "Google Doc";
+    if (u.includes("docs.google.com/spreadsheets")) return "Google Sheet";
+    if (u.includes("docs.google.com/presentation")) return "Google Slides";
+    if (u.includes("onedrive.live.com") || u.includes("1drv.ms")) return "One Drive";
+    if (u.includes("dropbox.com")) return "Dropbox";
+    if (u.includes("drive.google.com")) return "Google Drive";
+    if (/\.(mp4|mov|avi|wmv|webm)$/i.test(url)) return "Video";
+    if (/\.(pdf)$/i.test(url)) return "PDF";
+    if (/\.(doc|docx)$/i.test(url)) return "Document";
+    if (/\.(xls|xlsx)$/i.test(url)) return "Spreadsheet";
+    return "Link";
+  };
+
+  const handleLinkDrop = async (url: string) => {
+    const firstRow = rows[0];
+    if (!firstRow) return;
+    const title = detectLinkTitle(url);
+    const newItem: PlaybookItem = {
+      id: crypto.randomUUID(), label: title,
+      icon: "Link", type: "document", createdAt: new Date().toISOString(),
+      links: [{ id: crypto.randomUUID(), title, url }],
+    };
+    const updated = rows.map(r => r.id === firstRow.id ? { ...r, items: [...r.items, newItem] } : r);
+    setRows(updated);
+    if (userId) await saveUserData("playbooks", userId, updated);
+  };
+
   // ── Render helpers ────────────────────────────────────────────────────
 
   if (loading) return (
@@ -2079,7 +2112,8 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
 
         {/* Upload Zone */}
         <div onDragOver={e => { e.preventDefault(); setDragOverUpload(true); }} onDragLeave={() => setDragOverUpload(false)}
-          onDrop={async e => { e.preventDefault(); setDragOverUpload(false); const files = Array.from(e.dataTransfer.files).filter(f => f.size <= 25 * 1024 * 1024); if (files.length === 0) return; const firstRow = rows[0]; if (firstRow) { if (files.length > 1) setFileUploadPopup({ files, rowId: firstRow.id }); else await handleFileUpload(files, firstRow.id, "one"); } }}
+          onDrop={async e => { e.preventDefault(); setDragOverUpload(false); const link = e.dataTransfer.getData("text/uri-list") || e.dataTransfer.getData("text/plain"); if (link && (link.startsWith("http://") || link.startsWith("https://"))) { await handleLinkDrop(link); return; } const files = Array.from(e.dataTransfer.files).filter(f => f.size <= 25 * 1024 * 1024); if (files.length === 0) return; const firstRow = rows[0]; if (firstRow) { if (files.length > 1) setFileUploadPopup({ files, rowId: firstRow.id }); else await handleFileUpload(files, firstRow.id, "one"); } }}
+          onPaste={async e => { const text = e.clipboardData.getData("text/plain"); if (!text) return; const urlMatch = text.match(/https?:\/\/[^\s]+/); if (urlMatch) { e.preventDefault(); await handleLinkDrop(urlMatch[0]); } }}
           style={{ margin: "12px 0", padding: "24px 16px", borderRadius: 12, border: `2px dashed ${dragOverUpload ? "#3B82F6" : "#e2e8f0"}`, background: dragOverUpload ? "#EFF6FF" : "#fff", textAlign: "center", cursor: "pointer", transition: "all 0.15s" }}
           onClick={() => { const inp = document.createElement("input"); inp.type = "file"; inp.multiple = true; inp.accept = ".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg,.webp,.gif"; inp.onchange = async () => { const files = Array.from(inp.files || []).filter(f => f.size <= 25 * 1024 * 1024); if (files.length === 0) return; const firstRow = rows[0]; if (firstRow) { if (files.length > 1) setFileUploadPopup({ files, rowId: firstRow.id }); else await handleFileUpload(files, firstRow.id, "one"); } }; inp.click(); }}>
           <div style={{ fontSize: 28, color: dragOverUpload ? "#3B82F6" : "#cbd5e1", marginBottom: 6 }}>

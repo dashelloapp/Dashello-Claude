@@ -7597,13 +7597,13 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
           </div>
         )}
       </div>
-      </div>
       <div style={{ padding: "14px 18px", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, flexShrink: 0 }}>
         <img src="https://dashello.co/wp-content/uploads/2023/08/White-Logo-Full.png" alt="Dashello" style={{ height: 26, objectFit: "contain", maxWidth: "80%" }} />
         {(currentUserLevel === "owner" || currentUserLevel === "admin") && (
           <button onClick={onOpenInviteModal} style={{ width: "100%", padding: "10px 0", borderRadius: 12, border: "none", background: "#fff", color: "#3B82F6", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Invite Team Members</button>
         )}
         <button onClick={() => supabase.auth.signOut()} style={{ width: "100%", padding: "10px 0", borderRadius: 12, border: "2px solid rgba(255,255,255,0.6)", background: "transparent", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Sign Out</button>
+      </div>
       </div>
     </aside>
   );
@@ -8767,6 +8767,9 @@ const sidebarEl = (
           </div>
         ) : (
         <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 6 : 8, padding: isMobile ? "10px 12px" : "11px clamp(10px,3vw,26px)", borderBottom: "1px solid #E8EDF2", background: "#fff", flexShrink: 0, flexWrap: "wrap" }}>
+          <div onClick={() => { setPage("home"); setSidebarOpen(false); }} style={{ width: 32, height: 32, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, marginRight: 2, overflow: "hidden" }}>
+            <img src="https://dashello.co/wp-content/uploads/2023/08/cropped-Dashello-Icon.png" alt="Dashello" style={{ width: 28, height: 28, objectFit: "contain" }} />
+          </div>
           {!sidebarOpen && (
             <div onClick={() => setSidebarOpen(true)} style={{ width: isMobile ? 44 : 34, height: isMobile ? 44 : 34, borderRadius: "50%", background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", marginRight: 4, flexShrink: 0 }}>
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
