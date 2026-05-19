@@ -4796,9 +4796,9 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
           {teamMembersWithTasks.length === 0 && (
             <div style={{ fontSize: 15, color: "#cbd5e1", fontStyle: "italic", padding: 20, textAlign: "center" }}>{__('common.noTeamTasks', 'No team tasks yet.')}</div>
           )}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, alignContent: "start" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12, alignContent: "start" }}>
             {teamMembersWithTasks.map(({ member, memberTasks }) => (
-              <div key={member.id} style={{ background: "#fff", borderRadius: 14, padding: "16px" }}>
+              <div key={member.id} style={{ background: "#fff", borderRadius: 14, padding: "16px", boxSizing: "border-box" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
                   {member.avatarUrl ? (
                     <img src={member.avatarUrl} alt="" style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
