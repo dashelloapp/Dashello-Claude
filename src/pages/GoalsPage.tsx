@@ -406,6 +406,7 @@ export function GoalOnboarding({ sections, isMobile, onClose, onCreate }: { sect
 
   const confirmStep = () => {
     if (!configMetric) return;
+    if (configTargetType === "percentage" && !configPct.trim()) return;
     let target: GoalTarget;
     if (configTargetType === "number_reach") target = { type: "number_reach", operator: configOp, value: parseFloat(configVal) || 0 };
     else if (configTargetType === "number_range") target = { type: "number_range", value: parseFloat(configVal) || 0, value2: parseFloat(configVal2) || 0 };
@@ -571,7 +572,7 @@ export function GoalOnboarding({ sections, isMobile, onClose, onCreate }: { sect
             {configTargetType === "percentage" && (
               <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
                 <span style={{ fontSize: 15, color: "#64748b" }}>≥</span>
-                <input value={configPct} onChange={e => setConfigPct(e.target.value)} type="number" placeholder="80" style={{ width: 100, padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none" }} />
+                <input value={configPct} onChange={e => setConfigPct(e.target.value)} type="number" placeholder="e.g. 80%" style={{ width: 120, padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none" }} />
                 <span style={{ fontSize: 15, color: "#64748b" }}>% health</span>
               </div>
             )}
@@ -753,6 +754,7 @@ export function GoalSettingsModal({ goal, sections, isMobile, onSave, onDuplicat
   const resetConfig = () => { setConfigMetric(null); setConfigTargetType("number_reach"); setConfigOp(">="); setConfigVal(""); setConfigVal2(""); setConfigPct(""); };
   const confirmStep = () => {
     if (!configMetric) return;
+    if (configTargetType === "percentage" && !configPct.trim()) return;
     let target: GoalTarget;
     if (configTargetType === "number_reach") target = { type: "number_reach", operator: configOp, value: parseFloat(configVal) || 0 };
     else if (configTargetType === "number_range") target = { type: "number_range", value: parseFloat(configVal) || 0, value2: parseFloat(configVal2) || 0 };
@@ -792,7 +794,7 @@ export function GoalSettingsModal({ goal, sections, isMobile, onSave, onDuplicat
       {configTargetType === "percentage" && (
         <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
           <span style={{ fontSize: 15, color: "#64748b" }}>≥</span>
-          <input value={configPct} onChange={e => setConfigPct(e.target.value)} type="number" placeholder="80" style={{ width: 100, padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none" }} />
+          <input value={configPct} onChange={e => setConfigPct(e.target.value)} type="number" placeholder="e.g. 80%" style={{ width: 120, padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none" }} />
           <span style={{ fontSize: 15, color: "#64748b" }}>% health</span>
         </div>
       )}
@@ -800,6 +802,7 @@ export function GoalSettingsModal({ goal, sections, isMobile, onSave, onDuplicat
         <button onClick={onCancel} style={{ padding: "6px 14px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>{__('common.cancel', 'Cancel')}</button>
         <button onClick={() => {
           let target: GoalTarget;
+          if (configTargetType === "percentage" && !configPct.trim()) return;
           if (configTargetType === "number_reach") target = { type: "number_reach", operator: configOp, value: parseFloat(configVal) || 0 };
           else if (configTargetType === "number_range") target = { type: "number_range", value: parseFloat(configVal) || 0, value2: parseFloat(configVal2) || 0 };
           else if (configTargetType === "percentage") target = { type: "percentage", percent: Math.min(100, Math.max(0, parseInt(configPct) || 100)) };
