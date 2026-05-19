@@ -3437,25 +3437,92 @@ interface CompletedDecision {
   allOptions: DecisionOption[];
   completedAt: string;
 }
+interface DecisionSnapshot {
+  id: string;
+  decisionStatement: string;
+  favoriteOptionId: string | null;
+  options: DecisionOption[];
+  savedAt: string;
+}
+
+const STORAGE_KEY = "decision-filter-current";
 
 function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
   tasks?: Task[]; setTasks?: React.Dispatch<React.SetStateAction<Task[]>>;
   userEmail?: string;
 }) {
-  const [options, setOptions] = useState<DecisionOption[]>([
-    { id: crypto.randomUUID(), label: "Option A", pros: [""], cons: [""], connections: [] },
-    { id: crypto.randomUUID(), label: "Option B", pros: [""], cons: [""], connections: [] },
-    { id: crypto.randomUUID(), label: "Option C", pros: [""], cons: [""], connections: [] },
-  ]);
-  const [favoriteOptionId, setFavoriteOptionId] = useState<string | null>(null);
+  const [options, setOptions] = useState<DecisionOption[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed?.options?.length) return parsed.options;
+      }
+    } catch {}
+    return [
+      { id: crypto.randomUUID(), label: "Option A", pros: [""], cons: [""], connections: [] },
+      { id: crypto.randomUUID(), label: "Option B", pros: [""], cons: [""], connections: [] },
+      { id: crypto.randomUUID(), label: "Option C", pros: [""], cons: [""], connections: [] },
+    ];
+  });
+  const [favoriteOptionId, setFavoriteOptionId] = useState<string | null>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed?.favoriteOptionId ?? null;
+      }
+    } catch {}
+    return null;
+  });
+  const [decisionStatement, setDecisionStatement] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed?.decisionStatement ?? "";
+      }
+    } catch {}
+    return "";
+  });
   const [showQuickStart, setShowQuickStart] = useState(false);
   const [showConvert, setShowConvert] = useState(false);
   const [convertText, setConvertText] = useState("");
   const [dragging, setDragging] = useState<{ optionId: string; proIndex: number; startX: number; startY: number; currentX: number; currentY: number } | null>(null);
-  const [decisionStatement, setDecisionStatement] = useState("");
   const [completedDecisions, setCompletedDecisions] = useState<CompletedDecision[]>([]);
+  const [savedDecisions, setSavedDecisions] = useState<DecisionSnapshot[]>(() => {
+    try {
+      const saved = localStorage.getItem("decision-filter-saved");
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [];
+  });
   const dotRefs = useRef<Record<string, HTMLElement | null>>({});
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Auto-save current decision to localStorage
+  useEffect(() => {
+    const data = { options, favoriteOptionId, decisionStatement };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  }, [options, favoriteOptionId, decisionStatement]);
+
+  // Persist saved decisions
+  useEffect(() => {
+    localStorage.setItem("decision-filter-saved", JSON.stringify(savedDecisions));
+  }, [savedDecisions]);
+
+  // Persist completed decisions
+  useEffect(() => {
+    localStorage.setItem("decision-filter-completed", JSON.stringify(completedDecisions));
+  }, [completedDecisions]);
+
+  // Restore completed from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("decision-filter-completed");
+      if (saved) setCompletedDecisions(JSON.parse(saved));
+    } catch {}
+  }, []);
 
   const addOption = () => {
     const letter = String.fromCharCode(65 + options.length);
@@ -3571,6 +3638,47 @@ function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
       allOptions: JSON.parse(JSON.stringify(options)),
       completedAt: new Date().toISOString(),
     }]);
+    resetCurrent();
+    setShowConvert(false);
+    setConvertText("");
+  };
+
+  const handleRevertDecision = (completed: CompletedDecision) => {
+    const snapshot: DecisionSnapshot = {
+      id: crypto.randomUUID(),
+      decisionStatement: completed.decisionStatement,
+      favoriteOptionId: completed.allOptions.find(o => o.label === completed.favoriteOption.label)?.id ?? null,
+      options: completed.allOptions,
+      savedAt: new Date().toISOString(),
+    };
+    setSavedDecisions(prev => [...prev, snapshot]);
+    setCompletedDecisions(prev => prev.filter(c => c.id !== completed.id));
+  };
+
+  const handleSaveForLater = () => {
+    const snapshot: DecisionSnapshot = {
+      id: crypto.randomUUID(),
+      decisionStatement,
+      favoriteOptionId,
+      options,
+      savedAt: new Date().toISOString(),
+    };
+    setSavedDecisions(prev => [...prev, snapshot]);
+    resetCurrent();
+  };
+
+  const handleRestoreDecision = (snapshot: DecisionSnapshot) => {
+    setOptions(snapshot.options);
+    setDecisionStatement(snapshot.decisionStatement);
+    setFavoriteOptionId(snapshot.favoriteOptionId);
+    setSavedDecisions(prev => prev.filter(s => s.id !== snapshot.id));
+  };
+
+  const handleDeleteSaved = (id: string) => {
+    setSavedDecisions(prev => prev.filter(s => s.id !== id));
+  };
+
+  const resetCurrent = () => {
     setOptions([
       { id: crypto.randomUUID(), label: "Option A", pros: [""], cons: [""], connections: [] },
       { id: crypto.randomUUID(), label: "Option B", pros: [""], cons: [""], connections: [] },
@@ -3578,17 +3686,6 @@ function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
     ]);
     setFavoriteOptionId(null);
     setDecisionStatement("");
-    setShowConvert(false);
-    setConvertText("");
-  };
-
-  const handleRevertDecision = (completed: CompletedDecision) => {
-    setOptions(completed.allOptions);
-    setDecisionStatement(completed.decisionStatement);
-    setFavoriteOptionId(
-      completed.allOptions.find(o => o.label === completed.favoriteOption.label)?.id ?? null
-    );
-    setCompletedDecisions(prev => prev.filter(c => c.id !== completed.id));
   };
 
   const favoriteOption = options.find(o => o.id === favoriteOptionId);
@@ -3775,9 +3872,17 @@ function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
 
   return (
     <div style={{ marginTop: 24 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+      {/* ── Current Decision Section ── */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
         <div style={{ fontSize: "clamp(20px,4vw,26px)", fontWeight: 700, color: "#1a2332" }}>Decision Making Filter</div>
         <div onClick={() => setShowQuickStart(true)} style={{ fontSize: 13, color: "#3B82F6", cursor: "pointer", fontWeight: 500, textDecoration: "underline", textUnderlineOffset: 2 }}>View Quick Start Guide</div>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+        <span style={{ fontSize: 14, fontWeight: 600, color: "#64748b" }}>Current Decision</span>
+        <button onClick={handleSaveForLater} style={{
+          padding: "3px 12px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff",
+          fontSize: 13, cursor: "pointer", color: "#F5A623", fontWeight: 600,
+        }}>Save for Later</button>
       </div>
 
       {/* Decision statement */}
@@ -3930,6 +4035,45 @@ function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
                 Cancel
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Decisions in Progress */}
+      {savedDecisions.length > 0 && (
+        <div style={{ marginTop: 24 }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: "#64748b", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+            <span>📋 Decisions in Progress</span>
+            <span style={{ fontSize: 13, fontWeight: 500, color: "#94a3b8", background: "#f1f5f9", padding: "1px 8px", borderRadius: 99 }}>{savedDecisions.length}</span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {savedDecisions.map(sd => (
+              <div key={sd.id} style={{ background: "#fff", borderRadius: 10, border: "1px solid #e2e8f0", padding: "12px 16px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "space-between" }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    {sd.decisionStatement ? (
+                      <div style={{ fontSize: 14, fontWeight: 600, color: "#1a2332", fontStyle: "italic" }}>"{sd.decisionStatement}"</div>
+                    ) : (
+                      <div style={{ fontSize: 14, fontWeight: 600, color: "#1a2332" }}>Untitled Decision</div>
+                    )}
+                    <div style={{ fontSize: 13, color: "#94a3b8", marginTop: 2, display: "flex", gap: 12 }}>
+                      <span>{sd.options.length} options</span>
+                      <span>Saved {new Date(sd.savedAt).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button onClick={() => handleRestoreDecision(sd)} style={{
+                      padding: "5px 12px", borderRadius: 6, border: "none", background: "#EFF6FF",
+                      fontSize: 13, cursor: "pointer", color: "#3B82F6", fontWeight: 600,
+                    }}>Open</button>
+                    <button onClick={() => handleDeleteSaved(sd.id)} style={{
+                      padding: "5px 8px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff",
+                      fontSize: 13, cursor: "pointer", color: "#94a3b8",
+                    }}>×</button>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
