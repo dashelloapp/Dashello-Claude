@@ -44,21 +44,16 @@ async function inviteTeamMember(email: string, orgId: string, level: OrgPermissi
       body: { email, orgId, level, invitedByName, orgName },
     });
     if (res.error) {
-      let msg = res.error.message || "Unknown error";
+      let msg = "Unknown error";
+      const bodyText = res.error.message || "";
+      console.error("invite-member raw response:", bodyText, res);
       try {
-        const ctx = res.error.context;
-        if (ctx && typeof ctx.text === "function") {
-          const bodyText = await ctx.text();
-          console.error("invite-member raw response body:", bodyText);
-          try {
-            const parsed = JSON.parse(bodyText);
-            if (parsed?.error) msg = parsed.error;
-          } catch {}
-        } else if (ctx?.error) {
-          msg = ctx.error;
-        }
-      } catch {}
-      console.error("invite-member error:", msg, res);
+        const parsed = JSON.parse(bodyText);
+        if (parsed?.error) msg = parsed.error;
+      } catch {
+        msg = bodyText || "Unknown error";
+      }
+      console.error("invite-member error:", msg);
       throw new Error(msg);
     }
     return res.data;
