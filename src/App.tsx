@@ -3,6 +3,7 @@ import { supabase } from './lib/supabase'
 import AuthScreen from './components/AuthScreen'
 import DashelloDashboard from './DashelloDashboard'
 import { TranslationProvider } from './i18n'
+import { SpeedInsights } from "@vercel/speed-insights/react"
 
 function DashelloLoader({ color = '#fafafa', size = 80 }: { color?: string; size?: number }) {
   const s = size / 321;
@@ -53,5 +54,5 @@ export default function App() {
 
   if (!session) return <AuthScreen />
 
-  return <TranslationProvider><DashelloDashboard /></TranslationProvider>
+  return <TranslationProvider><DashelloDashboard /><SpeedInsights /></TranslationProvider>
 }
