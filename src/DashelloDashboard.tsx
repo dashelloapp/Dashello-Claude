@@ -77,11 +77,8 @@ function capitalize(s: string): string {
 }
 
 function applyAccessibilitySettings(headerSize: number, minBody: number) {
-  const headerScale = headerSize / 15;
   document.documentElement.style.setProperty("--acc-min-fs", minBody + "px");
-  document.documentElement.style.setProperty("--acc-header-scale", String(headerScale));
-  const appEl = document.getElementById("app-container");
-  if (appEl) appEl.style.setProperty("zoom", String(headerScale));
+  document.documentElement.style.setProperty("--acc-header-scale", String(headerSize / 15));
 }
 
 function DashelloLoader({ color = '#fafafa', size = 80 }: { color?: string; size?: number }) {
