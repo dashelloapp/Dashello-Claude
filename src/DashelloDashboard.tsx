@@ -128,6 +128,7 @@ interface TeamPermissions {
   teamId: string;
   allowedSectionIds: string[] | null;
   metricOverrides: { sectionId: string; allowedMetricIds: string[] | null }[] | null;
+  allowedPageIds?: string[] | null;
 }
 
 interface GoalTarget {
@@ -4857,6 +4858,7 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
   const [permModalMember, setPermModalMember] = useState<OrgMember | null>(null);
   const [transferringFrom, setTransferringFrom] = useState<OrgMember | null>(null);
   const [deleteConfirmMember, setDeleteConfirmMember] = useState<OrgMember | null>(null);
+  const [deleteConfirmStep, setDeleteConfirmStep] = useState(0);
   const [memberDetail, setMemberDetail] = useState<OrgMember | null>(null);
   const [editingTeamRowId, setEditingTeamRowId] = useState<string | null>(null);
   const [editingTeamRowValue, setEditingTeamRowValue] = useState("");
@@ -5063,10 +5065,10 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
                       </div>
                       {isExpanded && (
                         <>
-                          <div style={{ fontSize: 15, color: "#64748b", textAlign: "center", width: "100%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          <div style={{ fontSize: 15, color: "#475569", textAlign: "center", width: "100%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                             {member.email}
                           </div>
-                          <div style={{ fontSize: 15, color: "#94a3b8", textAlign: "center", width: "100%" }}>
+                          <div style={{ fontSize: 15, color: "#334155", textAlign: "center", width: "100%" }}>
                             {allowedSections.length} rows - {metricCount} boxes
                           </div>
                           {(() => {
@@ -5082,7 +5084,7 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
                             const hidden = menuPermissions[member.level] || [];
                             const accessible = pageList.filter(p => !hidden.includes(p.id) && !(member.level === "viewer" && (p.id === "integrations" || p.id === "team"))).map(p => p.label);
                             return (
-                              <div style={{ fontSize: 15, color: "#94a3b8", textAlign: "center", width: "100%" }}>
+                              <div style={{ fontSize: 15, color: "#475569", textAlign: "center", width: "100%" }}>
                                 {accessible.join(" · ") || "No pages"}
                               </div>
                             );
@@ -5107,7 +5109,7 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
                         </>
                       )}
                       {isSelf && (
-                        <div style={{ background: levelColor, borderRadius: 99, padding: "2px 8px", fontSize: 15, fontWeight: 700, color: "#fff", marginTop: isExpanded ? 0 : -4 }}>
+                        <div style={{ background: "#334155", borderRadius: 99, padding: "2px 8px", fontSize: 15, fontWeight: 700, color: "#fff", marginTop: isExpanded ? 0 : -4 }}>
                           YOU
                         </div>
                       )}
@@ -5218,7 +5220,7 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
               {/* Tasks section */}
               {(tasks || []).filter(t => t.assignedTo === memberDetail.email && !t.done && t.priority).length > 0 && (
                 <div style={{ textAlign: "left", background: "#f8fafc", borderRadius: 12, padding: "14px 16px", marginBottom: 18 }}>
-                  <div style={{ fontSize: 15, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>Tasks</div>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>Priorities</div>
                   {(tasks || []).filter(t => t.assignedTo === memberDetail.email && !t.done && t.priority).map(t => (
                     <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                       <div onClick={(e) => { e.stopPropagation(); if (setTasks) setTasks(prev => prev.map(x => x.id === t.id ? { ...x, done: !x.done } : x)); }}
@@ -5270,7 +5272,7 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
 
                 {/* Admin/Owner viewing non-self, non-owner: Delete */}
                 {isManager && !isSelf && memberDetail.level !== "owner" && (
-                  <button onClick={() => { setDeleteConfirmMember(memberDetail); setMemberDetail(null); }}
+                  <button onClick={() => { setDeleteConfirmMember(memberDetail); setDeleteConfirmStep(0); setMemberDetail(null); }}
                     style={{ width: "100%", padding: "10px 0", borderRadius: 8, border: "1.5px solid #E85D75", background: "#fff", color: "#E85D75", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>
                     Delete Member
                   </button>
@@ -5310,20 +5312,39 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
 
       {/* Delete member confirmation modal */}
       {deleteConfirmMember && (
-        <div onClick={() => setDeleteConfirmMember(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000, padding: 16 }}>
+        <div onClick={() => { setDeleteConfirmMember(null); setDeleteConfirmStep(0); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000, padding: 16 }}>
           <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 20, padding: "28px", width: "100%", maxWidth: 380, boxShadow: "0 24px 64px rgba(0,0,0,0.18)", textAlign: "center" }}>
-            <div style={{ fontSize: 15, fontWeight: 600, color: "#1a2332", marginBottom: 8 }}>Remove {deleteConfirmMember.name || deleteConfirmMember.email}?</div>
-            <p style={{ fontSize: 15, color: "#64748b", marginBottom: 18 }}>This member will lose access to this organization and its data.</p>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={() => setDeleteConfirmMember(null)}
-                style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", color: "#64748b", fontSize: 15, cursor: "pointer" }}>
-                Cancel
-              </button>
-              <button onClick={() => { setOrgMembers(prev => prev.filter(m => m.id !== deleteConfirmMember.id)); setDeleteConfirmMember(null); }}
-                style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "none", background: "#E85D75", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>
-                Delete
-              </button>
-            </div>
+            {deleteConfirmStep === 0 ? (
+              <>
+                <div style={{ fontSize: 15, fontWeight: 600, color: "#1a2332", marginBottom: 8 }}>Remove {deleteConfirmMember.name || deleteConfirmMember.email}?</div>
+                <p style={{ fontSize: 15, color: "#64748b", marginBottom: 18 }}>This member will lose access to this organization and its data.</p>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={() => { setDeleteConfirmMember(null); setDeleteConfirmStep(0); }}
+                    style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", color: "#64748b", fontSize: 15, cursor: "pointer" }}>
+                    Cancel
+                  </button>
+                  <button onClick={() => setDeleteConfirmStep(1)}
+                    style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "none", background: "#E85D75", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>
+                    Delete
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: 18, fontWeight: 700, color: "#E85D75", marginBottom: 8 }}>Confirm Deletion</div>
+                <p style={{ fontSize: 15, color: "#64748b", marginBottom: 18 }}>Are you absolutely sure? This action cannot be undone. All access for <strong>{deleteConfirmMember.name || deleteConfirmMember.email}</strong> will be permanently removed.</p>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={() => { setDeleteConfirmMember(null); setDeleteConfirmStep(0); }}
+                    style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", color: "#64748b", fontSize: 15, cursor: "pointer" }}>
+                    Cancel
+                  </button>
+                  <button onClick={() => { setOrgMembers(prev => prev.filter(m => m.id !== deleteConfirmMember.id)); setDeleteConfirmMember(null); setDeleteConfirmStep(0); }}
+                    style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "none", background: "#E85D75", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>
+                    Yes, Delete Forever
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -5494,6 +5515,9 @@ function TeamPermissionsModal({ teamName, sections, initialPermissions, onSave, 
 }) {
   const [allowedSectionIds, setAllowedSectionIds] = useState<string[] | null>(initialPermissions.allowedSectionIds);
   const [metricOverrides, setMetricOverrides] = useState<{ sectionId: string; allowedMetricIds: string[] | null }[] | null>(initialPermissions.metricOverrides);
+  const PAGE_LABELS: Record<string, string> = { home: "Home", goals: "Goals", playbooks: "Playbooks" };
+  const [allowedPageIds, setAllowedPageIds] = useState<string[] | null>(initialPermissions.allowedPageIds ?? null);
+  const isPageAllowed = (pid: string) => allowedPageIds === null || allowedPageIds.includes(pid);
 
   const toggleSection = (sid: string, on: boolean) => {
     setAllowedSectionIds(prev => {
@@ -5577,7 +5601,26 @@ function TeamPermissionsModal({ teamName, sections, initialPermissions, onSave, 
           </div>
         ))}
 
-        <button onClick={() => { onSave({ teamId: initialPermissions.teamId, allowedSectionIds, metricOverrides }); }}
+        <div style={{ marginBottom: 16, border: "1px solid #f1f5f9", borderRadius: 10, overflow: "hidden" }}>
+          <div style={{ padding: "10px 14px", background: "#f8fafc", fontSize: 15, fontWeight: 600, color: "#1a2332" }}>Page Access</div>
+          <div style={{ padding: "6px 14px 10px" }}>
+            {Object.entries(PAGE_LABELS).map(([id, label]) => (
+              <label key={id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", cursor: "pointer" }}>
+                <input type="checkbox" checked={isPageAllowed(id)}
+                  onChange={e => setAllowedPageIds(prev => {
+                    if (prev === null) return e.target.checked ? null : Object.keys(PAGE_LABELS).filter(k => k !== id);
+                    if (e.target.checked) return [...prev, id];
+                    const next = prev.filter(p => p !== id);
+                    return next.length === 0 ? null : next;
+                  })}
+                  style={{ accentColor: "#3B82F6", width: 14, height: 14, cursor: "pointer", flexShrink: 0 }} />
+                <span style={{ fontSize: 15, color: "#475569" }}>{label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <button onClick={() => { onSave({ teamId: initialPermissions.teamId, allowedSectionIds, metricOverrides, allowedPageIds }); }}
           style={{ width: "100%", padding: "10px 0", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer", marginTop: 8 }}>
           Save Permissions
         </button>
@@ -5596,6 +5639,9 @@ function MemberPermissionsModal({ member, sections, initialPerms, onSave, onView
 }) {
   const [allowedSectionIds, setAllowedSectionIds] = useState<string[] | null>(initialPerms?.allowedSectionIds ?? null);
   const [metricOverrides, setMetricOverrides] = useState<{ sectionId: string; allowedMetricIds: string[] | null }[] | null>(initialPerms?.metricOverrides ?? null);
+  const PAGE_LABELS: Record<string, string> = { home: "Home", goals: "Goals", playbooks: "Playbooks" };
+  const [allowedPageIds, setAllowedPageIds] = useState<string[] | null>(initialPerms?.allowedPageIds ?? null);
+  const isPageAllowed = (pid: string) => allowedPageIds === null || allowedPageIds.includes(pid);
 
   const toggleSection = (sid: string, on: boolean) => {
     setAllowedSectionIds(prev => {
@@ -5634,7 +5680,7 @@ function MemberPermissionsModal({ member, sections, initialPerms, onSave, onView
     return override.allowedMetricIds.includes(mid);
   };
 
-  const currentPerms: TeamPermissions = { teamId: initialPerms?.teamId ?? "", allowedSectionIds, metricOverrides };
+  const currentPerms: TeamPermissions = { teamId: initialPerms?.teamId ?? "", allowedSectionIds, metricOverrides, allowedPageIds };
 
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000, padding: 16 }}>
@@ -5651,7 +5697,7 @@ function MemberPermissionsModal({ member, sections, initialPerms, onSave, onView
           </div>
           <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#94a3b8" }}>×</button>
         </div>
-        <p style={{ fontSize: 15, color: "#94a3b8", marginBottom: 16 }}>Select which rows and metric boxes this member can access.</p>
+        <p style={{ fontSize: 15, color: "#94a3b8", marginBottom: 16 }}>Select which rows, metric boxes, and pages this member can access.</p>
 
         {sections.map(section => (
           <div key={section.id} style={{ marginBottom: 12, border: "1px solid #f1f5f9", borderRadius: 10, overflow: "hidden" }}>
@@ -5675,6 +5721,25 @@ function MemberPermissionsModal({ member, sections, initialPerms, onSave, onView
             )}
           </div>
         ))}
+
+        <div style={{ marginBottom: 16, border: "1px solid #f1f5f9", borderRadius: 10, overflow: "hidden" }}>
+          <div style={{ padding: "10px 14px", background: "#f8fafc", fontSize: 15, fontWeight: 600, color: "#1a2332" }}>Page Access</div>
+          <div style={{ padding: "6px 14px 10px" }}>
+            {Object.entries(PAGE_LABELS).map(([id, label]) => (
+              <label key={id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", cursor: "pointer" }}>
+                <input type="checkbox" checked={isPageAllowed(id)}
+                  onChange={e => setAllowedPageIds(prev => {
+                    if (prev === null) return e.target.checked ? null : Object.keys(PAGE_LABELS).filter(k => k !== id);
+                    if (e.target.checked) return [...prev, id];
+                    const next = prev.filter(p => p !== id);
+                    return next.length === 0 ? null : next;
+                  })}
+                  style={{ accentColor: "#3B82F6", width: 14, height: 14, cursor: "pointer", flexShrink: 0 }} />
+                <span style={{ fontSize: 15, color: "#475569" }}>{label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
 
         <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
           <button onClick={() => { onViewAs(currentPerms); }}
@@ -7764,6 +7829,7 @@ export default function DashelloDashboard() {
   const [showChat, setShowChat] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const mobileMenuTriggerRef = useRef<HTMLDivElement>(null);
+  const topOrgDropdownRef = useRef<HTMLDivElement>(null);
 
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -7776,6 +7842,11 @@ export default function DashelloDashboard() {
   const [teamRows, setTeamRows] = useState<TeamRow[]>([]);
   const [teamPermissions, setTeamPermissions] = useState<TeamPermissions[]>([]);
   const [showOrgDropdown, setShowOrgDropdown] = useState(false);
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (topOrgDropdownRef.current && !topOrgDropdownRef.current.contains(e.target as Node)) setShowOrgDropdown(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
   const [previewMember, setPreviewMember] = useState<OrgMember | null>(null);
   const [previewPerms, setPreviewPerms] = useState<TeamPermissions | null>(null);
   const [previewFromSave, setPreviewFromSave] = useState(false);
@@ -8615,7 +8686,19 @@ const isPageAccessible = (pageName: string) => {
   if (currentUserLevel === "owner") return true;
   const hidden = menuPermissions[currentUserLevel] || [];
   if (currentUserLevel === "viewer" && (pageName === "integrations" || pageName === "team")) return false;
-  return !hidden.includes(pageName);
+  if (hidden.includes(pageName)) return false;
+  // Check team-based page permissions
+  const pageAccessPages = ["home", "goals", "playbooks"];
+  if (pageAccessPages.includes(pageName)) {
+    const myMember = orgMembers.find(m => m.email === userEmail && m.status === "active");
+    if (myMember && myMember.teamId) {
+      const teamPerm = teamPermissions.find(p => p.teamId === myMember.teamId);
+      if (teamPerm?.allowedPageIds !== undefined && teamPerm.allowedPageIds !== null) {
+        return teamPerm.allowedPageIds.includes(pageName);
+      }
+    }
+  }
+  return true;
 };
 
 // Preview mode
@@ -8703,6 +8786,27 @@ const sidebarEl = (
               </div>
             ) : null}
             {!isMobile && (page === "home" || page === "goals" || page === "integrations" || page === "tasks") && <TopBarRefreshButton isMobile={isMobile} onRefresh={handleRefreshAll} lastSyncedAt={lastDashboardSync} />}
+            {/* Top-bar org switcher */}
+            <div ref={topOrgDropdownRef} style={{ position: "relative" }}>
+              <div onClick={() => setShowOrgDropdown(v => !v)} style={{ padding: "5px 12px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 15, color: "#1a2332", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, background: showOrgDropdown ? "#f1f5f9" : "#fff", whiteSpace: "nowrap" }}>
+                <span style={{ maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{activeOrg?.isPersonal ? "Personal" : activeOrg?.name}</span>
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ flexShrink: 0, transform: showOrgDropdown ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>
+                  <path d="M2 4L5 7L8 4" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
+              {showOrgDropdown && (
+                <div style={{ position: "absolute", top: 36, left: 0, zIndex: 110, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.15)", border: "1px solid #e2e8f0", minWidth: 180, overflow: "hidden" }}>
+                  {orgs.map(org => (
+                    <div key={org.id} onClick={() => { handleSwitchOrg(org); setShowOrgDropdown(false); }}
+                      style={{ padding: "10px 14px", fontSize: 15, cursor: "pointer", color: activeOrg?.id === org.id ? "#3B82F6" : "#1a2332", fontWeight: activeOrg?.id === org.id ? 600 : 400, background: activeOrg?.id === org.id ? "#EFF6FF" : "transparent", borderBottom: "1px solid #f1f5f9", textAlign: "left" }}
+                      onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
+                      onMouseLeave={e => (e.currentTarget.style.background = activeOrg?.id === org.id ? "#EFF6FF" : "transparent")}>
+                      {org.name}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
             {(page === "home" && inlineView) && (
               <BreadcrumbNav items={getBreadcrumbItems()} onNavigate={handleBreadcrumbNavigate} />
             )}
