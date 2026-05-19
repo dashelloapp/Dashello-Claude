@@ -4698,9 +4698,9 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
                   {memberTasks.slice(0, 3).map(t => {
                     const isDueToday = t.dueDate === todayStr;
                     return (
-                    <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 6, background: t.done ? "#f8fafc" : isDueToday ? "#EFF6FF" : "#fff", border: isDueToday && !t.done ? "1px solid #93C5FD" : "none", opacity: t.done ? 0.6 : 1 }}>
-                      <div onClick={() => toggle(t.id)} style={{ width: 16, height: 16, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 8 }}>{t.done ? "✓" : ""}</div>
-                      <div style={{ flex: 1, fontSize: 12, color: "#1a2332", textDecoration: t.done ? "line-through" : "none", minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.text}</div>
+                    <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 6, background: t.done ? "#f8fafc" : t.priority ? "#FFF8ED" : isDueToday ? "#EFF6FF" : "#fff", border: isDueToday && !t.done ? "1px solid #93C5FD" : "none", opacity: t.done ? 0.6 : 1 }}>
+                      <div onClick={() => toggle(t.id)} style={{ width: 16, height: 16, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : t.priority ? "1.5px solid #F5A623" : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 8 }}>{t.done ? "✓" : ""}</div>
+                      <div style={{ flex: 1, fontSize: 12, color: "#1a2332", fontWeight: t.priority ? 600 : 400, textDecoration: t.done ? "line-through" : "none", minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.text}</div>
                       {t.dueDate && <div style={{ fontSize: 10, color: isDueToday ? "#3B82F6" : "#94a3b8", fontWeight: isDueToday ? 600 : 400, whiteSpace: "nowrap", flexShrink: 0 }}>{isDueToday ? "Due Today" : formatDate(t.dueDate)}</div>}
                     </div>
                     );
@@ -8829,6 +8829,31 @@ const sidebarEl = (
           </div>
         );
       })()}
+
+      {/* ── Member detail modal (triggered from Tasks page team member click) ── */}
+      {pendingMemberDetail && (
+        <div onClick={() => setPendingMemberDetail(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000, padding: 16 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 16, padding: 28, width: "100%", maxWidth: 480, maxHeight: "90vh", overflow: "auto", position: "relative" }}>
+            <button onClick={() => setPendingMemberDetail(null)} style={{ position: "absolute", top: 12, right: 16, width: 28, height: 28, borderRadius: "50%", border: "none", background: "#f1f5f9", cursor: "pointer", fontSize: 16, color: "#64748b", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+            <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 700, color: "#94a3b8", marginBottom: 8 }}>
+              {(pendingMemberDetail.name?.[0] || pendingMemberDetail.email[0] || "?").toUpperCase()}
+            </div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: "#1a2332", marginBottom: 2 }}>{pendingMemberDetail.name || pendingMemberDetail.email}</div>
+            <div style={{ fontSize: 13, color: "#3B82F6", fontWeight: 600, textTransform: "capitalize", marginBottom: 16 }}>{pendingMemberDetail.level}</div>
+            {(tasksData || []).filter(t => t.assignedTo === pendingMemberDetail.email && !t.done).length > 0 && (
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>Active Tasks</div>
+                {(tasksData || []).filter(t => t.assignedTo === pendingMemberDetail.email && !t.done).map(t => (
+                  <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 6, background: t.priority ? "#FFF8ED" : "#F8FAFC", marginBottom: 4 }}>
+                    <div style={{ width: 16, height: 16, borderRadius: "50%", flexShrink: 0, border: t.priority ? "1.5px solid #F5A623" : "1.5px solid #d1d5db", background: "transparent" }} />
+                    <span style={{ flex: 1, fontSize: 13, color: "#1a2332", fontWeight: t.priority ? 600 : 400, minWidth: 0 }}>{t.text}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
     </div>
     </>
