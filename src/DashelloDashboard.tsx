@@ -76,9 +76,10 @@ function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-function applyAccessibilitySettings(headerSize: number, minBody: number) {
+function applyAccessibilitySettings(headerSize: number, minBody: number, subheadingSize?: number) {
   document.documentElement.style.setProperty("--acc-min-fs", minBody + "px");
   document.documentElement.style.setProperty("--acc-header-scale", String(headerSize / 15));
+  if (subheadingSize) document.documentElement.style.setProperty("--acc-subheading-fs", subheadingSize + "px");
 }
 
 function DashelloLoader({ color = '#fafafa', size = 80 }: { color?: string; size?: number }) {
@@ -5890,6 +5891,7 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
   menu_permissions: {} as Record<string, string[]>,
   timezone: "",
   acc_header_size: 30,
+  acc_subheading_size: 20,
   acc_min_body: 15,
 });
   const [saving, setSaving] = useState(false);
@@ -5919,9 +5921,10 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
       menu_permissions: data.menu_permissions ?? {},
       timezone: data.timezone ?? "",
       acc_header_size: data.acc_header_size ?? 30,
+      acc_subheading_size: data.acc_subheading_size ?? 20,
       acc_min_body: data.acc_min_body ?? 15,
     });
-    if (data) applyAccessibilitySettings(data.acc_header_size ?? 30, data.acc_min_body ?? 15);
+    if (data) applyAccessibilitySettings(data.acc_header_size ?? 30, data.acc_min_body ?? 15, data.acc_subheading_size ?? 20);
   });
 }, [userId]);
 
@@ -6269,6 +6272,21 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
               </div>
             </div>
             <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>{__('settings.subheadingSize', 'Subheading Size')} (px)</div>
+              <input type="number" min={13} max={30} value={localProfile.acc_subheading_size}
+                onChange={e => {
+                  const v = parseInt(e.target.value);
+                  if (isNaN(v)) return;
+                  setLocalProfile(p => ({ ...p, acc_subheading_size: v < 13 ? 13 : Math.min(v, 30) }));
+                  setDirty(true);
+                }}
+                style={{ width: 80, padding: "5px 9px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none" }}
+              />
+              <div style={{ marginTop: 8, fontSize: localProfile.acc_subheading_size, fontWeight: 600, color: "#1a2332" }}>
+                {__('settings.subheadingPreview', 'Preview Subheading')} — {localProfile.acc_subheading_size}px
+              </div>
+            </div>
+            <div style={{ marginBottom: 14 }}>
               <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>{__('settings.bodyTextSize', 'Body Text Size')} (px)</div>
               <input type="number" min={11} max={24} value={localProfile.acc_min_body}
                 onChange={e => {
@@ -6291,7 +6309,7 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
           <button onClick={async () => {
               setSaving(true);
               const { error } = await supabase.from("profiles").upsert({ id: userId, ...localProfile, updated_at: new Date().toISOString() });
-              if (!error) { onProfileSaved({ ...localProfile }); applyAccessibilitySettings(localProfile.acc_header_size, localProfile.acc_min_body); setSaved(true); setDirty(false); setTimeout(() => setSaved(false), 3000); }
+              if (!error) { onProfileSaved({ ...localProfile }); applyAccessibilitySettings(localProfile.acc_header_size, localProfile.acc_min_body, localProfile.acc_subheading_size); setSaved(true); setDirty(false); setTimeout(() => setSaved(false), 3000); }
               setSaving(false);
             }} disabled={saving}
             style={{ padding: "12px 48px", borderRadius: 8, border: "none", background: saved ? "#4CAF7D" : dirty ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0", color: "#fff", fontSize: 15, fontWeight: 600, cursor: dirty && !saving ? "pointer" : "default" }}>
@@ -8014,7 +8032,8 @@ export default function DashelloDashboard() {
   useEffect(() => {
     const hdr = parseInt(localStorage.getItem("acc_header_size") || "30") || 30;
     const body = parseInt(localStorage.getItem("acc_min_body") || "15") || 15;
-    applyAccessibilitySettings(hdr, body);
+    const sub = parseInt(localStorage.getItem("acc_subheading_size") || "20") || 20;
+    applyAccessibilitySettings(hdr, body, sub);
   }, []);
   const [editingMetricFromModal, setEditingMetricFromModal] = useState<Metric | null>(null);
   // Inline view system
@@ -8053,9 +8072,10 @@ export default function DashelloDashboard() {
     menu_permissions: {} as Record<string, string[]>,
     timezone: "",
     acc_header_size: 30,
+    acc_subheading_size: 20,
     acc_min_body: 15,
   });
-  useEffect(() => { applyAccessibilitySettings(profile.acc_header_size ?? 30, profile.acc_min_body ?? 15); }, [profile.acc_header_size, profile.acc_min_body]);
+  useEffect(() => { applyAccessibilitySettings(profile.acc_header_size ?? 30, profile.acc_min_body ?? 15, profile.acc_subheading_size ?? 20); }, [profile.acc_header_size, profile.acc_min_body, profile.acc_subheading_size]);
   const [fiveAccountSettings, setFiveAccountSettings] = useState<FiveAccountSettings>(DEFAULT_FIVE_ACCOUNT_SETTINGS);
   // --- SETTINGS UPDATE LOGIC ---
  const handleUpdateSettings = (newSettings: FiveAccountSettings) => {
@@ -8281,6 +8301,7 @@ export default function DashelloDashboard() {
   menu_permissions: prof.menu_permissions ?? {},
   timezone: prof.timezone ?? "",
   acc_header_size: prof.acc_header_size ?? 30,
+  acc_subheading_size: prof.acc_subheading_size ?? 20,
   acc_min_body: prof.acc_min_body ?? 15,
 });
       setDbReady(true);
