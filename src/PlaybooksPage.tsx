@@ -1478,7 +1478,7 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                                 <input type="radio" checked={f.checkboxSubtype === sub || (!f.checkboxSubtype && sub === "checkbox")}
                                   onChange={() => updateField(f.id, { checkboxSubtype: sub === "checkbox" ? undefined : sub, options: sub === "big-checklist" || sub === "checkbox" ? ["Option 1"] : undefined })}
                                   style={{ accentColor: "#3B82F6", margin: 0 }} />
-                                {sub === "checkbox" ? "Checkboxes" : sub === "fill-checklist" ? "Fill Checklist" : sub === "big-checklist" ? "Big Checklist" : "Sync Checklist"}
+                                {sub === "checkbox" ? "Checkboxes" : sub === "fill-checklist" ? "Fill Checklist" : sub === "big-checklist" ? "Big Checklist" : "Sync Tasks"}
                               </label>
                             ))}
                           </div>
@@ -1689,11 +1689,6 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                           <input type="checkbox" checked={f.required} onChange={e => updateField(f.id, { required: e.target.checked })}
                             style={{ accentColor: "#3B82F6", margin: 0 }} /> Required
                         </label>
-                        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                          <span style={{ fontSize: 15, color: "#94a3b8" }}>Color:</span>
-                          <input type="color" value={f.color} onChange={e => updateField(f.id, { color: e.target.value })}
-                            style={{ width: 22, height: 22, padding: 0, border: "none", cursor: "pointer" }} />
-                        </div>
                       </div>
                     </div>
                   );})}
@@ -1748,7 +1743,8 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                         title="Drag to reorder">⠿</div>
                       <div style={{ flex: 1 }}>
                         {f.header && <div style={{ fontSize: 15, fontWeight: 600, color: f.color, marginBottom: 4 }} dangerouslySetInnerHTML={{ __html: renderShortcodes(f.dateAutoFill ? getDateString(f.dateFormat || "MMMM Do, YYYY") : f.header) }} />}
-                        {f.description && <div style={{ fontSize: 15, color: "#64748b", marginBottom: 6, fontStyle: "italic" }} dangerouslySetInnerHTML={{ __html: renderShortcodes(f.description) }} />}
+                        {f.description && f.type !== "info" && <div style={{ fontSize: 15, color: "#64748b", marginBottom: 6 }} dangerouslySetInnerHTML={{ __html: renderShortcodes(f.description) }} />}
+                        {f.description && f.type === "info" && <div style={{ fontSize: 15, color: "#64748b", lineHeight: 1.5 }} dangerouslySetInnerHTML={{ __html: renderShortcodes(f.description) }} />}
                       </div>
                     </div>
                     {f.type === "text" && <div style={{ padding: "8px 12px", borderRadius: 6, background: "#fff", fontSize: 15, color: "#94a3b8" }} dangerouslySetInnerHTML={{ __html: f.placeholder || "Text input..." }} />}
@@ -1765,9 +1761,6 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                         {opt}
                       </div>
                     ))}
-                    {f.type === "info" && f.description && (
-                      <div style={{ fontSize: 15, color: "#64748b", lineHeight: 1.5, fontStyle: "italic" }} dangerouslySetInnerHTML={{ __html: renderShortcodes(f.description) }} />
-                    )}
                     {f.type === "fill-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "fill-checklist") && (
                       <div style={{ fontSize: 15, color: "#94a3b8", fontStyle: "italic" }} dangerouslySetInnerHTML={{ __html: f.placeholder || "Add checklist items..." }} />
                     )}
@@ -1826,7 +1819,7 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                 return (
                       <div key={f.id}>
                         {displayHeader && <div style={{ fontSize: 15, fontWeight: 600, color: f.color, marginBottom: 4 }} dangerouslySetInnerHTML={{ __html: renderShortcodes(displayHeader) }} />}
-                        {f.description && <div style={{ fontSize: 15, color: "#64748b", marginBottom: 6, fontStyle: "italic" }} dangerouslySetInnerHTML={{ __html: renderShortcodes(f.description) }} />}
+                        {f.description && <div style={{ fontSize: 15, color: "#64748b", marginBottom: 6 }} dangerouslySetInnerHTML={{ __html: renderShortcodes(f.description) }} />}
                         {f.type === "text" && (
                           <input value={fillData[f.id] || ""} onChange={e => { setFillData(p => ({ ...p, [f.id]: e.target.value })); autoSaveFill(); }}
                             placeholder={f.placeholder?.replace(/<[^>]*>/g, "")}
@@ -2025,7 +2018,7 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                     return (
                     <div key={f.id} style={{ background: "#f1f5f9", borderRadius: 10, padding: 14, marginBottom: 10 }}>
                       {displayHeader && <div style={{ fontSize: 15, fontWeight: 600, color: f.color, marginBottom: 4 }} dangerouslySetInnerHTML={{ __html: renderShortcodes(displayHeader) }} />}
-                      {f.description && <div style={{ fontSize: 15, color: "#64748b", marginBottom: 6, fontStyle: "italic" }} dangerouslySetInnerHTML={{ __html: renderShortcodes(f.description) }} />}
+                      {f.description && <div style={{ fontSize: 15, color: "#64748b", marginBottom: 6 }} dangerouslySetInnerHTML={{ __html: renderShortcodes(f.description) }} />}
                       <div style={{ fontSize: 15, color: "#1a2332" }}>{f.type === "fill-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "fill-checklist") || f.type === "big-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "big-checklist") || f.type === "sync-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "sync-checklist") ? renderChecklistPreview(fillData[f.id], f.options, f.checklistLayout, __) : fillData[f.id] || (f.placeholder && f.type !== "checkbox" && f.type !== "radio" && f.type !== "info" ? <span style={{ color: "#94a3b8" }} dangerouslySetInnerHTML={{ __html: f.placeholder }} /> : <span style={{ color: "#cbd5e1", fontStyle: "italic" }}>Empty</span>)}</div>
                     </div>
                     );
@@ -2418,7 +2411,7 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                     return (
                     <div key={f.id} style={{ background: "#f1f5f9", borderRadius: 8, padding: 12, marginBottom: 8 }}>
                       {displayHeader && <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 4, color: f.color }} dangerouslySetInnerHTML={{ __html: renderShortcodes(displayHeader) }} />}
-                      {f.description && <div style={{ fontSize: 15, color: "#64748b", marginBottom: 6, fontStyle: "italic" }}>{f.description}</div>}
+                      {f.description && <div style={{ fontSize: 15, color: "#64748b", marginBottom: 6 }}>{f.description}</div>}
                       {f.type === "text" && (
                         <input value={detailFillData[f.id] || ""} onChange={e => { setDetailFillData(p => ({ ...p, [f.id]: e.target.value })); autoSaveDetail(); }}
                           placeholder={f.placeholder?.replace(/<[^>]*>/g, "")}
