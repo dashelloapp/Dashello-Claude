@@ -3743,7 +3743,7 @@ function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
   return (
     <div style={{ marginTop: 24 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#1a2332" }}>Decision Making Filter</div>
+        <div style={{ fontSize: "clamp(20px,4vw,26px)", fontWeight: 700, color: "#1a2332" }}>Decision Making Filter</div>
         <div onClick={() => setShowQuickStart(true)} style={{ fontSize: 13, color: "#3B82F6", cursor: "pointer", fontWeight: 500, textDecoration: "underline", textUnderlineOffset: 2 }}>View Quick Start Guide</div>
       </div>
 
