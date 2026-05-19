@@ -192,11 +192,30 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
       const optionId = conDot.dataset.optionId!;
       const conIndex = parseInt(conDot.dataset.conIndex!, 10);
       if (optionId === dragging.optionId) {
+        const proIndex = dragging.proIndex;
+        if (proIndex === conIndex) return; // already on same row
         setOptions(options.map(o => {
           if (o.id !== optionId) return o;
-          const exists = o.connections.some(c => c.proIndex === dragging.proIndex && c.conIndex === conIndex);
-          if (exists) return o;
-          return { ...o, connections: [...o.connections, { proIndex: dragging.proIndex, conIndex }] };
+          // Move the con item to align with the pro's row
+          const newCons = [...o.cons];
+          const [moved] = newCons.splice(conIndex, 1);
+          const insertAt = Math.min(proIndex, newCons.length);
+          newCons.splice(insertAt, 0, moved || "");
+          // Clean trailing empty strings
+          while (newCons.length > 0 && newCons[newCons.length - 1] === "") newCons.pop();
+          // Update connection indices: removed at conIndex, inserted at insertAt
+          const newConnections = o.connections
+            .map(c => ({
+              proIndex: c.proIndex,
+              conIndex: c.conIndex > conIndex ? c.conIndex - 1 : c.conIndex,
+            }))
+            .map(c => ({
+              proIndex: c.proIndex,
+              conIndex: c.conIndex >= insertAt ? c.conIndex + 1 : c.conIndex,
+            }));
+          // Add the new connection
+          newConnections.push({ proIndex, conIndex: insertAt });
+          return { ...o, cons: newCons, connections: newConnections };
         }));
       }
     }
@@ -369,11 +388,11 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
         </div>
 
         {/* Pros (left) / Cons (right) side by side */}
-        <div style={{ display: "flex", gap: 6, flex: 1 }}>
+        <div style={{ display: "flex", gap: 30, flex: 1 }}>
           {/* Pros column */}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: "#4CAF7D", marginBottom: 4 }}>Pros</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               {option.pros.map((pro, pi) => (
                 <div key={pi} style={{ display: "flex", alignItems: "center", gap: 3 }}>
                   <span style={{ fontSize: 13, color: "#4CAF7D", flexShrink: 0 }}>+</span>
@@ -383,12 +402,6 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
                   {option.pros.length > 1 && (
                     <div onClick={() => removePro(option.id, pi)} style={{ cursor: "pointer", fontSize: 13, color: "#cbd5e1", flexShrink: 0 }}>×</div>
                   )}
-                  {pro.trim() && (
-                    <div ref={el => { dotRefs.current[`pro-${option.id}-${pi}`] = el; }}
-                      data-pro-dot={`${option.id}-${pi}`}
-                      onMouseDown={e => handleProDotMouseDown(e, option.id, pi)}
-                      style={{ width: 10, height: 10, borderRadius: "50%", background: "#4CAF7D", cursor: "crosshair", flexShrink: 0, marginLeft: 2 }} title="Drag to connect to a con" />
-                  )}
                 </div>
               ))}
               <div onClick={() => addPro(option.id)} style={{ fontSize: 12, color: "#4CAF7D", cursor: "pointer", display: "flex", alignItems: "center", gap: 2 }}>
@@ -397,17 +410,22 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
             </div>
           </div>
 
+          {/* Dot gutter */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, justifyContent: "flex-start", paddingTop: 22, flexShrink: 0 }}>
+            {option.pros.map((pro, pi) => pro.trim() ? (
+              <div key={pi} ref={el => { dotRefs.current[`pro-${option.id}-${pi}`] = el; }}
+                data-pro-dot={`${option.id}-${pi}`}
+                onMouseDown={e => handleProDotMouseDown(e, option.id, pi)}
+                style={{ width: 14, height: 14, borderRadius: "50%", background: "#4CAF7D", cursor: "crosshair", flexShrink: 0 }} title="Drag to connect to a con" />
+            ) : <div key={pi} style={{ width: 14, height: 14 }} />)}
+          </div>
+
           {/* Cons column */}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: "#E85D75", marginBottom: 4 }}>Cons</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               {option.cons.map((con, ci) => (
                 <div key={ci} style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                  {con.trim() && (
-                    <div ref={el => { dotRefs.current[`con-${option.id}-${ci}`] = el; }}
-                      data-con-dot="true" data-option-id={option.id} data-con-index={ci}
-                      style={{ width: 10, height: 10, borderRadius: "50%", background: "#E85D75", cursor: "crosshair", flexShrink: 0, marginRight: 2 }} title="Drop here to connect from a pro" />
-                  )}
                   {option.cons.length > 1 && (
                     <div onClick={() => removeCon(option.id, ci)} style={{ cursor: "pointer", fontSize: 13, color: "#cbd5e1", flexShrink: 0 }}>×</div>
                   )}
@@ -422,6 +440,15 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Con dots on far right */}
+        <div style={{ position: "absolute", right: 16, display: "flex", flexDirection: "column", gap: 6, top: 80 }}>
+          {option.cons.map((con, ci) => con.trim() ? (
+            <div key={ci} ref={el => { dotRefs.current[`con-${option.id}-${ci}`] = el; }}
+              data-con-dot="true" data-option-id={option.id} data-con-index={ci}
+              style={{ width: 14, height: 14, borderRadius: "50%", background: "#E85D75", cursor: "crosshair", flexShrink: 0 }} title="Drop here to connect from a pro" />
+          ) : <div key={ci} style={{ width: 14, height: 14 }} />)}
         </div>
 
         {/* Connection lines for this option */}
