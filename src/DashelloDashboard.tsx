@@ -1592,7 +1592,7 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
       <div style={{ padding: "14px 18px", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, flexShrink: 0 }}>
         <img src="https://dashello.co/wp-content/uploads/2023/08/White-Logo-Full.png" alt="Dashello" style={{ height: 26, objectFit: "contain", maxWidth: "80%" }} />
         {(currentUserLevel === "owner" || currentUserLevel === "admin") && (
-          <button onClick={onOpenInviteModal} style={{ width: "100%", padding: "10px 0", borderRadius: 12, border: "none", background: "#fff", color: "#3B82F6", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>{__('sidebar.inviteTeam', 'Invite Team Members')}</button>
+          <button onClick={onOpenInviteModal} style={{ width: "100%", padding: "10px 0", borderRadius: 12, border: "none", background: "#fff", color: "#3B82F6", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>+ Invite</button>
         )}
         <button onClick={() => supabase.auth.signOut()} style={{ width: "100%", padding: "10px 0", borderRadius: 12, border: "2px solid rgba(255,255,255,0.6)", background: "transparent", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>{__('sidebar.signOut', 'Sign Out')}</button>
       </div>
