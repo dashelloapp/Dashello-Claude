@@ -761,6 +761,7 @@ function getDateString(format: string, date?: Date): string {
   const [createRowId, setCreateRowId] = useState<string | null>(null);
   const [createStep, setCreateStep] = useState(0);
   const [createName, setCreateName] = useState("");
+  const [createIcon, setCreateIcon] = useState("");
   const [createType, setCreateType] = useState<"document" | "template" | null>(null);
   const [createDocMode, setCreateDocMode] = useState<"editor" | "file" | null>(null);
   const [createContent, setCreateContent] = useState("");
@@ -935,12 +936,13 @@ function getDateString(format: string, date?: Date): string {
     setCreateContent(""); setCreateFiles([]); setCreateLinks([]); setCreateTemplateFields([]);
     setShowCreate(false); setCreateRowId(null);
     setCreateColumns(1); setCreateLayout(1); setCreateRecurrence({ enabled: false, interval: "monthly" });
+    setCreateIcon("");
   };
   const handleCreateSave = async () => {
     if (!createName.trim() || !createRowId || !createType) return;
     const newItem: PlaybookItem = {
       id: crypto.randomUUID(), label: createName.trim(),
-      icon: ICON_NONE, type: createType,
+      icon: createIcon || ICON_NONE, type: createType,
       createdAt: new Date().toISOString(),
       content: createContent || undefined,
       files: createFiles.length > 0 ? createFiles : undefined,
@@ -949,7 +951,7 @@ function getDateString(format: string, date?: Date): string {
       columns: createType === "template" ? (createLayout === 2 || createTemplateFields.some(f => (f.column || 1) === 2) ? 2 : 1 as const) : undefined,
       recurrence: createType === "template" && createRecurrence.enabled ? createRecurrence : undefined,
     };
-    newItem.icon = autoSelectIcon(newItem);
+    if (!createIcon) newItem.icon = autoSelectIcon(newItem);
     let updated: PlaybookRow[];
     if (createType === "template") {
       const existingRow = rows.find(r => r.title === "Templates");
@@ -1101,7 +1103,14 @@ function getDateString(format: string, date?: Date): string {
   const openEditSettings = (item: PlaybookItem) => {
     if (item.type === "template") {
       const rid = rows.find(r => r.items.some(i => i.id === item.id))?.id;
-      if (rid) { setCreateRowId(rid); setCreateType("template"); setSubView("template-builder"); }
+      if (rid) {
+        setCreateRowId(rid); setCreateType("template"); setSubView("template-builder");
+        setCreateName(item.label);
+        setCreateIcon(item.icon || "");
+        setCreateLayout(item.columns === 2 ? 2 : 1);
+        setCreateTemplateFields(item.templateFields ? [...item.templateFields] : []);
+        setCreateRecurrence(item.recurrence || { enabled: false, interval: "monthly" });
+      }
       return;
     }
     setEditSettingsItem(item);
@@ -1272,16 +1281,20 @@ function getDateString(format: string, date?: Date): string {
         <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "16px clamp(16px,3vw,24px)", borderBottom: "1px solid #e2e8f0", background: "#fff", flexShrink: 0 }}>
           <button onClick={() => { setSubView("list"); resetCreate(); }}
             style={{ padding: "6px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#64748b" }}>← Back</button>
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#1a2332", flex: 1 }}>Create Playbook Template</h2>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#1a2332", flex: 1 }}>Playbook Template Settings</h2>
         </div>
         <div style={{ flex: 1, display: "flex", overflow: "hidden", flexDirection: window.innerWidth < 768 ? "column" : "row" }}>
           {/* LEFT: Editor */}
           <div style={{ flex: 1, overflowY: "auto", padding: "clamp(12px,2vw,20px)" }}>
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>TEMPLATE NAME</div>
-              <input value={createName} onChange={e => setCreateName(e.target.value)} placeholder="e.g. Impact Filter"
-                style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none", boxSizing: "border-box" }} />
-            </div>
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>TEMPLATE NAME</div>
+                <input value={createName} onChange={e => setCreateName(e.target.value)} placeholder="e.g. Impact Filter"
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none", boxSizing: "border-box" }} />
+              </div>
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>ICON</div>
+                <IconPicker selected={createIcon} onSelect={setCreateIcon} />
+              </div>
 
             {(() => {
               const cols: Record<number, TemplateField[]> = { 1: [], 2: [] };
@@ -1579,7 +1592,7 @@ function getDateString(format: string, date?: Date): string {
               style={{ padding: "10px 28px", borderRadius: 8, border: "none",
                 background: createName.trim() ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0",
                 color: "#fff", fontSize: 13, fontWeight: 600, cursor: createName.trim() ? "pointer" : "default" }}>
-              Playbook Template Settings
+              Save Template
             </button>
           </div>
 
