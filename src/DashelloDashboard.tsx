@@ -62,18 +62,21 @@ async function inviteTeamMember(email: string, orgId: string, level: OrgPermissi
   if (!session?.access_token) throw new Error("Not authenticated");
   
   // Try the edge function first (if deployed)
+  let edgeFunctionFailed = false;
   try {
     const res = await supabase.functions.invoke("invite-member", {
       body: { email, orgId, level, invitedByName, orgName },
     });
-    if (!res.error) return res.data;
-  } catch (_) {}
+    if (res.error) {
+      edgeFunctionFailed = true;
+    } else {
+      return res.data;
+    }
+  } catch (e) {
+    edgeFunctionFailed = true;
+  }
   
-  // Fallback: Create user via signUp (sends confirmation email)
-  // Use AbortController for a generous timeout
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30000);
-  
+  // Edge function not available — use signUp to create user and send confirmation email
   try {
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -83,42 +86,33 @@ async function inviteTeamMember(email: string, orgId: string, level: OrgPermissi
         data: { org_name: orgName || "Dashello", invited_by: invitedByName },
       },
     });
-    clearTimeout(timeoutId);
     
     if (error) {
-      console.error("signUp error:", error);
-      if (error.message?.includes("already registered") || error.message?.includes("User already")) {
-        return await sendMagicLink(email, orgName, invitedByName);
+      // If user already exists, send magic link
+      if (error.message?.includes("already") || error.message?.includes("registered")) {
+        const { error: otpErr } = await supabase.auth.signInWithOtp({
+          email,
+          options: { emailRedirectTo: "https://app.dashello.co", data: { org_name: orgName || "Dashello", invited_by: invitedByName } },
+        });
+        if (otpErr) throw new Error(otpErr.message || "Failed to send invite email");
+        return { sent: true, method: "magic-link" };
       }
-      throw new Error(error.message || (typeof error === "object" ? JSON.stringify(error) : "Failed to create user"));
+      throw new Error(error.message || "Failed to create user");
     }
     return { sent: true, userId: data.user?.id };
   } catch (signUpErr: any) {
-    clearTimeout(timeoutId);
-    if (signUpErr.name === "AbortError" || signUpErr.message?.includes("timeout") || signUpErr.message?.includes("abort")) {
-      // signUp timed out — try magic link instead (lighter email)
-      return await sendMagicLink(email, orgName, invitedByName);
+    // If signUp times out or fails, try magic link as final fallback
+    if (signUpErr.message?.includes("timeout") || signUpErr.message?.includes("abort") || !signUpErr.message) {
+      try {
+        const { error: otpErr2 } = await supabase.auth.signInWithOtp({
+          email,
+          options: { emailRedirectTo: "https://app.dashello.co", data: { org_name: orgName || "Dashello", invited_by: invitedByName } },
+        });
+        if (!otpErr2) return { sent: true, method: "magic-link" };
+      } catch (_) {}
     }
     throw signUpErr;
   }
-}
-
-async function sendMagicLink(email: string, orgName?: string, invitedByName?: string) {
-  const { error: otpError } = await supabase.auth.signInWithOtp({
-    email,
-    options: {
-      emailRedirectTo: "https://app.dashello.co",
-      data: { org_name: orgName || "Dashello", invited_by: invitedByName },
-    },
-  });
-  if (otpError) {
-    console.error("otp error:", otpError);
-    // Both signUp and magic link failed — SMTP is likely not configured
-    throw new Error(
-      "Email sending is not working. Please configure SMTP in your Supabase Dashboard (Auth → Settings → SMTP) or disable email confirmation."
-    );
-  }
-  return { sent: true, method: "magic-link" };
 }
 
 function DashelloLoader({ color = '#fafafa', size = 80 }: { color?: string; size?: number }) {
