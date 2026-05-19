@@ -168,6 +168,56 @@ function AddTeamModal({ orgId, orgs, setOrgs, orgMembers, setOrgMembers, teamRow
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState<string[]>([]);
+  const [importedContacts, setImportedContacts] = useState<{ name?: string; emails: string[]; phones?: string[]; addresses?: string[] }[]>([]);
+  const contactFileRef = useRef<HTMLInputElement>(null);
+
+  const handleContactsImport = async () => {
+    try {
+      const supported = 'contacts' in navigator && 'ContactsManager' in window;
+      if (supported) {
+        const contacts = await (navigator as any).contacts.select(['name', 'email', 'tel', 'address'], { multiple: true });
+        if (contacts?.length) {
+          const mapped = contacts.map((c: any) => ({
+            name: c.name?.[0] || "", emails: c.email || [], phones: c.tel || [],
+            addresses: c.address ? c.address.map((a: any) => typeof a === 'string' ? a : JSON.stringify(a)) : [],
+          }));
+          setImportedContacts(mapped);
+          const allEmails: string[] = mapped.flatMap((c: any) => c.emails).filter(Boolean);
+          if (allEmails.length > 0) {
+            setRows(allEmails.slice(0, 5).map((email: string) => ({ email, level: allowedLevels[0] as OrgPermissionLevel, teamId: topTeamId })));
+            setError(`${mapped.length} contacts selected`); setTimeout(() => setError(""), 3000);
+          }
+          return;
+        }
+      }
+    } catch (_) {}
+    contactFileRef.current?.click();
+  };
+
+  const handleVCardFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    const text = await file.text();
+    const contacts: { name?: string; emails: string[]; phones?: string[]; addresses?: string[] }[] = text.split('END:VCARD').filter(Boolean).map(record => {
+      const lines = record.split('\n');
+      let name = ""; const emails: string[] = []; const phones: string[] = []; const addresses: string[] = [];
+      for (const line of lines) {
+        const t = line.trim();
+        if (t.startsWith('FN:')) name = t.replace(/^FN:/i, '').trim();
+        else if (t.match(/^EMAIL/i)) { const p = t.split(':'); if (p.length > 1) emails.push(p.pop()!.trim()); }
+        else if (t.match(/^TEL/i)) { const p = t.split(':'); if (p.length > 1) phones.push(p.pop()!.trim()); }
+        else if (t.match(/^ADR/i)) { const p = t.split(':'); if (p.length > 1) addresses.push(p.pop()!.trim().replace(/;/g, ', ')); }
+      }
+      return { name, emails, phones: phones.length ? phones : undefined, addresses: addresses.length ? addresses : undefined };
+    }).filter((c: any) => c.emails.length > 0);
+    if (!contacts.length) { setError("No contacts with email addresses found."); return; }
+    setImportedContacts(contacts);
+    const allEmails = contacts.flatMap((c: any) => c.emails).filter(Boolean);
+    if (allEmails.length > 0) {
+      setRows(allEmails.slice(0, 5).map((email: string) => ({ email, level: allowedLevels[0] as OrgPermissionLevel, teamId: topTeamId })));
+      setError(`${contacts.length} contacts selected`); setTimeout(() => setError(""), 3000);
+    }
+    e.target.value = "";
+  };
 
   const update = (i: number, f: "email" | "level" | "teamId", v: string) => setRows(p => p.map((r, j) => j === i ? { ...r, [f]: v } : r));
 
@@ -253,6 +303,16 @@ function AddTeamModal({ orgId, orgs, setOrgs, orgMembers, setOrgMembers, teamRow
           style={{ background: "none", border: "none", cursor: "pointer", fontSize: 15, color: "#3B82F6", padding: "3px 0", marginBottom: 6, display: "flex", alignItems: "center", gap: 4 }}>
           + Add more
         </button>
+
+        <div onClick={handleContactsImport} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 0", marginBottom: 8, cursor: "pointer", fontSize: 15, color: "#3B82F6", fontWeight: 500 }}>
+          <IconGlyph name="UserPlus" size={16} color="#3B82F6" /> Import from Contacts
+        </div>
+        <input ref={contactFileRef} type="file" accept=".vcf,.csv" onChange={handleVCardFile} style={{ display: "none" }} />
+        {importedContacts.length > 0 && (
+          <div style={{ marginBottom: 8, padding: "6px 10px", background: "#F0FDF4", borderRadius: 8, fontSize: 14, color: "#0F6E56", display: "flex", alignItems: "center", gap: 6 }}>
+            <IconGlyph name="CheckCircle" size={14} color="#4CAF7D" /> {importedContacts.length} contact{importedContacts.length > 1 ? "s" : ""} imported
+          </div>
+        )}
 
         {error && <div style={{ marginBottom: 10, padding: "8px 12px", background: "#fef2f2", borderRadius: 8, fontSize: 15, color: "#dc2626" }}>{error}</div>}
 
