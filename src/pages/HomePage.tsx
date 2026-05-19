@@ -208,7 +208,9 @@ function AddTeamModal({ orgId, orgs, setOrgs, orgMembers, setOrgMembers, teamRow
         });
         setSuccess(prev => [...prev, row.email.trim()]);
       } catch (err: any) {
-        setError(err.message || `Failed to invite ${row.email}`);
+        const msg = typeof err === "object" ? (err.message || err.error_description || err.msg || Object.keys(err).length ? JSON.stringify(err) : "Unknown error") : String(err);
+        console.error("invite error:", err);
+        setError(msg || `Failed to invite ${row.email}`);
       }
     }
 

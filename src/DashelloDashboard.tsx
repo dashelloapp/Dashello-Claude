@@ -70,7 +70,6 @@ async function inviteTeamMember(email: string, orgId: string, level: OrgPermissi
   } catch (_) {}
   
   // Fallback: Create user via signUp (sends confirmation email)
-  // This creates the user in auth.users and sends an email via SMTP
   const { data, error } = await supabase.auth.signUp({
     email,
     password: crypto.randomUUID() + "Aa1!",
@@ -81,6 +80,7 @@ async function inviteTeamMember(email: string, orgId: string, level: OrgPermissi
   });
   
   if (error) {
+    console.error("signUp error:", JSON.stringify(error));
     // If user already exists, try sending a magic link instead
     if (error.message?.includes("already registered") || error.message?.includes("User already")) {
       const { error: otpError } = await supabase.auth.signInWithOtp({
@@ -90,10 +90,13 @@ async function inviteTeamMember(email: string, orgId: string, level: OrgPermissi
           data: { org_name: orgName || "Dashello", invited_by: invitedByName },
         },
       });
-      if (otpError) throw new Error(typeof otpError === "object" ? (otpError as any).message || "Failed to send invite" : "Failed to send invite");
+      if (otpError) {
+        console.error("otp error:", JSON.stringify(otpError));
+        throw new Error(typeof otpError === "object" ? (otpError as any).message || "Failed to send invite" : "Failed to send invite");
+      }
       return { sent: true, method: "magic-link" };
     }
-    throw new Error(error.message || "Failed to create user");
+    throw new Error(error.message || (typeof error === "object" ? JSON.stringify(error) : "Failed to create user"));
   }
   
   return { sent: true, userId: data.user?.id };
