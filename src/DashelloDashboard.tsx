@@ -8410,6 +8410,84 @@ export default function DashelloDashboard() {
     setPage("home");
   }, [userId, activeOrg]);
 
+  // Seed demo data when URL has #seed
+  useEffect(() => {
+    if (!dbReady || typeof window === "undefined" || window.location.hash !== "#seed") return;
+    window.location.hash = "";
+    const uid = () => crypto.randomUUID();
+    const now = Date.now();
+    const email = userEmail || "";
+    // @ts-ignore - Demo seeding data may not match exact types
+    const parentId = uid();
+    const demoMetrics: any[] = [
+      { id: uid(), label: "Client Sessions", value: "$5,400", color: "#3B82F6", graphType: "bar", icon: "TrendUp", colorRules: [{ id: uid(), color: "green", value: 5000, op: ">=" }, { id: uid(), color: "yellow", value: 3000, op: ">=", value2: 4999 }, { id: uid(), color: "red", value: 2999, op: "<=" }], modal: { type: "cashflow", title: "Client Sessions", mainValue: "$5,400", color: "#3B82F6", transactions: [] }, history: [{ timestamp: now - 86400000 * 3, value: 4000 }] },
+      { id: uid(), label: "New Clients", value: "8", color: "#4C9FE8", graphType: "bar", icon: "UserPlus", colorRules: [{ id: uid(), color: "green", value: 10, op: ">=" }, { id: uid(), color: "yellow", value: 5, op: ">=", value2: 9 }, { id: uid(), color: "red", value: 4, op: "<=" }], modal: { type: "leads", title: "New Clients", mainValue: "8", color: "#4C9FE8", transactions: [] }, history: [] },
+      { id: uid(), label: "Revenue", value: "$12,500", color: "#4CAF7D", graphType: "bar", icon: "TrendUp", colorRules: [{ id: uid(), color: "green", value: 10000, op: ">=" }, { id: uid(), color: "yellow", value: 5000, op: ">=", value2: 9999 }, { id: uid(), color: "red", value: 4999, op: "<=" }], modal: { type: "cashflow", title: "Revenue", mainValue: "$12,500", color: "#4CAF7D", transactions: [] }, history: [] },
+      { id: uid(), label: "Client Retention", value: "85%", color: "#7B68EE", graphType: "bar", icon: "UsersThree", colorRules: [{ id: uid(), color: "green", value: 80, op: ">=" }, { id: uid(), color: "yellow", value: 60, op: ">=", value2: 79 }, { id: uid(), color: "red", value: 59, op: "<=" }], modal: { type: "generic", title: "Client Retention", mainValue: "85%", color: "#7B68EE", transactions: [] }, history: [] },
+      { id: uid(), label: "Session Rating", value: "4.8 ★", color: "#F5A623", graphType: "bar", icon: "Star", colorRules: [{ id: uid(), color: "green", value: 4.5, op: ">=" }, { id: uid(), color: "yellow", value: 3.5, op: ">=", value2: 4.4 }, { id: uid(), color: "red", value: 3.4, op: "<=" }], modal: { type: "generic", title: "Session Rating", mainValue: "4.8 ★", color: "#F5A623", transactions: [] }, history: [] },
+      { id: uid(), label: "Referrals", value: "12", color: "#48C78E", graphType: "bar", icon: "ShareNetwork", colorRules: [{ id: uid(), color: "green", value: 10, op: ">=" }, { id: uid(), color: "yellow", value: 5, op: ">=", value2: 9 }, { id: uid(), color: "red", value: 4, op: "<=" }], modal: { type: "leads", title: "Referrals", mainValue: "12", color: "#48C78E", transactions: [] }, history: [] },
+    ];
+    const finMetrics: any[] = [
+      { id: parentId, label: "Overhead", value: "$15,000", color: "#0F6E56", graphType: "cashflow", icon: "Briefcase", fiveAccountParentId: undefined, colorRules: [{ id: uid(), color: "green", value: 20000, op: ">=" }], modal: { type: "cashflow", title: "Overhead", mainValue: "$15,000", color: "#0F6E56", fiveAccountEnabled: true, accountType: "overhead", transactions: [{ date: "2026-05-15", description: "Rent payment", debit: 5000 }, { date: "2026-05-16", description: "Client payment received", credit: 8000 }] }, history: [] },
+      { id: uid(), label: "Profit", value: "$8,200", color: "#0F6E56", graphType: "cashflow", icon: "TrendUp", fiveAccountParentId: parentId, colorRules: [{ id: uid(), color: "green", value: 7500, op: ">=" }], modal: { type: "cashflow", title: "Profit", mainValue: "$8,200", color: "#0F6E56", fiveAccountEnabled: true, accountType: "profit", transactions: [{ date: "2026-05-16", description: "Profit allocation", credit: 4100 }] }, history: [] },
+      { id: uid(), label: "Tax", value: "$4,100", color: "#0F6E56", graphType: "cashflow", icon: "Receipt", fiveAccountParentId: parentId, colorRules: [{ id: uid(), color: "green", value: 5000, op: ">=" }], modal: { type: "cashflow", title: "Tax", mainValue: "$4,100", color: "#0F6E56", fiveAccountEnabled: true, accountType: "tax", transactions: [{ date: "2026-05-16", description: "Tax allocation", credit: 4100 }] }, history: [] },
+      { id: uid(), label: "Investments", value: "$3,500", color: "#0F6E56", graphType: "cashflow", icon: "PiggyBank", fiveAccountParentId: parentId, modal: { type: "cashflow", title: "Investments", mainValue: "$3,500", color: "#0F6E56", fiveAccountEnabled: true, accountType: "investments", transactions: [{ date: "2026-05-17", description: "Investment transfer", credit: 600 }] }, history: [] },
+      { id: uid(), label: "Owner", value: "$2,000", color: "#0F6E56", graphType: "cashflow", icon: "User", fiveAccountParentId: parentId, modal: { type: "cashflow", title: "Owner", mainValue: "$2,000", color: "#0F6E56", fiveAccountEnabled: true, accountType: "owner", transactions: [] }, history: [] },
+    ];
+    const healthMetrics: any[] = [
+      { id: uid(), label: "Steps", value: "8,500", color: "#4CAF7D", graphType: "bar", icon: "PersonSimpleWalk", colorRules: [{ id: uid(), color: "green", value: 10000, op: ">=" }, { id: uid(), color: "yellow", value: 7000, op: ">=", value2: 9999 }, { id: uid(), color: "red", value: 6999, op: "<=" }], modal: { type: "generic", title: "Steps", mainValue: "8,500", color: "#4CAF7D", transactions: [] }, history: [] },
+      { id: uid(), label: "Sleep Hours", value: "7.2", color: "#7B68EE", graphType: "bar", icon: "Moon", colorRules: [{ id: uid(), color: "green", value: 8, op: ">=" }], modal: { type: "generic", title: "Sleep Hours", mainValue: "7.2", color: "#7B68EE", transactions: [] }, history: [] },
+    ];
+
+    const newSections: any[] = [
+      { id: uid(), title: "Coaching Business", avatars: [], metrics: demoMetrics },
+      { id: uid(), title: "Finances", avatars: [], metrics: finMetrics },
+      { id: uid(), title: "Health", avatars: [], metrics: healthMetrics },
+    ];
+
+    setSections(prev => {
+      const merged = [...prev];
+      for (const s of newSections) {
+        const existing = merged.find((x: any) => x.title === s.title);
+        if (!existing) merged.push(s as any);
+      }
+      return merged;
+    });
+
+    const findMetric = (label: string) => { for (const s of newSections) { const m = s.metrics.find((mm: any) => mm.label === label); if (m) return m.id; } return undefined; };
+    const newTasks: any[] = [
+      { id: uid(), text: "Follow up with Sarah about coaching package", done: false, priority: true, assignedTo: email, createdBy: email, createdAt: new Date().toISOString(), linkedMetricId: findMetric("New Clients") },
+      { id: uid(), text: "Prepare Q2 financial report", done: false, priority: true, assignedTo: email, createdBy: email, createdAt: new Date().toISOString(), linkedMetricId: findMetric("Revenue"), dueDate: "2026-05-28" },
+      { id: uid(), text: "Review client session notes", done: false, priority: false, assignedTo: email, createdBy: email, createdAt: new Date().toISOString(), linkedMetricId: findMetric("Client Sessions") },
+      { id: uid(), text: "Send referral thank-you emails", done: false, priority: true, assignedTo: email, createdBy: email, createdAt: new Date().toISOString(), linkedMetricId: findMetric("Referrals") },
+      { id: uid(), text: "Track daily water intake", done: false, priority: false, assignedTo: email, createdBy: email, createdAt: new Date().toISOString(), linkedMetricId: findMetric("Steps") },
+      { id: uid(), text: "Schedule client feedback calls", done: true, priority: false, assignedTo: email, createdBy: email, createdAt: new Date().toISOString(), linkedMetricId: findMetric("Client Retention") },
+      { id: uid(), text: "Review tax documents", done: true, priority: true, assignedTo: email, createdBy: email, createdAt: new Date().toISOString() },
+      { id: uid(), text: "Update coaching curriculum", done: false, priority: false, assignedTo: email, createdBy: email, createdAt: new Date().toISOString(), dueDate: "2026-05-20" },
+    ];
+    setTasksData(prev => {
+      const existingTexts = new Set(prev.map(t => t.text));
+      const filtered = newTasks.filter((t: any) => !existingTexts.has(t.text));
+      return [...prev, ...filtered];
+    });
+
+    const newGoals: any[] = [
+      { id: uid(), label: "Grow Coaching Practice", status: "active", pct: 65, due: "Q3 2026", attachedMetrics: [{ sectionLabel: "Coaching Business", metricLabel: "New Clients" }, { sectionLabel: "Coaching Business", metricLabel: "Revenue" }], description: "Expand client base by 30%", createdAt: new Date().toISOString(), steps: [], isManual: true },
+      { id: uid(), label: "Improve Personal Health", status: "active", pct: 72, due: "2026-12-31", attachedMetrics: [{ sectionLabel: "Health", metricLabel: "Steps" }, { sectionLabel: "Health", metricLabel: "Sleep Hours" }], description: "10k steps and 8hr sleep", createdAt: new Date().toISOString(), steps: [], isManual: true },
+      { id: uid(), label: "Financial Independence", status: "drafted", pct: 40, due: "2027", attachedMetrics: [{ sectionLabel: "Finances", metricLabel: "Profit" }, { sectionLabel: "Finances", metricLabel: "Investments" }], description: "Build 6-month emergency fund", createdAt: new Date().toISOString(), steps: [], isManual: true },
+    ];
+    setGoalsData(prev => {
+      const existingLabels = new Set(prev.map(g => g.label));
+      return [...prev, ...newGoals.filter((g: any) => !existingLabels.has(g.label))] as any;
+    });
+
+    setProfile((p: any) => ({ ...p, five_account_enabled: true, timezone: "America/New_York" }));
+    if (userId && userEmail) {
+      saveUserData("settings", userId, { mode: "business-and-personal", monthlyExpenses: 7500, ownerSalary: 5000, postTransactionEnabled: true });
+      setFiveAccountSettings({ mode: "business-and-personal", monthlyExpenses: 7500, ownerSalary: 5000, postTransactionEnabled: true });
+    }
+  }, [dbReady, userId, userEmail, setSections, setTasksData, setGoalsData, setProfile, setFiveAccountSettings, saveUserData]);
+
   const health = calculateHealth(
    sections,
    profile.health_green_multiplier,

@@ -741,7 +741,32 @@ function getDateString(format: string, date?: Date): string {
     );
   }
 
-  // ── Main Component ────────────────────────────────────────────────────────
+// ── Demo Data Seeding (trigger with /#seed) ────────────────────────────
+async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows: (rows: PlaybookRow[]) => void) {
+  if (existingRows.some(r => r.items.some(i => i.label === "Client Intake"))) return;
+  const uid = () => crypto.randomUUID();
+  const newRows: PlaybookRow[] = [
+    { id: uid(), title: "Templates", items: [
+      { id: uid(), label: "Client Intake", icon: "ClipboardText", type: "template" as const, createdAt: new Date().toISOString(),
+        templateFields: [
+          { id: uid(), type: "text" as const, header: "Full Name", placeholder: "Enter full name", required: true, color: "#1a2332", column: 1 as const, description: "", options: undefined, dateAutoFill: undefined, dateFormat: undefined, textSize: undefined, checklistLayout: undefined, bigChecklistMode: undefined, checklistPredetermined: undefined, checklistPredeterminedCount: undefined, checkboxSubtype: undefined, syncToTasks: undefined },
+          { id: uid(), type: "text" as const, header: "Email", placeholder: "email@example.com", required: true, color: "#1a2332", column: 1 as const, description: "", options: undefined, dateAutoFill: undefined, dateFormat: undefined, textSize: undefined, checklistLayout: undefined, bigChecklistMode: undefined, checklistPredetermined: undefined, checklistPredeterminedCount: undefined, checkboxSubtype: undefined, syncToTasks: undefined },
+          { id: uid(), type: "textarea" as const, header: "Goals", placeholder: "Describe your coaching goals...", color: "#1a2332", column: 1 as const, description: "", options: undefined, dateAutoFill: undefined, dateFormat: undefined, textSize: undefined, checklistLayout: undefined, bigChecklistMode: undefined, checklistPredetermined: undefined, checklistPredeterminedCount: undefined, checkboxSubtype: undefined, syncToTasks: undefined, required: false },
+        ],
+      },
+    ]},
+  ];
+  const merged = [...existingRows];
+  for (const row of newRows) {
+    const existing = merged.find(r => r.title === row.title);
+    if (existing) existing.items.push(...row.items);
+    else merged.push(row);
+  }
+  setRows(merged);
+  await saveUserData("playbooks", userId, merged);
+}
+
+// ── Main Component ────────────────────────────────────────────────────────
   export function PlaybooksPage({ userId, tasks, setTasks, userEmail }: {
     userId: string | null;
     tasks?: { id: string; text: string; done: boolean; priority?: boolean; assignedTo: string; createdBy: string; createdAt: string; linkedMetricId?: string; linkedGoalId?: string; dueDate?: string }[];
@@ -836,17 +861,20 @@ function getDateString(format: string, date?: Date): string {
   const [editingRowTitle, setEditingRowTitle] = useState<string | null>(null);
   const [editingRowTitleValue, setEditingRowTitleValue] = useState("");
 
-  // ── Init & Save ──────────────────────────────────────────────────────
+   // ── Init & Save ──────────────────────────────────────────────────────
   useEffect(() => {
     (async () => {
       if (!userId) { setLoading(false); return; }
       const saved = await loadUserData("playbooks", userId);
       if (saved && Array.isArray(saved) && saved.length > 0) {
         setRows(saved);
-      } else {
-        setRows([{ id: "default", title: "Playbooks", items: [] }]);
       }
       setLoading(false);
+      // Check if we should seed demo data (triggered by hash or initial load with no playbooks)
+      if (typeof window !== "undefined" && window.location.hash === "#seed") {
+        window.location.hash = "";
+        await seedDemoData(userId, rows, setRows);
+      }
     })();
   }, [userId]);
 
