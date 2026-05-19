@@ -1,8 +1,8 @@
-import { useState, useRef, useEffect, useLayoutEffect, useCallback, Fragment } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, Fragment, lazy, Suspense } from "react";
 import { useSmartPosition } from "./hooks/useSmartPosition";
 import { supabase } from "./lib/supabase";
-import { PlaybooksPage } from "./PlaybooksPage";
 import { IntegrationsPage, AppDetailPage, APPS } from "./pages/IntegrationsPage";
+const PlaybooksPage = lazy(() => import("./PlaybooksPage").then(m => ({ default: m.PlaybooksPage })));
 import { TeamPage } from "./pages/TeamPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { EquationBuilderPage } from "./pages/EquationBuilderPage";
@@ -2643,7 +2643,7 @@ const sidebarEl = (
           {page === "app-detail" && selectedApp && <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}><AppDetailPage app={selectedApp} onBack={() => setPage("integrations")} /></div>}
           {page === "team" && isPageAccessible("team") && <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}><TeamPage sections={isPreviewMode && previewSections ? previewSections : sections} orgMembers={orgMembers} setOrgMembers={setOrgMembers} teamRows={teamRows} setTeamRows={setTeamRows} teamPermissions={teamPermissions} setTeamPermissions={setTeamPermissions} currentUserLevel={currentUserLevel} userEmail={userEmail} onOpenInvite={() => setShowInviteModal(true)} onPreviewMember={(member, perms) => { setPreviewMember(member); setPreviewPerms(perms); setPage("home"); }} onExitPreviewSave={() => { setPreviewFromSave(false); }} previewFromSave={previewFromSave} pendingMemberDetail={pendingMemberDetail} onClearPendingMember={() => setPendingMemberDetail(null)} tasks={tasksData} setTasks={setTasksData} teamViewMode={teamViewMode} menuPermissions={profile.menu_permissions ?? {}} /></div>}
           {page === "settings" && isPageAccessible("settings") && <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}><SettingsPage userId={userId!} userEmail={userEmail} profile={profile} forceDisableFiveAccount={fiveAccountForceOff} onForceDisableAcknowledged={() => setFiveAccountForceOff(false)} onProfileSaved={p => setProfile(p)} onFiveAccountCreated={handleFiveAccountCreated} onFiveAccountDisabled={handleGlobalFiveAccountDisabled} fiveAccountSettings={fiveAccountSettings} onFiveAccountSettingsChange={handleUpdateSettings} currentUserLevel={currentUserLevel} /></div>}
-          {page === "playbooks" && isPageAccessible("playbooks") && <PlaybooksPage userId={userId} tasks={tasksData} setTasks={setTasksData} userEmail={userEmail} />}
+          {page === "playbooks" && isPageAccessible("playbooks") && <Suspense fallback={<div style={{ display: "flex", height: "100%", alignItems: "center", justifyContent: "center" }}><DashelloLoader size={80} /></div>}><PlaybooksPage userId={userId} tasks={tasksData} setTasks={setTasksData} userEmail={userEmail} /></Suspense>}
           {page === "equation-builder" && equationBuilderTarget && (
             <EquationBuilderPage
               allMetrics={sections.flatMap(s => s.metrics)}
