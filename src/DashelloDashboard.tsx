@@ -57,6 +57,12 @@ async function inviteTeamMember(email: string, orgId: string, level: OrgPermissi
   }
 }
 
+// ─── String helpers ────────────────────────────────────────────────────────
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+
 // ─── Permission helpers ──────────────────────────────────────────────────────
 function filterSectionsByPermissions(sections: Section[], perms: TeamPermissions): Section[] {
   // Filter sections based on allowedSectionIds
@@ -4700,7 +4706,7 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
                       {(member.name?.[0] || member.email[0] || "?").toUpperCase()}
                     </div>
                   )}
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#1a2332" }}>{member.name || member.email.split("@")[0]}</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#1a2332" }}>{capitalize(member.name) || member.email.split("@")[0]}</div>
                 </div>
                 <div style={{ padding: "5px 14px", borderRadius: 20, fontSize: 12, fontWeight: 500, background: "#3B82F6", color: "#fff", display: "inline-block", marginBottom: 8 }}>Next Actions</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}
@@ -4824,7 +4830,7 @@ function AppDetailPage({ app, onBack }: { app: typeof APPS[0]; onBack: () => voi
 // PAGE: TEAM
 // ═══════════════════════════════════════════════════════════════════════════
 
-function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, teamPermissions, setTeamPermissions, currentUserLevel, userEmail, onOpenInvite, onPreviewMember, onExitPreviewSave, previewFromSave, pendingMemberDetail, onClearPendingMember, tasks, setTasks }: {
+function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, teamPermissions, setTeamPermissions, currentUserLevel, userEmail, onOpenInvite, onPreviewMember, onExitPreviewSave, previewFromSave, pendingMemberDetail, onClearPendingMember, tasks, setTasks, teamViewMode }: {
   sections: Section[]; orgMembers: OrgMember[]; setOrgMembers: React.Dispatch<React.SetStateAction<OrgMember[]>>;
   teamRows: TeamRow[]; setTeamRows: React.Dispatch<React.SetStateAction<TeamRow[]>>;
   teamPermissions: TeamPermissions[]; setTeamPermissions: React.Dispatch<React.SetStateAction<TeamPermissions[]>>;
@@ -4835,12 +4841,14 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
   pendingMemberDetail?: OrgMember | null;
   onClearPendingMember?: () => void;
   tasks?: Task[]; setTasks?: React.Dispatch<React.SetStateAction<Task[]>>;
+  teamViewMode?: "row" | "expanded";
 }) {
   const [showAddTeam, setShowAddTeam] = useState(false);
   const [editingTeam, setEditingTeam] = useState<TeamRow | null>(null);
   const [permModalTeam, setPermModalTeam] = useState<TeamRow | null>(null);
   const [permModalMember, setPermModalMember] = useState<OrgMember | null>(null);
   const [transferringFrom, setTransferringFrom] = useState<OrgMember | null>(null);
+  const [deleteConfirmMember, setDeleteConfirmMember] = useState<OrgMember | null>(null);
   const [memberDetail, setMemberDetail] = useState<OrgMember | null>(null);
   const [editingTeamRowId, setEditingTeamRowId] = useState<string | null>(null);
   const [editingTeamRowValue, setEditingTeamRowValue] = useState("");
@@ -5014,15 +5022,18 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
                   const levelColor = MEMBER_COLORS[member.level] || "#4C9FE8";
                   const isOwner = member.level === "owner";
                   const isSelf = member.email === userEmail;
+                  const { allowedSections, metricCount } = computeMemberAccess(member);
+                  const memberPriorityTasks = (tasks || []).filter(t => t.assignedTo === member.email && !t.done && t.priority);
+                  const isExpanded = teamViewMode === "expanded";
                   return (
                     <div key={member.id}
                       onClick={() => setMemberDetail(member)}
                       onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = "0 10px 28px rgba(0,0,0,0.15)"; }}
                       onMouseLeave={e => { e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.06)"; }}
                       style={{
-                        width: 140, minHeight: 140, borderRadius: 16, background: "#f1f5f9",
-                        padding: "14px 10px", display: "flex", flexDirection: "column",
-                        alignItems: "center", justifyContent: "flex-start", gap: 10,
+                        width: isExpanded ? 200 : 140, minHeight: isExpanded ? 200 : 140, borderRadius: 16, background: "#f1f5f9",
+                        padding: isExpanded ? "18px 14px" : "14px 10px", display: "flex", flexDirection: "column",
+                        alignItems: "center", justifyContent: "flex-start", gap: isExpanded ? 8 : 10,
                         cursor: "pointer", flexShrink: 0,
                         transition: "transform 0.15s, box-shadow 0.15s",
                         boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
@@ -5033,17 +5044,32 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
                         {isOwner ? "Owner" : member.level}
                       </div>
                       {member.avatarUrl ? (
-                        <img src={member.avatarUrl} alt="" style={{ width: 48, height: 48, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+                        <img src={member.avatarUrl} alt="" style={{ width: isExpanded ? 56 : 48, height: isExpanded ? 56 : 48, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
                       ) : (
-                        <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 700, color: "#94a3b8", flexShrink: 0 }}>
+                        <div style={{ width: isExpanded ? 56 : 48, height: isExpanded ? 56 : 48, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: isExpanded ? 22 : 18, fontWeight: 700, color: "#94a3b8", flexShrink: 0 }}>
                           {(member.name?.[0] || member.email[0] || "?").toUpperCase()}
                         </div>
                       )}
                       <div style={{ fontSize: 13, fontWeight: 700, color: "#1a2332", textAlign: "center", width: "100%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                        {member.name || member.email.split("@")[0]}
+                        {capitalize(member.name) || member.email.split("@")[0]}
                       </div>
+                      {isExpanded && (
+                        <>
+                          <div style={{ fontSize: 10, color: "#64748b", textAlign: "center", width: "100%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {member.email}
+                          </div>
+                          <div style={{ fontSize: 10, color: "#94a3b8", textAlign: "center", width: "100%" }}>
+                            {allowedSections.length} rows - {metricCount} boxes
+                          </div>
+                          {memberPriorityTasks.length > 0 && (
+                            <div style={{ fontSize: 10, color: "#F5A623", fontWeight: 600, textAlign: "center", width: "100%" }}>
+                              {memberPriorityTasks.length} priority task{memberPriorityTasks.length !== 1 ? "s" : ""}
+                            </div>
+                          )}
+                        </>
+                      )}
                       {isSelf && (
-                        <div style={{ background: levelColor, borderRadius: 99, padding: "2px 8px", fontSize: 9, fontWeight: 700, color: "#fff", marginTop: -4 }}>
+                        <div style={{ background: levelColor, borderRadius: 99, padding: "2px 8px", fontSize: 9, fontWeight: 700, color: "#fff", marginTop: isExpanded ? 0 : -4 }}>
                           YOU
                         </div>
                       )}
@@ -5117,11 +5143,15 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
           <div onClick={() => setMemberDetail(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000, padding: 16 }}>
             <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 20, padding: "32px", width: "100%", maxWidth: 380, boxShadow: "0 24px 64px rgba(0,0,0,0.18)", textAlign: "center", maxHeight: "90vh", overflowY: "auto" }}>
               <button onClick={() => setMemberDetail(null)} style={{ float: "right", background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#94a3b8", padding: 0, lineHeight: 1 }}>×</button>
+              {memberDetail.avatarUrl ? (
+                <img src={memberDetail.avatarUrl} alt="" style={{ width: 64, height: 64, borderRadius: "50%", objectFit: "cover", margin: "0 auto 12px", display: "block" }} />
+              ) : (
               <div style={{ width: 64, height: 64, borderRadius: "50%", background: bgColor, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, fontWeight: 700, color: "#fff", margin: "0 auto 12px" }}>
                 {(memberDetail.name?.[0] || memberDetail.email[0] || "?").toUpperCase()}
               </div>
+              )}
               <div style={{ fontSize: 18, fontWeight: 700, color: "#1a2332", marginBottom: 2 }}>{memberDetail.name || memberDetail.email}</div>
-              <div style={{ fontSize: 14, color: bgColor, fontWeight: 600, textTransform: "capitalize", marginBottom: 16 }}>{memberDetail.level}</div>
+              <div style={{ fontSize: 14, color: "#3B82F6", fontWeight: 600, textTransform: "capitalize", marginBottom: 16 }}>{memberDetail.level}</div>
               <div style={{ textAlign: "left", background: "#f8fafc", borderRadius: 12, padding: "14px 16px", marginBottom: 18 }}>
                 <div style={{ fontSize: 11, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>Access</div>
                 <div style={{ fontSize: 13, color: "#1a2332", marginBottom: 4 }}>
@@ -5132,10 +5162,10 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
                 </div>
               </div>
               {/* Tasks section */}
-              {(tasks || []).filter(t => t.assignedTo === memberDetail.email && !t.done).length > 0 && (
+              {(tasks || []).filter(t => t.assignedTo === memberDetail.email && !t.done && t.priority).length > 0 && (
                 <div style={{ textAlign: "left", background: "#f8fafc", borderRadius: 12, padding: "14px 16px", marginBottom: 18 }}>
                   <div style={{ fontSize: 11, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>Tasks</div>
-                  {(tasks || []).filter(t => t.assignedTo === memberDetail.email && !t.done).map(t => (
+                  {(tasks || []).filter(t => t.assignedTo === memberDetail.email && !t.done && t.priority).map(t => (
                     <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                       <div onClick={(e) => { e.stopPropagation(); if (setTasks) setTasks(prev => prev.map(x => x.id === t.id ? { ...x, done: !x.done } : x)); }}
                         style={{ width: 16, height: 16, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 8 }}>{t.done ? "✓" : ""}</div>
@@ -5186,7 +5216,7 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
 
                 {/* Admin/Owner viewing non-self, non-owner: Delete */}
                 {isManager && !isSelf && memberDetail.level !== "owner" && (
-                  <button onClick={() => { setOrgMembers(prev => prev.filter(m => m.id !== memberDetail.id)); setMemberDetail(null); }}
+                  <button onClick={() => { setDeleteConfirmMember(memberDetail); setMemberDetail(null); }}
                     style={{ width: "100%", padding: "10px 0", borderRadius: 8, border: "1.5px solid #E85D75", background: "#fff", color: "#E85D75", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
                     Delete Member
                   </button>
@@ -5220,6 +5250,26 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
               ))}
             </div>
             <button onClick={() => setTransferringFrom(null)} style={{ marginTop: 16, width: "100%", padding: "10px 0", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", color: "#64748b", fontSize: 13, cursor: "pointer" }}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete member confirmation modal */}
+      {deleteConfirmMember && (
+        <div onClick={() => setDeleteConfirmMember(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000, padding: 16 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 20, padding: "28px", width: "100%", maxWidth: 380, boxShadow: "0 24px 64px rgba(0,0,0,0.18)", textAlign: "center" }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "#1a2332", marginBottom: 8 }}>Remove {deleteConfirmMember.name || deleteConfirmMember.email}?</div>
+            <p style={{ fontSize: 12, color: "#64748b", marginBottom: 18 }}>This member will lose access to this organization and its data.</p>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => setDeleteConfirmMember(null)}
+                style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", color: "#64748b", fontSize: 13, cursor: "pointer" }}>
+                Cancel
+              </button>
+              <button onClick={() => { setOrgMembers(prev => prev.filter(m => m.id !== deleteConfirmMember.id)); setDeleteConfirmMember(null); }}
+                style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "none", background: "#E85D75", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                Delete
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -7827,6 +7877,7 @@ export default function DashelloDashboard() {
 
   const [goalsData, setGoalsData] = useState<Goal[]>([]);
   const [goalsViewMode, setGoalsViewMode] = useState<"row" | "expanded">("row");
+  const [teamViewMode, setTeamViewMode] = useState<"row" | "expanded">("row");
   const [showGoalOnboarding, setShowGoalOnboarding] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
 
@@ -8587,13 +8638,13 @@ const sidebarEl = (
             </div>
           )}
           <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
-            {(page === "home" && !inlineView) || page === "goals" ? (
+            {(page === "home" && !inlineView) || page === "goals" || page === "team" ? (
               <div style={{ display: "flex", borderRadius: 8, border: "1px solid #e2e8f0", overflow: "hidden" }}>
                 {["Row", page === "goals" ? "Expanded" : "Column"].map((lbl, i) => (
-                  <div key={lbl} onClick={() => { if (page === "goals") setGoalsViewMode(i === 0 ? "row" : "expanded"); }}
+                  <div key={lbl} onClick={() => { if (page === "goals") setGoalsViewMode(i === 0 ? "row" : "expanded"); if (page === "team") setTeamViewMode(i === 0 ? "row" : "expanded"); }}
                     style={{ padding: isMobile ? "8px 12px" : "5px 13px", fontSize: 12, fontWeight: 500, cursor: "pointer", userSelect: "none",
-                      background: (page === "home" && i === 0) || (page === "goals" && ((i === 0 && goalsViewMode === "row") || (i === 1 && goalsViewMode === "expanded"))) ? "#3B82F6" : "#fff",
-                      color: (page === "home" && i === 0) || (page === "goals" && ((i === 0 && goalsViewMode === "row") || (i === 1 && goalsViewMode === "expanded"))) ? "#fff" : "#94a3b8" }}>{lbl}</div>
+                      background: (page === "home" && i === 0) || (page === "goals" && ((i === 0 && goalsViewMode === "row") || (i === 1 && goalsViewMode === "expanded"))) || (page === "team" && ((i === 0 && teamViewMode === "row") || (i === 1 && teamViewMode === "expanded"))) ? "#3B82F6" : "#fff",
+                      color: (page === "home" && i === 0) || (page === "goals" && ((i === 0 && goalsViewMode === "row") || (i === 1 && goalsViewMode === "expanded"))) || (page === "team" && ((i === 0 && teamViewMode === "row") || (i === 1 && teamViewMode === "expanded"))) ? "#fff" : "#94a3b8" }}>{lbl}</div>
                 ))}
               </div>
             ) : null}
@@ -8656,7 +8707,7 @@ const sidebarEl = (
           {page === "tasks" && isPageAccessible("tasks") && <div style={{ flex: 1, overflowY: "auto" }}><TasksPage tasks={tasksData} setTasks={setTasksData} userEmail={userEmail} orgMembers={orgMembers} teamRows={teamRows} sections={sections} goals={goalsData} onViewMetric={id => setViewMetricId(id)} onViewGoal={id => setViewGoalId(id)} onViewTeamMember={m => { setPendingMemberDetail(m); }} timezone={profile.timezone} /></div>}
           {page === "integrations" && isPageAccessible("integrations") && <div style={{ flex: 1, overflowY: "auto" }}><IntegrationsPage onSelectApp={a => { setSelectedApp(a); setPage("app-detail"); }} /></div>}
           {page === "app-detail" && selectedApp && <div style={{ flex: 1, overflowY: "auto" }}><AppDetailPage app={selectedApp} onBack={() => setPage("integrations")} /></div>}
-          {page === "team" && isPageAccessible("team") && <div style={{ flex: 1, overflowY: "auto" }}><TeamPage sections={isPreviewMode && previewSections ? previewSections : sections} orgMembers={orgMembers} setOrgMembers={setOrgMembers} teamRows={teamRows} setTeamRows={setTeamRows} teamPermissions={teamPermissions} setTeamPermissions={setTeamPermissions} currentUserLevel={currentUserLevel} userEmail={userEmail} onOpenInvite={() => setShowInviteModal(true)} onPreviewMember={(member, perms) => { setPreviewMember(member); setPreviewPerms(perms); setPage("home"); }} onExitPreviewSave={() => { setPreviewFromSave(false); }} previewFromSave={previewFromSave} pendingMemberDetail={pendingMemberDetail} onClearPendingMember={() => setPendingMemberDetail(null)} tasks={tasksData} setTasks={setTasksData} /></div>}
+          {page === "team" && isPageAccessible("team") && <div style={{ flex: 1, overflowY: "auto" }}><TeamPage sections={isPreviewMode && previewSections ? previewSections : sections} orgMembers={orgMembers} setOrgMembers={setOrgMembers} teamRows={teamRows} setTeamRows={setTeamRows} teamPermissions={teamPermissions} setTeamPermissions={setTeamPermissions} currentUserLevel={currentUserLevel} userEmail={userEmail} onOpenInvite={() => setShowInviteModal(true)} onPreviewMember={(member, perms) => { setPreviewMember(member); setPreviewPerms(perms); setPage("home"); }} onExitPreviewSave={() => { setPreviewFromSave(false); }} previewFromSave={previewFromSave} pendingMemberDetail={pendingMemberDetail} onClearPendingMember={() => setPendingMemberDetail(null)} tasks={tasksData} setTasks={setTasksData} teamViewMode={teamViewMode} /></div>}
           {page === "settings" && isPageAccessible("settings") && <div style={{ flex: 1, overflowY: "auto" }}><SettingsPage userId={userId!} userEmail={userEmail} profile={profile} forceDisableFiveAccount={fiveAccountForceOff} onForceDisableAcknowledged={() => setFiveAccountForceOff(false)} onProfileSaved={p => setProfile(p)} onFiveAccountCreated={handleFiveAccountCreated} onFiveAccountDisabled={handleGlobalFiveAccountDisabled} fiveAccountSettings={fiveAccountSettings} onFiveAccountSettingsChange={handleUpdateSettings} currentUserLevel={currentUserLevel} /></div>}
           {page === "playbooks" && isPageAccessible("playbooks") && <PlaybooksPage userId={userId} tasks={tasksData} setTasks={setTasksData} userEmail={userEmail} />}
           {page === "equation-builder" && equationBuilderTarget && (

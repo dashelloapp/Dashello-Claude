@@ -18,7 +18,7 @@ serve(async (req) => {
   }
 
   try {
-    const { email, orgName, invitedByName } = await req.json();
+    const { email, orgId, level, orgName, invitedByName } = await req.json();
 
     if (!email) {
       return new Response(JSON.stringify({ error: "Missing required field: email" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -58,6 +58,22 @@ serve(async (req) => {
 
     if (inviteError) {
       throw inviteError;
+    }
+
+    // If orgId is provided, store the team member record so we can track the invitation
+    if (orgId) {
+      const { error: insertError } = await supabase.from("team_members").insert({
+        org_id: orgId,
+        email: email,
+        level: level || "viewer",
+        status: "invited",
+        invited_by: caller.id,
+        created_at: new Date().toISOString(),
+      });
+      if (insertError) {
+        console.error("Failed to insert team_members record:", insertError.message);
+        // Non-fatal: invite email was sent successfully
+      }
     }
 
     return new Response(JSON.stringify({ success: true, userId: invite?.user?.id }), {
