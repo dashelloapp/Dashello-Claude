@@ -659,17 +659,19 @@ function getDateString(format: string, date?: Date): string {
     if (n > 3 && n < 21) return n + "th";
     switch (n % 10) { case 1: return n + "st"; case 2: return n + "nd"; case 3: return n + "rd"; default: return n + "th"; }
   };
-  return format
-    .replace("dddd", days[d.getDay()])
-    .replace("MMMM", months[d.getMonth()])
-    .replace("MMM", months[d.getMonth()].slice(0, 3))
-    .replace("Do", ordinal(d.getDate()))
-    .replace("DD", pad(d.getDate()))
-    .replace("D", String(d.getDate()))
-    .replace("YYYY", String(d.getFullYear()))
-    .replace("YY", String(d.getFullYear()).slice(-2))
-    .replace("MM", pad(d.getMonth() + 1))
-    .replace("M", String(d.getMonth() + 1));
+  const tokens: [RegExp, string][] = [
+    [/dddd/g, days[d.getDay()]],
+    [/MMMM/g, months[d.getMonth()]],
+    [/MMM/g, months[d.getMonth()].slice(0, 3)],
+    [/Do/g, ordinal(d.getDate())],
+    [/DD/g, pad(d.getDate())],
+    [/D(?!\w)/g, String(d.getDate())],
+    [/YYYY/g, String(d.getFullYear())],
+    [/YY(?!\w)/g, String(d.getFullYear()).slice(-2)],
+    [/MM/g, pad(d.getMonth() + 1)],
+    [/M(?!\w)/g, String(d.getMonth() + 1)],
+  ];
+  return tokens.reduce((str, [re, val]) => str.replace(re, val), format);
 }
 
   const renderChecklistPreview = (data: string | undefined, placeholder: string | undefined) => {
