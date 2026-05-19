@@ -4353,7 +4353,17 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
   const handleTaskDrop = (targetId: string) => {
     const from = dragTaskRef.current;
     if (!from || from === targetId) { dragTaskRef.current = null; setDragOverTaskId(null); return; }
-    setTasks(prev => { const arr = [...prev]; const fi = arr.findIndex(t => t.id === from); const ti = arr.findIndex(t => t.id === targetId); if (fi === -1 || ti === -1) return prev; const [moved] = arr.splice(fi, 1); arr.splice(ti, 0, moved); return arr; });
+    setTasks(prev => {
+      const arr = [...prev];
+      const fi = arr.findIndex(t => t.id === from);
+      const ti = arr.findIndex(t => t.id === targetId);
+      if (fi === -1 || ti === -1) return prev;
+      const targetPriority = arr[ti].priority;
+      const [moved] = arr.splice(fi, 1);
+      const insertAt = fi < ti ? ti - 1 : ti;
+      arr.splice(insertAt, 0, { ...moved, priority: targetPriority });
+      return arr;
+    });
     dragTaskRef.current = null; setDragOverTaskId(null);
   };
   const handlePriorityZoneDrop = () => {
