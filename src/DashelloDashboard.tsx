@@ -84,6 +84,28 @@ function applyAccessibilitySettings(headerSize: number, minBody: number) {
   if (appEl) appEl.style.setProperty("zoom", String(headerScale));
 }
 
+function DashelloLoader({ color = '#ffffff', size = 80 }: { color?: string; size?: number }) {
+  const s = size / 321;
+  const dots = [
+    { w: 16.2*s, h: 15.2*s, ml: 0 },
+    { w: 22.9*s, h: 25.2*s, ml: 1*s },
+    { w: 28.4*s, h: 34.1*s, ml: 2*s },
+  ];
+  return (
+    <div style={{ display:'flex', alignItems:'flex-end', background:'transparent' }}>
+      {dots.map((d, i) => (
+        <div key={i} style={{
+          width: d.w, height: d.h,
+          marginLeft: d.ml,
+          borderRadius: '50%',
+          background: color,
+          animation: `dashPop${i+1} 1.5s cubic-bezier(0.34,1.56,0.64,1) infinite`,
+        }} />
+      ))}
+    </div>
+  );
+}
+
 function LanguageSelector() {
   const { language, setLanguage, t: __ } = useTranslation();
   const [query, setQuery] = useState("");
@@ -8869,8 +8891,8 @@ const sidebarEl = (
   />);
 
   if (!dbReady) return (
-    <div style={{ display: "flex", height: "100vh", alignItems: "center", justifyContent: "center", background: "linear-gradient(160deg,#2196F3 0%,#00BCD4 100%)", fontSize: 18, color: "#fff", fontFamily: "Inter, sans-serif" }}>
-      Loading your dashboard...
+    <div style={{ display: "flex", height: "100vh", alignItems: "center", justifyContent: "center", background: "linear-gradient(160deg,#2196F3 0%,#00BCD4 100%)" }}>
+      <DashelloLoader size={120} />
     </div>
   );
 
