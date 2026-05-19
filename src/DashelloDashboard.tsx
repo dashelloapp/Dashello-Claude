@@ -8812,6 +8812,7 @@ export default function DashelloDashboard() {
    profile.health_yellow_multiplier,
    profile.health_red_multiplier
 );
+  const hc = ({ green: "#4CAF7D", yellow: "#F5A623", red: "#E85D75", gray: "#F5A623" } as Record<string, string>)[health.barColor] || "#F5A623";
 
 // Determine current user's permission level
 const currentUserLevel: OrgPermissionLevel = (() => {
@@ -9266,10 +9267,10 @@ const sidebarEl = (
             <div style={{ fontSize: 15, color: "#3B82F6", fontWeight: 600, textTransform: "capitalize", marginBottom: 16 }}>{pendingMemberDetail.level}</div>
             {(tasksData || []).filter(t => t.assignedTo === pendingMemberDetail.email && !t.done && t.priority).length > 0 && (
               <div>
-                <div style={{ fontSize: 15, fontWeight: 600, color: "#F5A623", marginBottom: 8 }}>★ Priorities</div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: hc, marginBottom: 8 }}>★ {__('common.priorities', 'Priorities')}</div>
                 {(tasksData || []).filter(t => t.assignedTo === pendingMemberDetail.email && !t.done && t.priority).map(t => (
-                  <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 6, background: "#FFF8ED", marginBottom: 4 }}>
-                    <div style={{ width: 16, height: 16, borderRadius: "50%", flexShrink: 0, border: "1.5px solid #F5A623", background: "transparent" }} />
+                  <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 6, background: `${hc}20`, marginBottom: 4 }}>
+                    <div style={{ width: 16, height: 16, borderRadius: "50%", flexShrink: 0, border: `1.5px solid ${hc}`, background: "transparent" }} />
                     <span style={{ flex: 1, fontSize: 15, color: "#1a2332", fontWeight: 600, minWidth: 0 }}>{t.text}</span>
                   </div>
                 ))}
