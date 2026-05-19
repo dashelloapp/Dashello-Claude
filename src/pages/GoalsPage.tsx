@@ -77,7 +77,6 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
   const [convertText, setConvertText] = useState("");
   const [saveError, setSaveError] = useState("");
   const [dragging, setDragging] = useState<{ optionId: string; proIndex: number; startX: number; startY: number; currentX: number; currentY: number } | null>(null);
-  const [reorderingId, setReorderingId] = useState<string | null>(null);
   const [completedDecisions, setCompletedDecisions] = useState<CompletedDecision[]>([]);
   const [savedDecisions, setSavedDecisions] = useState<DecisionSnapshot[]>(() => {
     try {
@@ -195,40 +194,9 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
       const conIndex = parseInt(conDot.dataset.conIndex!, 10);
       if (optionId === dragging.optionId) {
         const proIndex = dragging.proIndex;
-        if (proIndex === conIndex) {
-          // Same row — just add the connection
-          setOptions(options.map(o => o.id !== optionId ? o : {
-            ...o, connections: [...o.connections, { proIndex, conIndex }]
-          }));
-          setDragging(null);
-          return;
-        }
-        // Different rows — add connection immediately, then reorder after a pause
         setOptions(options.map(o => o.id !== optionId ? o : {
           ...o, connections: [...o.connections, { proIndex, conIndex }]
         }));
-        setReorderingId(optionId);
-        setTimeout(() => {
-          setOptions(prev => prev.map(o => {
-            if (o.id !== optionId) return o;
-            const newCons = [...o.cons];
-            const [moved] = newCons.splice(conIndex, 1);
-            const insertAt = Math.min(proIndex, newCons.length);
-            newCons.splice(insertAt, 0, moved || "");
-            while (newCons.length > 0 && newCons[newCons.length - 1] === "") newCons.pop();
-            const newConnections = o.connections
-              .map(c => ({
-                proIndex: c.proIndex,
-                conIndex: c.conIndex > conIndex ? c.conIndex - 1 : c.conIndex,
-              }))
-              .map(c => ({
-                proIndex: c.proIndex,
-                conIndex: c.conIndex >= insertAt ? c.conIndex + 1 : c.conIndex,
-              }));
-            return { ...o, cons: newCons, connections: newConnections };
-          }));
-          setReorderingId(null);
-        }, 2000);
       }
     }
     setDragging(null);
@@ -393,18 +361,6 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
         opacity: favoriteOptionId && !isFavorite ? 0.5 : 1,
         transition: "opacity 0.2s, border-color 0.2s",
       }}>
-        {/* Reorganizing indicator */}
-        {reorderingId === option.id && (
-          <div style={{
-            position: "absolute", inset: 0, borderRadius: 12,
-            background: "rgba(59,130,246,0.08)", zIndex: 10,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            animation: "pulse 1.5s ease-in-out infinite",
-            fontSize: 14, fontWeight: 600, color: "#3B82F6", letterSpacing: "0.02em",
-          }}>
-            Reorganizing…
-          </div>
-        )}
         {/* Column header */}
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
           <input value={option.label} onChange={e => updateLabel(option.id, e.target.value)}
@@ -428,6 +384,7 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
                 <div key={pi} style={{ display: "flex", alignItems: "center", gap: 3 }}>
                   <span style={{ fontSize: 13, color: "#4CAF7D", flexShrink: 0 }}>+</span>
                   <input value={pro} onChange={e => updatePro(option.id, pi, e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); if (pro.trim()) addPro(option.id); } }}
                     placeholder="Add a pro..."
                     style={{ flex: 1, fontSize: 13, color: "#1a2332", border: "none", background: "transparent", outline: "none", fontFamily: "inherit", padding: "1px 0", minWidth: 0 }} />
                   {option.pros.length > 1 && (
@@ -458,13 +415,14 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
                       data-con-dot="true" data-option-id={option.id} data-con-index={ci}
                       style={{ width: 14, height: 14, borderRadius: "50%", background: "#E85D75", cursor: "crosshair", flexShrink: 0, marginRight: 4 }} title="Drop here to connect from a pro" />
                   )}
+                  <span style={{ fontSize: 13, color: "#E85D75", flexShrink: 0 }}>−</span>
+                  <input value={con} onChange={e => updateCon(option.id, ci, e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); if (con.trim()) addCon(option.id); } }}
+                    placeholder="Add a con..."
+                    style={{ flex: 1, fontSize: 13, color: "#1a2332", border: "none", background: "transparent", outline: "none", fontFamily: "inherit", padding: "1px 0", minWidth: 0 }} />
                   {option.cons.length > 1 && (
                     <div onClick={() => removeCon(option.id, ci)} style={{ cursor: "pointer", fontSize: 13, color: "#cbd5e1", flexShrink: 0 }}>×</div>
                   )}
-                  <input value={con} onChange={e => updateCon(option.id, ci, e.target.value)}
-                    placeholder="Add a con..."
-                    style={{ flex: 1, fontSize: 13, color: "#1a2332", border: "none", background: "transparent", outline: "none", fontFamily: "inherit", padding: "1px 0", minWidth: 0 }} />
-                  <span style={{ fontSize: 13, color: "#E85D75", flexShrink: 0 }}>−</span>
                 </div>
               ))}
               <div onClick={() => addCon(option.id)} style={{ fontSize: 12, color: "#E85D75", cursor: "pointer", display: "flex", alignItems: "center", gap: 2, justifyContent: "flex-end" }}>
@@ -554,20 +512,24 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
     </div>
   );
 
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({ active: false, saved: false, completed: false });
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({ current: false, active: false, saved: false, completed: false });
   const toggleCollapse = (k: string) => setCollapsed(p => ({ ...p, [k]: !p[k] }));
 
   const activeDecisions = savedDecisions.filter(sd => sd.priorityTaskId && !tasks?.find(t => t.id === sd.priorityTaskId)?.done);
   const savedDrafts = savedDecisions.filter(sd => !sd.priorityTaskId);
 
+  const renderCollapsibleHeader = (key: string, label: string, icon: string, iconColor: string, count?: number) => (
+    <div onClick={() => toggleCollapse(key)} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", padding: "8px 0", userSelect: "none" }}>
+      <span style={{ fontSize: 13, color: collapsed[key] ? "#3B82F6" : "#64748b", transition: "transform 0.2s", transform: collapsed[key] ? "rotate(-90deg)" : "rotate(0deg)" }}>▼</span>
+      <IconGlyph name={icon} size={16} color={iconColor} />
+      <span style={{ fontSize: 15, fontWeight: 600, color: "#1a2332" }}>{label}</span>
+      {count !== undefined && <span style={{ fontSize: 13, color: "#94a3b8", background: "#f1f5f9", padding: "1px 8px", borderRadius: 99 }}>{count}</span>}
+    </div>
+  );
+
   const renderSection = (key: string, label: string, icon: string, iconColor: string, items: any[], renderItem: (item: any) => any) => (
-    <div style={{ marginTop: 16 }}>
-      <div onClick={() => toggleCollapse(key)} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", padding: "8px 0", userSelect: "none" }}>
-        <span style={{ fontSize: 13, color: collapsed[key] ? "#3B82F6" : "#64748b", transition: "transform 0.2s", transform: collapsed[key] ? "rotate(-90deg)" : "rotate(0deg)" }}>▼</span>
-        <IconGlyph name={icon} size={16} color={iconColor} />
-        <span style={{ fontSize: 15, fontWeight: 600, color: "#1a2332" }}>{label}</span>
-        <span style={{ fontSize: 13, color: "#94a3b8", background: "#f1f5f9", padding: "1px 8px", borderRadius: 99 }}>{items.length}</span>
-      </div>
+    <div style={{ marginTop: 8 }}>
+      {renderCollapsibleHeader(key, label, icon, iconColor, items.length)}
       {!collapsed[key] && items.length === 0 && (
         <div style={{ padding: "12px 0", textAlign: "center", fontSize: 14, color: "#94a3b8" }}>No {label.toLowerCase()}.</div>
       )}
@@ -651,8 +613,8 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
         <div style={{ fontSize: "clamp(20px,4vw,26px)", fontWeight: 700, color: "#1a2332", marginBottom: 2 }}>Decision Making Filter</div>
       </div>
 
-      {/* Steps 1-11 white container */}
-      <div style={{ background: "#fff", borderRadius: 16, padding: 20, border: "1px solid #e2e8f0" }}>
+      {renderCollapsibleHeader("current", "Current Decision", "RocketLaunch", "#3B82F6")}
+      {!collapsed["current"] && <div style={{ background: "#fff", borderRadius: 16, padding: 20, border: "1px solid #e2e8f0" }}>
       {/* Step 1: Identify the decision to be made */}
       <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
         <div style={{ width: 24, height: 24, borderRadius: "50%", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", flexShrink: 0, marginTop: 1 }}>1</div>
@@ -851,8 +813,7 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
           Click the star <span style={{ color: "#F5A623" }}>☆</span> on any option to mark it as your favorite and see a detailed preview below.
         </div>
       )}
-      </div>{/* end steps 1-11 white container */}
-
+      </div>}
       {/* Save Draft button */}
       {saveError && <div style={{ marginTop: 8, fontSize: 13, color: "#E85D75", textAlign: "center", fontWeight: 500 }}>{saveError}</div>}
       <button onClick={() => { if (!decisionStatement.trim()) { setSaveError("Please complete Step 1 first — write out your decision to be made."); return; } setSaveError(""); handleSaveForLater(); }} style={{
@@ -900,7 +861,6 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
       {renderSection("completed", "Completed Decisions", "CheckCircle", "#4CAF7D", completedDecisions, renderCompletedCard)}
 
       {showQuickStart && quickStartGuide}
-      <style>{`@keyframes pulse { 0%,100% { opacity: 0.6; } 50% { opacity: 1; } }`}</style>
     </div>
   );
 }
