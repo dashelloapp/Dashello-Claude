@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
 import AuthScreen from './components/AuthScreen'
 import DashelloDashboard from './DashelloDashboard'
+import { SpeedInsights } from '@vercel/speed-insights/react'
 
 export default function App() {
   const [session, setSession] = useState<any>(null)
@@ -28,7 +29,17 @@ export default function App() {
     </div>
   )
 
-  if (!session) return <AuthScreen />
+  if (!session) return (
+    <>
+      <AuthScreen />
+      <SpeedInsights />
+    </>
+  )
 
-  return <DashelloDashboard />
+  return (
+    <>
+      <DashelloDashboard />
+      <SpeedInsights />
+    </>
+  )
 }
