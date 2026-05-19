@@ -2189,9 +2189,9 @@ function getDateString(format: string, date?: Date): string {
           style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 16 }}>
           <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 16, padding: 28, width: "100%", maxWidth: 640, maxHeight: "92vh", overflowY: "auto", boxShadow: "0 24px 64px rgba(0,0,0,0.2)", position: "relative" }}>
             <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 20 }}>
-              <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#fff", border: "1.5px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <IconGlyph name={detailItem.icon || "Notebook"} size={20} color="#3B82F6" />
-              </div>
+              {detailItem.icon && <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#fff", border: "1.5px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <IconGlyph name={detailItem.icon} size={20} color="#3B82F6" />
+              </div>}
               <div style={{ flex: 1 }}>
                 <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#1a2332" }}>{detailItem.label}</h2>
                 <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>
