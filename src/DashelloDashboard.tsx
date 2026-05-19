@@ -20,9 +20,10 @@ import { MS, FIVE_DESC, FIVE_EQUATION_POINTS, FIVE_ACCOUNT_LABELS, FIVE_ACCOUNT_
 import { runFiveAccountEquation, evaluateEquation, formatEquationResult, autoParenthesizeSteps, buildEquationPreviewString, syncSettingsToMetrics, assignStepNumbers, makeModal, makeFiveAccountMetric, applyAccessibilitySettings, INIT_SECTIONS } from "./utils/equations";
 import { IconGlyph, Av, Toggle, SectionCard, IconPicker, TxnTable, MetricBlock, EditAddRowModal } from "./components/shared";
 import { MetricBoxSettingsModal, AddColorRuleModal } from "./components/MetricSettings";
-import { GoalsPage, GoalOnboarding, GoalSettingsModal, DecisionMakingFilter } from "./pages/GoalsPage";
+import { GoalsPage, GoalOnboarding, GoalSettingsModal } from "./pages/GoalsPage";
 import { TasksPage } from "./pages/TasksPage";
 import { HomePage, DashSection, RowMenu, MobileMenu, HoverAvatar, BreadcrumbNav, AddTeamModal } from "./pages/HomePage";
+import DecisionsPage from "./pages/DecisionsPage";
 
 // ── DB helpers ────────────────────────────────────────────────────────────
 async function loadUserData(table: string, userId: string) {
@@ -1398,6 +1399,7 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
   const NAV = [
     { icon: "House", label: "Home", page: "home" as Page },
     { icon: "Target", label: "Goals", page: "goals" as Page },
+    { icon: "Funnel", label: "Decisions", page: "decisions" as Page },
     { icon: "CheckSquare", label: "Tasks", page: "tasks" as Page },
     { icon: "Notebook", label: "Playbooks", page: "playbooks" as Page },
     { icon: "Plugs", label: "Integrations", page: "integrations" as Page, comingSoon: true },
@@ -2628,7 +2630,8 @@ const sidebarEl = (
             onOpenEquationBuilder={handleOpenEquationBuilder}
             orgMembers={orgMembers} />}
           {page === "goals" && isPageAccessible("goals") && <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}><GoalsPage goals={goalsData} setGoals={setGoalsData} sections={isPreviewMode && previewSections ? previewSections : sections} viewMode={goalsViewMode} onOpenOnboarding={() => setShowGoalOnboarding(true)} onEditGoal={handleEditGoal} onDuplicateGoal={handleDuplicateGoal} tasks={tasksData} setTasks={setTasksData} userEmail={userEmail} orgMembers={orgMembers} /></div>}
-          {page === "tasks" && isPageAccessible("tasks") && <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}><TasksPage tasks={tasksData} setTasks={setTasksData} userEmail={userEmail} orgMembers={orgMembers} teamRows={teamRows} sections={sections} goals={goalsData} onViewMetric={id => setViewMetricId(id)} onViewGoal={id => setViewGoalId(id)} onViewDecision={() => setPage("goals")} onViewTeamMember={m => { setPendingMemberDetail(m); }} timezone={profile.timezone} healthBarColor={health.barColor} /></div>}
+          {page === "tasks" && isPageAccessible("tasks") && <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}><TasksPage tasks={tasksData} setTasks={setTasksData} userEmail={userEmail} orgMembers={orgMembers} teamRows={teamRows} sections={sections} goals={goalsData} onViewMetric={id => setViewMetricId(id)} onViewGoal={id => setViewGoalId(id)} onViewDecision={() => setPage("decisions")} onViewTeamMember={m => { setPendingMemberDetail(m); }} timezone={profile.timezone} healthBarColor={health.barColor} /></div>}
+          {page === "decisions" && isPageAccessible("decisions") && <DecisionsPage tasks={tasksData} setTasks={setTasksData} userEmail={userEmail} />}
           {page === "integrations" && isPageAccessible("integrations") && <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}><IntegrationsPage onSelectApp={a => { setSelectedApp(a); setPage("app-detail"); }} /></div>}
           {page === "app-detail" && selectedApp && <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}><AppDetailPage app={selectedApp} onBack={() => setPage("integrations")} /></div>}
           {page === "team" && isPageAccessible("team") && <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}><TeamPage sections={isPreviewMode && previewSections ? previewSections : sections} orgMembers={orgMembers} setOrgMembers={setOrgMembers} teamRows={teamRows} setTeamRows={setTeamRows} teamPermissions={teamPermissions} setTeamPermissions={setTeamPermissions} currentUserLevel={currentUserLevel} userEmail={userEmail} onOpenInvite={() => setShowInviteModal(true)} onPreviewMember={(member, perms) => { setPreviewMember(member); setPreviewPerms(perms); setPage("home"); }} onExitPreviewSave={() => { setPreviewFromSave(false); }} previewFromSave={previewFromSave} pendingMemberDetail={pendingMemberDetail} onClearPendingMember={() => setPendingMemberDetail(null)} tasks={tasksData} setTasks={setTasksData} teamViewMode={teamViewMode} menuPermissions={profile.menu_permissions ?? {}} /></div>}

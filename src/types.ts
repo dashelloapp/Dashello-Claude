@@ -1,7 +1,7 @@
 // ─── Types ─────────────────────────────────────────────────────────────────
 
 export type MetricColor = "green" | "yellow" | "red" | "gray";
-export type Page = "home" | "goals" | "tasks" | "integrations" | "team" | "settings" | "app-detail" | "equation-builder" | "playbooks";
+export type Page = "home" | "goals" | "tasks" | "decisions" | "integrations" | "team" | "settings" | "app-detail" | "equation-builder" | "playbooks";
 export type GraphType = "bar-h" | "linear" | "pie" | "bar-v";
 export type MetricType = "counter" | "percentage" | "financial";
 export type RuleOp = ">=" | "<=" | ">" | "<" | "between" | "==" | "!=" ;
