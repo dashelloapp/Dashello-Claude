@@ -987,12 +987,27 @@ function getDateString(format: string, date?: Date): string {
 
   // ── Template fill helpers ─────────────────────────────────────────────
   const startFill = (item: PlaybookItem, rid: string) => {
-    setFillTemplateId(item.id); setFillTemplateRowId(rid);
+    // Initialize fillData
     const fd: Record<string, string> = {};
     item.templateFields?.forEach(f => {
       fd[f.id] = f.dateAutoFill ? getDateString(f.dateFormat || "MMMM Do, YYYY") : "";
     });
-    setFillData(fd); setSubView("template-fill");
+    // Count existing playbooks from this template to number duplicates
+    const existingCount = rows.flatMap(r => r.items).filter(i => i.templateId === item.id).length;
+    const labelSuffix = existingCount === 0 ? "" : ` ${existingCount + 1}`;
+    const docRowId = rows.find(r => r.items.some(i => i.type === "document"))?.id || rows.find(r => r.id !== rid)?.id || rid;
+    const newItem: PlaybookItem = {
+      id: crypto.randomUUID(), label: item.label + labelSuffix,
+      icon: "Notebook", type: "filled-template",
+      createdAt: new Date().toISOString(),
+      templateId: item.id,
+      filledData: fd,
+      recurrence: item.recurrence ? { ...item.recurrence } : undefined,
+    };
+    newItem.icon = autoSelectIcon(newItem);
+    const updated = rows.map(r => r.id === docRowId ? { ...r, items: [...r.items, newItem] } : r);
+    setRows(updated);
+    if (userId) saveUserData("playbooks", userId, updated);
   };
   const handleFillSave = (existingId?: string) => {
     if (!fillTemplateId || !fillTemplateRowId) return;
