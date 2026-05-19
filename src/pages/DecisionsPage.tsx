@@ -294,9 +294,10 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
           Click the star <span style={{ color: "#F5A623" }}>☆</span> on any option to mark it as your favorite and see a detailed preview below.
         </div>
       )}
-      </div>}
+      {/* Save Draft button inside collapsible */}
       {saveError && <div style={{ marginTop: 8, fontSize: 13, color: "#E85D75", textAlign: "center", fontWeight: 500 }}>{saveError}</div>}
       <button onClick={() => { if (!decisionStatement.trim()) { setSaveError("Please complete Step 1 first — write out your decision to be made."); return; } setSaveError(""); handleSaveForLater(); }} style={{ marginTop: 12, padding: "10px 24px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 14, cursor: decisionStatement.trim() ? "pointer" : "not-allowed", color: "#F5A623", fontWeight: 600, opacity: decisionStatement.trim() ? 1 : 0.5, display: "block", width: "100%", textAlign: "center" }}>Save Draft</button>
+      </div>}
       {renderSection("active", "Current Decisions", "RocketLaunch", "#3B82F6", activeDecisions, renderSavedCard)}
       {renderSection("saved", "Saved Decisions", "Notebook", "#F5A623", savedDrafts, renderSavedCard)}
       {renderSection("completed", "Completed Decisions", "CheckCircle", "#4CAF7D", completedDecisions, renderCompletedCard)}
