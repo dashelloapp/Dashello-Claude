@@ -1598,7 +1598,13 @@ export default function DashelloDashboard() {
   const [viewMode, setViewMode] = useState<"popup" | "inline">("popup");
   const viewModeRef = useRef<"popup" | "inline">("popup");
   const [selectedApp, setSelectedApp] = useState<typeof APPS[0] | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    try { const s = localStorage.getItem("dashello_sidebar"); if (s === "closed") return false; } catch {}
+    return true;
+  });
+  useEffect(() => {
+    localStorage.setItem("dashello_sidebar", sidebarOpen ? "open" : "closed");
+  }, [sidebarOpen]);
   const [showChat, setShowChat] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const mobileMenuTriggerRef = useRef<HTMLDivElement>(null);
@@ -1935,7 +1941,7 @@ export default function DashelloDashboard() {
 
   // Mobile
   useEffect(() => {
-    const check = () => { const m = window.innerWidth < 768; setIsMobile(m); if (!m) setSidebarOpen(true); };
+    const check = () => { const m = window.innerWidth < 768; setIsMobile(m); if (!m) { const saved = localStorage.getItem("dashello_sidebar"); if (saved !== "closed") setSidebarOpen(true); } };
     check(); window.addEventListener("resize", check); return () => window.removeEventListener("resize", check);
   }, []);
 
