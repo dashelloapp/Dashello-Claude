@@ -674,8 +674,18 @@ function getDateString(format: string, date?: Date): string {
   return tokens.reduce((str, [re, val]) => str.replace(re, val), format);
 }
 
-  const renderChecklistPreview = (data: string | undefined, placeholder: string | undefined) => {
+  const renderChecklistPreview = (data: string | undefined, options?: string[], layout?: string) => {
     if (!data) return <span style={{ color: "#cbd5e1", fontStyle: "italic" }}>No items</span>;
+    if (layout === "separate" && options) {
+      const selected = new Set(data.split(",").filter(Boolean));
+      const hasAny = options.some((_, oi) => selected.has(`opt-${oi}`));
+      if (!hasAny) return <span style={{ color: "#cbd5e1", fontStyle: "italic" }}>No items</span>;
+      return options.map((opt, oi) => selected.has(`opt-${oi}`) ? (
+        <div key={oi} style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2, fontSize: 13, textDecoration: "line-through", color: "#94a3b8" }}>
+          <span>☑</span> {opt}
+        </div>
+      ) : null);
+    }
     try {
       const arr = JSON.parse(data);
       if (!Array.isArray(arr) || arr.length === 0) return <span style={{ color: "#cbd5e1", fontStyle: "italic" }}>No items</span>;
@@ -732,7 +742,12 @@ function getDateString(format: string, date?: Date): string {
   }
 
   // ── Main Component ────────────────────────────────────────────────────────
-  export function PlaybooksPage({ userId }: { userId: string | null }) {
+  export function PlaybooksPage({ userId, tasks, setTasks, userEmail }: {
+    userId: string | null;
+    tasks?: { id: string; text: string; done: boolean; priority?: boolean; assignedTo: string; createdBy: string; createdAt: string; linkedMetricId?: string; linkedGoalId?: string; dueDate?: string }[];
+    setTasks?: React.Dispatch<React.SetStateAction<any[]>>;
+    userEmail?: string;
+  }) {
   const [rows, setRows] = useState<PlaybookRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -1036,6 +1051,16 @@ function getDateString(format: string, date?: Date): string {
       setTimeout(() => setFillSaveStatus(""), 2000);
     }, 600);
   }, [fillData, fillTemplateId, fillTemplateRowId, rows, userId]);
+
+  const syncChecklistItem = useCallback((checked: boolean, text: string) => {
+    if (!setTasks || !userEmail) return;
+    if (checked) {
+      setTasks(prev => [...prev, {
+        id: crypto.randomUUID(), text, done: false, priority: true,
+        assignedTo: userEmail, createdBy: userEmail, createdAt: new Date().toISOString(),
+      }]);
+    }
+  }, [setTasks, userEmail]);
 
   // ── Detail / Edit ─────────────────────────────────────────────────────
   const openDetail = (item: PlaybookItem) => {
@@ -1683,8 +1708,10 @@ function getDateString(format: string, date?: Date): string {
                                       <div onClick={() => {
                                         const current = new Set((fillData[f.id] || "").split(",").filter(Boolean));
                                         const checked = current.has(`opt-${oi}`);
+                                        const newChecked = !checked;
                                         if (checked) current.delete(`opt-${oi}`); else current.add(`opt-${oi}`);
                                         setFillData(p => ({ ...p, [f.id]: Array.from(current).join(",") })); autoSaveFill();
+                                        if (f.syncToTasks && newChecked) syncChecklistItem(true, opt);
                                       }} style={{ width: checkboxSize, height: checkboxSize, borderRadius: "50%", border: (fillData[f.id] || "").includes(`opt-${oi}`) ? "none" : "2px solid #d1d5db", background: (fillData[f.id] || "").includes(`opt-${oi}`) ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2, color: "#fff", fontSize: checkboxSize * 0.55 }}>
                                         {(fillData[f.id] || "").includes(`opt-${oi}`) ? "✓" : ""}
                                       </div>
@@ -1732,7 +1759,7 @@ function getDateString(format: string, date?: Date): string {
                                 <div key={item.id} style={{ background: mode === "option" ? "transparent" : "#F8FAFC", borderRadius: mode === "option" ? 0 : 10, padding: mode === "option" ? 0 : 10, marginBottom: mode === "option" ? 6 : 8, border: mode === "option" ? "none" : "1px solid #e2e8f0" }}>
                                   {mode === "option" ? (
                                     <label style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: fontSizeVal, color: "#1a2332", cursor: "pointer" }}>
-                                      <div onClick={() => { const n = [...items]; n[ii] = { ...n[ii], checked: !n[ii].checked }; setFillData(p => ({ ...p, [f.id]: JSON.stringify(n) })); autoSaveFill(); }}
+                                      <div onClick={() => { const n = [...items]; n[ii] = { ...n[ii], checked: !n[ii].checked }; setFillData(p => ({ ...p, [f.id]: JSON.stringify(n) })); autoSaveFill(); if (f.syncToTasks && !n[ii].checked) syncChecklistItem(true, n[ii].text); }}
                                         style={{ width: checkboxSize, height: checkboxSize, borderRadius: "50%", border: item.checked ? "none" : "2px solid #d1d5db", background: item.checked ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2, color: "#fff", fontSize: checkboxSize * 0.55 }}>
                                         {item.checked ? "✓" : ""}
                                       </div>
@@ -1809,7 +1836,7 @@ function getDateString(format: string, date?: Date): string {
                     <div key={f.id} style={{ background: "#f1f5f9", borderRadius: 10, padding: 14, marginBottom: 10 }}>
                       {displayHeader && <div style={{ fontSize: 13, fontWeight: 600, color: f.color, marginBottom: 4 }} dangerouslySetInnerHTML={{ __html: renderShortcodes(displayHeader) }} />}
                       {f.description && <div style={{ fontSize: 12, color: "#64748b", marginBottom: 6, fontStyle: "italic" }} dangerouslySetInnerHTML={{ __html: renderShortcodes(f.description) }} />}
-                      <div style={{ fontSize: 13, color: "#1a2332" }}>{f.type === "fill-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "fill-checklist") || f.type === "big-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "big-checklist") || f.type === "sync-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "sync-checklist") ? renderChecklistPreview(fillData[f.id], f.placeholder) : fillData[f.id] || (f.placeholder && f.type !== "checkbox" && f.type !== "radio" && f.type !== "info" ? <span style={{ color: "#94a3b8" }} dangerouslySetInnerHTML={{ __html: f.placeholder }} /> : <span style={{ color: "#cbd5e1", fontStyle: "italic" }}>Empty</span>)}</div>
+                      <div style={{ fontSize: 13, color: "#1a2332" }}>{f.type === "fill-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "fill-checklist") || f.type === "big-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "big-checklist") || f.type === "sync-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "sync-checklist") ? renderChecklistPreview(fillData[f.id], f.options, f.checklistLayout) : fillData[f.id] || (f.placeholder && f.type !== "checkbox" && f.type !== "radio" && f.type !== "info" ? <span style={{ color: "#94a3b8" }} dangerouslySetInnerHTML={{ __html: f.placeholder }} /> : <span style={{ color: "#cbd5e1", fontStyle: "italic" }}>Empty</span>)}</div>
                     </div>
                     );
                   })}
