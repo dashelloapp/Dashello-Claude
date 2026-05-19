@@ -8056,6 +8056,7 @@ export default function DashelloDashboard() {
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState("");
   const [dbReady, setDbReady] = useState(false);
+  const loadStartRef = useRef(Date.now());
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [activeOrg, setActiveOrg] = useState<Org | null>(null);
   const [orgMembers, setOrgMembers] = useState<OrgMember[]>([]);
@@ -8306,7 +8307,13 @@ export default function DashelloDashboard() {
   acc_subheading_size: prof.acc_subheading_size ?? 20,
   acc_min_body: prof.acc_min_body ?? 15,
 });
-      setDbReady(true);
+      const elapsed = Date.now() - loadStartRef.current;
+      const remaining = Math.max(0, 2400 - elapsed);
+      if (remaining > 0) {
+        setTimeout(() => setDbReady(true), remaining);
+      } else {
+        setDbReady(true);
+      }
     }
     load();
   }, [userId]);
@@ -8804,8 +8811,10 @@ export default function DashelloDashboard() {
       setTasksData([]);
       setGoalsData([]);
     }
-    setDbReady(true);
-    setPage("home");
+    const elapsed2 = Date.now() - loadStartRef.current;
+    const remaining2 = Math.max(0, 2400 - elapsed2);
+    const finish = () => { setDbReady(true); setPage("home"); };
+    if (remaining2 > 0) setTimeout(finish, remaining2); else finish();
   }, [userId, activeOrg]);
 
   // Seed demo data when URL has #seed
