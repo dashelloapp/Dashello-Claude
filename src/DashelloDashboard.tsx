@@ -4375,14 +4375,15 @@ function formatDate(dateStr: string) {
 // PAGE: TASKS
 // ═══════════════════════════════════════════════════════════════════════════
 
-function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections, goals, onViewMetric, onViewGoal, onViewTeamMember, timezone }: {
+function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections, goals, onViewMetric, onViewGoal, onViewTeamMember, timezone, healthBarColor }: {
   tasks: Task[]; setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
   userEmail: string; orgMembers: OrgMember[]; teamRows: TeamRow[];
   sections: Section[]; goals: Goal[];
   onViewMetric: (id: string) => void; onViewGoal: (id: string) => void;
-  onViewTeamMember: (m: OrgMember) => void; timezone: string;
+  onViewTeamMember: (m: OrgMember) => void; timezone: string; healthBarColor?: MetricColor;
 }) {
   const { t: __ } = useTranslation();
+  const pc = ({ green: { bg: "#F0FDF4", border: "#4CAF7D", accent: "#4CAF7D" }, yellow: { bg: "#FFF8ED", border: "#F5A623", accent: "#F5A623" }, red: { bg: "#FEF2F2", border: "#E85D75", accent: "#E85D75" }, gray: { bg: "#FFF8ED", border: "#F5A623", accent: "#F5A623" } } as Record<string, { bg: string; border: string; accent: string }>)[healthBarColor || "yellow"]!;
   const [showAdd, setShowAdd] = useState(false);
   const [taskFilter, setTaskFilter] = useState<"current" | "completed">("current");
   const [menuTaskId, setMenuTaskId] = useState<string | null>(null);
@@ -4537,8 +4538,8 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
             {priorityTasks.length > 0 && (
               <div style={{ marginBottom: 12 }}
                 onDragOver={e => e.preventDefault()} onDrop={handlePriorityZoneDrop}>
-                <div style={{ fontSize: 15, fontWeight: 700, color: "#F5A623", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
-                  <span>★ Priorities</span>
+                <div style={{ fontSize: 15, fontWeight: 700, color: pc.accent, marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                  <span>★ {__('common.priorities', 'Priorities')}</span>
                   <span style={{ fontSize: 15, fontWeight: 500, color: "#94a3b8", background: "#f1f5f9", padding: "1px 8px", borderRadius: 99 }}>{priorityTasks.length}</span>
                 </div>
                 {priorityTasks.map(t => {
@@ -4548,14 +4549,14 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
                   const isPastDue = !t.done && !!t.dueDate && t.dueDate < todayStr && !isDueToday;
                   return (
                     <div key={t.id} draggable onDragStart={() => handleTaskDragStart(t.id)} onDragOver={e => { e.preventDefault(); handleTaskDragOver(t.id); }} onDragLeave={() => setDragOverTaskId(null)} onDrop={e => { e.stopPropagation(); handleTaskDrop(t.id); }} onDragEnd={() => { dragTaskRef.current = null; setDragOverTaskId(null); }}
-                      style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 8, background: isPastDue ? "#FEF2F2" : "#FFF8ED", border: isPastDue && dragOverTaskId !== t.id ? "1px solid #FECACA" : dragOverTaskId === t.id ? "2px dashed #3B82F6" : "1px solid #FDE68A", marginBottom: 6, fontSize: 15 }}>
+                      style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 8, background: isPastDue ? "#FEF2F2" : pc.bg, border: isPastDue && dragOverTaskId !== t.id ? "1px solid #FECACA" : dragOverTaskId === t.id ? "2px dashed #3B82F6" : `1px solid ${pc.border}`, marginBottom: 6, fontSize: 15 }}>
                       <div style={{ cursor: "grab", color: "#cbd5e1", fontSize: 15, lineHeight: 1, letterSpacing: 1, flexShrink: 0, userSelect: "none" }} title="Drag to reorder">⠿</div>
-                      <div onClick={() => toggle(t.id)} style={{ width: 24, height: 24, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "2px solid #F5A623", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 15 }}>{t.done ? "✓" : ""}</div>
+                      <div onClick={() => toggle(t.id)} style={{ width: 24, height: 24, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : `2px solid ${pc.accent}`, background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 15 }}>{t.done ? "✓" : ""}</div>
                       {isEditing ? (
                         <input value={editText} onChange={e => setEditText(e.target.value)}
                           onBlur={() => { if (editText.trim()) setTasks(prev => prev.map(x => x.id === t.id ? { ...x, text: editText.trim() } : x)); setEditingTaskId(null); }}
                           onKeyDown={e => { if (e.key === "Enter") { if (editText.trim()) setTasks(prev => prev.map(x => x.id === t.id ? { ...x, text: editText.trim() } : x)); setEditingTaskId(null); } }}
-                          autoFocus style={{ flex: 1, padding: "4px 8px", borderRadius: 6, border: "1.5px solid #F5A623", fontSize: 15, outline: "none" }} />
+                          autoFocus style={{ flex: 1, padding: "4px 8px", borderRadius: 6, border: `1.5px solid ${pc.accent}`, fontSize: 15, outline: "none" }} />
                       ) : (
                         <div onClick={() => { setEditingTaskId(t.id); setEditText(t.text); setMenuTaskId(null); }} style={{ flex: 1, fontSize: 15, color: "#1a2332", fontWeight: 600, textDecoration: t.done ? "line-through" : "none", minWidth: 0, cursor: "text" }}>{t.text}</div>
                       )}
@@ -4607,18 +4608,18 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
             )}
             {/* Add Priority */}
             {showAddPriority ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", marginBottom: 12, background: "#FFF8ED", borderRadius: 8, border: "1px solid #FDE68A" }}>
-                <div style={{ width: 24, height: 24, borderRadius: "50%", border: "2px solid #F5A623", flexShrink: 0 }} />
+              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", marginBottom: 12, background: pc.bg, borderRadius: 8, border: `1px solid ${pc.border}` }}>
+                <div style={{ width: 24, height: 24, borderRadius: "50%", border: `2px solid ${pc.accent}`, flexShrink: 0 }} />
                 <input value={priorityAddText} onChange={e => setPriorityAddText(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && priorityAddText.trim()) { setTasks(prev => [...prev, { id: crypto.randomUUID(), text: priorityAddText.trim(), done: false, assignedTo: userEmail, createdBy: userEmail, createdAt: new Date().toISOString(), priority: true }]); setPriorityAddText(""); setShowAddPriority(false); } }}
-                  placeholder="Type priority and press Enter..."
+                  placeholder={__('tasks.typePriority', 'Type priority and press Enter...')}
                   autoFocus
-                  style={{ flex: 1, padding: "6px 8px", borderRadius: 6, border: "1.5px solid #F5A623", fontSize: 15, outline: "none" }} />
+                  style={{ flex: 1, padding: "6px 8px", borderRadius: 6, border: `1.5px solid ${pc.accent}`, fontSize: 15, outline: "none" }} />
                 <div onClick={() => { if (priorityAddText.trim()) { setTasks(prev => [...prev, { id: crypto.randomUUID(), text: priorityAddText.trim(), done: false, assignedTo: userEmail, createdBy: userEmail, createdAt: new Date().toISOString(), priority: true }]); setPriorityAddText(""); setShowAddPriority(false); } else { setShowAddPriority(false); } }}
-                  style={{ fontSize: 15, color: "#F5A623", cursor: "pointer", fontWeight: 600 }}>{__('common.done', 'Done')}</div>
+                  style={{ fontSize: 15, color: pc.accent, cursor: "pointer", fontWeight: 600 }}>{__('common.done', 'Done')}</div>
               </div>
             ) : (
-              <div onClick={() => setShowAddPriority(true)} style={{ display: "flex", alignItems: "center", gap: 8, color: "#F5A623", fontSize: 15, cursor: "pointer", padding: "4px 0", marginBottom: 12, fontWeight: 500 }}>
-                <span style={{ fontSize: 16 }}>+</span> Add Priority
+              <div onClick={() => setShowAddPriority(true)} style={{ display: "flex", alignItems: "center", gap: 8, color: pc.accent, fontSize: 15, cursor: "pointer", padding: "4px 0", marginBottom: 12, fontWeight: 500 }}>
+                <span style={{ fontSize: 16 }}>+</span> {__('common.addPriority', 'Add Priority')}
               </div>
             )}
             {/* Filter tabs + metric/goal tabs */}
@@ -4794,8 +4795,8 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
                   {memberTasks.slice(0, 3).map(t => {
                     const isDueToday = t.dueDate === todayStr;
                     return (
-                    <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 6, background: t.done ? "#f8fafc" : t.priority ? "#FFF8ED" : isDueToday ? "#EFF6FF" : "#fff", border: isDueToday && !t.done ? "1px solid #93C5FD" : "none", opacity: t.done ? 0.6 : 1 }}>
-                      <div onClick={() => toggle(t.id)} style={{ width: 16, height: 16, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : t.priority ? "1.5px solid #F5A623" : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 15 }}>{t.done ? "✓" : ""}</div>
+                    <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 6, background: t.done ? "#f8fafc" : t.priority ? pc.bg : isDueToday ? "#EFF6FF" : "#fff", border: isDueToday && !t.done ? "1px solid #93C5FD" : "none", opacity: t.done ? 0.6 : 1 }}>
+                      <div onClick={() => toggle(t.id)} style={{ width: 16, height: 16, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : t.priority ? `1.5px solid ${pc.accent}` : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 15 }}>{t.done ? "✓" : ""}</div>
                       <div style={{ flex: 1, fontSize: 15, color: "#1a2332", fontWeight: t.priority ? 600 : 400, textDecoration: t.done ? "line-through" : "none", minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.text}</div>
                       {t.dueDate && <div style={{ fontSize: 15, color: isDueToday ? "#3B82F6" : "#94a3b8", fontWeight: isDueToday ? 600 : 400, whiteSpace: "nowrap", flexShrink: 0 }}>{isDueToday ? "Due Today" : formatDate(t.dueDate)}</div>}
                     </div>
@@ -5872,6 +5873,10 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
 });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [savingMenu, setSavingMenu] = useState(false);
+  const [menuSaved, setMenuSaved] = useState(false);
+  const [savingHealth, setSavingHealth] = useState(false);
+  const [healthSaved, setHealthSaved] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [fiveAccountConfirm, setFiveAccountConfirm] = useState(false);
   const [timezoneSearch, setTimezoneSearch] = useState("");
@@ -5964,9 +5969,9 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
       <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24, flexWrap: "wrap" }}>
         <h1 style={{ margin: 0, fontSize: "clamp(20px,4vw,26px)", fontWeight: 700, color: "#1a2332" }}>{__('common.profile', 'Profile')}</h1>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 20, alignItems: "start" }}>
         {/* Profile card */}
-        <div style={{ background: "#fff", borderRadius: 14, padding: 22, border: "1px solid #f1f5f9" }}>
+        <div style={{ background: "#fff", borderRadius: 14, padding: 22, border: "1px solid #f1f5f9", alignSelf: "start" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20 }}>
             <div onClick={() => fileRef.current?.click()} style={{ width: 58, height: 58, borderRadius: "50%", background: "#4C9FE8", cursor: "pointer", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
               {localProfile.avatar_url ? <img src={localProfile.avatar_url} alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : (localProfile.full_name?.[0]?.toUpperCase() ?? "👤")}
@@ -6062,6 +6067,16 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
                 </div>
               );
             })}
+            <button onClick={async () => {
+                setSavingMenu(true);
+                const updated = { ...localProfile };
+                const { error } = await supabase.from("profiles").upsert({ id: userId, menu_permissions: localProfile.menu_permissions, updated_at: new Date().toISOString() });
+                if (!error) { onProfileSaved(updated); setMenuSaved(true); setTimeout(() => setMenuSaved(false), 2000); }
+                setSavingMenu(false);
+              }} disabled={savingMenu}
+              style={{ marginTop: 12, width: "100%", padding: "9px", borderRadius: 8, border: "none", background: menuSaved ? "#4CAF7D" : "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>
+              {savingMenu ? "Saving..." : menuSaved ? "✓ Saved!" : "Save Changes"}
+            </button>
           </div>
           )}
 
@@ -6178,21 +6193,24 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
                   type="number"
                   step={0.1}
                   value={localProfile[key]}
-                  onChange={async e => {
+                  onChange={e => {
                     const v = parseFloat(e.target.value);
                     if (isNaN(v)) return;
-                    const updated = { ...localProfile, [key]: v };
-                    setLocalProfile(updated);
-                    await supabase.from("profiles").upsert({ id: userId, ...updated, updated_at: new Date().toISOString() });
-                    onProfileSaved(updated);
+                    setLocalProfile(p => ({ ...p, [key]: v }));
                   }}
                   style={{ width: 72, padding: "5px 9px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", textAlign: "right" }}
                 />
               </div>
             ))}
-            <div style={{ marginTop: 10, fontSize: 15, color: "#94a3b8", lineHeight: 1.5 }}>
-              Defaults: Green +1.0, Yellow +0.5, Red −1.0. A green box adds its full weight, yellow adds half, red subtracts a full weight.
-            </div>
+            <button onClick={async () => {
+                setSavingHealth(true);
+                const { error } = await supabase.from("profiles").upsert({ id: userId, health_green_multiplier: localProfile.health_green_multiplier, health_yellow_multiplier: localProfile.health_yellow_multiplier, health_red_multiplier: localProfile.health_red_multiplier, updated_at: new Date().toISOString() });
+                if (!error) { onProfileSaved(localProfile); setHealthSaved(true); setTimeout(() => setHealthSaved(false), 2000); }
+                setSavingHealth(false);
+              }} disabled={savingHealth}
+              style={{ marginTop: 12, width: "100%", padding: "9px", borderRadius: 8, border: "none", background: healthSaved ? "#4CAF7D" : "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>
+              {savingHealth ? "Saving..." : healthSaved ? "✓ Saved!" : "Save Changes"}
+            </button>
           </div>
 
           {/* Accessibility */}
@@ -8897,20 +8915,20 @@ const sidebarEl = (
             </div>
           </div>
         ) : (
-        <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 6 : 8, padding: isMobile ? "10px 12px" : "11px clamp(10px,3vw,26px)", borderBottom: "1px solid #E8EDF2", background: "#fff", flexShrink: 0, flexWrap: "wrap" }}>
-          <div onClick={() => { setPage("home"); setSidebarOpen(false); }} style={{ width: 32, height: 32, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, marginRight: 2, overflow: "hidden" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 6 : 8, padding: isMobile ? "10px 8px" : "11px clamp(10px,3vw,26px)", borderBottom: "1px solid #E8EDF2", background: "#fff", flexShrink: 0 }}>
+          <div onClick={() => { setPage("home"); setSidebarOpen(false); }} style={{ width: 32, height: 32, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, marginRight: isMobile ? 0 : 2, overflow: "hidden" }}>
             <img src="https://dashello.co/wp-content/uploads/2023/08/cropped-Dashello-Icon.png" alt="Dashello" style={{ width: 28, height: 28, objectFit: "contain" }} />
           </div>
           {!sidebarOpen && (
-            <div onClick={() => setSidebarOpen(true)} style={{ width: isMobile ? 44 : 34, height: isMobile ? 44 : 34, borderRadius: "50%", background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", marginRight: 4, flexShrink: 0 }}>
+            <div onClick={() => setSidebarOpen(true)} style={{ width: isMobile ? 44 : 34, height: isMobile ? 44 : 34, borderRadius: "50%", background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", marginRight: isMobile ? 0 : 4, flexShrink: 0 }}>
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                 {[0, 1, 2].map(i => <div key={i} style={{ width: 14, height: 2, background: "#475569", borderRadius: 2 }} />)}
               </div>
             </div>
           )}
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 6 : 10, flex: 1, minWidth: 0 }}>
             {(page === "home" && !inlineView) || page === "goals" || page === "team" ? (
-              <div style={{ display: "flex", borderRadius: 8, border: "1px solid #e2e8f0", overflow: "hidden" }}>
+              <div style={{ display: "flex", borderRadius: 8, border: "1px solid #e2e8f0", overflow: "hidden", flexShrink: 0 }}>
                 {[__('common.row', 'Row'), page === "goals" ? __('common.expanded', 'Expanded') : __('common.column', 'Column')].map((lbl, i) => (
                   <div key={lbl} onClick={() => { if (page === "goals") setGoalsViewMode(i === 0 ? "row" : "expanded"); if (page === "team") setTeamViewMode(i === 0 ? "row" : "expanded"); }}
                     style={{ padding: isMobile ? "8px 12px" : "5px 13px", fontSize: 15, fontWeight: 500, cursor: "pointer", userSelect: "none",
@@ -8976,7 +8994,7 @@ const sidebarEl = (
             onOpenEquationBuilder={handleOpenEquationBuilder}
             orgMembers={orgMembers} />}
           {page === "goals" && isPageAccessible("goals") && <div style={{ flex: 1, overflowY: "auto" }}><GoalsPage goals={goalsData} setGoals={setGoalsData} sections={isPreviewMode && previewSections ? previewSections : sections} viewMode={goalsViewMode} onOpenOnboarding={() => setShowGoalOnboarding(true)} onEditGoal={handleEditGoal} onDuplicateGoal={handleDuplicateGoal} tasks={tasksData} setTasks={setTasksData} userEmail={userEmail} orgMembers={orgMembers} /></div>}
-          {page === "tasks" && isPageAccessible("tasks") && <div style={{ flex: 1, overflowY: "auto" }}><TasksPage tasks={tasksData} setTasks={setTasksData} userEmail={userEmail} orgMembers={orgMembers} teamRows={teamRows} sections={sections} goals={goalsData} onViewMetric={id => setViewMetricId(id)} onViewGoal={id => setViewGoalId(id)} onViewTeamMember={m => { setPendingMemberDetail(m); }} timezone={profile.timezone} /></div>}
+          {page === "tasks" && isPageAccessible("tasks") && <div style={{ flex: 1, overflowY: "auto" }}><TasksPage tasks={tasksData} setTasks={setTasksData} userEmail={userEmail} orgMembers={orgMembers} teamRows={teamRows} sections={sections} goals={goalsData} onViewMetric={id => setViewMetricId(id)} onViewGoal={id => setViewGoalId(id)} onViewTeamMember={m => { setPendingMemberDetail(m); }} timezone={profile.timezone} healthBarColor={health.barColor} /></div>}
           {page === "integrations" && isPageAccessible("integrations") && <div style={{ flex: 1, overflowY: "auto" }}><IntegrationsPage onSelectApp={a => { setSelectedApp(a); setPage("app-detail"); }} /></div>}
           {page === "app-detail" && selectedApp && <div style={{ flex: 1, overflowY: "auto" }}><AppDetailPage app={selectedApp} onBack={() => setPage("integrations")} /></div>}
           {page === "team" && isPageAccessible("team") && <div style={{ flex: 1, overflowY: "auto" }}><TeamPage sections={isPreviewMode && previewSections ? previewSections : sections} orgMembers={orgMembers} setOrgMembers={setOrgMembers} teamRows={teamRows} setTeamRows={setTeamRows} teamPermissions={teamPermissions} setTeamPermissions={setTeamPermissions} currentUserLevel={currentUserLevel} userEmail={userEmail} onOpenInvite={() => setShowInviteModal(true)} onPreviewMember={(member, perms) => { setPreviewMember(member); setPreviewPerms(perms); setPage("home"); }} onExitPreviewSave={() => { setPreviewFromSave(false); }} previewFromSave={previewFromSave} pendingMemberDetail={pendingMemberDetail} onClearPendingMember={() => setPendingMemberDetail(null)} tasks={tasksData} setTasks={setTasksData} teamViewMode={teamViewMode} menuPermissions={profile.menu_permissions ?? {}} /></div>}
