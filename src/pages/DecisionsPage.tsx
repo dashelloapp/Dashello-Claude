@@ -79,14 +79,14 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
   const renderColumn = (option: DecisionOption) => {
     const isFavorite = option.id === favoriteOptionId;
     return (
-      <div key={option.id} style={{ flex: "1 1 320px", minWidth: 300, background: isFavorite ? "#EFF6FF" : "#fff", borderRadius: 12, border: isFavorite ? "2px solid #3B82F6" : "1px solid #e2e8f0", padding: 16, display: "flex", flexDirection: "column", gap: 8, position: "relative", opacity: favoriteOptionId && !isFavorite ? 0.5 : 1, transition: "opacity 0.2s, border-color 0.2s" }}>
+      <div key={option.id} style={{ flex: "1 1 100%", minWidth: 0, maxWidth: "100%", background: isFavorite ? "#EFF6FF" : "#fff", borderRadius: 12, border: isFavorite ? "2px solid #3B82F6" : "1px solid #e2e8f0", padding: "12px", display: "flex", flexDirection: "column", gap: 8, position: "relative", opacity: favoriteOptionId && !isFavorite ? 0.5 : 1, transition: "opacity 0.2s, border-color 0.2s", boxSizing: "border-box" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
           <input value={option.label} onChange={e => updateLabel(option.id, e.target.value)} style={{ flex: 1, fontSize: 15, fontWeight: 700, color: "#1a2332", border: "none", background: "transparent", outline: "none", fontFamily: "inherit", padding: "2px 0" }} />
           <div onClick={() => { if (favoriteOptionId === option.id) setFavoriteOptionId(null); else setFavoriteOptionId(option.id); }} style={{ cursor: "pointer", fontSize: 18, color: isFavorite ? "#F5A623" : "#cbd5e1", transition: "color 0.2s" }} title={isFavorite ? "Remove as favorite" : "Set as favorite"}>{isFavorite ? "★" : "☆"}</div>
           <div onClick={() => removeOption(option.id)} style={{ cursor: "pointer", fontSize: 15, color: "#cbd5e1" }} title="Delete option">×</div>
         </div>
-        <div style={{ display: "flex", gap: 40, flex: 1 }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", gap: 12, flex: 1, flexWrap: "wrap" }}>
+          <div style={{ flex: "1 1 120px", minWidth: 0 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: "#4CAF7D", marginBottom: 4 }}>Pros</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               {option.pros.map((pro, pi) => (
@@ -94,18 +94,18 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
                   <span style={{ fontSize: 13, color: "#4CAF7D", flexShrink: 0 }}>+</span>
                   <input value={pro} onChange={e => updatePro(option.id, pi, e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); if (pro.trim()) addPro(option.id); } }} placeholder="Add a pro..." style={{ flex: 1, fontSize: 13, color: "#1a2332", border: "none", background: "transparent", outline: "none", fontFamily: "inherit", padding: "1px 0", minWidth: 0 }} />
                   {option.pros.length > 1 && <div onClick={() => removePro(option.id, pi)} style={{ cursor: "pointer", fontSize: 13, color: "#cbd5e1", flexShrink: 0 }}>×</div>}
-                  {pro.trim() && <div ref={el => { dotRefs.current[`pro-${option.id}-${pi}`] = el; }} data-pro-dot="true" data-option-id={option.id} data-pro-index={pi} onMouseDown={e => handleProDotMouseDown(e, option.id, pi)} style={{ width: 14, height: 14, borderRadius: "50%", background: "#4CAF7D", cursor: "crosshair", flexShrink: 0, marginLeft: 4 }} title="Drag to connect to a con" />}
+                  {pro.trim() && <div ref={el => { dotRefs.current[`pro-${option.id}-${pi}`] = el; }} data-pro-dot="true" data-option-id={option.id} data-pro-index={pi} onMouseDown={e => handleProDotMouseDown(e, option.id, pi)} style={{ width: 14, height: 14, borderRadius: "50%", background: "#4CAF7D", cursor: "crosshair", flexShrink: 0, marginLeft: 2 }} title="Drag to connect to a con" />}
                 </div>
               ))}
               <div onClick={() => addPro(option.id)} style={{ fontSize: 12, color: "#4CAF7D", cursor: "pointer", display: "flex", alignItems: "center", gap: 2 }}><span style={{ fontSize: 12 }}>+</span> Add pro</div>
             </div>
           </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ flex: "1 1 120px", minWidth: 0 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: "#E85D75", marginBottom: 4 }}>Cons</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               {option.cons.map((con, ci) => (
                 <div key={ci} style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                  {con.trim() && <div ref={el => { dotRefs.current[`con-${option.id}-${ci}`] = el; }} data-con-dot="true" data-option-id={option.id} data-con-index={ci} onMouseDown={e => handleConDotMouseDown(e, option.id, ci)} style={{ width: 14, height: 14, borderRadius: "50%", background: "#E85D75", cursor: "crosshair", flexShrink: 0, marginRight: 4 }} title="Drop here to connect from a pro" />}
+                  {con.trim() && <div ref={el => { dotRefs.current[`con-${option.id}-${ci}`] = el; }} data-con-dot="true" data-option-id={option.id} data-con-index={ci} onMouseDown={e => handleConDotMouseDown(e, option.id, ci)} style={{ width: 14, height: 14, borderRadius: "50%", background: "#E85D75", cursor: "crosshair", flexShrink: 0, marginRight: 2 }} title="Drop here to connect from a pro" />}
                   <span style={{ fontSize: 13, color: "#E85D75", flexShrink: 0 }}>−</span>
                   <input value={con} onChange={e => updateCon(option.id, ci, e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); if (con.trim()) addCon(option.id); } }} placeholder="Add a con..." style={{ flex: 1, fontSize: 13, color: "#1a2332", border: "none", background: "transparent", outline: "none", fontFamily: "inherit", padding: "1px 0", minWidth: 0 }} />
                   {option.cons.length > 1 && <div onClick={() => removeCon(option.id, ci)} style={{ cursor: "pointer", fontSize: 13, color: "#cbd5e1", flexShrink: 0 }}>×</div>}
@@ -198,7 +198,7 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
         <div style={{ fontSize: "clamp(20px,4vw,26px)", fontWeight: 700, color: "#1a2332", marginBottom: 2 }}>Decisions</div>
       </div>
       {renderCollapsibleHeader("current", "Decision Making Filter", "Funnel", "#3B82F6")}
-      {!collapsed["current"] && <div style={{ background: "#fff", borderRadius: 16, padding: 20, border: "1px solid #e2e8f0" }}>
+      {!collapsed["current"] && <div style={{ background: "#fff", borderRadius: 16, padding: 20, border: "1px solid #e2e8f0", maxWidth: "100%", overflowX: "hidden", boxSizing: "border-box" }}>
       <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
         <div style={{ width: 24, height: 24, borderRadius: "50%", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", flexShrink: 0, marginTop: 1 }}>1</div>
         <div style={{ flex: 1 }}>
@@ -211,14 +211,14 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 600, fontSize: 14, color: "#1a2332", marginBottom: 2 }}>Formulate the issue in a proposal</div>
           <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 8 }}>Name your options clearly. <span onClick={() => setShowQuickStart(true)} style={{ color: "#3B82F6", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}>Open guide for tips</span></div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", maxWidth: "100%" }}>
             {options.map(option => (
-              <div key={option.id} style={{ flex: "1 1 200px", minWidth: 180, borderRadius: 10, border: "1px solid #e2e8f0", padding: "10px 12px", display: "flex", alignItems: "center", gap: 6, background: "#fff" }}>
+              <div key={option.id} style={{ flex: "1 1 100%", minWidth: 0, maxWidth: "100%", borderRadius: 10, border: "1px solid #e2e8f0", padding: "10px 12px", display: "flex", alignItems: "center", gap: 6, background: "#fff", boxSizing: "border-box" }}>
                 <input value={option.label} onChange={e => updateLabel(option.id, e.target.value)} style={{ flex: 1, fontSize: 14, fontWeight: 600, color: "#1a2332", border: "none", background: "transparent", outline: "none", fontFamily: "inherit", padding: "2px 0", minWidth: 0 }} />
                 <div onClick={() => removeOption(option.id)} style={{ cursor: "pointer", fontSize: 15, color: "#cbd5e1", flexShrink: 0 }}>×</div>
               </div>
             ))}
-            <div onClick={addOption} style={{ flex: "1 1 200px", minWidth: 180, minHeight: 40, display: "flex", alignItems: "center", justifyContent: "center", gap: 4, borderRadius: 10, border: "2px dashed #e2e8f0", cursor: "pointer", color: "#94a3b8", fontSize: 14, fontWeight: 500 }}>+ Add Option</div>
+            <div onClick={addOption} style={{ flex: "1 1 100%", minWidth: 0, minHeight: 40, display: "flex", alignItems: "center", justifyContent: "center", gap: 4, borderRadius: 10, border: "2px dashed #e2e8f0", cursor: "pointer", color: "#94a3b8", fontSize: 14, fontWeight: 500 }}>+ Add Option</div>
           </div>
         </div>
       </div>
@@ -240,9 +240,9 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 600, fontSize: 14, color: "#1a2332", marginBottom: 4 }}>List pros and cons for each alternative</div>
           <div style={{ position: "relative" }}>
-            <div ref={containerRef} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={() => setDragging(null)} style={{ display: "flex", gap: 12, flexWrap: "wrap", overflow: "visible" }}>
+            <div ref={containerRef} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={() => setDragging(null)} style={{ display: "flex", gap: 12, flexWrap: "wrap", overflow: "visible", maxWidth: "100%" }}>
               {options.map(renderColumn)}
-              <div onClick={addOption} style={{ flex: "1 1 240px", minWidth: 220, minHeight: 200, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 12, border: "2px dashed #e2e8f0", cursor: "pointer", color: "#94a3b8", fontSize: 15, fontWeight: 600 }}>+ Add Option</div>
+              <div onClick={addOption} style={{ flex: "1 1 100%", minWidth: 0, minHeight: 60, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 12, border: "2px dashed #e2e8f0", cursor: "pointer", color: "#94a3b8", fontSize: 15, fontWeight: 600 }}>+ Add Option</div>
             </div>
             {dragging && <svg style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 50 }}><path d={`M ${dragging.startX} ${dragging.startY} C ${dragging.startX + (dragging.currentX - dragging.startX) * 0.4} ${dragging.startY} ${dragging.currentX - (dragging.currentX - dragging.startX) * 0.4} ${dragging.currentY} ${dragging.currentX} ${dragging.currentY}`} fill="none" stroke="#3B82F6" strokeWidth={2} strokeDasharray="5 3" opacity={0.7} /></svg>}
           </div>
