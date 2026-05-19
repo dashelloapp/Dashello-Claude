@@ -45,13 +45,20 @@ async function inviteTeamMember(email: string, orgId: string, level: OrgPermissi
     });
     if (res.error) {
       let msg = "Unknown error";
-      const bodyText = res.error.message || "";
-      console.error("invite-member raw response:", bodyText, res);
       try {
-        const parsed = JSON.parse(bodyText);
-        if (parsed?.error) msg = parsed.error;
-      } catch {
-        msg = bodyText || "Unknown error";
+        const ctx = res.error.context;
+        if (ctx && typeof ctx.text === "function") {
+          const bodyText = await ctx.text();
+          console.error("invite-member raw response body:", bodyText);
+          try {
+            const parsed = JSON.parse(bodyText);
+            if (parsed?.error) msg = parsed.error;
+          } catch {
+            msg = bodyText || msg;
+          }
+        }
+      } catch (e) {
+        console.error("invite-member error parsing failed:", e);
       }
       console.error("invite-member error:", msg);
       throw new Error(msg);
@@ -68,6 +75,13 @@ function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+function applyAccessibilitySettings(headerSize: string, minBody: number) {
+  const headerScale = headerSize === "xl" ? 1.25 : headerSize === "large" ? 1.125 : 1;
+  document.documentElement.style.setProperty("--acc-min-fs", minBody + "px");
+  document.documentElement.style.setProperty("--acc-header-scale", String(headerScale));
+  const appEl = document.getElementById("app-container");
+  if (appEl) appEl.style.setProperty("zoom", String(headerScale));
+}
 
 // ─── Permission helpers ──────────────────────────────────────────────────────
 function filterSectionsByPermissions(sections: Section[], perms: TeamPermissions): Section[] {
@@ -5794,6 +5808,13 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
   const [uploading, setUploading] = useState(false);
   const [fiveAccountConfirm, setFiveAccountConfirm] = useState(false);
   const [timezoneSearch, setTimezoneSearch] = useState("");
+  const [accHeaderSize, setAccHeaderSize] = useState(() => localStorage.getItem("acc_header_size") || "default");
+  const [accMinBody, setAccMinBody] = useState<number>(() => parseInt(localStorage.getItem("acc_min_body") || "15") || 15);
+  useEffect(() => {
+    localStorage.setItem("acc_header_size", accHeaderSize);
+    localStorage.setItem("acc_min_body", String(accMinBody));
+    applyAccessibilitySettings(accHeaderSize, accMinBody);
+  }, [accHeaderSize, accMinBody]);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -6104,6 +6125,36 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
             ))}
             <div style={{ marginTop: 10, fontSize: 15, color: "#94a3b8", lineHeight: 1.5 }}>
               Defaults: Green +1.0, Yellow +0.5, Red −1.0. A green box adds its full weight, yellow adds half, red subtracts a full weight.
+            </div>
+          </div>
+
+          {/* Accessibility */}
+          <div style={{ background: "#fff", borderRadius: 14, padding: 20, border: "1px solid #f1f5f9" }}>
+            <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 600, color: "#1a2332" }}>Accessibility</h3>
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>Header Size</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                {["default","large","xl"].map(s => (
+                  <label key={s} style={{ display: "flex", alignItems: "center", gap: 4, padding: "6px 12px", borderRadius: 8, cursor: "pointer", background: accHeaderSize === s ? "#EFF6FF" : "#F8FAFC", border: accHeaderSize === s ? "1.5px solid #3B82F6" : "1.5px solid #e2e8f0", fontSize: 15, color: accHeaderSize === s ? "#3B82F6" : "#64748b" }}>
+                    <input type="radio" name="accHeaderSize" checked={accHeaderSize === s} onChange={() => setAccHeaderSize(s)} style={{ accentColor: "#3B82F6", margin: 0 }} />
+                    {s === "default" ? "Default" : s === "large" ? "Large" : "Extra Large"}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>Minimum Body Text Size</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {[15,16,17,18,20,22,24].map(v => (
+                  <label key={v} style={{ display: "flex", alignItems: "center", gap: 4, padding: "6px 10px", borderRadius: 8, cursor: "pointer", background: accMinBody === v ? "#EFF6FF" : "#F8FAFC", border: accMinBody === v ? "1.5px solid #3B82F6" : "1.5px solid #e2e8f0", fontSize: 15, color: accMinBody === v ? "#3B82F6" : "#64748b" }}>
+                    <input type="radio" name="accMinBody" checked={accMinBody === v} onChange={() => setAccMinBody(v)} style={{ accentColor: "#3B82F6", margin: 0 }} />
+                    {v}px
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div style={{ fontSize: 15, color: "#94a3b8", lineHeight: 1.5 }}>
+              Changes apply immediately. Use the Default option to reset.
             </div>
           </div>
         </div>
@@ -7815,6 +7866,11 @@ export default function DashelloDashboard() {
   const [sections, setSections] = useState<Section[]>([]);
   const [activeModal, setActiveModal] = useState<{ data: MetricModalData; metric: Metric } | null>(null);
   useEffect(() => { localStorage.setItem("dashello_page", page); }, [page]);
+  useEffect(() => {
+    const hdr = localStorage.getItem("acc_header_size") || "default";
+    const body = parseInt(localStorage.getItem("acc_min_body") || "15") || 15;
+    applyAccessibilitySettings(hdr, body);
+  }, []);
   const [editingMetricFromModal, setEditingMetricFromModal] = useState<Metric | null>(null);
   // Inline view system
   const [inlineView, setInlineView] = useState<"metric-detail" | "metric-settings" | "color-rule" | null>(null);
@@ -7828,7 +7884,6 @@ export default function DashelloDashboard() {
   const [showChat, setShowChat] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const mobileMenuTriggerRef = useRef<HTMLDivElement>(null);
-  const topOrgDropdownRef = useRef<HTMLDivElement>(null);
 
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -7841,11 +7896,6 @@ export default function DashelloDashboard() {
   const [teamRows, setTeamRows] = useState<TeamRow[]>([]);
   const [teamPermissions, setTeamPermissions] = useState<TeamPermissions[]>([]);
   const [showOrgDropdown, setShowOrgDropdown] = useState(false);
-  useEffect(() => {
-    const h = (e: MouseEvent) => { if (topOrgDropdownRef.current && !topOrgDropdownRef.current.contains(e.target as Node)) setShowOrgDropdown(false); };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
-  }, []);
   const [previewMember, setPreviewMember] = useState<OrgMember | null>(null);
   const [previewPerms, setPreviewPerms] = useState<TeamPermissions | null>(null);
   const [previewFromSave, setPreviewFromSave] = useState(false);
@@ -8733,7 +8783,7 @@ const sidebarEl = (
   return (
     <>
     <style>{`@media (max-width:767px){.touch-btn{min-height:44px!important;min-width:44px!important}.touch-btn-sm{min-height:36px!important;min-width:36px!important}.stack-mobile{grid-template-columns:1fr!important}.hide-mobile{display:none!important}}`}</style>
-    <div style={{ display: "flex", height: "100dvh", fontFamily: "'Inter',system-ui,sans-serif", background: "#F8FAFC", position: "relative" }}>
+    <div id="app-container" style={{ display: "flex", height: "100dvh", fontFamily: "'Inter',system-ui,sans-serif", background: "#F8FAFC", position: "relative" }}>
       {isMobile && sidebarOpen && <div onClick={() => setSidebarOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 900 }} />}
       {sidebarOpen && (
         isMobile
@@ -8788,27 +8838,7 @@ const sidebarEl = (
               </div>
             ) : null}
             {!isMobile && (page === "home" || page === "goals" || page === "integrations" || page === "tasks") && <TopBarRefreshButton isMobile={isMobile} onRefresh={handleRefreshAll} lastSyncedAt={lastDashboardSync} />}
-            {/* Top-bar org switcher */}
-            <div ref={topOrgDropdownRef} style={{ position: "relative" }}>
-              <div onClick={() => setShowOrgDropdown(v => !v)} style={{ padding: "5px 12px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 15, color: "#1a2332", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, background: showOrgDropdown ? "#f1f5f9" : "#fff", whiteSpace: "nowrap" }}>
-                <span style={{ maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{activeOrg?.isPersonal ? "Personal" : activeOrg?.name}</span>
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ flexShrink: 0, transform: showOrgDropdown ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>
-                  <path d="M2 4L5 7L8 4" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </div>
-              {showOrgDropdown && (
-                <div style={{ position: "absolute", top: 36, left: 0, zIndex: 110, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.15)", border: "1px solid #e2e8f0", minWidth: 180, overflow: "hidden" }}>
-                  {orgs.map(org => (
-                    <div key={org.id} onClick={() => { handleSwitchOrg(org); setShowOrgDropdown(false); }}
-                      style={{ padding: "10px 14px", fontSize: 15, cursor: "pointer", color: activeOrg?.id === org.id ? "#3B82F6" : "#1a2332", fontWeight: activeOrg?.id === org.id ? 600 : 400, background: activeOrg?.id === org.id ? "#EFF6FF" : "transparent", borderBottom: "1px solid #f1f5f9", textAlign: "left" }}
-                      onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
-                      onMouseLeave={e => (e.currentTarget.style.background = activeOrg?.id === org.id ? "#EFF6FF" : "transparent")}>
-                      {org.name}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+
             {(page === "home" && inlineView) && (
               <BreadcrumbNav items={getBreadcrumbItems()} onNavigate={handleBreadcrumbNavigate} />
             )}
