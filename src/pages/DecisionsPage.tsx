@@ -246,7 +246,7 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
         <div style={{ fontWeight: 600, fontSize: 14, color: "#1a2332" }}>Pray for openness and inner freedom</div>
         <div onClick={() => setShowQuickStart(true)} style={{ fontSize: 13, color: "#3B82F6", cursor: "pointer", fontWeight: 500, textDecoration: "underline", textUnderlineOffset: 2 }}>View guide for tips</div>
       </div>
-      <div style={{ display: "flex", gap: 8, marginBottom: 14, marginLeft: 34, alignItems: "center" }}>
+      <div style={{ display: "flex", gap: 8, marginBottom: 14, marginLeft: 34, alignItems: "center", flexWrap: "wrap" }}>
         {[{ n: "3", desc: "Pray for openness" },{ n: "4", desc: "Gather information" },{ n: "5", desc: "Freedom check" }].map(s => (
           <div key={s.n} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", background: "#F8FAFC", borderRadius: 8, border: "1px solid #e2e8f0" }}>
             <div style={{ width: 20, height: 20, borderRadius: "50%", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{s.n}</div>
