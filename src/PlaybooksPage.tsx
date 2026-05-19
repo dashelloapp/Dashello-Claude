@@ -1752,7 +1752,8 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                         }}>
                           {f.checklistLayout === "separate" ? (f.options || []).map((opt, oi) => (
                             <div key={oi} style={{
-                              display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 6,
+                              background: "#F8FAFC", borderRadius: 10, padding: 12, marginBottom: 8, border: "1px solid #e2e8f0",
+                              display: "flex", alignItems: "flex-start", gap: 8,
                               fontSize: (f.textSize || 30) * 0.65,
                               color: "#1a2332"
                             }}>
@@ -1763,7 +1764,12 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                               }} />
                               <span>{opt}</span>
                             </div>
-                          )) : <span style={{ color: "#94a3b8" }}>Add tasks to this checklist...</span>}
+                          )) : (f.bigChecklistMode === "fill" ? <span style={{ color: "#94a3b8" }}>Add tasks to this checklist...</span> : (f.options || []).map((opt, oi) => (
+                            <div key={oi} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, fontSize: (f.textSize || 30) * 0.65, color: "#1a2332" }}>
+                              <div style={{ width: (f.textSize || 30) * 0.65 * 1.2, height: (f.textSize || 30) * 0.65 * 1.2, borderRadius: "50%", border: "2px solid #d1d5db", background: "#fff", flexShrink: 0 }} />
+                              <span>{opt}</span>
+                            </div>
+                          )))}
                         </div>
                       </div>
                     )}
