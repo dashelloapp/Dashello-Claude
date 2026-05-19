@@ -3706,6 +3706,7 @@ function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
   };
 
   const handleSaveForLater = () => {
+    if (!decisionStatement.trim()) return;
     const snapshot: DecisionSnapshot = {
       id: crypto.randomUUID(),
       decisionStatement,
@@ -3917,22 +3918,36 @@ function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
       {/* ── Current Decision Section ── */}
       <div style={{ marginBottom: 4 }}>
         <div style={{ fontSize: "clamp(20px,4vw,26px)", fontWeight: 700, color: "#1a2332", marginBottom: 2 }}>Decision Making Filter</div>
-        <div onClick={() => setShowQuickStart(true)} style={{ fontSize: 13, color: "#3B82F6", cursor: "pointer", fontWeight: 500, textDecoration: "underline", textUnderlineOffset: 2 }}>View Quick Start Guide</div>
-      </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-        <span style={{ fontSize: 14, fontWeight: 600, color: "#64748b" }}>Current Decision</span>
-        <button onClick={handleSaveForLater} style={{
-          padding: "3px 12px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff",
-          fontSize: 13, cursor: "pointer", color: "#F5A623", fontWeight: 600,
-        }}>Save for Later</button>
       </div>
 
-      {/* Decision statement */}
-      <div style={{ marginBottom: 12, padding: "10px 14px", background: "#F8FAFC", borderRadius: 10, border: "1.5px solid #e2e8f0" }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: "#1a2332", marginBottom: 4 }}>Decision to be made</div>
-        <input value={decisionStatement} onChange={e => setDecisionStatement(e.target.value)}
-          placeholder='Write your decision as a concrete statement - e.g., "Whether to accept the job offer from Company B" or "I will either stay at my current role or take the new position"'
-          style={{ width: "100%", fontSize: 14, color: "#475569", border: "none", background: "transparent", outline: "none", fontFamily: "inherit", padding: "2px 0" }} />
+      {/* Step 1: Write out your decision to be made */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
+        <div style={{ width: 24, height: 24, borderRadius: "50%", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", flexShrink: 0, marginTop: 1 }}>1</div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontWeight: 600, fontSize: 14, color: "#1a2332", marginBottom: 4 }}>Write out your decision to be made</div>
+          <textarea value={decisionStatement} onChange={e => setDecisionStatement(e.target.value)}
+            placeholder='What decision are you facing? Be specific and concrete - e.g., "Whether to accept the job offer from Company B" or "I will either stay at my current role or take the new position"'
+            rows={2}
+            style={{ width: "100%", fontSize: 14, color: "#1a2332", border: "1.5px solid #e2e8f0", borderRadius: 8, background: "#fff", outline: "none", fontFamily: "inherit", padding: "8px 10px", resize: "vertical", boxSizing: "border-box" }} />
+        </div>
+      </div>
+
+      {/* Step 2: View the Quick Start Guide */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 14, alignItems: "center" }}>
+        <div style={{ width: 24, height: 24, borderRadius: "50%", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", flexShrink: 0 }}>2</div>
+        <div style={{ fontWeight: 600, fontSize: 14, color: "#1a2332" }}>View the Quick Start Guide</div>
+        <div onClick={() => setShowQuickStart(true)} style={{ fontSize: 13, color: "#3B82F6", cursor: "pointer", fontWeight: 500, textDecoration: "underline", textUnderlineOffset: 2 }}>Open Guide →</div>
+      </div>
+
+      {/* Step 3: Weigh the pros and cons */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+        <div style={{ width: 24, height: 24, borderRadius: "50%", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", flexShrink: 0 }}>3</div>
+        <div style={{ fontSize: 14, fontWeight: 600, color: "#1a2332" }}>Weigh the pros and cons</div>
+        <span style={{ fontSize: 13, color: "#94a3b8" }}>Current Decision</span>
+        <button onClick={handleSaveForLater} disabled={!decisionStatement.trim()} style={{
+          padding: "3px 12px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff",
+          fontSize: 13, cursor: decisionStatement.trim() ? "pointer" : "not-allowed", color: "#F5A623", fontWeight: 600, opacity: decisionStatement.trim() ? 1 : 0.5,
+        }}>Save Draft</button>
       </div>
 
       <div style={{ position: "relative" }}>
@@ -4026,6 +4041,7 @@ function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
 
           {/* Convert to priority */}
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 24, height: 24, borderRadius: "50%", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", flexShrink: 0 }}>4</div>
             <button onClick={() => {
               const label = favoriteOption.label;
               const pros = favoriteOption.pros.filter(p => p.trim());
@@ -4085,7 +4101,8 @@ function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
       {savedDecisions.length > 0 && (
         <div style={{ marginTop: 24 }}>
           <div style={{ fontSize: 16, fontWeight: 700, color: "#64748b", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
-            <span>📋 Decisions in Progress</span>
+            <IconGlyph name="Notebook" size={18} color="#F5A623" />
+            Decisions in Progress
             <span style={{ fontSize: 13, fontWeight: 500, color: "#94a3b8", background: "#f1f5f9", padding: "1px 8px", borderRadius: 99 }}>{savedDecisions.length}</span>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -4124,7 +4141,8 @@ function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
       {completedDecisions.length > 0 && (
         <div style={{ marginTop: 24 }}>
           <div style={{ fontSize: 16, fontWeight: 700, color: "#64748b", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
-            <span>📦 Completed Decisions</span>
+            <IconGlyph name="CheckCircle" size={18} color="#4CAF7D" />
+            Completed Decisions
             <span style={{ fontSize: 13, fontWeight: 500, color: "#94a3b8", background: "#f1f5f9", padding: "1px 8px", borderRadius: 99 }}>{completedDecisions.length}</span>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
