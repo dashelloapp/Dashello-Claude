@@ -60,52 +60,64 @@ async function saveOrgData(userId: string, payload: any) {
 async function inviteTeamMember(email: string, orgId: string, level: OrgPermissionLevel, invitedByName: string, orgName?: string) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.access_token) throw new Error("Not authenticated");
+  
+  // Try the edge function first
+  let edgeUnavailable = false;
   try {
     const res = await supabase.functions.invoke("invite-member", {
       body: { email, orgId, level, invitedByName, orgName },
     });
     if (res.error) {
-      let msg = "Unknown error";
+      let msg = "";
+      // Handle different error shapes from supabase functions
       try {
-        const ctx = res.error.context;
+        const ctx = (res.error as any).context;
         if (ctx && typeof ctx.text === "function") {
           const bodyText = await ctx.text();
           try {
             const parsed = JSON.parse(bodyText);
-            if (parsed?.error) msg = parsed.error;
+            msg = parsed?.error || "";
           } catch {
-            msg = bodyText || msg;
+            msg = bodyText || "";
           }
+        } else if (typeof res.error === "object") {
+          msg = (res.error as any).message || JSON.stringify(res.error);
         }
       } catch (e) {
-        console.error("invite-member error parsing failed:", e);
+        console.error("parse error:", e);
       }
-      console.error("invite-member error:", msg);
-      if (msg.includes("Failed to reach") || msg.includes("not found") || msg.includes("404")) {
-        throw new Error("EDGE_FUNCTION_UNAVAILABLE");
+      if (!msg || msg.includes("Failed to reach") || msg.includes("not found") || msg.includes("404") || msg === "{}") {
+        edgeUnavailable = true;
+      } else {
+        throw new Error(msg);
       }
-      throw new Error(msg);
-    }
-    return res.data;
-  } catch (err: any) {
-    if (err.message === "EDGE_FUNCTION_UNAVAILABLE") {
-      // Edge function not deployed — fall through to magic link
     } else {
+      return res.data;
+    }
+  } catch (err: any) {
+    if (err.message && !err.message.includes("Failed to reach") && !err.message.includes("not found") && !err.message.includes("404") && err.message !== "{}") {
       throw err;
     }
+    edgeUnavailable = true;
   }
   
+  if (!edgeUnavailable) return;
+  
   // Fallback: Send magic link via signInWithOtp
-  const { error: otpError } = await supabase.auth.signInWithOtp({
+  const otpResult = await supabase.auth.signInWithOtp({
     email,
     options: {
       emailRedirectTo: "https://app.dashello.co",
       data: { org_name: orgName || "Dashello", invited_by: invitedByName },
     },
   });
-  if (otpError) {
-    console.error("signInWithOtp error:", otpError);
-    throw new Error(otpError.message || "Failed to send invitation email.");
+  if (otpResult.error) {
+    console.error("signInWithOtp error:", otpResult.error);
+    throw new Error(
+      typeof otpResult.error === "object" 
+        ? (otpResult.error as any).message || JSON.stringify(otpResult.error)
+        : "Failed to send invitation email."
+    );
   }
   
   return { sent: true, method: "magic-link" };
