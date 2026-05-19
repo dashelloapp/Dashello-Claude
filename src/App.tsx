@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
 import AuthScreen from './components/AuthScreen'
 import DashelloDashboard from './DashelloDashboard'
+import { TranslationProvider } from './i18n'
 
 export default function App() {
   const [session, setSession] = useState<any>(null)
@@ -30,5 +31,5 @@ export default function App() {
 
   if (!session) return <AuthScreen />
 
-  return <DashelloDashboard />
+  return <TranslationProvider><DashelloDashboard /></TranslationProvider>
 }

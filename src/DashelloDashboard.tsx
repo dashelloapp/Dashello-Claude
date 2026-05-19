@@ -3,6 +3,7 @@ import { useSmartPosition } from "./hooks/useSmartPosition";
 import { supabase } from "./lib/supabase";
 import * as PhosphorReact from "@phosphor-icons/react";
 import { PlaybooksPage } from "./PlaybooksPage";
+import { useTranslation, LANGUAGES } from "./i18n";
 
 // ── DB helpers ────────────────────────────────────────────────────────────
 async function loadUserData(table: string, userId: string) {
@@ -81,6 +82,46 @@ function applyAccessibilitySettings(headerSize: number, minBody: number) {
   document.documentElement.style.setProperty("--acc-header-scale", String(headerScale));
   const appEl = document.getElementById("app-container");
   if (appEl) appEl.style.setProperty("zoom", String(headerScale));
+}
+
+function LanguageSelector() {
+  const { language, setLanguage } = useTranslation();
+  const [query, setQuery] = useState("");
+  const [show, setShow] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const filtered = query
+    ? LANGUAGES.filter(l => l.name.toLowerCase().includes(query.toLowerCase()) || l.nativeName.toLowerCase().includes(query.toLowerCase()) || l.code.toLowerCase() === query.toLowerCase()).slice(0, 20)
+    : LANGUAGES.slice(0, 20);
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setShow(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+  return (
+    <div style={{ marginBottom: 14 }} ref={ref}>
+      <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>Language</div>
+      <input
+        value={show ? query : `${language.name} (${language.nativeName})`}
+        onChange={e => { setQuery(e.target.value); setShow(true); }}
+        onFocus={() => { setQuery(""); setShow(true); }}
+        placeholder="Search for a language..."
+        style={{ width: "100%", padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box" }}
+      />
+      {show && (
+        <div style={{ position: "absolute", background: "#fff", borderRadius: 8, border: "1.5px solid #e2e8f0", marginTop: 4, maxHeight: 220, overflowY: "auto", zIndex: 5000, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", width: ref.current?.offsetWidth }}>
+          {filtered.map(l => (
+            <div key={l.code} onClick={() => { setLanguage(l); setQuery(""); setShow(false); }}
+              style={{ padding: "8px 12px", fontSize: 15, cursor: "pointer", background: l.code === language.code ? "#EFF6FF" : "#fff", color: "#1a2332", borderBottom: "1px solid #f1f5f9" }}>
+              {l.name} <span style={{ color: "#94a3b8" }}>({l.nativeName})</span>
+            </div>
+          ))}
+          {filtered.length === 0 && <div style={{ padding: "8px 12px", fontSize: 15, color: "#94a3b8" }}>No languages found</div>}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ─── Permission helpers ──────────────────────────────────────────────────────
@@ -5796,6 +5837,7 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
   onFiveAccountSettingsChange: (s: FiveAccountSettings) => void;
   currentUserLevel?: OrgPermissionLevel;
 }) {
+  const { t } = useTranslation();
   const [localProfile, setLocalProfile] = useState({
   full_name: "", company: "", street: "", city: "", state: "", zip: "", country: "",
   avatar_url: "", five_account_enabled: false,
@@ -6132,9 +6174,9 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
 
           {/* Accessibility */}
           <div style={{ background: "#fff", borderRadius: 14, padding: 20, border: "1px solid #f1f5f9" }}>
-            <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 600, color: "#1a2332" }}>Accessibility</h3>
+            <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 600, color: "#1a2332" }}>{t('settings.accessibility', 'Accessibility')}</h3>
             <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>Header Size (px)</div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>{t('settings.headerSize', 'Header Size')} (px)</div>
               <input type="number" min={15} max={36} value={accHeaderSize}
                 onChange={e => {
                   const v = parseInt(e.target.value);
@@ -6144,13 +6186,13 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
                 }}
                 style={{ width: 80, padding: "5px 9px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none" }}
               />
-              {accHeaderSize < 15 && <span style={{ fontSize: 15, color: "#E85D75", marginLeft: 8 }}>Can't go lower than 15px</span>}
+              {accHeaderSize < 15 && <span style={{ fontSize: 15, color: "#E85D75", marginLeft: 8 }}>{t('settings.headerMinError', "Can't go lower than 15px")}</span>}
               <div style={{ marginTop: 8, fontSize: accHeaderSize, fontWeight: 700, color: "#1a2332" }}>
-                Preview Heading — {accHeaderSize}px
+                {t('settings.headerPreview', 'Preview Heading')} — {accHeaderSize}px
               </div>
             </div>
             <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>Minimum Body Text Size (px)</div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>{t('settings.bodyTextSize', 'Minimum Body Text Size')} (px)</div>
               <input type="number" min={11} max={24} value={accMinBody}
                 onChange={e => {
                   const v = parseInt(e.target.value);
@@ -6160,13 +6202,14 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
                 }}
                 style={{ width: 80, padding: "5px 9px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none" }}
               />
-              {accMinBody < 11 && <span style={{ fontSize: 15, color: "#E85D75", marginLeft: 8 }}>Can't go lower than 11px</span>}
+              {accMinBody < 11 && <span style={{ fontSize: 15, color: "#E85D75", marginLeft: 8 }}>{t('settings.bodyMinError', "Can't go lower than 11px")}</span>}
               <div style={{ marginTop: 8, fontSize: accMinBody, color: "#64748b" }}>
-                Preview body text — {accMinBody}px
+                {t('settings.bodyPreview', 'Preview body text')} — {accMinBody}px
               </div>
             </div>
+            <LanguageSelector />
             <div style={{ fontSize: 15, color: "#94a3b8", lineHeight: 1.5 }}>
-              Changes apply immediately.
+              {t('settings.changeApply', 'Changes apply immediately.')}
             </div>
           </div>
         </div>
@@ -7489,6 +7532,7 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
   tasks: Task[]; setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
   orgMembers: OrgMember[]; userEmail: string;
 }) {
+  const { t } = useTranslation();
   const orgDropdownRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const h = (e: MouseEvent) => { if (orgDropdownRef.current && !orgDropdownRef.current.contains(e.target as Node)) { if (showOrgDropdown) onToggleOrgDropdown(); } };
@@ -7539,11 +7583,11 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
           {!isMobile && <div onClick={onClose} style={{ position: "absolute", right: 0, width: 26, height: 26, borderRadius: "50%", border: "1.5px solid rgba(255,255,255,0.4)", background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#fff", fontSize: 15 }}>‹</div>}
         </div>
         <div style={{ textAlign: "center", width: "100%" }}>
-          <div style={{ fontSize: 15, fontWeight: 400, color: "#fff" }}>{firstName ? `Welcome ${firstName}` : "Welcome"}</div>
+          <div style={{ fontSize: 15, fontWeight: 400, color: "#fff" }}>{firstName ? `${t('common.welcome', 'Welcome')} ${firstName}` : t('common.welcome', 'Welcome')}</div>
           {/* Org switcher */}
           <div ref={orgDropdownRef} style={{ position: "relative", display: "inline-block", marginTop: 2 }}>
             <div onClick={onToggleOrgDropdown} style={{ fontSize: 15, fontWeight: 400, color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, opacity: 0.85 }}>
-              <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 160 }}>to {activeOrg?.isPersonal ? "your dashboard" : activeOrg?.name}</span>
+              <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 160 }}>{t('nav.to', 'to')} {activeOrg?.isPersonal ? t('nav.yourDashboard', 'your dashboard') : activeOrg?.name}</span>
               <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ flexShrink: 0, transform: showOrgDropdown ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>
                 <path d="M2 4L5 7L8 4" stroke="rgba(255,255,255,0.85)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
@@ -7575,8 +7619,8 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
                 color: "#fff", fontSize: 15, fontWeight: isActive ? 600 : 400,
                 transition: "all 0.15s", opacity: item.comingSoon ? 0.55 : 1 }}>
               <IconGlyph name={item.icon} size={21} color="#fff" />
-              <span style={{ whiteSpace: "nowrap" }}>{item.label}</span>
-              {item.comingSoon && <span style={{ fontSize: 15, padding: "1px 6px", borderRadius: 99, background: "rgba(255,255,255,0.2)", color: "rgba(255,255,255,0.7)", marginLeft: "auto", whiteSpace: "nowrap" }}>Soon</span>}
+              <span style={{ whiteSpace: "nowrap" }}>{t('nav.' + item.page, item.label)}</span>
+              {item.comingSoon && <span style={{ fontSize: 15, padding: "1px 6px", borderRadius: 99, background: "rgba(255,255,255,0.2)", color: "rgba(255,255,255,0.7)", marginLeft: "auto", whiteSpace: "nowrap" }}>{t('common.soon', 'Soon')}</span>}
             </div>
           );
         })}
@@ -7634,7 +7678,7 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
               style={{ width: "100%", padding: "5px 8px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box", marginBottom: 4 }} />
             <label style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 15, color: sidebarAddPriority ? "#F5A623" : "#94a3b8", cursor: "pointer", marginBottom: 4, alignSelf: "flex-start" }}>
               <input type="checkbox" checked={sidebarAddPriority} onChange={e => setSidebarAddPriority(e.target.checked)} style={{ accentColor: "#F5A623", margin: 0, width: 12, height: 12 }} />
-              {sidebarAddPriority ? "" : "Make priority?"}
+              {sidebarAddPriority ? "" : t('sidebar.makePriority', 'Make priority?')}
             </label>
             <div style={{ display: "flex", gap: 4, marginBottom: 4 }}>
               <select value={sidebarAddAssignee} onChange={e => setSidebarAddAssignee(e.target.value)}
@@ -7649,22 +7693,22 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
             </div>
             <div style={{ display: "flex", gap: 4 }}>
               <button onClick={sidebarAddTask} disabled={!sidebarAddText.trim()}
-                style={{ flex: 1, padding: "4px 0", borderRadius: 6, border: "none", background: sidebarAddText.trim() ? "#3B82F6" : "#e2e8f0", color: "#fff", fontSize: 15, fontWeight: 600, cursor: sidebarAddText.trim() ? "pointer" : "not-allowed" }}>Add</button>
-              <button onClick={() => setSidebarShowAdd(false)} style={{ flex: 1, padding: "4px 0", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+                style={{ flex: 1, padding: "4px 0", borderRadius: 6, border: "none", background: sidebarAddText.trim() ? "#3B82F6" : "#e2e8f0", color: "#fff", fontSize: 15, fontWeight: 600, cursor: sidebarAddText.trim() ? "pointer" : "not-allowed" }}>{t('common.add', 'Add')}</button>
+              <button onClick={() => setSidebarShowAdd(false)} style={{ flex: 1, padding: "4px 0", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>{t('common.cancel', 'Cancel')}</button>
             </div>
           </div>
         ) : (
           <div onClick={() => setSidebarShowAdd(true)} style={{ fontSize: 15, color: "#3B82F6", cursor: "pointer", fontWeight: 600, display: "flex", alignItems: "center", gap: 3 }}>
-            <span style={{ fontSize: 15 }}>+</span> Add New Task
+            <span style={{ fontSize: 15 }}>+</span> {t('sidebar.addNewTask', 'Add New Task')}
           </div>
         )}
       </div>
       <div style={{ padding: "14px 18px", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, flexShrink: 0 }}>
         <img src="https://dashello.co/wp-content/uploads/2023/08/White-Logo-Full.png" alt="Dashello" style={{ height: 26, objectFit: "contain", maxWidth: "80%" }} />
         {(currentUserLevel === "owner" || currentUserLevel === "admin") && (
-          <button onClick={onOpenInviteModal} style={{ width: "100%", padding: "10px 0", borderRadius: 12, border: "none", background: "#fff", color: "#3B82F6", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Invite Team Members</button>
+          <button onClick={onOpenInviteModal} style={{ width: "100%", padding: "10px 0", borderRadius: 12, border: "none", background: "#fff", color: "#3B82F6", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>{t('sidebar.inviteTeam', 'Invite Team Members')}</button>
         )}
-        <button onClick={() => supabase.auth.signOut()} style={{ width: "100%", padding: "10px 0", borderRadius: 12, border: "2px solid rgba(255,255,255,0.6)", background: "transparent", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Sign Out</button>
+        <button onClick={() => supabase.auth.signOut()} style={{ width: "100%", padding: "10px 0", borderRadius: 12, border: "2px solid rgba(255,255,255,0.6)", background: "transparent", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>{t('sidebar.signOut', 'Sign Out')}</button>
       </div>
       </div>
     </aside>
@@ -7874,6 +7918,7 @@ function BreadcrumbNav({ items, onNavigate }: {
 }
 
 export default function DashelloDashboard() {
+  const { t } = useTranslation();
   const [page, setPage] = useState<Page>(() => (localStorage.getItem("dashello_page") as Page) || "home");
   const [sections, setSections] = useState<Section[]>([]);
   const [activeModal, setActiveModal] = useState<{ data: MetricModalData; metric: Metric } | null>(null);
@@ -8841,7 +8886,7 @@ const sidebarEl = (
           <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
             {(page === "home" && !inlineView) || page === "goals" || page === "team" ? (
               <div style={{ display: "flex", borderRadius: 8, border: "1px solid #e2e8f0", overflow: "hidden" }}>
-                {["Row", page === "goals" ? "Expanded" : "Column"].map((lbl, i) => (
+                {[t('common.row', 'Row'), page === "goals" ? t('common.expanded', 'Expanded') : t('common.column', 'Column')].map((lbl, i) => (
                   <div key={lbl} onClick={() => { if (page === "goals") setGoalsViewMode(i === 0 ? "row" : "expanded"); if (page === "team") setTeamViewMode(i === 0 ? "row" : "expanded"); }}
                     style={{ padding: isMobile ? "8px 12px" : "5px 13px", fontSize: 15, fontWeight: 500, cursor: "pointer", userSelect: "none",
                       background: (page === "home" && i === 0) || (page === "goals" && ((i === 0 && goalsViewMode === "row") || (i === 1 && goalsViewMode === "expanded"))) || (page === "team" && ((i === 0 && teamViewMode === "row") || (i === 1 && teamViewMode === "expanded"))) ? "#3B82F6" : "#fff",
@@ -8891,8 +8936,8 @@ const sidebarEl = (
             </div>
           ) : (
             <>
-              <div onClick={() => setShowChat(v => !v)} style={{ padding: "6px 16px", borderRadius: 20, border: "1px solid #e2e8f0", fontSize: 15, color: "#64748b", cursor: "pointer", background: showChat ? "#EFF6FF" : "#fff", whiteSpace: "nowrap" }}>Chat</div>
-              <div onClick={() => setPage("integrations")} style={{ padding: "7px clamp(10px,2vw,20px)", borderRadius: 8, background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>Customize</div>
+              <div onClick={() => setShowChat(v => !v)} style={{ padding: "6px 16px", borderRadius: 20, border: "1px solid #e2e8f0", fontSize: 15, color: "#64748b", cursor: "pointer", background: showChat ? "#EFF6FF" : "#fff", whiteSpace: "nowrap" }}>{t('common.chat', 'Chat')}</div>
+              <div onClick={() => setPage("integrations")} style={{ padding: "7px clamp(10px,2vw,20px)", borderRadius: 8, background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>{t('common.customize', 'Customize')}</div>
             </>
           )}
         </div>
