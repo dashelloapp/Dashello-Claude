@@ -4348,6 +4348,16 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
     setTasks(prev => { const arr = [...prev]; const fi = arr.findIndex(t => t.id === from); const ti = arr.findIndex(t => t.id === targetId); if (fi === -1 || ti === -1) return prev; const [moved] = arr.splice(fi, 1); arr.splice(ti, 0, moved); return arr; });
     dragTaskRef.current = null; dragOverTaskRef.current = null;
   };
+  const handlePriorityZoneDrop = () => {
+    const from = dragTaskRef.current;
+    if (from) { setTasks(prev => prev.map(t => t.id === from ? { ...t, priority: true } : t)); }
+    dragTaskRef.current = null; dragOverTaskRef.current = null;
+  };
+  const handleRegularZoneDrop = () => {
+    const from = dragTaskRef.current;
+    if (from) { setTasks(prev => prev.map(t => t.id === from ? { ...t, priority: false } : t)); }
+    dragTaskRef.current = null; dragOverTaskRef.current = null;
+  };
   const myTasks = tasks.filter(t => t.assignedTo === userEmail);
   const priorityTasks = myTasks.filter(t => t.priority && !t.done);
   const nonPriority = myTasks.filter(t => !t.priority);
@@ -4357,10 +4367,14 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
   const totalCount = myTasks.length;
   const pct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
   const metricTabs = sections.flatMap(s => s.metrics.filter(m => myTasks.some(t => t.linkedMetricId === m.id)).map(m => ({ id: m.id, label: m.label, type: "metric" as const })));
-  const goalTabs = goals.filter(g => myTasks.some(t => t.linkedGoalId === g.id)).map(g => ({ id: g.id, label: g.label.length > 30 ? "Active Goals" : g.label, type: "goal" as const }));
-  const allTabs = [...metricTabs, ...goalTabs];
+  const hasGoalTasks = myTasks.some(t => t.linkedGoalId);
+  const allTabs = [...metricTabs, ...(hasGoalTasks ? [{ id: "goals", label: "Goals", type: "goal" as const }] : [])];
   const activeTab = taskTabFilter || "all";
-  const tabFiltered = taskTabFilter ? (taskTabFilter.startsWith("metric:") ? nonPriority.filter(t => t.linkedMetricId === taskTabFilter.replace("metric:", "")) : taskTabFilter.startsWith("goal:") ? nonPriority.filter(t => t.linkedGoalId === taskTabFilter.replace("goal:", "")) : nonPriority) : nonPriority;
+  const tabFiltered = taskTabFilter ? (
+    taskTabFilter === "goal:goals" ? nonPriority.filter(t => t.linkedGoalId) :
+    taskTabFilter.startsWith("metric:") ? nonPriority.filter(t => t.linkedMetricId === taskTabFilter.replace("metric:", "")) :
+    nonPriority
+  ) : nonPriority;
   const displayedTasks = taskFilter === "current" ? tabFiltered.filter(t => !t.done) : tabFiltered.filter(t => t.done);
 
   const handleInlineAdd = (e: React.KeyboardEvent) => {
@@ -4429,7 +4443,8 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
             )}
             {/* Priorities */}
             {priorityTasks.length > 0 && (
-              <div style={{ marginBottom: 12 }}>
+              <div style={{ marginBottom: 12 }}
+                onDragOver={e => e.preventDefault()} onDrop={handlePriorityZoneDrop}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: "#F5A623", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
                   <span>★ Priorities</span>
                   <span style={{ fontSize: 11, fontWeight: 500, color: "#94a3b8", background: "#f1f5f9", padding: "1px 8px", borderRadius: 99 }}>{priorityTasks.length}</span>
@@ -4442,8 +4457,8 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
                   return (
                     <div key={t.id} draggable onDragStart={() => handleTaskDragStart(t.id)} onDragEnter={() => handleTaskDragEnter(t.id)} onDragOver={e => e.preventDefault()} onDrop={() => handleTaskDrop(t.id)} onDragEnd={() => { dragTaskRef.current = null; dragOverTaskRef.current = null; }}
                       style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 8, background: isPastDue ? "#FEF2F2" : "#FFF8ED", border: isPastDue ? "1px solid #FECACA" : "1px solid #FDE68A", marginBottom: 6, fontSize: 15 }}>
-                      <div draggable onDragStart={e => { e.stopPropagation(); handleTaskDragStart(t.id); }}
-                        style={{ cursor: "grab", color: "#cbd5e1", fontSize: 13, lineHeight: 1, letterSpacing: 1, flexShrink: 0, userSelect: "none" }} title="Drag to reorder">⠿</div>
+                      <div style={{ cursor: "grab", color: "#cbd5e1", fontSize: 13, lineHeight: 1, letterSpacing: 1, flexShrink: 0, userSelect: "none" }} title="Drag to reorder">⠿</div>
+                      <div onClick={() => toggle(t.id)} style={{ width: 24, height: 24, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "2px solid #F5A623", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 13 }}>{t.done ? "✓" : ""}</div>
                       <div onClick={() => toggle(t.id)} style={{ width: 24, height: 24, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "2px solid #F5A623", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 13 }}>{t.done ? "✓" : ""}</div>
                       {isEditing ? (
                         <input value={editText} onChange={e => setEditText(e.target.value)}
@@ -4539,8 +4554,8 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
                 return (
                   <div key={t.id} draggable onDragStart={() => handleTaskDragStart(t.id)} onDragEnter={() => handleTaskDragEnter(t.id)} onDragOver={e => e.preventDefault()} onDrop={() => handleTaskDrop(t.id)} onDragEnd={() => { dragTaskRef.current = null; dragOverTaskRef.current = null; }}
                     style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8, background: t.done ? "#f8fafc" : isPastDue ? "#FEF2F2" : isDueToday ? "#EFF6FF" : "#fff", border: isPastDue && !t.done ? "1px solid #FECACA" : isDueToday && !t.done ? "1px solid #93C5FD" : "none", opacity: t.done ? 0.6 : 1 }}>
-                    <div draggable onDragStart={e => { e.stopPropagation(); handleTaskDragStart(t.id); }}
-                      style={{ cursor: "grab", color: "#cbd5e1", fontSize: 12, lineHeight: 1, letterSpacing: 1, flexShrink: 0, userSelect: "none" }} title="Drag to reorder">⠿</div>
+                    <div style={{ cursor: "grab", color: "#cbd5e1", fontSize: 12, lineHeight: 1, letterSpacing: 1, flexShrink: 0, userSelect: "none" }} title="Drag to reorder">⠿</div>
+                    <div onClick={() => toggle(t.id)} style={{ width: 20, height: 20, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 11 }}>{t.done ? "✓" : ""}</div>
                     {isEditing ? (
                       <input value={editText} onChange={e => setEditText(e.target.value)}
                         onBlur={() => { if (editText.trim()) setTasks(prev => prev.map(x => x.id === t.id ? { ...x, text: editText.trim() } : x)); setEditingTaskId(null); }}
@@ -4675,7 +4690,8 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
                   <div style={{ fontSize: 14, fontWeight: 700, color: "#1a2332" }}>{member.name || member.email.split("@")[0]}</div>
                 </div>
                 <div style={{ padding: "5px 14px", borderRadius: 20, fontSize: 12, fontWeight: 500, background: "#3B82F6", color: "#fff", display: "inline-block", marginBottom: 8 }}>Next Actions</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}
+              onDragOver={e => e.preventDefault()} onDrop={handleRegularZoneDrop}>
                   {memberTasks.slice(0, 3).map(t => {
                     const isDueToday = t.dueDate === todayStr;
                     return (
