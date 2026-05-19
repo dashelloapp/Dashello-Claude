@@ -7788,16 +7788,16 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
               <input type="checkbox" checked={sidebarAddPriority} onChange={e => setSidebarAddPriority(e.target.checked)} style={{ accentColor: "#F5A623", margin: 0, width: 12, height: 12 }} />
               {sidebarAddPriority ? "" : __('sidebar.makePriority', 'Make priority?')}
             </label>
-            <div style={{ display: "flex", gap: 4, marginBottom: 4 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 4 }}>
               <select value={sidebarAddAssignee} onChange={e => setSidebarAddAssignee(e.target.value)}
-                style={{ flex: 1, padding: "4px 6px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", background: "#fff" }}>
+                style={{ width: "100%", padding: "4px 6px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", background: "#fff", boxSizing: "border-box" }}>
                 <option value={userEmail}>Me</option>
                 {orgMembers.filter(m => m.status === "active" && m.email !== userEmail).map(m => (
                   <option key={m.id} value={m.email}>{m.name || m.email.split("@")[0]}</option>
                 ))}
               </select>
               <input type="date" value={sidebarAddDueDate} onChange={e => setSidebarAddDueDate(e.target.value)}
-                style={{ flex: 1, padding: "4px 6px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box" }} />
+                style={{ width: "100%", padding: "4px 6px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box" }} />
             </div>
             <div style={{ display: "flex", gap: 4 }}>
               <button onClick={sidebarAddTask} disabled={!sidebarAddText.trim()}
