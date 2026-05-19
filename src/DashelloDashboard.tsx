@@ -4299,7 +4299,7 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
   const [priorityAddText, setPriorityAddText] = useState("");
   const [taskTabFilter, setTaskTabFilter] = useState<string | null>(null);
   const dragTaskRef = useRef<string | null>(null);
-  const dragOverTaskRef = useRef<string | null>(null);
+  const [dragOverTaskId, setDragOverTaskId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const menuTriggerElRef = useRef<HTMLElement | null>(null);
   const [menuPos, setMenuPos] = useState<React.CSSProperties>({ position: "absolute", top: 28, right: 0, visibility: "hidden" });
@@ -4341,22 +4341,22 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
     return () => document.removeEventListener("keydown", h);
   }, [tasks]);
   const handleTaskDragStart = (id: string) => { dragTaskRef.current = id; };
-  const handleTaskDragEnter = (targetId: string) => { if (dragTaskRef.current && dragTaskRef.current !== targetId) dragOverTaskRef.current = targetId; };
+  const handleTaskDragEnter = (targetId: string) => { if (dragTaskRef.current && dragTaskRef.current !== targetId) setDragOverTaskId(targetId); };
   const handleTaskDrop = (targetId: string) => {
     const from = dragTaskRef.current;
-    if (!from || from === targetId) { dragTaskRef.current = null; dragOverTaskRef.current = null; return; }
+    if (!from || from === targetId) { dragTaskRef.current = null; setDragOverTaskId(null); return; }
     setTasks(prev => { const arr = [...prev]; const fi = arr.findIndex(t => t.id === from); const ti = arr.findIndex(t => t.id === targetId); if (fi === -1 || ti === -1) return prev; const [moved] = arr.splice(fi, 1); arr.splice(ti, 0, moved); return arr; });
-    dragTaskRef.current = null; dragOverTaskRef.current = null;
+    dragTaskRef.current = null; setDragOverTaskId(null);
   };
   const handlePriorityZoneDrop = () => {
     const from = dragTaskRef.current;
     if (from) { setTasks(prev => prev.map(t => t.id === from ? { ...t, priority: true } : t)); }
-    dragTaskRef.current = null; dragOverTaskRef.current = null;
+    dragTaskRef.current = null; setDragOverTaskId(null);
   };
   const handleRegularZoneDrop = () => {
     const from = dragTaskRef.current;
     if (from) { setTasks(prev => prev.map(t => t.id === from ? { ...t, priority: false } : t)); }
-    dragTaskRef.current = null; dragOverTaskRef.current = null;
+    dragTaskRef.current = null; setDragOverTaskId(null);
   };
   const myTasks = tasks.filter(t => t.assignedTo === userEmail);
   const priorityTasks = myTasks.filter(t => t.priority && !t.done);
@@ -4442,8 +4442,8 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
                   const isDueToday = t.dueDate === todayStr;
                   const isPastDue = !t.done && !!t.dueDate && t.dueDate < todayStr && !isDueToday;
                   return (
-                    <div key={t.id} draggable onDragStart={() => handleTaskDragStart(t.id)} onDragEnter={() => handleTaskDragEnter(t.id)} onDragOver={e => e.preventDefault()} onDrop={() => handleTaskDrop(t.id)} onDragEnd={() => { dragTaskRef.current = null; dragOverTaskRef.current = null; }}
-                      style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 8, background: isPastDue ? "#FEF2F2" : "#FFF8ED", border: isPastDue ? "1px solid #FECACA" : "1px solid #FDE68A", marginBottom: 6, fontSize: 15 }}>
+                    <div key={t.id} draggable onDragStart={() => handleTaskDragStart(t.id)} onDragEnter={() => handleTaskDragEnter(t.id)} onDragOver={e => e.preventDefault()} onDrop={() => handleTaskDrop(t.id)} onDragEnd={() => { dragTaskRef.current = null; setDragOverTaskId(null); }}
+                      style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 8, background: isPastDue ? "#FEF2F2" : "#FFF8ED", border: isPastDue && dragOverTaskId !== t.id ? "1px solid #FECACA" : dragOverTaskId === t.id ? "2px dashed #3B82F6" : "1px solid #FDE68A", marginBottom: 6, fontSize: 15 }}>
                       <div style={{ cursor: "grab", color: "#cbd5e1", fontSize: 13, lineHeight: 1, letterSpacing: 1, flexShrink: 0, userSelect: "none" }} title="Drag to reorder">⠿</div>
                       <div onClick={() => toggle(t.id)} style={{ width: 24, height: 24, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "2px solid #F5A623", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 13 }}>{t.done ? "✓" : ""}</div>
                       {isEditing ? (
@@ -4546,8 +4546,8 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
                 const isDueToday = t.dueDate === todayStr;
                 const isPastDue = !t.done && !!t.dueDate && t.dueDate < todayStr && !isDueToday;
                 return (
-                  <div key={t.id} draggable onDragStart={() => handleTaskDragStart(t.id)} onDragEnter={() => handleTaskDragEnter(t.id)} onDragOver={e => e.preventDefault()} onDrop={() => handleTaskDrop(t.id)} onDragEnd={() => { dragTaskRef.current = null; dragOverTaskRef.current = null; }}
-                    style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8, background: t.done ? "#f8fafc" : isPastDue ? "#FEF2F2" : isDueToday ? "#EFF6FF" : "#fff", border: isPastDue && !t.done ? "1px solid #FECACA" : isDueToday && !t.done ? "1px solid #93C5FD" : "none", opacity: t.done ? 0.6 : 1 }}>
+                  <div key={t.id} draggable onDragStart={() => handleTaskDragStart(t.id)} onDragEnter={() => handleTaskDragEnter(t.id)} onDragOver={e => e.preventDefault()} onDrop={() => handleTaskDrop(t.id)} onDragEnd={() => { dragTaskRef.current = null; setDragOverTaskId(null); }}
+                    style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8, background: t.done ? "#f8fafc" : isPastDue ? "#FEF2F2" : isDueToday ? "#EFF6FF" : "#fff", border: dragOverTaskId === t.id ? "2px dashed #3B82F6" : isPastDue && !t.done ? "1px solid #FECACA" : isDueToday && !t.done ? "1px solid #93C5FD" : "none", opacity: t.done ? 0.6 : 1 }}>
                     <div style={{ cursor: "grab", color: "#cbd5e1", fontSize: 12, lineHeight: 1, letterSpacing: 1, flexShrink: 0, userSelect: "none" }} title="Drag to reorder">⠿</div>
                     <div onClick={() => toggle(t.id)} style={{ width: 20, height: 20, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 11 }}>{t.done ? "✓" : ""}</div>
                     {isEditing ? (
