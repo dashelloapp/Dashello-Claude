@@ -868,6 +868,10 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
       const saved = await loadUserData("playbooks", userId);
       if (saved && Array.isArray(saved) && saved.length > 0) {
         setRows(saved);
+      } else {
+        const defaultRow = { id: crypto.randomUUID(), title: "Playbooks", items: [] };
+        setRows([defaultRow]);
+        if (userId) await saveUserData("playbooks", userId, [defaultRow]);
       }
       setLoading(false);
       // Check if we should seed demo data (triggered by hash or initial load with no playbooks)

@@ -75,8 +75,8 @@ function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-function applyAccessibilitySettings(headerSize: string, minBody: number) {
-  const headerScale = headerSize === "xl" ? 1.25 : headerSize === "large" ? 1.125 : 1;
+function applyAccessibilitySettings(headerSize: number, minBody: number) {
+  const headerScale = headerSize / 15;
   document.documentElement.style.setProperty("--acc-min-fs", minBody + "px");
   document.documentElement.style.setProperty("--acc-header-scale", String(headerScale));
   const appEl = document.getElementById("app-container");
@@ -5078,42 +5078,44 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
                       </div>
                       {isExpanded && (
                         <>
-                          <div style={{ fontSize: 15, color: "#475569", textAlign: "center", width: "100%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                            {member.email}
+                          <div style={{ textAlign: "left", width: "100%", background: "#fff", borderRadius: 10, padding: "10px 10px", marginBottom: 4 }}>
+                            <div style={{ fontSize: 15, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Access</div>
+                            <div style={{ fontSize: 15, color: "#1a2332", marginBottom: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                              <strong>Rows:</strong> {allowedSections.length > 0 ? allowedSections.map(s => s.title).join(", ") : "None"}
+                            </div>
+                            <div style={{ fontSize: 15, color: "#1a2332", marginBottom: 2 }}>
+                              <strong>Metrics:</strong> {metricCount}
+                            </div>
+                            {(() => {
+                              const pageList = [
+                                { id: "home", label: "Home" },
+                                { id: "goals", label: "Goals" },
+                                { id: "tasks", label: "Tasks" },
+                                { id: "integrations", label: "Integrations" },
+                                { id: "team", label: "Team" },
+                                { id: "settings", label: "Settings" },
+                                { id: "playbooks", label: "Playbooks" },
+                              ];
+                              const hidden = menuPermissions[member.level] || [];
+                              const accessible = pageList.filter(p => !hidden.includes(p.id) && !(member.level === "viewer" && (p.id === "integrations" || p.id === "team"))).map(p => p.label);
+                              return (
+                                <div style={{ fontSize: 15, color: "#1a2332", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                  <strong>Pages:</strong> {accessible.length > 0 ? accessible.join(", ") : "None"}
+                                </div>
+                              );
+                            })()}
                           </div>
-                          <div style={{ fontSize: 15, color: "#334155", textAlign: "center", width: "100%" }}>
-                            {allowedSections.length} rows - {metricCount} boxes
-                          </div>
-                          {(() => {
-                            const pageList = [
-                              { id: "home", label: "Home" },
-                              { id: "goals", label: "Goals" },
-                              { id: "tasks", label: "Tasks" },
-                              { id: "integrations", label: "Integrations" },
-                              { id: "team", label: "Team" },
-                              { id: "settings", label: "Settings" },
-                              { id: "playbooks", label: "Playbooks" },
-                            ];
-                            const hidden = menuPermissions[member.level] || [];
-                            const accessible = pageList.filter(p => !hidden.includes(p.id) && !(member.level === "viewer" && (p.id === "integrations" || p.id === "team"))).map(p => p.label);
-                            return (
-                              <div style={{ fontSize: 15, color: "#475569", textAlign: "center", width: "100%" }}>
-                                {accessible.join(" · ") || "No pages"}
-                              </div>
-                            );
-                          })()}
                           {memberPriorityTasks.length > 0 && (
-                            <div style={{ width: "100%" }}>
-                              <div style={{ fontSize: 15, color: "#F5A623", fontWeight: 600, marginBottom: 4, textAlign: "center" }}>
-                                Priority Tasks
-                              </div>
+                            <div style={{ width: "100%", background: "#fff", borderRadius: 10, padding: "10px 10px" }}>
+                              <div style={{ fontSize: 15, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Priorities</div>
                               {memberPriorityTasks.slice(0, 3).map(t => (
-                                <div key={t.id} style={{ fontSize: 15, color: "#1a2332", textAlign: "center", width: "100%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.3 }}>
-                                  {t.text}
+                                <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                                  <span style={{ width: 14, height: 14, borderRadius: "50%", flexShrink: 0, border: "1.5px solid #d1d5db", background: "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 15 }} />
+                                  <span style={{ fontSize: 15, color: "#1a2332", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{t.text}</span>
                                 </div>
                               ))}
                               {memberPriorityTasks.length > 3 && (
-                                <div style={{ fontSize: 15, color: "#94a3b8", textAlign: "center", width: "100%" }}>
+                                <div style={{ fontSize: 15, color: "#94a3b8", textAlign: "left", width: "100%" }}>
                                   +{memberPriorityTasks.length - 3} more
                                 </div>
                               )}
@@ -5808,10 +5810,10 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
   const [uploading, setUploading] = useState(false);
   const [fiveAccountConfirm, setFiveAccountConfirm] = useState(false);
   const [timezoneSearch, setTimezoneSearch] = useState("");
-  const [accHeaderSize, setAccHeaderSize] = useState(() => localStorage.getItem("acc_header_size") || "default");
-  const [accMinBody, setAccMinBody] = useState<number>(() => parseInt(localStorage.getItem("acc_min_body") || "15") || 15);
+  const [accHeaderSize, setAccHeaderSize] = useState<number>(() => parseInt(localStorage.getItem("acc_header_size") || "15") || 15);
+  const [accMinBody, setAccMinBody] = useState<number>(() => parseInt(localStorage.getItem("acc_min_body") || "11") || 11);
   useEffect(() => {
-    localStorage.setItem("acc_header_size", accHeaderSize);
+    localStorage.setItem("acc_header_size", String(accHeaderSize));
     localStorage.setItem("acc_min_body", String(accMinBody));
     applyAccessibilitySettings(accHeaderSize, accMinBody);
   }, [accHeaderSize, accMinBody]);
@@ -6132,29 +6134,39 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
           <div style={{ background: "#fff", borderRadius: 14, padding: 20, border: "1px solid #f1f5f9" }}>
             <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 600, color: "#1a2332" }}>Accessibility</h3>
             <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>Header Size</div>
-              <div style={{ display: "flex", gap: 8 }}>
-                {["default","large","xl"].map(s => (
-                  <label key={s} style={{ display: "flex", alignItems: "center", gap: 4, padding: "6px 12px", borderRadius: 8, cursor: "pointer", background: accHeaderSize === s ? "#EFF6FF" : "#F8FAFC", border: accHeaderSize === s ? "1.5px solid #3B82F6" : "1.5px solid #e2e8f0", fontSize: 15, color: accHeaderSize === s ? "#3B82F6" : "#64748b" }}>
-                    <input type="radio" name="accHeaderSize" checked={accHeaderSize === s} onChange={() => setAccHeaderSize(s)} style={{ accentColor: "#3B82F6", margin: 0 }} />
-                    {s === "default" ? "Default" : s === "large" ? "Large" : "Extra Large"}
-                  </label>
-                ))}
+              <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>Header Size (px)</div>
+              <input type="number" min={15} max={36} value={accHeaderSize}
+                onChange={e => {
+                  const v = parseInt(e.target.value);
+                  if (isNaN(v)) return;
+                  if (v < 15) setAccHeaderSize(15);
+                  else setAccHeaderSize(Math.min(v, 36));
+                }}
+                style={{ width: 80, padding: "5px 9px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none" }}
+              />
+              {accHeaderSize < 15 && <span style={{ fontSize: 15, color: "#E85D75", marginLeft: 8 }}>Can't go lower than 15px</span>}
+              <div style={{ marginTop: 8, fontSize: accHeaderSize, fontWeight: 700, color: "#1a2332" }}>
+                Preview Heading — {accHeaderSize}px
               </div>
             </div>
             <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>Minimum Body Text Size</div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {[15,16,17,18,20,22,24].map(v => (
-                  <label key={v} style={{ display: "flex", alignItems: "center", gap: 4, padding: "6px 10px", borderRadius: 8, cursor: "pointer", background: accMinBody === v ? "#EFF6FF" : "#F8FAFC", border: accMinBody === v ? "1.5px solid #3B82F6" : "1.5px solid #e2e8f0", fontSize: 15, color: accMinBody === v ? "#3B82F6" : "#64748b" }}>
-                    <input type="radio" name="accMinBody" checked={accMinBody === v} onChange={() => setAccMinBody(v)} style={{ accentColor: "#3B82F6", margin: 0 }} />
-                    {v}px
-                  </label>
-                ))}
+              <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>Minimum Body Text Size (px)</div>
+              <input type="number" min={11} max={24} value={accMinBody}
+                onChange={e => {
+                  const v = parseInt(e.target.value);
+                  if (isNaN(v)) return;
+                  if (v < 11) setAccMinBody(11);
+                  else setAccMinBody(Math.min(v, 24));
+                }}
+                style={{ width: 80, padding: "5px 9px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none" }}
+              />
+              {accMinBody < 11 && <span style={{ fontSize: 15, color: "#E85D75", marginLeft: 8 }}>Can't go lower than 11px</span>}
+              <div style={{ marginTop: 8, fontSize: accMinBody, color: "#64748b" }}>
+                Preview body text — {accMinBody}px
               </div>
             </div>
             <div style={{ fontSize: 15, color: "#94a3b8", lineHeight: 1.5 }}>
-              Changes apply immediately. Use the Default option to reset.
+              Changes apply immediately.
             </div>
           </div>
         </div>
@@ -7867,8 +7879,8 @@ export default function DashelloDashboard() {
   const [activeModal, setActiveModal] = useState<{ data: MetricModalData; metric: Metric } | null>(null);
   useEffect(() => { localStorage.setItem("dashello_page", page); }, [page]);
   useEffect(() => {
-    const hdr = localStorage.getItem("acc_header_size") || "default";
-    const body = parseInt(localStorage.getItem("acc_min_body") || "15") || 15;
+    const hdr = parseInt(localStorage.getItem("acc_header_size") || "15") || 15;
+    const body = parseInt(localStorage.getItem("acc_min_body") || "11") || 11;
     applyAccessibilitySettings(hdr, body);
   }, []);
   const [editingMetricFromModal, setEditingMetricFromModal] = useState<Metric | null>(null);
