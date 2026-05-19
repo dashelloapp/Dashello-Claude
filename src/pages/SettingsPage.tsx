@@ -152,13 +152,16 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
               <button onClick={() => fileRef.current?.click()} style={{ fontSize: 15, color: "#3B82F6", background: "none", border: "none", cursor: "pointer", padding: 0 }}>{uploading ? "Uploading..." : "Change photo"}</button>
             </div>
           </div>
+          {activeOrg && !activeOrg.isPersonal && (
+            <div style={{ background: "#fff", borderRadius: 14, padding: 22, border: "1px solid #f1f5f9", marginBottom: 20 }}>
+              <h3 style={{ margin: "0 0 12px", fontSize: 15, fontWeight: 600, color: "#1a2332" }}>Dashboard</h3>
+              <ProfileField label="Dashboard Name" value={orgName} onChange={v => { setOrgName(v); setDirtyBoth(true); }} />
+            </div>
+          )}
           <h3 style={{ margin: "0 0 12px", fontSize: 15, fontWeight: 600, color: "#1a2332" }}>Account</h3>
           <ProfileField label="Full Name" value={localProfile.full_name} onChange={v => { setLocalProfile(p => ({ ...p, full_name: v })); setDirtyBoth(true); }} />
           <ProfileField label="Email" value={userEmail} disabled />
           <ProfileField label="Company" value={localProfile.company} onChange={currentUserLevel === "owner" || !currentUserLevel ? v => { setLocalProfile(p => ({ ...p, company: v })); setDirtyBoth(true); } : undefined} disabled={currentUserLevel !== "owner" && currentUserLevel !== undefined} />
-          {activeOrg && !activeOrg.isPersonal && (
-            <ProfileField label="Dashboard Name" value={orgName} onChange={v => { setOrgName(v); setDirtyBoth(true); }} />
-          )}
             <div style={{ position: "relative" }}>
               <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>{__('common.timezone', 'Timezone')}</div>
               <input value={localProfile.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone} onChange={e => { setLocalProfile(p => ({ ...p, timezone: e.target.value })); setTimezoneSearch(e.target.value); setDirtyBoth(true); }}
