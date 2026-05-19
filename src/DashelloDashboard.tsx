@@ -2763,12 +2763,12 @@ const sidebarEl = (
               </div>
             );
           })()}
-          {!["home","goals","tasks","integrations","app-detail","team","settings","playbooks","equation-builder"].includes(page) && (
+          {!["home","goals","tasks","decisions","integrations","app-detail","team","settings","playbooks","equation-builder"].includes(page) && (
             <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 48 }}>
               <div style={{ fontSize: 72, fontWeight: 800, color: "#e2e8f0", marginBottom: 8 }}>404</div>
               <div style={{ fontSize: 18, color: "#64748b", marginBottom: 24 }}>{__('common.somethingWrong', "Something isn't quite right.")}</div>
-              <button onClick={() => window.history.back()} style={{ padding: "10px 24px", borderRadius: 10, border: "none", background: "#3B82F6", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>
-                Go to previous page
+              <button onClick={() => setPage("home")} style={{ padding: "10px 24px", borderRadius: 10, border: "none", background: "#3B82F6", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>
+                Go to home page
               </button>
             </div>
           )}
