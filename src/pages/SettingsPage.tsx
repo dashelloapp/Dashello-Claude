@@ -332,7 +332,7 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
                       const isHidden = hidden.includes(item);
                       const forcedOff = level === "viewer" && (item === "integrations" || item === "team");
                       return (
-                        <label key={item} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 6, background: forcedOff ? "#f1f5f9" : isHidden ? "#fff5f5" : "#F0FDF4", border: forcedOff ? "1px solid #e2e8f0" : isHidden ? "1px solid #fecaca" : "1px solid #c3e6d4", fontSize: 15, color: forcedOff ? "#94a3b8" : isHidden ? "#E85D75" : "#0F6E56", cursor: forcedOff ? "not-allowed" : "pointer", userSelect: "none", opacity: forcedOff ? 0.5 : 1 }}>
+                        <label key={item} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 6, background: forcedOff ? "#f1f5f9" : isHidden ? "#F8FAFC" : "#F0FDF4", border: forcedOff ? "1px solid #e2e8f0" : isHidden ? "1px solid #e2e8f0" : "1px solid #c3e6d4", fontSize: 15, color: forcedOff ? "#94a3b8" : isHidden ? "#64748b" : "#0F6E56", cursor: forcedOff ? "not-allowed" : "pointer", userSelect: "none", opacity: forcedOff ? 0.5 : 1 }}>
                           <input type="checkbox" checked={!forcedOff && !isHidden} disabled={forcedOff}
                             onChange={() => {
                               const next = isHidden ? hidden.filter(h => h !== item) : [...hidden, item];
