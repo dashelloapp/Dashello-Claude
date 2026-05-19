@@ -4,7 +4,7 @@ import AuthScreen from './components/AuthScreen'
 import DashelloDashboard from './DashelloDashboard'
 import { TranslationProvider } from './i18n'
 
-function DashelloLoader({ color = '#ffffff', size = 80 }: { color?: string; size?: number }) {
+function DashelloLoader({ color = '#fafafa', size = 80 }: { color?: string; size?: number }) {
   const s = size / 321;
   const dots = [
     { w: 16.2*s, h: 15.2*s, ml: 0 },
@@ -19,7 +19,7 @@ function DashelloLoader({ color = '#ffffff', size = 80 }: { color?: string; size
           marginLeft: d.ml,
           borderRadius: '50%',
           background: color,
-          animation: `dashPop${i+1} 1.5s cubic-bezier(0.34,1.56,0.64,1) infinite`,
+          animation: `dashPop${i+1} 2.4s cubic-bezier(0.34,1.56,0.64,1) infinite`,
         }} />
       ))}
     </div>
