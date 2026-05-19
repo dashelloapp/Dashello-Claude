@@ -6314,7 +6314,7 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
               if (!error) { onProfileSaved({ ...localProfile }); applyAccessibilitySettings(localProfile.acc_header_size, localProfile.acc_min_body, localProfile.acc_subheading_size); setSaved(true); setDirtyBoth(false); setTimeout(() => window.location.reload(), 800); }
               setSaving(false);
             }} disabled={saving}
-            style={{ padding: "12px 48px", borderRadius: 8, border: "none", background: saved ? "#4CAF7D" : dirty ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0", color: "#fff", fontSize: 15, fontWeight: 600, cursor: dirty && !saving ? "pointer" : "default" }}>
+            style={{ padding: "12px 48px", borderRadius: 8, border: "none", background: dirty ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0", color: "#fff", fontSize: 15, fontWeight: 600, cursor: dirty && !saving ? "pointer" : "default" }}>
             {saving ? "Saving..." : saved ? "✓ Saved!" : dirty ? "Save All Changes" : "All settings saved"}
           </button>
         </div>
