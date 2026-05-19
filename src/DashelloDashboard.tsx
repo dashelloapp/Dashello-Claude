@@ -106,6 +106,7 @@ function DashelloLoader({ color = '#fafafa', size = 80 }: { color?: string; size
           marginLeft: d.ml,
           borderRadius: '50%',
           background: color,
+          transformOrigin: 'bottom center',
           animation: `dashPop${i+1} 2.4s cubic-bezier(0.34,1.56,0.64,1) infinite`,
         }} />
       ))}
@@ -2510,7 +2511,7 @@ const sidebarEl = (
 
   if (!dbReady) return (
     <div style={{ display: "flex", height: "100vh", alignItems: "center", justifyContent: "center", background: "linear-gradient(160deg,#2196F3 0%,#00BCD4 100%)" }}>
-      <DashelloLoader size={180} />
+      <DashelloLoader size={240} />
     </div>
   );
 
