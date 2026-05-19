@@ -255,8 +255,8 @@ function AddTeamModal({ orgId, orgs, setOrgs, orgMembers, setOrgMembers, teamRow
         {error && <div style={{ marginBottom: 10, padding: "8px 12px", background: "#fef2f2", borderRadius: 8, fontSize: 15, color: "#dc2626" }}>{error}</div>}
 
         {success.length > 0 && (
-          <div style={{ marginBottom: 10, padding: "8px 12px", background: "#f0fdf4", borderRadius: 8, fontSize: 15, color: "#15803d" }}>
-            Invited: {success.join(", ")}
+          <div style={{ marginBottom: 10, padding: "8px 12px", background: "#f0fdf4", borderRadius: 8, fontSize: 15, color: "#15803d", display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 16 }}>✓</span> Invitation{success.length > 1 ? "s" : ""} sent to {success.join(", ")}
           </div>
         )}
 

@@ -70,7 +70,6 @@ async function inviteTeamMember(email: string, orgId: string, level: OrgPermissi
         const ctx = res.error.context;
         if (ctx && typeof ctx.text === "function") {
           const bodyText = await ctx.text();
-          console.error("invite-member raw response body:", bodyText);
           try {
             const parsed = JSON.parse(bodyText);
             if (parsed?.error) msg = parsed.error;
@@ -82,13 +81,34 @@ async function inviteTeamMember(email: string, orgId: string, level: OrgPermissi
         console.error("invite-member error parsing failed:", e);
       }
       console.error("invite-member error:", msg);
+      if (msg.includes("Failed to reach") || msg.includes("not found") || msg.includes("404")) {
+        throw new Error("EDGE_FUNCTION_UNAVAILABLE");
+      }
       throw new Error(msg);
     }
     return res.data;
   } catch (err: any) {
-    console.error("inviteTeamMember failed:", err);
-    throw new Error(err.message || "Failed to reach the invite service. Make sure the edge function is deployed.");
+    if (err.message === "EDGE_FUNCTION_UNAVAILABLE") {
+      // Edge function not deployed — fall through to magic link
+    } else {
+      throw err;
+    }
   }
+  
+  // Fallback: Send magic link via signInWithOtp
+  const { error: otpError } = await supabase.auth.signInWithOtp({
+    email,
+    options: {
+      emailRedirectTo: "https://app.dashello.co",
+      data: { org_name: orgName || "Dashello", invited_by: invitedByName },
+    },
+  });
+  if (otpError) {
+    console.error("signInWithOtp error:", otpError);
+    throw new Error(otpError.message || "Failed to send invitation email.");
+  }
+  
+  return { sent: true, method: "magic-link" };
 }
 
 function DashelloLoader({ color = '#fafafa', size = 80 }: { color?: string; size?: number }) {
