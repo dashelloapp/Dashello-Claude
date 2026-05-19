@@ -3941,7 +3941,7 @@ function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
           {/* Connections in preview */}
           {favoriteOption.connections.length > 0 && (
             <div style={{ marginBottom: 12, padding: 8, background: "#fff", borderRadius: 8, border: "1px solid #e2e8f0" }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>Connected Pairs</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>Trade-offs</div>
               {favoriteOption.connections.map((conn, ci) => (
                 <div key={ci} style={{ fontSize: 13, color: "#475569", display: "flex", gap: 6, alignItems: "center", padding: "2px 0" }}>
                   <span style={{ color: "#4CAF7D" }}>+ {favoriteOption.pros[conn.proIndex] || "(empty)"}</span>
