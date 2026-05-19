@@ -244,22 +244,34 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
                   const isExpanded = teamViewMode === "expanded";
                   return (
                     <div key={member.id}
+                      onClick={() => { if (!isExpanded) setMemberDetail(member); }}
                       style={{
-                        width: 320, borderRadius: 20, background: "#fff",
-                        padding: "24px 20px", display: "flex", flexDirection: "column",
-                        alignItems: "center", gap: 10, flexShrink: 0, position: "relative",
+                        width: isExpanded ? 320 : 160, borderRadius: isExpanded ? 20 : 14,
+                        background: "#fff", padding: isExpanded ? "24px 20px" : "16px 12px",
+                        display: "flex", flexDirection: "column",
+                        alignItems: "center", gap: isExpanded ? 10 : 6, flexShrink: 0,
+                        position: "relative", cursor: isExpanded ? "default" : "pointer",
                         boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+                        transition: "transform 0.15s, box-shadow 0.15s",
                       }}
+                      onMouseEnter={e => { if (!isExpanded) { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = "0 10px 28px rgba(0,0,0,0.15)"; } }}
+                      onMouseLeave={e => { if (!isExpanded) { e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.06)"; } }}
                     >
-                      <div style={{ fontSize: 15, fontWeight: 600, color: "#3B82F6", textTransform: "capitalize", marginBottom: 4 }}>
+                      <div style={{ fontSize: isExpanded ? 15 : 13, fontWeight: 600, color: "#3B82F6", textTransform: "capitalize", marginBottom: isExpanded ? 4 : 0 }}>
                         {isOwner ? "Owner" : member.level}
                       </div>
                       {member.avatarUrl ? (
-                        <img src={member.avatarUrl} alt="" style={{ width: 64, height: 64, borderRadius: "50%", objectFit: "cover", margin: "0 auto", display: "block" }} />
+                        <img src={member.avatarUrl} alt="" style={{ width: isExpanded ? 64 : 48, height: isExpanded ? 64 : 48, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
                       ) : (
-                        <div style={{ width: 64, height: 64, borderRadius: "50%", background: cardBgColor, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, fontWeight: 700, color: "#fff", margin: "0 auto" }}>
+                        <div style={{ width: isExpanded ? 64 : 48, height: isExpanded ? 64 : 48, borderRadius: "50%", background: cardBgColor, display: "flex", alignItems: "center", justifyContent: "center", fontSize: isExpanded ? 26 : 18, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
                           {(member.name?.[0] || member.email[0] || "?").toUpperCase()}
                         </div>
+                      )}
+                      <div style={{ fontSize: isExpanded ? 18 : 14, fontWeight: 700, color: "#1a2332", textAlign: "center", width: "100%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {capitalize(member.name) || member.email.split("@")[0]}
+                      </div>
+                      {isSelf && (
+                        <div style={{ background: "#334155", borderRadius: 99, padding: "2px 8px", fontSize: isExpanded ? 15 : 12, fontWeight: 700, color: "#fff" }}>YOU</div>
                       )}
                       <div style={{ fontSize: 18, fontWeight: 700, color: "#1a2332", textAlign: "center" }}>
                         {capitalize(member.name) || member.email.split("@")[0]}
@@ -314,20 +326,24 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
 
                 {pendingInTeam.map(member => (
                   <div key={member.id}
+                    onClick={() => setMemberDetail(member)}
                     style={{
-                      width: 140, minHeight: 140, borderRadius: 16,
-                      padding: "14px 10px", display: "flex", flexDirection: "column",
-                      alignItems: "center", justifyContent: "center", gap: 8,
+                      width: 160, borderRadius: 14,
+                      padding: "16px 12px", display: "flex", flexDirection: "column",
+                      alignItems: "center", justifyContent: "center", gap: 6,
                       flexShrink: 0, background: "#f8fafc", border: "2px dashed #e2e8f0",
+                      cursor: "pointer", transition: "transform 0.15s, box-shadow 0.15s",
                     }}
+                    onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = "0 10px 28px rgba(0,0,0,0.15)"; }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.06)"; }}
                   >
-                    <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 700, color: "#94a3b8" }}>
+                    <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 700, color: "#94a3b8" }}>
                       {(member.email[0] || "?").toUpperCase()}
                     </div>
-                    <div style={{ fontSize: 15, fontWeight: 600, color: "#94a3b8", textAlign: "center", width: "100%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "#94a3b8", textAlign: "center", width: "100%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                       {member.email.split("@")[0]}
                     </div>
-                    <div style={{ fontSize: 15, color: "#94a3b8" }}>{__('common.pending', 'Pending')}</div>
+                    <div style={{ fontSize: 13, color: "#94a3b8" }}>{__('common.pending', 'Pending')}</div>
                     {isManager && (
                       <div onClick={(e) => { e.stopPropagation(); handleResendInvite(member); }}
                         style={{ fontSize: 15, color: "#3B82F6", cursor: "pointer", fontWeight: 600 }}>
