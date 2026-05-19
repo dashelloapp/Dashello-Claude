@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, Fragment } from "react";
-import { FiveAccountSettings, FiveAccountMode, OrgPermissionLevel, Metric, Section } from "../types";
+import { FiveAccountSettings, FiveAccountMode, OrgPermissionLevel, Metric, Section, Org } from "../types";
 import { IconGlyph, Av, Toggle, SectionCard, LanguageSelector } from "../components/shared";
 import { FIVE_DESC, FIVE_EQUATION_POINTS, FIVE_ACCOUNT_LABELS, WORLD_CURRENCIES, DEFAULT_FIVE_ACCOUNT_SETTINGS } from "../utils/constants";
 import { runFiveAccountEquation, syncSettingsToMetrics, makeFiveAccountMetric, applyAccessibilitySettings } from "../utils/equations";
@@ -16,7 +16,7 @@ function ProfileField({ label, value, onChange, disabled }: { label: string; val
   );
 }
 
-function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisableFiveAccount, onForceDisableAcknowledged, onProfileSaved, onFiveAccountCreated, onFiveAccountDisabled, fiveAccountSettings, onFiveAccountSettingsChange, currentUserLevel }: {
+function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisableFiveAccount, onForceDisableAcknowledged, onProfileSaved, onFiveAccountCreated, onFiveAccountDisabled, fiveAccountSettings, onFiveAccountSettingsChange, currentUserLevel, activeOrg, onRenameOrg }: {
   userId: string; userEmail: string; profile: any;
   forceDisableFiveAccount?: boolean;
   onForceDisableAcknowledged?: () => void;
@@ -26,6 +26,7 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
   fiveAccountSettings: FiveAccountSettings;
   onFiveAccountSettingsChange: (s: FiveAccountSettings) => void;
   currentUserLevel?: OrgPermissionLevel;
+  activeOrg?: Org | null; onRenameOrg?: (orgId: string, newName: string) => Promise<void>;
 }) {
   const { t: __ } = useTranslation();
   const [localProfile, setLocalProfile] = useState({
@@ -49,6 +50,7 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
   const [uploading, setUploading] = useState(false);
   const [fiveAccountConfirm, setFiveAccountConfirm] = useState(false);
   const [timezoneSearch, setTimezoneSearch] = useState("");
+  const [orgName, setOrgName] = useState(activeOrg?.name || "");
   useEffect(() => {
     const h = (e: BeforeUnloadEvent) => { if (dirtyRef.current) e.preventDefault(); };
     window.addEventListener("beforeunload", h);
@@ -154,6 +156,9 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
           <ProfileField label="Full Name" value={localProfile.full_name} onChange={v => { setLocalProfile(p => ({ ...p, full_name: v })); setDirtyBoth(true); }} />
           <ProfileField label="Email" value={userEmail} disabled />
           <ProfileField label="Company" value={localProfile.company} onChange={currentUserLevel === "owner" || !currentUserLevel ? v => { setLocalProfile(p => ({ ...p, company: v })); setDirtyBoth(true); } : undefined} disabled={currentUserLevel !== "owner" && currentUserLevel !== undefined} />
+          {activeOrg && !activeOrg.isPersonal && (
+            <ProfileField label="Dashboard Name" value={orgName} onChange={v => { setOrgName(v); setDirtyBoth(true); }} />
+          )}
             <div style={{ position: "relative" }}>
               <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>{__('common.timezone', 'Timezone')}</div>
               <input value={localProfile.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone} onChange={e => { setLocalProfile(p => ({ ...p, timezone: e.target.value })); setTimezoneSearch(e.target.value); setDirtyBoth(true); }}
@@ -407,6 +412,9 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
               setSaving(true);
               const { error } = await supabase.from("profiles").upsert({ id: userId, ...localProfile, updated_at: new Date().toISOString() });
               if (!error) { onProfileSaved({ ...localProfile }); applyAccessibilitySettings(localProfile.acc_header_size, localProfile.acc_min_body, localProfile.acc_subheading_size); setSaved(true); setDirtyBoth(false); }
+              if (activeOrg && !activeOrg.isPersonal && orgName.trim() && orgName !== activeOrg.name && onRenameOrg) {
+                await onRenameOrg(activeOrg.id, orgName.trim());
+              }
               setSaving(false);
             }} disabled={saving}
             style={{ padding: "12px 48px", borderRadius: 8, border: "none", background: saved ? "#4CAF7D" : dirty ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0", color: "#fff", fontSize: 15, fontWeight: 600, cursor: dirty && !saving ? "pointer" : "default" }}>
