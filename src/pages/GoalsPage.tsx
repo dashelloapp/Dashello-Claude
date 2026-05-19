@@ -571,10 +571,10 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
           </div>
         </div>
         <div style={{ display: "flex", gap: 6 }}>
-          <button onClick={() => handleRestoreDecision(sd)} style={{
-            padding: "5px 12px", borderRadius: 6, border: "none", background: "#EFF6FF",
-            fontSize: 13, cursor: "pointer", color: "#3B82F6", fontWeight: 600,
-          }}>Open</button>
+                    <button onClick={() => handleRestoreDecision(sd)} style={{
+                      padding: "5px 12px", borderRadius: 6, border: "none", background: "#EFF6FF",
+                      fontSize: 13, cursor: "pointer", color: "#3B82F6", fontWeight: 600,
+                    }}>Edit</button>
           <button onClick={() => handleDeleteSaved(sd.id)} style={{
             padding: "5px 8px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff",
             fontSize: 13, cursor: "pointer", color: "#94a3b8",
@@ -795,6 +795,10 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
             </button>
             <span style={{ fontSize: 14, color: "#94a3b8" }}>Creates an actionable priority on your Tasks page</span>
           </div>
+          <button onClick={handleSaveForLater} disabled={!decisionStatement.trim()} style={{
+            marginTop: 12, padding: "8px 20px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff",
+            fontSize: 14, cursor: decisionStatement.trim() ? "pointer" : "not-allowed", color: "#F5A623", fontWeight: 600, opacity: decisionStatement.trim() ? 1 : 0.5, display: "inline-block",
+          }}>Save Draft</button>
         </div>
       )}
 
