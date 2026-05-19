@@ -41,7 +41,8 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
   acc_min_body: 15,
 });
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [saved, setSaved] = useState(() => localStorage.getItem("settings_saved") === "true");
+  useEffect(() => { localStorage.setItem("settings_saved", saved ? "true" : "false"); }, [saved]);
   const [dirty, setDirty] = useState(false);
   const dirtyRef = useRef(false);
   const setDirtyBoth = (v: boolean) => { setDirty(v); dirtyRef.current = v; };
@@ -405,11 +406,11 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
           <button onClick={async () => {
               setSaving(true);
               const { error } = await supabase.from("profiles").upsert({ id: userId, ...localProfile, updated_at: new Date().toISOString() });
-              if (!error) { onProfileSaved({ ...localProfile }); applyAccessibilitySettings(localProfile.acc_header_size, localProfile.acc_min_body, localProfile.acc_subheading_size); setSaved(true); setDirtyBoth(false); setTimeout(() => window.location.reload(), 800); }
+              if (!error) { onProfileSaved({ ...localProfile }); applyAccessibilitySettings(localProfile.acc_header_size, localProfile.acc_min_body, localProfile.acc_subheading_size); setSaved(true); setDirtyBoth(false); }
               setSaving(false);
             }} disabled={saving}
-            style={{ padding: "12px 48px", borderRadius: 8, border: "none", background: dirty ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0", color: "#fff", fontSize: 15, fontWeight: 600, cursor: dirty && !saving ? "pointer" : "default" }}>
-            {saving ? "Saving..." : saved ? "✓ Saved!" : dirty ? "Save All Changes" : "All settings saved"}
+            style={{ padding: "12px 48px", borderRadius: 8, border: "none", background: saved ? "#4CAF7D" : dirty ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0", color: "#fff", fontSize: 15, fontWeight: 600, cursor: dirty && !saving ? "pointer" : "default" }}>
+             {saving ? "Saving..." : saved ? "✓ Saved" : dirty ? "Save Settings" : "✓ Saved"}
           </button>
         </div>
       </div>
