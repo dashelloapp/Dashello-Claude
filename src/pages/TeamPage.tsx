@@ -236,82 +236,68 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap", flex: 1, minHeight: 48 }}>
                 {membersInTeam.map(member => {
-                  const levelColor = MEMBER_COLORS[member.level] || "#4C9FE8";
                   const isOwner = member.level === "owner";
                   const isSelf = member.email === userEmail;
+                  const cardBgColor = MEMBER_COLORS[member.level] || "#4C9FE8";
                   const { allowedSections, metricCount } = computeMemberAccess(member);
                   const memberPriorityTasks = (tasks || []).filter(t => t.assignedTo === member.email && !t.done && t.priority);
                   const isExpanded = teamViewMode === "expanded";
                   return (
                     <div key={member.id}
-                      onClick={() => { if (teamViewMode !== "expanded") setMemberDetail(member); }}
-                      onMouseEnter={e => { if (teamViewMode !== "expanded") { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = "0 10px 28px rgba(0,0,0,0.15)"; } }}
-                      onMouseLeave={e => { e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.06)"; }}
                       style={{
-                        width: isExpanded ? 320 : 140, minHeight: isExpanded ? 200 : 140, borderRadius: 16, background: "#f1f5f9",
-                        padding: isExpanded ? "24px 20px" : "14px 10px", display: "flex", flexDirection: "column",
-                        alignItems: "center", justifyContent: "flex-start", gap: isExpanded ? 10 : 10,
-                        cursor: isExpanded ? "default" : "pointer", flexShrink: 0,
-                        transition: "transform 0.15s, box-shadow 0.15s",
+                        width: 320, borderRadius: 20, background: "#fff",
+                        padding: "24px 20px", display: "flex", flexDirection: "column",
+                        alignItems: "center", gap: 10, flexShrink: 0, position: "relative",
                         boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-                        position: "relative",
                       }}
                     >
-                      <div style={{ fontSize: 15, fontWeight: 700, color: levelColor, textTransform: "uppercase", letterSpacing: 0.5, textAlign: "center", width: "100%" }}>
+                      <div style={{ fontSize: 15, fontWeight: 600, color: "#3B82F6", textTransform: "capitalize", marginBottom: 4 }}>
                         {isOwner ? "Owner" : member.level}
                       </div>
                       {member.avatarUrl ? (
-                        <img src={member.avatarUrl} alt="" style={{ width: isExpanded ? 56 : 48, height: isExpanded ? 56 : 48, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+                        <img src={member.avatarUrl} alt="" style={{ width: 64, height: 64, borderRadius: "50%", objectFit: "cover", margin: "0 auto", display: "block" }} />
                       ) : (
-                        <div style={{ width: isExpanded ? 56 : 48, height: isExpanded ? 56 : 48, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: isExpanded ? 22 : 18, fontWeight: 700, color: "#94a3b8", flexShrink: 0 }}>
+                        <div style={{ width: 64, height: 64, borderRadius: "50%", background: cardBgColor, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, fontWeight: 700, color: "#fff", margin: "0 auto" }}>
                           {(member.name?.[0] || member.email[0] || "?").toUpperCase()}
                         </div>
                       )}
-                      <div style={{ fontSize: 15, fontWeight: 700, color: "#1a2332", textAlign: "center", width: "100%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: "#1a2332", textAlign: "center" }}>
                         {capitalize(member.name) || member.email.split("@")[0]}
                       </div>
                       {isExpanded && (
                         <>
-                          <div style={{ textAlign: "left", width: "100%", background: "#fff", borderRadius: 10, padding: "10px 10px", marginBottom: 4 }}>
-                            <div style={{ fontSize: 15, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>{__('common.access', 'Access')}</div>
-                            <div style={{ fontSize: 15, color: "#1a2332", marginBottom: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          <div style={{ textAlign: "left", width: "100%", background: "#f8fafc", borderRadius: 12, padding: "14px 16px", marginBottom: 8 }}>
+                            <div style={{ fontSize: 15, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>{__('common.access', 'Access')}</div>
+                            <div style={{ fontSize: 15, color: "#1a2332", marginBottom: 4 }}>
                               <strong>{__('common.rows', 'Rows')}:</strong> {allowedSections.length > 0 ? allowedSections.map(s => s.title).join(", ") : "None"}
                             </div>
-                            <div style={{ fontSize: 15, color: "#1a2332", marginBottom: 2 }}>
+                            <div style={{ fontSize: 15, color: "#1a2332", marginBottom: 4 }}>
                               <strong>{__('common.metrics', 'Metrics')}:</strong> {metricCount}
                             </div>
-                            {(() => {
-                              const pageList = [
-                                { id: "home", label: "Home" },
-                                { id: "goals", label: "Goals" },
-                                { id: "tasks", label: "Tasks" },
-                                { id: "integrations", label: "Integrations" },
-                                { id: "team", label: "Team" },
-                                { id: "settings", label: "Settings" },
-                                { id: "playbooks", label: "Playbooks" },
-                              ];
-                              const hidden = (menuPermissions || {})[member.level] || [];
-                              const accessible = pageList.filter(p => !hidden.includes(p.id) && !(member.level === "viewer" && (p.id === "integrations" || p.id === "team"))).map(p => p.label);
-                              return (
-                                <div style={{ fontSize: 15, color: "#1a2332", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                  <strong>{__('common.pages', 'Pages')}:</strong> {accessible.length > 0 ? accessible.join(", ") : "None"}
-                                </div>
-                              );
-                            })()}
+                            <div style={{ fontSize: 15, color: "#1a2332" }}>
+                              <strong>{__('common.pages', 'Pages')}:</strong> {(() => {
+                                const pageList = [
+                                  { id: "home", label: "Home" }, { id: "goals", label: "Goals" },
+                                  { id: "tasks", label: "Tasks" }, { id: "integrations", label: "Integrations" },
+                                  { id: "team", label: "Team" }, { id: "settings", label: "Settings" }, { id: "playbooks", label: "Playbooks" },
+                                ];
+                                const hidden = (menuPermissions || {})[member.level] || [];
+                                const accessible = pageList.filter(p => !hidden.includes(p.id) && !(member.level === "viewer" && (p.id === "integrations" || p.id === "team"))).map(p => p.label);
+                                return accessible.length > 0 ? accessible.join(", ") : "None";
+                              })()}
+                            </div>
                           </div>
                           {memberPriorityTasks.length > 0 && (
-                            <div style={{ width: "100%", background: "#fff", borderRadius: 10, padding: "10px 10px" }}>
-                              <div style={{ fontSize: 15, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>{__('common.priorities', 'Priorities')}</div>
+                            <div style={{ textAlign: "left", width: "100%", background: "#f8fafc", borderRadius: 12, padding: "14px 16px", marginBottom: 8 }}>
+                              <div style={{ fontSize: 15, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>{__('common.priorities', 'Priorities')}</div>
                               {memberPriorityTasks.slice(0, 3).map(t => (
-                                <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
-                                  <span style={{ width: 14, height: 14, borderRadius: "50%", flexShrink: 0, border: "1.5px solid #d1d5db", background: "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 15 }} />
-                                  <span style={{ fontSize: 15, color: "#1a2332", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{t.text}</span>
+                                <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                                  <span style={{ width: 16, height: 16, borderRadius: "50%", flexShrink: 0, border: "1.5px solid #d1d5db", background: "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 15 }} />
+                                  <span style={{ fontSize: 15, color: "#1a2332", flex: 1, minWidth: 0 }}>{t.text}</span>
                                 </div>
                               ))}
                               {memberPriorityTasks.length > 3 && (
-                                <div style={{ fontSize: 15, color: "#94a3b8", textAlign: "left", width: "100%" }}>
-                                  +{memberPriorityTasks.length - 3} more
-                                </div>
+                                <div style={{ fontSize: 15, color: "#94a3b8", textAlign: "left", width: "100%" }}>+{memberPriorityTasks.length - 3} more</div>
                               )}
                             </div>
                           )}
