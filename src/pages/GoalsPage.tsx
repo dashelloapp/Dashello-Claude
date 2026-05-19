@@ -75,8 +75,9 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
   const [showQuickStart, setShowQuickStart] = useState(false);
   const [showConvert, setShowConvert] = useState(false);
   const [convertText, setConvertText] = useState("");
-  const [saveError, setSaveError] = useState("");
   const [dragging, setDragging] = useState<{ optionId: string; proIndex: number; startX: number; startY: number; currentX: number; currentY: number } | null>(null);
+  const [saveError, setSaveError] = useState("");
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [completedDecisions, setCompletedDecisions] = useState<CompletedDecision[]>([]);
   const [savedDecisions, setSavedDecisions] = useState<DecisionSnapshot[]>(() => {
     try {
@@ -193,9 +194,8 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
       const optionId = conDot.dataset.optionId!;
       const conIndex = parseInt(conDot.dataset.conIndex!, 10);
       if (optionId === dragging.optionId) {
-        const proIndex = dragging.proIndex;
         setOptions(options.map(o => o.id !== optionId ? o : {
-          ...o, connections: [...o.connections, { proIndex, conIndex }]
+          ...o, connections: [...o.connections, { proIndex: dragging.proIndex, conIndex }]
         }));
       }
     }
@@ -312,8 +312,6 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
     setSavedDecisions(prev => prev.filter(s => s.id !== snapshot.id));
   };
 
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-
   const handleDeleteSaved = (id: string) => {
     setSavedDecisions(prev => prev.filter(s => s.id !== id));
     setConfirmDeleteId(null);
@@ -375,11 +373,11 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
         </div>
 
         {/* Pros (left) / Cons (right) side by side */}
-        <div style={{ display: "flex", gap: 40, flex: 1 }}>
+        <div style={{ display: "flex", gap: 6, flex: 1 }}>
           {/* Pros column */}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: "#4CAF7D", marginBottom: 4 }}>Pros</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
               {option.pros.map((pro, pi) => (
                 <div key={pi} style={{ display: "flex", alignItems: "center", gap: 3 }}>
                   <span style={{ fontSize: 13, color: "#4CAF7D", flexShrink: 0 }}>+</span>
@@ -394,7 +392,7 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
                     <div ref={el => { dotRefs.current[`pro-${option.id}-${pi}`] = el; }}
                       data-pro-dot={`${option.id}-${pi}`}
                       onMouseDown={e => handleProDotMouseDown(e, option.id, pi)}
-                      style={{ width: 14, height: 14, borderRadius: "50%", background: "#4CAF7D", cursor: "crosshair", flexShrink: 0, marginLeft: 4 }} title="Drag to connect to a con" />
+                      style={{ width: 10, height: 10, borderRadius: "50%", background: "#4CAF7D", cursor: "crosshair", flexShrink: 0, marginLeft: 2 }} title="Drag to connect to a con" />
                   )}
                 </div>
               ))}
@@ -407,13 +405,13 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
           {/* Cons column */}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: "#E85D75", marginBottom: 4 }}>Cons</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
               {option.cons.map((con, ci) => (
                 <div key={ci} style={{ display: "flex", alignItems: "center", gap: 3 }}>
                   {con.trim() && (
                     <div ref={el => { dotRefs.current[`con-${option.id}-${ci}`] = el; }}
                       data-con-dot="true" data-option-id={option.id} data-con-index={ci}
-                      style={{ width: 14, height: 14, borderRadius: "50%", background: "#E85D75", cursor: "crosshair", flexShrink: 0, marginRight: 4 }} title="Drop here to connect from a pro" />
+                      style={{ width: 10, height: 10, borderRadius: "50%", background: "#E85D75", cursor: "crosshair", flexShrink: 0, marginRight: 2 }} title="Drop here to connect from a pro" />
                   )}
                   <span style={{ fontSize: 13, color: "#E85D75", flexShrink: 0 }}>−</span>
                   <input value={con} onChange={e => updateCon(option.id, ci, e.target.value)}
@@ -470,14 +468,14 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
             { n: "2", title: "Formulate the issue in a proposal",
               body: "Frame your decision as either X vs. non-X (e.g., \"I will accept the job offer\" vs. \"I will not accept it\") or X vs. Y (e.g., \"I will stay at my current job\" vs. \"I will accept the new offer\"). Multiple options like A vs. B vs. C work well for complex decisions. Each option label in the filter columns should be a concrete choice - not vague, but specific about what you will do, where, and when." },
             { n: "3", title: "Pray for openness and inner freedom",
-              body: "Before weighing evidence, pause. Ask to be free from prejudgment, fear, pride, or any attachment that might steer you unconsciously. The goal is to want only what is truly best - not easiest or most comfortable. Read Scripture slowly and notice what stirs in you. Bring any obstacles - perfectionism, people-pleasing, impatience - to God in prayer." },
+              body: "Before weighing evidence, pause. Ask to be free from prejudgment, fear, pride, or any attachment that might steer you unconsciously. The goal is to want only what is truly best - not easiest or most comfortable. Read Scripture slowly and notice what stirs in you. Bring any obstacles - perfectionism, people-pleasing, impatience - to God in prayer. Suggested passages: Luke 17:5-6, Luke 12:22-32, Matthew 13:44-46, Matthew 14:22-33, Luke 18:35-43, Mark 10:17-22, Matthew 5:13-16, Luke 14:33, 2 Timothy 1:7, Matthew 7:24-25, Luke 16:13, Philippians 3:7-10, Luke 11:5-13, Matthew 20:26-28." },
             { n: "4", title: "Gather all necessary information",
               body: "Find out the relevant specifics: Who? What? Where? When? How much? Consult everyone who will be affected by the decision - spouse, family, colleagues, friends. Discuss the matter with a spiritually mature person who can be honest and objective with you." },
             { n: "5", title: "Repeat the prayer for freedom",
               body: "After gathering input, new feelings and desires will have surfaced. Return to prayer. Ask to be purified of any new attachments or biases. This is a \"freedom check\" - are you free enough to be influenced only by which option best serves God, others, and your authentic self?" },
             { n: "6", title: "List pros and cons for each alternative",
               body: "For each option column, add every advantage (pro) and disadvantage (con) you can think of. Do not prejudge their merit yet. Begin with a short prayer asking for light to see clearly. List every reason you can - you will evaluate them in the next step." },
-            { n: "7", title: "Evaluate the advantages and disadvantages (trade-offs)",
+            { n: "7", title: "Evaluate the advantages and disadvantages",
               body: "Review your lists and ask: Which reasons are the most important? What values are preserved or realized by each option? Which option more evidently leads to serving God, others, and your true self? Which option feels more consistent with your own faith journey? Use the colored patches (pros are green, cons are red) and drag a green dot to a red dot to draw a connection line - this pairs opposing factors so you can weigh trade-offs at a glance. Click a connection dot to remove it." },
             { n: "8", title: "Observe the direction of your will",
               body: "As you evaluate, notice which option your desires are leaning toward. Pay attention to these inner movements. If your will fluctuates between options, a disordered attachment may be at play. Return to prayer (Step 3) and ask to be freed from selfish inclinations. Ask the Holy Spirit to draw your will toward what is true and good." },
@@ -493,13 +491,6 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
               <div>
                 <div style={{ fontWeight: 600, fontSize: 15 }}>{s.title}</div>
                 <div style={{ fontSize: 14, color: "#64748b" }}>{s.body}</div>
-                {s.n === "3" && (
-                  <div style={{ marginTop: 8, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 2 }}>
-                    {["Luke 17:5-6", "Luke 12:22-32", "Matthew 13:44-46", "Matthew 14:22-33", "Luke 18:35-43", "Mark 10:17-22", "Matthew 5:13-16", "Luke 14:33", "2 Timothy 1:7", "Matthew 7:24-25", "Luke 16:13", "Philippians 3:7-10", "Luke 11:5-13", "Matthew 20:26-28"].map(ref => (
-                      <div key={ref} style={{ fontSize: 13, color: "#475569", padding: "2px 4px" }}>• {ref}</div>
-                    ))}
-                  </div>
-                )}
               </div>
             </div>
           ))}
@@ -512,12 +503,19 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
     </div>
   );
 
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({ current: false, active: false, saved: false, completed: false });
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => {
+    try {
+      const saved = localStorage.getItem("decision-filter-collapsed");
+      if (saved) return { current: false, active: false, saved: false, completed: false, ...JSON.parse(saved) };
+    } catch {}
+    return { current: false, active: false, saved: false, completed: false };
+  });
+  useEffect(() => {
+    localStorage.setItem("decision-filter-collapsed", JSON.stringify(collapsed));
+  }, [collapsed]);
   const toggleCollapse = (k: string) => setCollapsed(p => ({ ...p, [k]: !p[k] }));
-
   const activeDecisions = savedDecisions.filter(sd => sd.priorityTaskId && !tasks?.find(t => t.id === sd.priorityTaskId)?.done);
   const savedDrafts = savedDecisions.filter(sd => !sd.priorityTaskId);
-
   const renderCollapsibleHeader = (key: string, label: string, icon: string, iconColor: string, count?: number) => (
     <div onClick={() => toggleCollapse(key)} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", padding: "8px 0", userSelect: "none" }}>
       <span style={{ fontSize: 13, color: collapsed[key] ? "#3B82F6" : "#64748b", transition: "transform 0.2s", transform: collapsed[key] ? "rotate(-90deg)" : "rotate(0deg)" }}>▼</span>
@@ -526,21 +524,13 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
       {count !== undefined && <span style={{ fontSize: 13, color: "#94a3b8", background: "#f1f5f9", padding: "1px 8px", borderRadius: 99 }}>{count}</span>}
     </div>
   );
-
   const renderSection = (key: string, label: string, icon: string, iconColor: string, items: any[], renderItem: (item: any) => any) => (
     <div style={{ marginTop: 8 }}>
       {renderCollapsibleHeader(key, label, icon, iconColor, items.length)}
-      {!collapsed[key] && items.length === 0 && (
-        <div style={{ padding: "12px 0", textAlign: "center", fontSize: 14, color: "#94a3b8" }}>No {label.toLowerCase()}.</div>
-      )}
-      {!collapsed[key] && items.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {items.map(renderItem)}
-        </div>
-      )}
+      {!collapsed[key] && items.length === 0 && <div style={{ padding: "12px 0", textAlign: "center", fontSize: 14, color: "#94a3b8" }}>No {label.toLowerCase()}.</div>}
+      {!collapsed[key] && items.length > 0 && <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>{items.map(renderItem)}</div>}
     </div>
   );
-
   const renderSavedCard = (sd: DecisionSnapshot) => (
     <div key={sd.id} style={{ background: "#fff", borderRadius: 10, border: "1px solid #e2e8f0", padding: "12px 16px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "space-between" }}>
@@ -556,32 +546,19 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
           </div>
         </div>
         <div style={{ display: "flex", gap: 6 }}>
-                    <button onClick={() => handleRestoreDecision(sd)} style={{
-                      padding: "5px 12px", borderRadius: 6, border: "none", background: "#EFF6FF",
-                      fontSize: 13, cursor: "pointer", color: "#3B82F6", fontWeight: 600,
-                    }}>Edit</button>
-                    {confirmDeleteId === sd.id ? (
-                      <div style={{ display: "flex", gap: 4 }}>
-                        <button onClick={() => handleDeleteSaved(sd.id)} style={{
-                          padding: "5px 8px", borderRadius: 6, border: "none", background: "#E85D75",
-                          fontSize: 12, cursor: "pointer", color: "#fff", fontWeight: 600,
-                        }}>Confirm</button>
-                        <button onClick={() => setConfirmDeleteId(null)} style={{
-                          padding: "5px 8px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff",
-                          fontSize: 12, cursor: "pointer", color: "#94a3b8",
-                        }}>Cancel</button>
-                      </div>
-                    ) : (
-                      <button onClick={() => setConfirmDeleteId(sd.id)} style={{
-                        padding: "5px 8px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff",
-                        fontSize: 13, cursor: "pointer", color: "#94a3b8",
-                      }}>×</button>
-                    )}
+          <button onClick={() => handleRestoreDecision(sd)} style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#EFF6FF", fontSize: 13, cursor: "pointer", color: "#3B82F6", fontWeight: 600 }}>Edit</button>
+          {confirmDeleteId === sd.id ? (
+            <div style={{ display: "flex", gap: 4 }}>
+              <button onClick={() => handleDeleteSaved(sd.id)} style={{ padding: "5px 8px", borderRadius: 6, border: "none", background: "#E85D75", fontSize: 12, cursor: "pointer", color: "#fff", fontWeight: 600 }}>Confirm</button>
+              <button onClick={() => setConfirmDeleteId(null)} style={{ padding: "5px 8px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 12, cursor: "pointer", color: "#94a3b8" }}>Cancel</button>
+            </div>
+          ) : (
+            <button onClick={() => setConfirmDeleteId(sd.id)} style={{ padding: "5px 8px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 13, cursor: "pointer", color: "#94a3b8" }}>×</button>
+          )}
         </div>
       </div>
     </div>
   );
-
   const renderCompletedCard = (cd: CompletedDecision) => (
     <div key={cd.id} style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", padding: 16 }}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 12, justifyContent: "space-between" }}>
@@ -599,10 +576,7 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
             <span>{cd.favoriteOption.connections.length} connections</span>
           </div>
         </div>
-        <button onClick={() => handleRevertDecision(cd)} style={{
-          padding: "6px 14px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff",
-          fontSize: 13, cursor: "pointer", color: "#3B82F6", fontWeight: 600, whiteSpace: "nowrap", flexShrink: 0,
-        }}>Revert</button>
+        <button onClick={() => handleRevertDecision(cd)} style={{ padding: "6px 14px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 13, cursor: "pointer", color: "#3B82F6", fontWeight: 600, whiteSpace: "nowrap", flexShrink: 0 }}>Revert</button>
       </div>
     </div>
   );
@@ -616,120 +590,67 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
       {renderCollapsibleHeader("current", "Current Decision", "RocketLaunch", "#3B82F6")}
       {!collapsed["current"] && <div style={{ background: "#fff", borderRadius: 16, padding: 20, border: "1px solid #e2e8f0" }}>
       {/* Step 1: Identify the decision to be made */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+      <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
         <div style={{ width: 24, height: 24, borderRadius: "50%", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", flexShrink: 0, marginTop: 1 }}>1</div>
         <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 600, fontSize: 14, color: "#1a2332", marginBottom: 6 }}>Identify the decision to be made</div>
-          <textarea value={decisionStatement} onChange={e => { setDecisionStatement(e.target.value); setSaveError(""); }}
+          <div style={{ fontWeight: 600, fontSize: 14, color: "#1a2332", marginBottom: 4 }}>Write out your decision to be made</div>
+          <textarea value={decisionStatement} onChange={e => setDecisionStatement(e.target.value)}
             placeholder='What decision are you facing? Be specific and concrete - e.g., "Whether to accept the job offer from Company B" or "I will either stay at my current role or take the new position"'
             rows={2}
             style={{ width: "100%", fontSize: 14, color: "#1a2332", border: "1.5px solid #e2e8f0", borderRadius: 8, background: "#fff", outline: "none", fontFamily: "inherit", padding: "8px 10px", resize: "vertical", boxSizing: "border-box" }} />
         </div>
       </div>
 
-      {/* Step 2: Formulate the issue in a proposal */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 8 }}>
-        <div style={{ width: 24, height: 24, borderRadius: "50%", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", flexShrink: 0, marginTop: 1 }}>2</div>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 600, fontSize: 14, color: "#1a2332", marginBottom: 2 }}>Formulate the issue in a proposal</div>
-          <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 8 }}>
-            Name your options clearly. <span onClick={() => setShowQuickStart(true)} style={{ color: "#3B82F6", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}>Open guide for tips</span>
-          </div>
-          {/* Title-only option columns */}
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {options.map(option => (
-              <div key={option.id} style={{
-                flex: "1 1 200px", minWidth: 180,
-                borderRadius: 10, border: "1px solid #e2e8f0", padding: "10px 12px",
-                display: "flex", alignItems: "center", gap: 6, background: "#fff",
-              }}>
-                <input value={option.label} onChange={e => updateLabel(option.id, e.target.value)}
-                  style={{ flex: 1, fontSize: 14, fontWeight: 600, color: "#1a2332", border: "none", background: "transparent", outline: "none", fontFamily: "inherit", padding: "2px 0", minWidth: 0 }} />
-                <div onClick={() => removeOption(option.id)} style={{ cursor: "pointer", fontSize: 15, color: "#cbd5e1", flexShrink: 0 }}>×</div>
-              </div>
-            ))}
-            <div onClick={addOption} style={{
-              flex: "1 1 200px", minWidth: 180, minHeight: 40,
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
-              borderRadius: 10, border: "2px dashed #e2e8f0", cursor: "pointer",
-              color: "#94a3b8", fontSize: 14, fontWeight: 500,
-            }}>
-              + Add Option
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Step 3: Pray for openness and inner freedom */}
+      {/* Step 2: View the Quick Start Guide */}
       <div style={{ display: "flex", gap: 10, marginBottom: 14, alignItems: "center" }}>
+        <div style={{ width: 24, height: 24, borderRadius: "50%", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", flexShrink: 0 }}>2</div>
+        <div style={{ fontWeight: 600, fontSize: 14, color: "#1a2332" }}>View the Quick Start Guide</div>
+        <div onClick={() => setShowQuickStart(true)} style={{ fontSize: 13, color: "#3B82F6", cursor: "pointer", fontWeight: 500, textDecoration: "underline", textUnderlineOffset: 2 }}>Open Guide →</div>
+      </div>
+
+      {/* Step 3: Weigh the pros and cons */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
         <div style={{ width: 24, height: 24, borderRadius: "50%", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", flexShrink: 0 }}>3</div>
-        <div style={{ fontWeight: 600, fontSize: 14, color: "#1a2332" }}>Pray for openness and inner freedom</div>
-        <div onClick={() => setShowQuickStart(true)} style={{ fontSize: 13, color: "#3B82F6", cursor: "pointer", fontWeight: 500, textDecoration: "underline", textUnderlineOffset: 2 }}>View guide for tips</div>
+        <div style={{ fontSize: 14, fontWeight: 600, color: "#1a2332" }}>Weigh the pros and cons</div>
+        <span style={{ fontSize: 13, color: "#94a3b8" }}>Current Decision</span>
+        <button onClick={handleSaveForLater} disabled={!decisionStatement.trim()} style={{
+          padding: "3px 12px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff",
+          fontSize: 13, cursor: decisionStatement.trim() ? "pointer" : "not-allowed", color: "#F5A623", fontWeight: 600, opacity: decisionStatement.trim() ? 1 : 0.5,
+        }}>Save Draft</button>
       </div>
 
-      {/* Steps 3-4-5 mini row */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 14, marginLeft: 34, alignItems: "center" }}>
-        {[
-          { n: "3", desc: "Pray for openness" },
-          { n: "4", desc: "Gather information" },
-          { n: "5", desc: "Freedom check" },
-        ].map(s => (
-          <div key={s.n} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", background: "#F8FAFC", borderRadius: 8, border: "1px solid #e2e8f0" }}>
-            <div style={{ width: 20, height: 20, borderRadius: "50%", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{s.n}</div>
-            <span style={{ fontSize: 13, color: "#64748b" }}>{s.desc}</span>
-          </div>
-        ))}
-      </div>
+      <div style={{ position: "relative" }}>
+        <div ref={containerRef}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={() => setDragging(null)}
+          style={{ display: "flex", gap: 12, flexWrap: "wrap", overflow: "visible" }}>
+          {options.map(renderColumn)}
 
-      {/* Step 6: List pros and cons for each alternative */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
-        <div style={{ width: 24, height: 24, borderRadius: "50%", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", flexShrink: 0, marginTop: 1 }}>6</div>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 600, fontSize: 14, color: "#1a2332", marginBottom: 4 }}>List pros and cons for each alternative</div>
-          <div style={{ position: "relative" }}>
-            <div ref={containerRef}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={() => setDragging(null)}
-              style={{ display: "flex", gap: 12, flexWrap: "wrap", overflow: "visible" }}>
-              {options.map(renderColumn)}
-              <div onClick={addOption} style={{
-                flex: "1 1 240px", minWidth: 220, minHeight: 200,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                borderRadius: 12, border: "2px dashed #e2e8f0", cursor: "pointer",
-                color: "#94a3b8", fontSize: 15, fontWeight: 600,
-              }}>+ Add Option</div>
-            </div>
-            {dragging && (
-              <svg style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 50 }}>
-                <path d={`M ${dragging.startX} ${dragging.startY} C ${dragging.startX + (dragging.currentX - dragging.startX) * 0.4} ${dragging.startY} ${dragging.currentX - (dragging.currentX - dragging.startX) * 0.4} ${dragging.currentY} ${dragging.currentX} ${dragging.currentY}`}
-                  fill="none" stroke="#3B82F6" strokeWidth={2} strokeDasharray="5 3" opacity={0.7} />
-              </svg>
-            )}
+          {/* Add column button */}
+          <div onClick={addOption} style={{
+            flex: "1 1 240px", minWidth: 220, minHeight: 200,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            borderRadius: 12, border: "2px dashed #e2e8f0", cursor: "pointer",
+            color: "#94a3b8", fontSize: 15, fontWeight: 600, transition: "border-color 0.2s",
+          }}>
+            + Add Option
           </div>
         </div>
-      </div>
 
-      {/* Steps 7-10 mini row */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 14, marginLeft: 34, alignItems: "center", flexWrap: "wrap" }}>
-        {[
-          { n: "7", desc: "Evaluate trade-offs" },
-          { n: "8", desc: "Observe your will" },
-          { n: "9", desc: "Feel consolation" },
-          { n: "10", desc: "Trust & decide" },
-        ].map(s => (
-          <div key={s.n} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", background: "#F8FAFC", borderRadius: 8, border: "1px solid #e2e8f0" }}>
-            <div style={{ width: 20, height: 20, borderRadius: "50%", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{s.n}</div>
-            <span style={{ fontSize: 13, color: "#64748b" }}>{s.desc}</span>
-          </div>
-        ))}
+        {/* Drag preview line */}
+        {dragging && (
+          <svg style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 50 }}>
+            <path d={`M ${dragging.startX} ${dragging.startY} C ${dragging.startX + (dragging.currentX - dragging.startX) * 0.4} ${dragging.startY} ${dragging.currentX - (dragging.currentX - dragging.startX) * 0.4} ${dragging.currentY} ${dragging.currentX} ${dragging.currentY}`}
+              fill="none" stroke="#3B82F6" strokeWidth={2} strokeDasharray="5 3" opacity={0.7} />
+          </svg>
+        )}
       </div>
 
       {/* Favorite preview section */}
       {favoriteOption && (
-        <div style={{ marginTop: 16, padding: 20, background: "#F0FDF4", borderRadius: 12, border: "2px solid #4CAF7D", position: "relative" }}>
+        <div style={{ marginTop: 16, padding: 20, background: "#F0FDF4", borderRadius: 12, border: "2px solid #4CAF7D" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-            <div style={{ width: 24, height: 24, borderRadius: "50%", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", flexShrink: 0 }}>11</div>
             <span style={{ fontSize: 20, color: "#F5A623" }}>★</span>
             <span style={{ fontSize: 16, fontWeight: 700, color: "#1a2332" }}>Your Favorite Option: {favoriteOption.label}</span>
           </div>
@@ -789,6 +710,7 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
 
           {/* Convert to priority */}
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 24, height: 24, borderRadius: "50%", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", flexShrink: 0 }}>4</div>
             <button onClick={() => {
               const label = favoriteOption.label;
               const pros = favoriteOption.pros.filter(p => p.trim());
@@ -813,13 +735,6 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
           Click the star <span style={{ color: "#F5A623" }}>☆</span> on any option to mark it as your favorite and see a detailed preview below.
         </div>
       )}
-      </div>}
-      {/* Save Draft button */}
-      {saveError && <div style={{ marginTop: 8, fontSize: 13, color: "#E85D75", textAlign: "center", fontWeight: 500 }}>{saveError}</div>}
-      <button onClick={() => { if (!decisionStatement.trim()) { setSaveError("Please complete Step 1 first — write out your decision to be made."); return; } setSaveError(""); handleSaveForLater(); }} style={{
-        marginTop: 12, padding: "10px 24px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff",
-        fontSize: 14, cursor: decisionStatement.trim() ? "pointer" : "not-allowed", color: "#F5A623", fontWeight: 600, opacity: decisionStatement.trim() ? 1 : 0.5, display: "block", width: "100%", textAlign: "center",
-      }}>Save Draft</button>
 
       {/* Convert modal */}
       {showConvert && (
@@ -850,6 +765,13 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
           </div>
         </div>
       )}
+      </div>}
+      {/* Save Draft button */}
+      {saveError && <div style={{ marginTop: 8, fontSize: 13, color: "#E85D75", textAlign: "center", fontWeight: 500 }}>{saveError}</div>}
+      <button onClick={() => { if (!decisionStatement.trim()) { setSaveError("Please complete Step 1 first — write out your decision to be made."); return; } setSaveError(""); handleSaveForLater(); }} style={{
+        marginTop: 12, padding: "10px 24px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff",
+        fontSize: 14, cursor: decisionStatement.trim() ? "pointer" : "not-allowed", color: "#F5A623", fontWeight: 600, opacity: decisionStatement.trim() ? 1 : 0.5, display: "block", width: "100%", textAlign: "center",
+      }}>Save Draft</button>
 
       {/* Active Decisions */}
       {renderSection("active", "Active Decisions", "RocketLaunch", "#3B82F6", activeDecisions, renderSavedCard)}
