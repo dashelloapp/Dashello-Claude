@@ -4281,12 +4281,13 @@ function formatDate(dateStr: string) {
 // PAGE: TASKS
 // ═══════════════════════════════════════════════════════════════════════════
 
-function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections, goals, onViewMetric, onViewGoal, onViewTeamMember }: {
+function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections, goals, onViewMetric, onViewGoal, onViewTeamMember, timezone }: {
   tasks: Task[]; setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
   userEmail: string; orgMembers: OrgMember[]; teamRows: TeamRow[];
   sections: Section[]; goals: Goal[];
   onViewMetric: (id: string) => void; onViewGoal: (id: string) => void;
   onViewTeamMember: (m: OrgMember) => void;
+  timezone?: string;
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [taskFilter, setTaskFilter] = useState<"current" | "completed">("current");
@@ -4356,7 +4357,7 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
   };
 
   const getMemberByEmail = (email: string) => orgMembers.find(m => m.email === email);
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = timezone ? new Date().toLocaleDateString("en-CA", { timeZone: timezone }) : new Date().toISOString().split("T")[0];
 
   const teamMembersWithTasks = orgMembers
     .filter(m => m.status === "active")
@@ -5555,6 +5556,7 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
   health_yellow_multiplier: 0.5,
   health_red_multiplier: -1.0,
   menu_permissions: {} as Record<string, string[]>,
+  timezone: "",
 });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -5574,6 +5576,7 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
       health_yellow_multiplier: data.health_yellow_multiplier ?? 0.5,
       health_red_multiplier: data.health_red_multiplier ?? -1.0,
       menu_permissions: data.menu_permissions ?? {},
+      timezone: data.timezone ?? "",
     });
   });
 }, [userId]);
@@ -5658,6 +5661,17 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
           <ProfileField label="Full Name" value={localProfile.full_name} onChange={v => setLocalProfile(p => ({ ...p, full_name: v }))} />
           <ProfileField label="Email" value={userEmail} disabled />
           <ProfileField label="Company" value={localProfile.company} onChange={currentUserLevel === "owner" || !currentUserLevel ? v => setLocalProfile(p => ({ ...p, company: v })) : undefined} disabled={currentUserLevel !== "owner" && currentUserLevel !== undefined} />
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>Timezone</div>
+            <select value={localProfile.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone} onChange={e => setLocalProfile(p => ({ ...p, timezone: e.target.value }))}
+              style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", background: "#fff" }}>
+              {Intl.supportedValuesOf?.("timeZone")?.map(tz => <option key={tz} value={tz}>{tz}</option>) || [
+                "America/New_York","America/Chicago","America/Denver","America/Los_Angeles","America/Anchorage","Pacific/Honolulu",
+                "Europe/London","Europe/Paris","Europe/Berlin","Europe/Moscow","Asia/Dubai","Asia/Kolkata","Asia/Shanghai","Asia/Tokyo",
+                "Australia/Sydney","Pacific/Auckland","UTC",
+              ].map(tz => <option key={tz} value={tz}>{tz}</option>)}
+            </select>
+          </div>
           <button onClick={handleSave} disabled={saving} style={{ width: "100%", padding: "9px", borderRadius: 8, border: "none", background: saved ? "#4CAF7D" : "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", marginTop: 6 }}>
             {saving ? "Saving..." : saved ? "✓ Saved!" : "Save Changes"}
           </button>
@@ -7589,6 +7603,7 @@ export default function DashelloDashboard() {
     health_yellow_multiplier: 0.5,
     health_red_multiplier: -1.0,
     menu_permissions: {} as Record<string, string[]>,
+    timezone: "",
   });
   const [fiveAccountSettings, setFiveAccountSettings] = useState<FiveAccountSettings>(DEFAULT_FIVE_ACCOUNT_SETTINGS);
   // --- SETTINGS UPDATE LOGIC ---
@@ -7812,6 +7827,7 @@ export default function DashelloDashboard() {
   health_yellow_multiplier: prof.health_yellow_multiplier ?? 0.5,
   health_red_multiplier: prof.health_red_multiplier ?? -1.0,
   menu_permissions: prof.menu_permissions ?? {},
+  timezone: prof.timezone ?? "",
 });
       setDbReady(true);
     }
@@ -8480,7 +8496,7 @@ const sidebarEl = (
             onOpenEquationBuilder={handleOpenEquationBuilder}
             orgMembers={orgMembers} />}
           {page === "goals" && isPageAccessible("goals") && <div style={{ flex: 1, overflowY: "auto" }}><GoalsPage goals={goalsData} setGoals={setGoalsData} sections={isPreviewMode && previewSections ? previewSections : sections} viewMode={goalsViewMode} onOpenOnboarding={() => setShowGoalOnboarding(true)} onEditGoal={handleEditGoal} onDuplicateGoal={handleDuplicateGoal} tasks={tasksData} setTasks={setTasksData} userEmail={userEmail} orgMembers={orgMembers} /></div>}
-          {page === "tasks" && isPageAccessible("tasks") && <div style={{ flex: 1, overflowY: "auto" }}><TasksPage tasks={tasksData} setTasks={setTasksData} userEmail={userEmail} orgMembers={orgMembers} teamRows={teamRows} sections={sections} goals={goalsData} onViewMetric={id => setViewMetricId(id)} onViewGoal={id => setViewGoalId(id)} onViewTeamMember={m => { setPendingMemberDetail(m); setPage("team"); }} /></div>}
+          {page === "tasks" && isPageAccessible("tasks") && <div style={{ flex: 1, overflowY: "auto" }}><TasksPage tasks={tasksData} setTasks={setTasksData} userEmail={userEmail} orgMembers={orgMembers} teamRows={teamRows} sections={sections} goals={goalsData} onViewMetric={id => setViewMetricId(id)} onViewGoal={id => setViewGoalId(id)} onViewTeamMember={m => { setPendingMemberDetail(m); setPage("team"); }} timezone={profile.timezone} /></div>}
           {page === "integrations" && isPageAccessible("integrations") && <div style={{ flex: 1, overflowY: "auto" }}><IntegrationsPage onSelectApp={a => { setSelectedApp(a); setPage("app-detail"); }} /></div>}
           {page === "app-detail" && selectedApp && <div style={{ flex: 1, overflowY: "auto" }}><AppDetailPage app={selectedApp} onBack={() => setPage("integrations")} /></div>}
           {page === "team" && isPageAccessible("team") && <div style={{ flex: 1, overflowY: "auto" }}><TeamPage sections={isPreviewMode && previewSections ? previewSections : sections} orgMembers={orgMembers} setOrgMembers={setOrgMembers} teamRows={teamRows} setTeamRows={setTeamRows} teamPermissions={teamPermissions} setTeamPermissions={setTeamPermissions} currentUserLevel={currentUserLevel} userEmail={userEmail} onOpenInvite={() => setShowInviteModal(true)} onPreviewMember={(member, perms) => { setPreviewMember(member); setPreviewPerms(perms); setPage("home"); }} onExitPreviewSave={() => { setPreviewFromSave(false); }} previewFromSave={previewFromSave} pendingMemberDetail={pendingMemberDetail} onClearPendingMember={() => setPendingMemberDetail(null)} tasks={tasksData} setTasks={setTasksData} /></div>}
