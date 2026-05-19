@@ -399,7 +399,7 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
                 {__('settings.bodyPreview', 'Preview body text')} — {localProfile.acc_min_body}px
               </div>
             </div>
-            <LanguageSelector />
+            <LanguageSelector onChange={() => setDirtyBoth(true)} />
           </div>
         <div style={{ position: "sticky", bottom: 0, background: "#F8FAFC", padding: "16px 0", display: "flex", justifyContent: "center", zIndex: 100 }}>
           <button onClick={async () => {

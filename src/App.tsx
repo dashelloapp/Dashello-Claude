@@ -34,7 +34,7 @@ export default function App() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       const elapsed = Date.now() - loadStartRef.current;
-      const remaining = 2400 - elapsed;
+      const remaining = 1200 - elapsed;
       if (remaining > 0) {
         setTimeout(() => { setSession(session); setLoading(false); }, remaining);
       } else {
@@ -53,7 +53,7 @@ export default function App() {
       display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center',
       background: 'linear-gradient(160deg,#2196F3 0%,#00BCD4 100%)'
     }}>
-      <DashelloLoader size={120} />
+      <DashelloLoader size={180} />
     </div>
   )
 

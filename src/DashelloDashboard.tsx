@@ -2508,7 +2508,7 @@ const sidebarEl = (
 
   if (!dbReady) return (
     <div style={{ display: "flex", height: "100vh", alignItems: "center", justifyContent: "center", background: "linear-gradient(160deg,#2196F3 0%,#00BCD4 100%)" }}>
-      <DashelloLoader size={120} />
+      <DashelloLoader size={180} />
     </div>
   );
 

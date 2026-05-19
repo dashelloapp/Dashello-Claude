@@ -119,7 +119,7 @@ export function IconPicker({ selected, onSelect }: { selected: string; onSelect:
   );
 }
 
-export function LanguageSelector() {
+export function LanguageSelector({ onChange }: { onChange?: () => void }) {
   const { language, setLanguage, t: __ } = useTranslation();
   const [query, setQuery] = useState("");
   const [show, setShow] = useState(false);
@@ -147,7 +147,7 @@ export function LanguageSelector() {
       {show && (
         <div style={{ position: "absolute", background: "#fff", borderRadius: 8, border: "1.5px solid #e2e8f0", marginTop: 4, maxHeight: 220, overflowY: "auto", zIndex: 5000, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", width: ref.current?.offsetWidth }}>
           {filtered.map(l => (
-            <div key={l.code} onClick={() => { setLanguage(l); setQuery(""); setShow(false); }}
+            <div key={l.code} onClick={() => { setLanguage(l); setQuery(""); setShow(false); onChange?.(); }}
               style={{ padding: "8px 12px", fontSize: 15, cursor: "pointer", background: l.code === language.code ? "#EFF6FF" : "#fff", color: "#1a2332", borderBottom: "1px solid #f1f5f9" }}>
               {l.name} <span style={{ color: "#94a3b8" }}>({l.nativeName})</span>
             </div>
