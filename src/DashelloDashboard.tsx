@@ -5562,6 +5562,7 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
   const [saved, setSaved] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [fiveAccountConfirm, setFiveAccountConfirm] = useState(false);
+  const [timezoneSearch, setTimezoneSearch] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -5661,17 +5662,32 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
           <ProfileField label="Full Name" value={localProfile.full_name} onChange={v => setLocalProfile(p => ({ ...p, full_name: v }))} />
           <ProfileField label="Email" value={userEmail} disabled />
           <ProfileField label="Company" value={localProfile.company} onChange={currentUserLevel === "owner" || !currentUserLevel ? v => setLocalProfile(p => ({ ...p, company: v })) : undefined} disabled={currentUserLevel !== "owner" && currentUserLevel !== undefined} />
-          <div style={{ marginBottom: 10 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>Timezone</div>
-            <select value={localProfile.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone} onChange={e => setLocalProfile(p => ({ ...p, timezone: e.target.value }))}
-              style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", background: "#fff" }}>
-              {Intl.supportedValuesOf?.("timeZone")?.map(tz => <option key={tz} value={tz}>{tz}</option>) || [
-                "America/New_York","America/Chicago","America/Denver","America/Los_Angeles","America/Anchorage","Pacific/Honolulu",
-                "Europe/London","Europe/Paris","Europe/Berlin","Europe/Moscow","Asia/Dubai","Asia/Kolkata","Asia/Shanghai","Asia/Tokyo",
-                "Australia/Sydney","Pacific/Auckland","UTC",
-              ].map(tz => <option key={tz} value={tz}>{tz}</option>)}
-            </select>
-          </div>
+            <div style={{ position: "relative" }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>Timezone</div>
+              <input value={localProfile.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone} onChange={e => { setLocalProfile(p => ({ ...p, timezone: e.target.value })); setTimezoneSearch(e.target.value); }}
+                onFocus={() => setTimezoneSearch(localProfile.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone)}
+                placeholder="Start typing to search..."
+                style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none", boxSizing: "border-box" }} />
+              {timezoneSearch && (() => {
+                const allTz = Intl.supportedValuesOf?.("timeZone") || [
+                  "America/New_York","America/Chicago","America/Denver","America/Los_Angeles","America/Anchorage","Pacific/Honolulu",
+                  "Europe/London","Europe/Paris","Europe/Berlin","Europe/Moscow","Asia/Dubai","Asia/Kolkata","Asia/Shanghai","Asia/Tokyo",
+                  "Australia/Sydney","Pacific/Auckland","UTC",
+                ];
+                const filtered = allTz.filter(tz => tz.toLowerCase().includes(timezoneSearch.toLowerCase()));
+                if (filtered.length === 0 || (filtered.length === 1 && filtered[0].toLowerCase() === timezoneSearch.toLowerCase())) return null;
+                return (
+                  <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "#fff", borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0", zIndex: 200, maxHeight: 200, overflowY: "auto", marginTop: 2 }}>
+                    {filtered.map(tz => (
+                      <div key={tz} onClick={() => { setLocalProfile(p => ({ ...p, timezone: tz })); setTimezoneSearch(""); }}
+                        style={{ padding: "7px 10px", fontSize: 11, cursor: "pointer", color: "#1a2332", borderBottom: "1px solid #f1f5f9" }}
+                        onMouseEnter={e => e.currentTarget.style.background = "#f8fafc"}
+                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}>{tz}</div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
           <button onClick={handleSave} disabled={saving} style={{ width: "100%", padding: "9px", borderRadius: 8, border: "none", background: saved ? "#4CAF7D" : "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", marginTop: 6 }}>
             {saving ? "Saving..." : saved ? "✓ Saved!" : "Save Changes"}
           </button>
