@@ -1064,6 +1064,15 @@ function getDateString(format: string, date?: Date): string {
 
   // ── Detail / Edit ─────────────────────────────────────────────────────
   const openDetail = (item: PlaybookItem) => {
+    // If empty document (no content, files, links, filled data), go straight to settings
+    if (item.type === "document" && !item.content && (!item.files || item.files.length === 0) && (!item.links || item.links.length === 0)) {
+      openEditSettings(item);
+      return;
+    }
+    if (item.type === "template") {
+      openEditSettings(item);
+      return;
+    }
     setDetailItem(item);
     if (item.type === "filled-template" && item.filledData) {
       setDetailFillData({ ...item.filledData });
@@ -1072,25 +1081,46 @@ function getDateString(format: string, date?: Date): string {
     }
   };
   const openEditSettings = (item: PlaybookItem) => {
+    if (item.type === "template") {
+      const rid = rows.find(r => r.items.some(i => i.id === item.id))?.id;
+      if (rid) { setCreateRowId(rid); setCreateType("template"); setSubView("template-builder"); }
+      return;
+    }
     setEditSettingsItem(item);
     setEditSettingsName(item.label);
     setEditSettingsIcon(item.icon);
     setEditSettingsContent(item.content || "");
     setEditSettingsRecurrence(item.recurrence || { enabled: false, interval: "monthly" });
+    setEditSettingsFiles(item.files ? [...item.files] : []);
+    setEditSettingsLinks(item.links ? [...item.links] : []);
   };
   const [editSettingsContent, setEditSettingsContent] = useState("");
   const [editSettingsExpanded, setEditSettingsExpanded] = useState(false);
   const [editSettingsRecurrence, setEditSettingsRecurrence] = useState<RecurrenceConfig>({ enabled: false, interval: "monthly" });
+  const [editSettingsFiles, setEditSettingsFiles] = useState<PlaybookFile[]>([]);
+  const [editSettingsLinks, setEditSettingsLinks] = useState<PlaybookLink[]>([]);
+  const [editSettingsUploading, setEditSettingsUploading] = useState(false);
+  const handleEditSettingsUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !userId) return;
+    if (file.size > 25 * 1024 * 1024) { alert("File must be under 25MB"); return; }
+    setEditSettingsUploading(true);
+    const result = await uploadFile(file, userId, "temp");
+    if (result) setEditSettingsFiles(p => [...p, result]);
+    setEditSettingsUploading(false);
+  };
   const saveEditSettings = () => {
     if (!editSettingsItem) return;
     const rid = rows.find(r => r.items.some(i => i.id === editSettingsItem.id))?.id;
     if (!rid) return;
-    const updated = rows.map(r => r.id === rid ? { ...r, items: r.items.map(i => i.id === editSettingsItem.id ? { ...i, label: editSettingsName, icon: editSettingsIcon, content: editSettingsContent, recurrence: editSettingsItem.type !== "template" ? editSettingsRecurrence : undefined } : i) } : r);
+    const updated = rows.map(r => r.id === rid ? { ...r, items: r.items.map(i => i.id === editSettingsItem.id ? { ...i, label: editSettingsName, icon: editSettingsIcon, content: editSettingsContent, files: editSettingsFiles.length > 0 ? editSettingsFiles : undefined, links: editSettingsLinks.length > 0 ? editSettingsLinks : undefined, recurrence: editSettingsItem.type !== "template" ? editSettingsRecurrence : undefined } : i) } : r);
     setRows(updated);
     if (userId) saveUserData("playbooks", userId, updated);
     setEditSettingsItem(null);
     setEditSettingsExpanded(false);
     setEditSettingsRecurrence({ enabled: false, interval: "monthly" });
+    setEditSettingsFiles([]);
+    setEditSettingsLinks([]);
   };
   const duplicateItem = () => {
     if (!editSettingsItem) return;
@@ -2310,10 +2340,62 @@ function getDateString(format: string, date?: Date): string {
                 <IconPicker selected={editSettingsIcon} onSelect={setEditSettingsIcon} />
               </div>
               {editSettingsItem.type !== "template" && (
-              <div style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>CONTENT</div>
-                <RichEditor content={editSettingsContent} onChange={setEditSettingsContent} />
-              </div>
+                <>
+                {(editSettingsFiles.length > 0 || editSettingsLinks.length > 0 || !editSettingsContent) ? (
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>ATTACHMENTS</div>
+                    {editSettingsFiles.map(f => (
+                      <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 6, background: "#f8fafc", marginBottom: 4, fontSize: 12, color: "#64748b" }}>
+                        <IconGlyph name="FileDoc" size={16} color="#64748b" />
+                        <span style={{ flex: 1 }}>{f.name}</span>
+                        <span style={{ color: "#94a3b8" }}>{(f.size / 1024).toFixed(0)}KB</span>
+                        <button onClick={() => setEditSettingsFiles(p => p.filter(x => x.id !== f.id))} style={{ width: 20, height: 20, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 10, background: "#fee2e2", color: "#E85D75" }}>✕</button>
+                      </div>
+                    ))}
+                    <label style={{ display: "block", padding: "14px", borderRadius: 8, border: "2px dashed #e2e8f0", cursor: "pointer", textAlign: "center", fontSize: 12, color: "#94a3b8", marginBottom: 8 }}>
+                      {editSettingsUploading ? "Uploading..." : "Click to upload or drag and drop (max 25MB)"}
+                      <input type="file" onChange={handleEditSettingsUpload} style={{ display: "none" }} accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg,.webp,.gif" />
+                    </label>
+                    {editSettingsLinks.map(l => (
+                      <div key={l.id} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                        <input value={l.title} onChange={e => setEditSettingsLinks(p => p.map(x => x.id === l.id ? { ...x, title: e.target.value } : x))} placeholder="Link title"
+                          style={{ flex: 1, padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none" }} />
+                        <input value={l.url} onChange={e => setEditSettingsLinks(p => p.map(x => x.id === l.id ? { ...x, url: e.target.value } : x))} placeholder="URL"
+                          style={{ flex: 2, padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none" }} />
+                        <button onClick={() => setEditSettingsLinks(p => p.filter(x => x.id !== l.id))} style={{ width: 22, height: 22, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 10, background: "#fee2e2", color: "#E85D75" }}>✕</button>
+                      </div>
+                    ))}
+                    <button onClick={() => setEditSettingsLinks(p => [...p, { id: crypto.randomUUID(), title: "", url: "" }])} style={{ padding: "6px 14px", borderRadius: 6, border: "1px dashed #d1d5db", background: "transparent", fontSize: 12, cursor: "pointer", color: "#94a3b8", marginTop: 4 }}>+ Add Link</button>
+                  </div>
+                ) : (
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>CONTENT</div>
+                    <RichEditor content={editSettingsContent} onChange={setEditSettingsContent} />
+                  </div>
+                )}
+                {(editSettingsContent && (editSettingsFiles.length > 0 || editSettingsLinks.length > 0)) && (
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>ATTACHMENTS</div>
+                    {editSettingsFiles.map(f => (
+                      <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 6, background: "#f8fafc", marginBottom: 4, fontSize: 12, color: "#64748b" }}>
+                        <IconGlyph name="FileDoc" size={16} color="#64748b" />
+                        <span style={{ flex: 1 }}>{f.name}</span>
+                        <button onClick={() => setEditSettingsFiles(p => p.filter(x => x.id !== f.id))} style={{ width: 20, height: 20, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 10, background: "#fee2e2", color: "#E85D75" }}>✕</button>
+                      </div>
+                    ))}
+                    {editSettingsLinks.map(l => (
+                      <div key={l.id} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                        <input value={l.title} onChange={e => setEditSettingsLinks(p => p.map(x => x.id === l.id ? { ...x, title: e.target.value } : x))} placeholder="Link title"
+                          style={{ flex: 1, padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none" }} />
+                        <input value={l.url} onChange={e => setEditSettingsLinks(p => p.map(x => x.id === l.id ? { ...x, url: e.target.value } : x))} placeholder="URL"
+                          style={{ flex: 2, padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none" }} />
+                        <button onClick={() => setEditSettingsLinks(p => p.filter(x => x.id !== l.id))} style={{ width: 22, height: 22, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 10, background: "#fee2e2", color: "#E85D75" }}>✕</button>
+                      </div>
+                    ))}
+                    <button onClick={() => setEditSettingsLinks(p => [...p, { id: crypto.randomUUID(), title: "", url: "" }])} style={{ padding: "6px 14px", borderRadius: 6, border: "1px dashed #d1d5db", background: "transparent", fontSize: 12, cursor: "pointer", color: "#94a3b8", marginTop: 4 }}>+ Add Link</button>
+                  </div>
+                )}
+                </>
               )}
               {(editSettingsItem.type === "document" || editSettingsItem.type === "filled-template") && (
                 <div style={{ marginBottom: 14, padding: 14, background: "#f8fafc", borderRadius: 10, border: "1px solid #e2e8f0" }}>
@@ -2392,7 +2474,40 @@ function getDateString(format: string, date?: Date): string {
               </div>
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <RichEditor content={editSettingsContent} onChange={setEditSettingsContent} />
+              {(editSettingsFiles.length > 0 || editSettingsLinks.length > 0 || !editSettingsContent) ? (
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>ATTACHMENTS</div>
+                  {editSettingsFiles.map(f => (
+                    <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 6, background: "#f8fafc", marginBottom: 4, fontSize: 12, color: "#64748b" }}>
+                      <IconGlyph name="FileDoc" size={16} color="#64748b" />
+                      <span style={{ flex: 1 }}>{f.name}</span>
+                      <button onClick={() => setEditSettingsFiles(p => p.filter(x => x.id !== f.id))} style={{ width: 20, height: 20, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 10, background: "#fee2e2", color: "#E85D75" }}>✕</button>
+                    </div>
+                  ))}
+                  <label style={{ display: "block", padding: "20px", borderRadius: 8, border: "2px dashed #e2e8f0", cursor: "pointer", textAlign: "center", fontSize: 13, color: "#94a3b8", marginBottom: 12 }}>
+                    {editSettingsUploading ? "Uploading..." : "Click to upload or drag and drop (max 25MB)"}
+                    <input type="file" onChange={handleEditSettingsUpload} style={{ display: "none" }} accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg,.webp,.gif" />
+                  </label>
+                  {editSettingsLinks.map(l => (
+                    <div key={l.id} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                      <input value={l.title} onChange={e => setEditSettingsLinks(p => p.map(x => x.id === l.id ? { ...x, title: e.target.value } : x))} placeholder="Link title"
+                        style={{ flex: 1, padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none" }} />
+                      <input value={l.url} onChange={e => setEditSettingsLinks(p => p.map(x => x.id === l.id ? { ...x, url: e.target.value } : x))} placeholder="URL"
+                        style={{ flex: 2, padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 12, outline: "none" }} />
+                      <button onClick={() => setEditSettingsLinks(p => p.filter(x => x.id !== l.id))} style={{ width: 22, height: 22, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 10, background: "#fee2e2", color: "#E85D75" }}>✕</button>
+                    </div>
+                  ))}
+                  <button onClick={() => setEditSettingsLinks(p => [...p, { id: crypto.randomUUID(), title: "", url: "" }])} style={{ padding: "6px 14px", borderRadius: 6, border: "1px dashed #d1d5db", background: "transparent", fontSize: 12, cursor: "pointer", color: "#94a3b8" }}>+ Add Link</button>
+                  {editSettingsContent && (
+                    <div style={{ marginTop: 16 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>CONTENT</div>
+                      <RichEditor content={editSettingsContent} onChange={setEditSettingsContent} />
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <RichEditor content={editSettingsContent} onChange={setEditSettingsContent} />
+              )}
             </div>
           </div>
         </div>
