@@ -5873,13 +5873,15 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
 });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [savingMenu, setSavingMenu] = useState(false);
-  const [menuSaved, setMenuSaved] = useState(false);
-  const [savingHealth, setSavingHealth] = useState(false);
-  const [healthSaved, setHealthSaved] = useState(false);
+  const [dirty, setDirty] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [fiveAccountConfirm, setFiveAccountConfirm] = useState(false);
   const [timezoneSearch, setTimezoneSearch] = useState("");
+  useEffect(() => {
+    const h = (e: BeforeUnloadEvent) => { if (dirty) e.preventDefault(); };
+    window.addEventListener("beforeunload", h);
+    return () => window.removeEventListener("beforeunload", h);
+  }, [dirty]);
   const [accHeaderSize, setAccHeaderSize] = useState<number>(() => parseInt(localStorage.getItem("acc_header_size") || "30") || 30);
   const [accMinBody, setAccMinBody] = useState<number>(() => parseInt(localStorage.getItem("acc_min_body") || "15") || 15);
   useEffect(() => {
@@ -5969,8 +5971,8 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
       <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24, flexWrap: "wrap" }}>
         <h1 style={{ margin: 0, fontSize: "clamp(20px,4vw,26px)", fontWeight: 700, color: "#1a2332" }}>{__('common.profile', 'Profile')}</h1>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 20, alignItems: "start" }}>
-        {/* Profile card */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 20, alignItems: "start" }}>
+        {/* Column 1: Profile card */}
         <div style={{ background: "#fff", borderRadius: 14, padding: 22, border: "1px solid #f1f5f9", alignSelf: "start" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20 }}>
             <div onClick={() => fileRef.current?.click()} style={{ width: 58, height: 58, borderRadius: "50%", background: "#4C9FE8", cursor: "pointer", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
@@ -5983,12 +5985,12 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
             </div>
           </div>
           <h3 style={{ margin: "0 0 12px", fontSize: 15, fontWeight: 600, color: "#1a2332" }}>Account</h3>
-          <ProfileField label="Full Name" value={localProfile.full_name} onChange={v => setLocalProfile(p => ({ ...p, full_name: v }))} />
+          <ProfileField label="Full Name" value={localProfile.full_name} onChange={v => { setLocalProfile(p => ({ ...p, full_name: v })); setDirty(true); }} />
           <ProfileField label="Email" value={userEmail} disabled />
-          <ProfileField label="Company" value={localProfile.company} onChange={currentUserLevel === "owner" || !currentUserLevel ? v => setLocalProfile(p => ({ ...p, company: v })) : undefined} disabled={currentUserLevel !== "owner" && currentUserLevel !== undefined} />
+          <ProfileField label="Company" value={localProfile.company} onChange={currentUserLevel === "owner" || !currentUserLevel ? v => { setLocalProfile(p => ({ ...p, company: v })); setDirty(true); } : undefined} disabled={currentUserLevel !== "owner" && currentUserLevel !== undefined} />
             <div style={{ position: "relative" }}>
               <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>{__('common.timezone', 'Timezone')}</div>
-              <input value={localProfile.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone} onChange={e => { setLocalProfile(p => ({ ...p, timezone: e.target.value })); setTimezoneSearch(e.target.value); }}
+              <input value={localProfile.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone} onChange={e => { setLocalProfile(p => ({ ...p, timezone: e.target.value })); setTimezoneSearch(e.target.value); setDirty(true); }}
                 onFocus={() => setTimezoneSearch(localProfile.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone)}
                 placeholder="Start typing to search..."
                 style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box" }} />
@@ -6012,9 +6014,6 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
                 );
               })()}
             </div>
-          <button onClick={handleSave} disabled={saving} style={{ width: "100%", padding: "9px", borderRadius: 8, border: "none", background: saved ? "#4CAF7D" : "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer", marginTop: 6 }}>
-            {saving ? "Saving..." : saved ? "✓ Saved!" : "Save Changes"}
-          </button>
         </div>
 
         {/* Plan + Preferences */}
@@ -6056,7 +6055,7 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
                           <input type="checkbox" checked={!forcedOff && !isHidden} disabled={forcedOff}
                             onChange={() => {
                               const next = isHidden ? hidden.filter(h => h !== item) : [...hidden, item];
-                              setLocalProfile(p => ({ ...p, menu_permissions: { ...p.menu_permissions, [level]: next } }));
+                              setLocalProfile(p => ({ ...p, menu_permissions: { ...p.menu_permissions, [level]: next } })); setDirty(true);
                             }}
                             style={{ accentColor: "#3B82F6", pointerEvents: forcedOff ? "none" : "auto" }} />
                           {item === "goals" ? "Goals" : item === "tasks" ? "Tasks" : item === "playbooks" ? "Playbooks" : item === "integrations" ? "Integrations" : item === "team" ? "Team" : "Settings"}
@@ -6067,16 +6066,6 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
                 </div>
               );
             })}
-            <button onClick={async () => {
-                setSavingMenu(true);
-                const updated = { ...localProfile };
-                const { error } = await supabase.from("profiles").upsert({ id: userId, menu_permissions: localProfile.menu_permissions, updated_at: new Date().toISOString() });
-                if (!error) { onProfileSaved(updated); setMenuSaved(true); setTimeout(() => setMenuSaved(false), 2000); }
-                setSavingMenu(false);
-              }} disabled={savingMenu}
-              style={{ marginTop: 12, width: "100%", padding: "9px", borderRadius: 8, border: "none", background: menuSaved ? "#4CAF7D" : "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>
-              {savingMenu ? "Saving..." : menuSaved ? "✓ Saved!" : "Save Changes"}
-            </button>
           </div>
           )}
 
@@ -6197,20 +6186,12 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
                     const v = parseFloat(e.target.value);
                     if (isNaN(v)) return;
                     setLocalProfile(p => ({ ...p, [key]: v }));
+                    setDirty(true);
                   }}
                   style={{ width: 72, padding: "5px 9px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", textAlign: "right" }}
                 />
               </div>
             ))}
-            <button onClick={async () => {
-                setSavingHealth(true);
-                const { error } = await supabase.from("profiles").upsert({ id: userId, health_green_multiplier: localProfile.health_green_multiplier, health_yellow_multiplier: localProfile.health_yellow_multiplier, health_red_multiplier: localProfile.health_red_multiplier, updated_at: new Date().toISOString() });
-                if (!error) { onProfileSaved(localProfile); setHealthSaved(true); setTimeout(() => setHealthSaved(false), 2000); }
-                setSavingHealth(false);
-              }} disabled={savingHealth}
-              style={{ marginTop: 12, width: "100%", padding: "9px", borderRadius: 8, border: "none", background: healthSaved ? "#4CAF7D" : "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>
-              {savingHealth ? "Saving..." : healthSaved ? "✓ Saved!" : "Save Changes"}
-            </button>
           </div>
 
           {/* Accessibility */}
@@ -6253,6 +6234,17 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
               {__('settings.changeApply', 'Changes apply immediately.')}
             </div>
           </div>
+        </div>
+        <div style={{ display: "flex", justifyContent: "center", marginTop: 24 }}>
+          <button onClick={async () => {
+              setSaving(true);
+              const { error } = await supabase.from("profiles").upsert({ id: userId, ...localProfile, updated_at: new Date().toISOString() });
+              if (!error) { onProfileSaved({ ...localProfile }); setSaved(true); setDirty(false); setTimeout(() => setSaved(false), 3000); }
+              setSaving(false);
+            }} disabled={saving}
+            style={{ padding: "12px 48px", borderRadius: 8, border: "none", background: saved ? "#4CAF7D" : dirty ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0", color: "#fff", fontSize: 15, fontWeight: 600, cursor: dirty && !saving ? "pointer" : "default" }}>
+            {saving ? "Saving..." : saved ? "✓ Saved!" : dirty ? "Save All Changes" : "All Saved"}
+          </button>
         </div>
       </div>
     </div>
