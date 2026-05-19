@@ -2460,9 +2460,9 @@ function PlaybookCard({ item, rowId, onDetail, onEdit, onStartFill, isSingleLink
           <IconGlyph name="Check" size={12} color="#4CAF7D" weight="bold" /> View
         </div>
       ) : showAction ? (
-        <a href={isSingleLink ? item.links![0].url : `#file-${item.files![0].id}`}
-          target={isSingleLink ? "_blank" : undefined} rel="noopener noreferrer"
-          onClick={e => { e.stopPropagation(); if (!isSingleLink) e.preventDefault(); }}
+        <a href={isSingleLink ? item.links![0].url : (isSingleFile ? getFileUrl(item.files![0].storagePath) : "#")}
+          target="_blank" rel="noopener noreferrer"
+          onClick={e => e.stopPropagation()}
           style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 6, background: "#EFF6FF", color: "#3B82F6", fontSize: 11, fontWeight: 500, textDecoration: "none" }}>
           {actionLabel} <IconGlyph name="ArrowUpRight" size={12} color="#3B82F6" weight="bold" />
         </a>
