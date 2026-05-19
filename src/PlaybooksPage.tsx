@@ -1460,230 +1460,210 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
                       {(() => {
                         const fType = f.type === "checkbox" ? (f.checkboxSubtype || "checkbox") : f.type;
                         return (<>
-                      {f.type !== "checkbox" && f.type !== "radio" && f.type !== "info" && f.type !== "big-checklist" && f.type !== "fill-checklist" && f.type !== "sync-checklist" && (
-                      <div style={{ marginBottom: 6 }}>
-                        <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 2 }}>{__('playbooks.placeholder', 'Placeholder')}</div>
-                        <RichEditorSmall content={f.placeholder} onChange={html => updateField(f.id, { placeholder: html })} />
-                      </div>
-                      )}
-                      {f.type === "checkbox" && (
-                        <div style={{ marginBottom: 8 }}>
-                          <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 4 }}>Checklist Type</div>
-                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
-                            {(["checkbox","fill-checklist","big-checklist","sync-checklist"] as const).map(sub => (
-                              <label key={sub} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 8px", borderRadius: 6,
-                                background: f.checkboxSubtype === sub || (!f.checkboxSubtype && sub === "checkbox") ? "#EFF6FF" : "#F8FAFC",
-                                border: f.checkboxSubtype === sub || (!f.checkboxSubtype && sub === "checkbox") ? "1.5px solid #3B82F6" : "1.5px solid #e2e8f0",
-                                fontSize: 15, color: f.checkboxSubtype === sub || (!f.checkboxSubtype && sub === "checkbox") ? "#3B82F6" : "#64748b", cursor: "pointer" }}>
-                                <input type="radio" checked={f.checkboxSubtype === sub || (!f.checkboxSubtype && sub === "checkbox")}
-                                  onChange={() => updateField(f.id, { checkboxSubtype: sub === "checkbox" ? undefined : sub, options: sub === "big-checklist" || sub === "checkbox" ? ["Option 1"] : undefined })}
-                                  style={{ accentColor: "#3B82F6", margin: 0 }} />
-                                {sub === "checkbox" ? "Checkboxes" : sub === "fill-checklist" ? "Fill Checklist" : sub === "big-checklist" ? "Big Checklist" : "Sync Tasks"}
-                              </label>
-                            ))}
-                          </div>
-                          {/* Subtype-specific settings */}
-                          {(fType === "fill-checklist" || fType === "sync-checklist") && (
-                            <div style={{ marginBottom: 6 }}>
-                              <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 2 }}>{__('playbooks.placeholder', 'Placeholder')}</div>
-                              <RichEditorSmall content={f.placeholder} onChange={html => updateField(f.id, { placeholder: html })} />
-                            </div>
-                          )}
-                          {fType === "big-checklist" && (
-                            <div>
-                              <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 4 }}>{__('playbooks.checklistLayout', 'Checklist Layout')}</div>
-                              <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
-                                {(["together","separate"] as const).map(l => (
-                                  <label key={l} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 15, color: "#64748b", cursor: "pointer" }}>
-                                    <input type="radio" name={`layout-${f.id}`} checked={(f.checklistLayout || "together") === l} onChange={() => updateField(f.id, { checklistLayout: l })}
-                                      style={{ accentColor: "#3B82F6", margin: 0 }} /> {l === "together" ? "Together" : "Separate"}
-                                  </label>
-                                ))}
-                              </div>
-                              <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 4 }}>{__('playbooks.checklistMode', 'Checklist Mode')}</div>
-                              <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
-                                {(["option","fill"] as const).map(m => (
-                                  <label key={m} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 15, color: "#64748b", cursor: "pointer" }}>
-                                    <input type="radio" name={`mode-${f.id}`} checked={(f.bigChecklistMode || "option") === m}
-                                      onChange={() => updateField(f.id, { bigChecklistMode: m })}
-                                      style={{ accentColor: "#3B82F6", margin: 0 }} /> {m === "option" ? "Option Checkboxes" : "Fill-in Checkboxes"}
-                                  </label>
-                                ))}
-                              </div>
-                              {f.bigChecklistMode === "fill" && f.checklistLayout === "separate" && (
-                                <div style={{ marginBottom: 6 }}>
-                                  <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 15, color: "#64748b", cursor: "pointer" }}>
-                                    <input type="checkbox" checked={!!f.checklistPredetermined} onChange={e => updateField(f.id, { checklistPredetermined: e.target.checked, options: e.target.checked ? (f.checklistPredeterminedCount ? f.options : []) : undefined })}
-                                      style={{ accentColor: "#3B82F6", margin: 0 }} /> Select predetermined amount
-                                  </label>
-                                  {f.checklistPredetermined && (
-                                    <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4 }}>
-                                      <span style={{ fontSize: 15, color: "#64748b" }}>How many checkboxes?</span>
-                                      <input type="number" min={1} max={50} value={f.checklistPredeterminedCount || 5}
-                                        onChange={e => { const count = parseInt(e.target.value) || 5; updateField(f.id, { checklistPredeterminedCount: count, options: Array.from({ length: count }, (_, i) => `Item ${i + 1}`) }); }}
-                                        style={{ width: 60, padding: "4px 8px", borderRadius: 4, border: "1px solid #e2e8f0", fontSize: 15, outline: "none" }} />
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                              {f.bigChecklistMode === "option" && f.checklistLayout === "separate" && !f.checklistPredetermined && (
-                                <div>
-                                  <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 4 }}>{__('common.options', 'Options')}</div>
-                                  {(f.options || []).map((opt, oi) => (
-                                    <div key={oi} style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
-                                      <input value={opt} onChange={e => { const opts = [...(f.options || [])]; opts[oi] = e.target.value; updateField(f.id, { options: opts }); }}
-                                        style={{ flex: 1, padding: "4px 8px", borderRadius: 4, border: "1px solid #e2e8f0", fontSize: 15, outline: "none" }} />
-                                      <button onClick={() => { const opts = (f.options || []).filter((_, j) => j !== oi); updateField(f.id, { options: opts.length > 0 ? opts : undefined }); }}
-                                        style={{ width: 20, height: 20, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 15, background: "#fee2e2", color: "#E85D75" }}>✕</button>
-                                    </div>
-                                  ))}
-                                  <button onClick={() => updateField(f.id, { options: [...(f.options || []), `Item ${(f.options || []).length + 1}`] })}
-                                    style={{ padding: "3px 10px", borderRadius: 4, border: "1px dashed #d1d5db", background: "transparent", fontSize: 15, cursor: "pointer", color: "#94a3b8" }}>+ Add Item</button>
-                                </div>
-                              )}
-                              {f.bigChecklistMode === "option" && f.checklistLayout === "separate" && f.checklistPredetermined && (
-                                <div style={{ marginBottom: 6 }}>
-                                  <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 15, color: "#64748b", cursor: "pointer" }}>
-                                    <input type="checkbox" checked={!!f.checklistPredetermined} onChange={e => updateField(f.id, { checklistPredetermined: e.target.checked })}
-                                      style={{ accentColor: "#3B82F6", margin: 0 }} /> How many checkboxes?
-                                  </label>
-                                  {f.checklistPredetermined && (
-                                    <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4 }}>
-                                      <input type="number" min={1} max={50} value={f.checklistPredeterminedCount || 5}
-                                        onChange={e => { const count = parseInt(e.target.value) || 5; updateField(f.id, { checklistPredeterminedCount: count, options: Array.from({ length: count }, (_, i) => `Item ${i + 1}`) }); }}
-                                        style={{ width: 60, padding: "4px 8px", borderRadius: 4, border: "1px solid #e2e8f0", fontSize: 15, outline: "none" }} />
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                              <div style={{ marginBottom: 6 }}>
-                                <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 2 }}>{__('playbooks.size', 'Size')}: {(f.textSize || 30)}px</div>
-                                <input type="range" min={30} max={100} value={f.textSize || 30}
-                                  onChange={e => updateField(f.id, { textSize: parseInt(e.target.value) })}
-                                  style={{ width: "100%", accentColor: "#3B82F6" }} />
-                              </div>
-                              {f.checklistLayout !== "separate" && (
-                                <div style={{ marginBottom: 6 }}>
-                                  <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 2 }}>{__('playbooks.placeholder', 'Placeholder')}</div>
-                                  <RichEditorSmall content={f.placeholder} onChange={html => updateField(f.id, { placeholder: html })} />
-                                </div>
-                              )}
-                              <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 15, color: "#64748b", cursor: "pointer", marginTop: 4 }}>
-                                <input type="checkbox" checked={!!f.syncToTasks} onChange={e => updateField(f.id, { syncToTasks: e.target.checked })}
-                                  style={{ accentColor: "#3B82F6", margin: 0 }} /> Sync to Priorities (Tasks)
-                              </label>
-                            </div>
-                          )}
-                          {fType === "checkbox" && (f.options || []).map((opt, oi) => (
-                            <div key={oi} style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
-                              <input type="checkbox" disabled style={{ accentColor: "#3B82F6" }} />
-                              <input value={opt} onChange={e => { const opts = [...(f.options || [])]; opts[oi] = e.target.value; updateField(f.id, { options: opts }); }}
-                                style={{ flex: 1, padding: "4px 8px", borderRadius: 4, border: "1px solid #e2e8f0", fontSize: 15, outline: "none" }} />
-                              <button onClick={() => { const opts = (f.options || []).filter((_, j) => j !== oi); updateField(f.id, { options: opts.length > 0 ? opts : undefined }); }}
-                                style={{ width: 20, height: 20, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 15, background: "#fee2e2", color: "#E85D75" }}>✕</button>
-                            </div>
-                          ))}
-                          {fType === "checkbox" && (
-                            <button onClick={() => updateField(f.id, { options: [...(f.options || []), `Option ${(f.options || []).length + 1}`] })}
-                              style={{ padding: "3px 10px", borderRadius: 4, border: "1px dashed #d1d5db", background: "transparent", fontSize: 15, cursor: "pointer", color: "#94a3b8" }}>+ Add Option</button>
-                          )}
-                        </div>
-                      )}
-                      </>);
-                      })()}
-                      {(f.type === "fill-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "fill-checklist") || f.type === "sync-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "sync-checklist")) && (
-                      <div style={{ marginBottom: 6 }}>
-                        <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 2 }}>{__('playbooks.placeholder', 'Placeholder')}</div>
-                        <RichEditorSmall content={f.placeholder} onChange={html => updateField(f.id, { placeholder: html })} />
-                      </div>
-                      )}
-                      {f.type === "big-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "big-checklist") && (
-                        <div style={{ marginBottom: 8 }}>
-                          <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 4 }}>{__('playbooks.checklistLayout', 'Checklist Layout')}</div>
-                          <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
-                            {(["together","separate"] as const).map(l => (
-                              <label key={l} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 15, color: "#64748b", cursor: "pointer" }}>
-                                <input type="radio" name={`layout-${f.id}`} checked={(f.checklistLayout || "together") === l} onChange={() => updateField(f.id, { checklistLayout: l })}
-                                  style={{ accentColor: "#3B82F6", margin: 0 }} /> {l === "together" ? "Together" : "Separate"}
-                              </label>
-                            ))}
-                          </div>
-                          {/* ── Big Checklist Mode (fill / option) ── */}
-                          <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 4 }}>{__('playbooks.checklistMode', 'Checklist Mode')}</div>
-                          <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
-                            {(["option","fill"] as const).map(m => (
-                              <label key={m} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 15, color: "#64748b", cursor: "pointer" }}>
-                                <input type="radio" name={`mode-${f.id}`} checked={(f.bigChecklistMode || "option") === m}
-                                  onChange={() => updateField(f.id, { bigChecklistMode: m })}
-                                  style={{ accentColor: "#3B82F6", margin: 0 }} /> {m === "option" ? "Option Checkboxes" : "Fill-in Checkboxes"}
-                              </label>
-                            ))}
-                          </div>
-                          {/* ── Text Size Slider ── */}
-                          <div style={{ marginBottom: 6 }}>
-                            <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 2 }}>{__('playbooks.size', 'Size')}: {(f.textSize || 30)}px</div>
-                            <input type="range" min={30} max={100} value={f.textSize || 30}
-                              onChange={e => updateField(f.id, { textSize: parseInt(e.target.value) })}
-                              style={{ width: "100%", accentColor: "#3B82F6" }} />
-                          </div>
-                          {f.checklistLayout === "separate" && (
-                            <div>
-                              <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 4 }}>{__('common.options', 'Options')}</div>
-                              {(f.options || []).map((opt, oi) => (
-                                <div key={oi} style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
-                                  <input value={opt} onChange={e => {
-                                    const opts = [...(f.options || [])];
-                                    opts[oi] = e.target.value;
-                                    updateField(f.id, { options: opts });
-                                  }} style={{ flex: 1, padding: "4px 8px", borderRadius: 4, border: "1px solid #e2e8f0", fontSize: 15, outline: "none" }} />
-                                  <button onClick={() => {
-                                    const opts = (f.options || []).filter((_, j) => j !== oi);
-                                    updateField(f.id, { options: opts.length > 0 ? opts : undefined });
-                                  }} style={{ width: 20, height: 20, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 15, background: "#fee2e2", color: "#E85D75" }}>✕</button>
-                                </div>
-                              ))}
-                              <button onClick={() => updateField(f.id, { options: [...(f.options || []), `Item ${(f.options || []).length + 1}`] })}
-                                style={{ padding: "3px 10px", borderRadius: 4, border: "1px dashed #d1d5db", background: "transparent", fontSize: 15, cursor: "pointer", color: "#94a3b8" }}>+ Add Item</button>
-                            </div>
-                          )}
-                          {f.checklistLayout !== "separate" && (
-                            <div style={{ marginBottom: 6 }}>
-                              <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 2 }}>{__('playbooks.placeholder', 'Placeholder')}</div>
-                              <RichEditorSmall content={f.placeholder} onChange={html => updateField(f.id, { placeholder: html })} />
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      {f.type === "sync-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "sync-checklist") && (
+                        {/* Placeholder for simple types */}
+                        {f.type !== "checkbox" && f.type !== "radio" && f.type !== "info" && f.type !== "big-checklist" && f.type !== "fill-checklist" && f.type !== "sync-checklist" && (
                         <div style={{ marginBottom: 6 }}>
-                          <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 15, color: "#64748b", cursor: "pointer", marginBottom: 4 }}>
-                            <input type="checkbox" checked={!!f.syncToTasks} onChange={e => updateField(f.id, { syncToTasks: e.target.checked })}
-                              style={{ accentColor: "#3B82F6", margin: 0 }} /> Sync to Tasks
-                          </label>
                           <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 2 }}>{__('playbooks.placeholder', 'Placeholder')}</div>
                           <RichEditorSmall content={f.placeholder} onChange={html => updateField(f.id, { placeholder: html })} />
                         </div>
-                      )}
-                      {(f.type === "checkbox" || f.type === "radio") && (
-                        <div style={{ marginBottom: 6 }}>
-                          <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 4 }}>{__('common.options', 'Options')}</div>
-                          {(f.options || []).map((opt, oi) => (
-                            <div key={oi} style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
-                              <input value={opt} onChange={e => {
-                                const opts = [...(f.options || [])];
-                                opts[oi] = e.target.value;
-                                updateField(f.id, { options: opts });
-                              }} style={{ flex: 1, padding: "4px 8px", borderRadius: 4, border: "1px solid #e2e8f0", fontSize: 15, outline: "none" }} />
-                              <button onClick={() => {
-                                const opts = (f.options || []).filter((_, j) => j !== oi);
-                                updateField(f.id, { options: opts.length > 0 ? opts : undefined });
-                              }} style={{ width: 20, height: 20, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 15, background: "#fee2e2", color: "#E85D75" }}>✕</button>
+                        )}
+                        {/* Checklist subtype selector (only when type is "checkbox") */}
+                        {f.type === "checkbox" && (
+                          <div style={{ marginBottom: 8 }}>
+                            <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 4 }}>Checklist Type</div>
+                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
+                              {(["checkbox","fill-checklist","big-checklist","sync-checklist"] as const).map(sub => (
+                                <label key={sub} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 8px", borderRadius: 6,
+                                  background: f.checkboxSubtype === sub || (!f.checkboxSubtype && sub === "checkbox") ? "#EFF6FF" : "#F8FAFC",
+                                  border: f.checkboxSubtype === sub || (!f.checkboxSubtype && sub === "checkbox") ? "1.5px solid #3B82F6" : "1.5px solid #e2e8f0",
+                                  fontSize: 15, color: f.checkboxSubtype === sub || (!f.checkboxSubtype && sub === "checkbox") ? "#3B82F6" : "#64748b", cursor: "pointer" }}>
+                                  <input type="radio" checked={f.checkboxSubtype === sub || (!f.checkboxSubtype && sub === "checkbox")}
+                                    onChange={() => updateField(f.id, { checkboxSubtype: sub === "checkbox" ? undefined : sub, options: sub === "big-checklist" || sub === "checkbox" ? ["Option 1"] : undefined })}
+                                    style={{ accentColor: "#3B82F6", margin: 0 }} />
+                                  {sub === "checkbox" ? "Checkboxes" : sub === "fill-checklist" ? "Fill Checklist" : sub === "big-checklist" ? "Big Checklist" : "Sync Tasks"}
+                                </label>
+                              ))}
                             </div>
-                          ))}
-                          <button onClick={() => updateField(f.id, { options: [...(f.options || []), `Option ${(f.options || []).length + 1}`] })}
-                            style={{ padding: "3px 10px", borderRadius: 4, border: "1px dashed #d1d5db", background: "transparent", fontSize: 15, cursor: "pointer", color: "#94a3b8" }}>+ Add Option</button>
-                        </div>
-                      )}
+                            {/* Basic checkbox options */}
+                            {fType === "checkbox" && (
+                              <div>
+                                {(f.options || []).map((opt, oi) => (
+                                  <div key={oi} style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
+                                    <input type="checkbox" disabled style={{ accentColor: "#3B82F6" }} />
+                                    <input value={opt} onChange={e => { const opts = [...(f.options || [])]; opts[oi] = e.target.value; updateField(f.id, { options: opts }); }}
+                                      style={{ flex: 1, padding: "4px 8px", borderRadius: 4, border: "1px solid #e2e8f0", fontSize: 15, outline: "none" }} />
+                                    <button onClick={() => { const opts = (f.options || []).filter((_, j) => j !== oi); updateField(f.id, { options: opts.length > 0 ? opts : undefined }); }}
+                                      style={{ width: 20, height: 20, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 15, background: "#fee2e2", color: "#E85D75" }}>✕</button>
+                                  </div>
+                                ))}
+                                <button onClick={() => updateField(f.id, { options: [...(f.options || []), `Option ${(f.options || []).length + 1}`] })}
+                                  style={{ padding: "3px 10px", borderRadius: 4, border: "1px dashed #d1d5db", background: "transparent", fontSize: 15, cursor: "pointer", color: "#94a3b8" }}>+ Add Option</button>
+                              </div>
+                            )}
+                            {/* Fill-checklist settings */}
+                            {fType === "fill-checklist" && (
+                              <div style={{ marginBottom: 6 }}>
+                                <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 2 }}>{__('playbooks.placeholder', 'Placeholder')}</div>
+                                <RichEditorSmall content={f.placeholder} onChange={html => updateField(f.id, { placeholder: html })} />
+                              </div>
+                            )}
+                            {/* Sync Tasks settings */}
+                            {fType === "sync-checklist" && (
+                              <div style={{ marginBottom: 6 }}>
+                                <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 15, color: "#64748b", cursor: "pointer", marginBottom: 4 }}>
+                                  <input type="checkbox" checked={!!f.syncToTasks} onChange={e => updateField(f.id, { syncToTasks: e.target.checked })}
+                                    style={{ accentColor: "#3B82F6", margin: 0 }} /> Sync to Tasks
+                                </label>
+                                <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 2 }}>{__('playbooks.placeholder', 'Placeholder')}</div>
+                                <RichEditorSmall content={f.placeholder} onChange={html => updateField(f.id, { placeholder: html })} />
+                              </div>
+                            )}
+                            {/* Big Checklist settings */}
+                            {fType === "big-checklist" && (
+                              <div>
+                                <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 4 }}>{__('playbooks.checklistLayout', 'Checklist Layout')}</div>
+                                <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+                                  {(["together","separate"] as const).map(l => (
+                                    <label key={l} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 15, color: "#64748b", cursor: "pointer" }}>
+                                      <input type="radio" name={`layout-${f.id}`} checked={(f.checklistLayout || "together") === l} onChange={() => updateField(f.id, { checklistLayout: l })}
+                                        style={{ accentColor: "#3B82F6", margin: 0 }} /> {l === "together" ? "Together" : "Separate"}
+                                    </label>
+                                  ))}
+                                </div>
+                                <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 4 }}>{__('playbooks.checklistMode', 'Checklist Mode')}</div>
+                                <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+                                  {(["option","fill"] as const).map(m => (
+                                    <label key={m} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 15, color: "#64748b", cursor: "pointer" }}>
+                                      <input type="radio" name={`mode-${f.id}`} checked={(f.bigChecklistMode || "option") === m}
+                                        onChange={() => updateField(f.id, { bigChecklistMode: m })}
+                                        style={{ accentColor: "#3B82F6", margin: 0 }} /> {m === "option" ? "Option Checkboxes" : "Fill-in Checkboxes"}
+                                    </label>
+                                  ))}
+                                </div>
+                                {f.bigChecklistMode === "option" && (
+                                  <div>
+                                    <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 4 }}>{__('common.options', 'Options')}</div>
+                                    {(f.options || []).map((opt, oi) => (
+                                      <div key={oi} style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
+                                        <input value={opt} onChange={e => { const opts = [...(f.options || [])]; opts[oi] = e.target.value; updateField(f.id, { options: opts }); }}
+                                          style={{ flex: 1, padding: "4px 8px", borderRadius: 4, border: "1px solid #e2e8f0", fontSize: 15, outline: "none" }} />
+                                        <button onClick={() => { const opts = (f.options || []).filter((_, j) => j !== oi); updateField(f.id, { options: opts.length > 0 ? opts : undefined }); }}
+                                          style={{ width: 20, height: 20, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 15, background: "#fee2e2", color: "#E85D75" }}>✕</button>
+                                      </div>
+                                    ))}
+                                    <button onClick={() => updateField(f.id, { options: [...(f.options || []), `Item ${(f.options || []).length + 1}`] })}
+                                      style={{ padding: "3px 10px", borderRadius: 4, border: "1px dashed #d1d5db", background: "transparent", fontSize: 15, cursor: "pointer", color: "#94a3b8" }}>+ Add Item</button>
+                                  </div>
+                                )}
+                                <div style={{ marginBottom: 6 }}>
+                                  <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 2 }}>{__('playbooks.size', 'Size')}: {(f.textSize || 30)}px</div>
+                                  <input type="range" min={30} max={100} value={f.textSize || 30}
+                                    onChange={e => updateField(f.id, { textSize: parseInt(e.target.value) })}
+                                    style={{ width: "100%", accentColor: "#3B82F6" }} />
+                                </div>
+                                {f.checklistLayout !== "separate" && (
+                                  <div style={{ marginBottom: 6 }}>
+                                    <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 2 }}>{__('playbooks.placeholder', 'Placeholder')}</div>
+                                    <RichEditorSmall content={f.placeholder} onChange={html => updateField(f.id, { placeholder: html })} />
+                                  </div>
+                                )}
+                                <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 15, color: "#64748b", cursor: "pointer", marginTop: 4 }}>
+                                  <input type="checkbox" checked={!!f.syncToTasks} onChange={e => updateField(f.id, { syncToTasks: e.target.checked })}
+                                    style={{ accentColor: "#3B82F6", margin: 0 }} /> Sync to Priorities (Tasks)
+                                </label>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {/* Standalone types (when f.type is directly one of these) */}
+                        {f.type === "fill-checklist" && (
+                          <div style={{ marginBottom: 6 }}>
+                            <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 2 }}>{__('playbooks.placeholder', 'Placeholder')}</div>
+                            <RichEditorSmall content={f.placeholder} onChange={html => updateField(f.id, { placeholder: html })} />
+                          </div>
+                        )}
+                        {f.type === "sync-checklist" && (
+                          <div style={{ marginBottom: 6 }}>
+                            <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 15, color: "#64748b", cursor: "pointer", marginBottom: 4 }}>
+                              <input type="checkbox" checked={!!f.syncToTasks} onChange={e => updateField(f.id, { syncToTasks: e.target.checked })}
+                                style={{ accentColor: "#3B82F6", margin: 0 }} /> Sync to Tasks
+                            </label>
+                            <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 2 }}>{__('playbooks.placeholder', 'Placeholder')}</div>
+                            <RichEditorSmall content={f.placeholder} onChange={html => updateField(f.id, { placeholder: html })} />
+                          </div>
+                        )}
+                        {f.type === "big-checklist" && (
+                          <div style={{ marginBottom: 8 }}>
+                            <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 4 }}>{__('playbooks.checklistLayout', 'Checklist Layout')}</div>
+                            <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+                              {(["together","separate"] as const).map(l => (
+                                <label key={l} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 15, color: "#64748b", cursor: "pointer" }}>
+                                  <input type="radio" name={`layout-${f.id}`} checked={(f.checklistLayout || "together") === l} onChange={() => updateField(f.id, { checklistLayout: l })}
+                                    style={{ accentColor: "#3B82F6", margin: 0 }} /> {l === "together" ? "Together" : "Separate"}
+                                </label>
+                              ))}
+                            </div>
+                            <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 4 }}>{__('playbooks.checklistMode', 'Checklist Mode')}</div>
+                            <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+                              {(["option","fill"] as const).map(m => (
+                                <label key={m} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 15, color: "#64748b", cursor: "pointer" }}>
+                                  <input type="radio" name={`mode-${f.id}`} checked={(f.bigChecklistMode || "option") === m}
+                                    onChange={() => updateField(f.id, { bigChecklistMode: m })}
+                                    style={{ accentColor: "#3B82F6", margin: 0 }} /> {m === "option" ? "Option Checkboxes" : "Fill-in Checkboxes"}
+                                </label>
+                              ))}
+                            </div>
+                            {f.bigChecklistMode === "option" && (
+                              <div>
+                                <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 4 }}>{__('common.options', 'Options')}</div>
+                                {(f.options || []).map((opt, oi) => (
+                                  <div key={oi} style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
+                                    <input value={opt} onChange={e => { const opts = [...(f.options || [])]; opts[oi] = e.target.value; updateField(f.id, { options: opts }); }}
+                                      style={{ flex: 1, padding: "4px 8px", borderRadius: 4, border: "1px solid #e2e8f0", fontSize: 15, outline: "none" }} />
+                                    <button onClick={() => { const opts = (f.options || []).filter((_, j) => j !== oi); updateField(f.id, { options: opts.length > 0 ? opts : undefined }); }}
+                                      style={{ width: 20, height: 20, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 15, background: "#fee2e2", color: "#E85D75" }}>✕</button>
+                                  </div>
+                                ))}
+                                <button onClick={() => updateField(f.id, { options: [...(f.options || []), `Item ${(f.options || []).length + 1}`] })}
+                                  style={{ padding: "3px 10px", borderRadius: 4, border: "1px dashed #d1d5db", background: "transparent", fontSize: 15, cursor: "pointer", color: "#94a3b8" }}>+ Add Item</button>
+                              </div>
+                            )}
+                            <div style={{ marginBottom: 6 }}>
+                              <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 2 }}>{__('playbooks.size', 'Size')}: {(f.textSize || 30)}px</div>
+                              <input type="range" min={30} max={100} value={f.textSize || 30}
+                                onChange={e => updateField(f.id, { textSize: parseInt(e.target.value) })}
+                                style={{ width: "100%", accentColor: "#3B82F6" }} />
+                            </div>
+                            {f.checklistLayout !== "separate" && (
+                              <div style={{ marginBottom: 6 }}>
+                                <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 2 }}>{__('playbooks.placeholder', 'Placeholder')}</div>
+                                <RichEditorSmall content={f.placeholder} onChange={html => updateField(f.id, { placeholder: html })} />
+                              </div>
+                            )}
+                            <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 15, color: "#64748b", cursor: "pointer", marginTop: 4 }}>
+                              <input type="checkbox" checked={!!f.syncToTasks} onChange={e => updateField(f.id, { syncToTasks: e.target.checked })}
+                                style={{ accentColor: "#3B82F6", margin: 0 }} /> Sync to Priorities (Tasks)
+                            </label>
+                          </div>
+                        )}
+                        {/* Radio options */}
+                        {f.type === "radio" && (
+                          <div style={{ marginBottom: 6 }}>
+                            <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 4 }}>{__('common.options', 'Options')}</div>
+                            {(f.options || []).map((opt, oi) => (
+                              <div key={oi} style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
+                                <input value={opt} onChange={e => { const opts = [...(f.options || [])]; opts[oi] = e.target.value; updateField(f.id, { options: opts }); }}
+                                  style={{ flex: 1, padding: "4px 8px", borderRadius: 4, border: "1px solid #e2e8f0", fontSize: 15, outline: "none" }} />
+                                <button onClick={() => { const opts = (f.options || []).filter((_, j) => j !== oi); updateField(f.id, { options: opts.length > 0 ? opts : undefined }); }}
+                                  style={{ width: 20, height: 20, borderRadius: 4, border: "none", cursor: "pointer", fontSize: 15, background: "#fee2e2", color: "#E85D75" }}>✕</button>
+                              </div>
+                            ))}
+                            <button onClick={() => updateField(f.id, { options: [...(f.options || []), `Option ${(f.options || []).length + 1}`] })}
+                              style={{ padding: "3px 10px", borderRadius: 4, border: "1px dashed #d1d5db", background: "transparent", fontSize: 15, cursor: "pointer", color: "#94a3b8" }}>+ Add Option</button>
+                          </div>
+                        )}
+                        </>);
+                        })()}
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 15, color: "#64748b", cursor: "pointer" }}>
                           <input type="checkbox" checked={f.required} onChange={e => updateField(f.id, { required: e.target.checked })}
