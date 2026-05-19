@@ -76,6 +76,7 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
   const [showConvert, setShowConvert] = useState(false);
   const [convertText, setConvertText] = useState("");
   const [dragging, setDragging] = useState<{ optionId: string; proIndex: number; startX: number; startY: number; currentX: number; currentY: number } | null>(null);
+  const [reorderingId, setReorderingId] = useState<string | null>(null);
   const [completedDecisions, setCompletedDecisions] = useState<CompletedDecision[]>([]);
   const [savedDecisions, setSavedDecisions] = useState<DecisionSnapshot[]>(() => {
     try {
@@ -193,30 +194,40 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
       const conIndex = parseInt(conDot.dataset.conIndex!, 10);
       if (optionId === dragging.optionId) {
         const proIndex = dragging.proIndex;
-        if (proIndex === conIndex) return; // already on same row
-        setOptions(options.map(o => {
-          if (o.id !== optionId) return o;
-          // Move the con item to align with the pro's row
-          const newCons = [...o.cons];
-          const [moved] = newCons.splice(conIndex, 1);
-          const insertAt = Math.min(proIndex, newCons.length);
-          newCons.splice(insertAt, 0, moved || "");
-          // Clean trailing empty strings
-          while (newCons.length > 0 && newCons[newCons.length - 1] === "") newCons.pop();
-          // Update connection indices: removed at conIndex, inserted at insertAt
-          const newConnections = o.connections
-            .map(c => ({
-              proIndex: c.proIndex,
-              conIndex: c.conIndex > conIndex ? c.conIndex - 1 : c.conIndex,
-            }))
-            .map(c => ({
-              proIndex: c.proIndex,
-              conIndex: c.conIndex >= insertAt ? c.conIndex + 1 : c.conIndex,
-            }));
-          // Add the new connection
-          newConnections.push({ proIndex, conIndex: insertAt });
-          return { ...o, cons: newCons, connections: newConnections };
+        if (proIndex === conIndex) {
+          // Same row — just add the connection
+          setOptions(options.map(o => o.id !== optionId ? o : {
+            ...o, connections: [...o.connections, { proIndex, conIndex }]
+          }));
+          setDragging(null);
+          return;
+        }
+        // Different rows — add connection immediately, then reorder after a pause
+        setOptions(options.map(o => o.id !== optionId ? o : {
+          ...o, connections: [...o.connections, { proIndex, conIndex }]
         }));
+        setReorderingId(optionId);
+        setTimeout(() => {
+          setOptions(prev => prev.map(o => {
+            if (o.id !== optionId) return o;
+            const newCons = [...o.cons];
+            const [moved] = newCons.splice(conIndex, 1);
+            const insertAt = Math.min(proIndex, newCons.length);
+            newCons.splice(insertAt, 0, moved || "");
+            while (newCons.length > 0 && newCons[newCons.length - 1] === "") newCons.pop();
+            const newConnections = o.connections
+              .map(c => ({
+                proIndex: c.proIndex,
+                conIndex: c.conIndex > conIndex ? c.conIndex - 1 : c.conIndex,
+              }))
+              .map(c => ({
+                proIndex: c.proIndex,
+                conIndex: c.conIndex >= insertAt ? c.conIndex + 1 : c.conIndex,
+              }));
+            return { ...o, cons: newCons, connections: newConnections };
+          }));
+          setReorderingId(null);
+        }, 2000);
       }
     }
     setDragging(null);
@@ -377,6 +388,18 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
         opacity: favoriteOptionId && !isFavorite ? 0.5 : 1,
         transition: "opacity 0.2s, border-color 0.2s",
       }}>
+        {/* Reorganizing indicator */}
+        {reorderingId === option.id && (
+          <div style={{
+            position: "absolute", inset: 0, borderRadius: 12,
+            background: "rgba(59,130,246,0.08)", zIndex: 10,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            animation: "pulse 1.5s ease-in-out infinite",
+            fontSize: 14, fontWeight: 600, color: "#3B82F6", letterSpacing: "0.02em",
+          }}>
+            Reorganizing…
+          </div>
+        )}
         {/* Column header */}
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
           <input value={option.label} onChange={e => updateLabel(option.id, e.target.value)}
@@ -871,6 +894,7 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
       {renderSection("completed", "Completed Decisions", "CheckCircle", "#4CAF7D", completedDecisions, renderCompletedCard)}
 
       {showQuickStart && quickStartGuide}
+      <style>{`@keyframes pulse { 0%,100% { opacity: 0.6; } 50% { opacity: 1; } }`}</style>
     </div>
   );
 }
