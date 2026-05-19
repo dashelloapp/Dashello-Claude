@@ -8853,7 +8853,7 @@ const sidebarEl = (
             {(tasksData || []).filter(t => t.assignedTo === pendingMemberDetail.email && !t.done).length > 0 && (
               <div>
                 <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>Active Tasks</div>
-                {(tasksData || []).filter(t => t.assignedTo === pendingMemberDetail.email && !t.done).map(t => (
+                {(tasksData || []).filter(t => t.assignedTo === pendingMemberDetail.email && !t.done).sort((a, b) => (b.priority ? 1 : 0) - (a.priority ? 1 : 0)).map(t => (
                   <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 6, background: t.priority ? "#FFF8ED" : "#F8FAFC", marginBottom: 4 }}>
                     <div style={{ width: 16, height: 16, borderRadius: "50%", flexShrink: 0, border: t.priority ? "1.5px solid #F5A623" : "1.5px solid #d1d5db", background: "transparent" }} />
                     <span style={{ flex: 1, fontSize: 13, color: "#1a2332", fontWeight: t.priority ? 600 : 400, minWidth: 0 }}>{t.text}</span>
