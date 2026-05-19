@@ -4318,10 +4318,24 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
     document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h);
   }, []);
 
+  const lastToggledRef = useRef<string | null>(null);
+
   const toggle = (id: string) => {
+    lastToggledRef.current = id;
     setTasks(tasks.map(t => t.id === id ? { ...t, done: !t.done } : t));
     setMenuTaskId(null);
   };
+
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "z" && lastToggledRef.current) {
+        toggle(lastToggledRef.current);
+        lastToggledRef.current = null;
+      }
+    };
+    document.addEventListener("keydown", h);
+    return () => document.removeEventListener("keydown", h);
+  }, [tasks]);
   const myTasks = tasks.filter(t => t.assignedTo === userEmail);
   const priorityTasks = myTasks.filter(t => t.priority && !t.done);
   const nonPriority = myTasks.filter(t => !t.priority);
@@ -5685,7 +5699,7 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
                       const forcedOff = level === "viewer" && (item === "integrations" || item === "team");
                       return (
                         <label key={item} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 6, background: forcedOff ? "#f1f5f9" : isHidden ? "#fff5f5" : "#F0FDF4", border: forcedOff ? "1px solid #e2e8f0" : isHidden ? "1px solid #fecaca" : "1px solid #c3e6d4", fontSize: 11, color: forcedOff ? "#94a3b8" : isHidden ? "#E85D75" : "#0F6E56", cursor: forcedOff ? "not-allowed" : "pointer", userSelect: "none", opacity: forcedOff ? 0.5 : 1 }}>
-                          <input type="checkbox" checked={!isHidden} disabled={forcedOff}
+                          <input type="checkbox" checked={!forcedOff && !isHidden} disabled={forcedOff}
                             onChange={() => {
                               const next = isHidden ? hidden.filter(h => h !== item) : [...hidden, item];
                               setLocalProfile(p => ({ ...p, menu_permissions: { ...p.menu_permissions, [level]: next } }));
