@@ -328,8 +328,11 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
     setSavedDecisions(prev => prev.filter(s => s.id !== snapshot.id));
   };
 
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
   const handleDeleteSaved = (id: string) => {
     setSavedDecisions(prev => prev.filter(s => s.id !== id));
+    setConfirmDeleteId(null);
   };
 
   const resetCurrent = () => {
@@ -567,10 +570,23 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
                       padding: "5px 12px", borderRadius: 6, border: "none", background: "#EFF6FF",
                       fontSize: 13, cursor: "pointer", color: "#3B82F6", fontWeight: 600,
                     }}>Edit</button>
-          <button onClick={() => handleDeleteSaved(sd.id)} style={{
-            padding: "5px 8px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff",
-            fontSize: 13, cursor: "pointer", color: "#94a3b8",
-          }}>×</button>
+                    {confirmDeleteId === sd.id ? (
+                      <div style={{ display: "flex", gap: 4 }}>
+                        <button onClick={() => handleDeleteSaved(sd.id)} style={{
+                          padding: "5px 8px", borderRadius: 6, border: "none", background: "#E85D75",
+                          fontSize: 12, cursor: "pointer", color: "#fff", fontWeight: 600,
+                        }}>Confirm</button>
+                        <button onClick={() => setConfirmDeleteId(null)} style={{
+                          padding: "5px 8px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff",
+                          fontSize: 12, cursor: "pointer", color: "#94a3b8",
+                        }}>Cancel</button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setConfirmDeleteId(sd.id)} style={{
+                        padding: "5px 8px", borderRadius: 6, border: "1.5px solid #e2e8f0", background: "#fff",
+                        fontSize: 13, cursor: "pointer", color: "#94a3b8",
+                      }}>×</button>
+                    )}
         </div>
       </div>
     </div>
