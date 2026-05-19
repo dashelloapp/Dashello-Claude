@@ -4542,7 +4542,7 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
         <div style={{ marginLeft: "auto" }} />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "clamp(12px,2vw,20px)", alignItems: "start" }} className="stack-mobile">
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(350px, 1fr))", gap: "clamp(12px,2vw,20px)", alignItems: "start" }}>
         {/* ── Left Column ── */}
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
           {/* Your Tasks */}
@@ -5993,7 +5993,7 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
       <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24, flexWrap: "wrap" }}>
         <h1 style={{ margin: 0, fontSize: "clamp(20px,4vw,26px)", fontWeight: 700, color: "#1a2332" }}>{__('common.profile', 'Profile')}</h1>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 20, alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20, alignItems: "start" }}>
         {/* Column 1: Profile card */}
         <div style={{ background: "#fff", borderRadius: 14, padding: 22, border: "1px solid #f1f5f9", alignSelf: "start" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20 }}>
@@ -6257,7 +6257,7 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
             </div>
           </div>
         </div>
-        <div style={{ display: "flex", justifyContent: "center", marginTop: 24 }}>
+        <div style={{ position: "sticky", bottom: 0, background: "#F8FAFC", padding: "16px 0", display: "flex", justifyContent: "center", zIndex: 100 }}>
           <button onClick={async () => {
               setSaving(true);
               const { error } = await supabase.from("profiles").upsert({ id: userId, ...localProfile, updated_at: new Date().toISOString() });
