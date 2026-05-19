@@ -4369,7 +4369,7 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
         <div style={{ marginLeft: "auto" }} />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, alignItems: "start" }} className="stack-mobile">
         {/* ── Left Column ── */}
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
           {/* Your Tasks */}
@@ -4394,8 +4394,9 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
                   const assigneeMember = getMemberByEmail(t.assignedTo);
                   const isEditing = editingTaskId === t.id;
                   const isDueToday = t.dueDate === todayStr;
+                  const isPastDue = !t.done && !!t.dueDate && t.dueDate < todayStr && !isDueToday;
                   return (
-                    <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 8, background: "#FFF8ED", border: "1px solid #FDE68A", marginBottom: 6, fontSize: 15 }}>
+                    <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 8, background: isPastDue ? "#FEF2F2" : "#FFF8ED", border: isPastDue ? "1px solid #FECACA" : "1px solid #FDE68A", marginBottom: 6, fontSize: 15 }}>
                       <div onClick={() => toggle(t.id)} style={{ width: 24, height: 24, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "2px solid #F5A623", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 13 }}>{t.done ? "✓" : ""}</div>
                       {isEditing ? (
                         <input value={editText} onChange={e => setEditText(e.target.value)}
@@ -4406,7 +4407,7 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
                         <div onClick={() => { setEditingTaskId(t.id); setEditText(t.text); setMenuTaskId(null); }} style={{ flex: 1, fontSize: 15, color: "#1a2332", fontWeight: 600, textDecoration: t.done ? "line-through" : "none", minWidth: 0, cursor: "text" }}>{t.text}</div>
                       )}
                       <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, position: "relative" }}>
-                        {t.dueDate && <div style={{ fontSize: 12, color: isDueToday ? "#F5A623" : "#94a3b8", fontWeight: isDueToday ? 600 : 400, whiteSpace: "nowrap" }}>{isDueToday ? "Due Today" : formatDate(t.dueDate)}</div>}
+                        {t.dueDate && <div style={{ fontSize: 12, color: isPastDue ? "#E85D75" : isDueToday ? "#F5A623" : "#94a3b8", fontWeight: isPastDue || isDueToday ? 600 : 400, whiteSpace: "nowrap" }}>{isPastDue ? "Past Due" : isDueToday ? "Due Today" : formatDate(t.dueDate)}</div>}
                         {(t.linkedMetricId || t.linkedGoalId) && (
                           <div style={{ display: "flex", gap: 4 }}>
                             {t.linkedMetricId && <div onClick={() => onViewMetric(t.linkedMetricId!)} style={{ width: 22, height: 22, borderRadius: "50%", background: "#EFF6FF", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
@@ -4487,8 +4488,9 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
                 const assigneeMember = getMemberByEmail(t.assignedTo);
                 const isEditing = editingTaskId === t.id;
                 const isDueToday = t.dueDate === todayStr;
+                const isPastDue = !t.done && !!t.dueDate && t.dueDate < todayStr && !isDueToday;
                 return (
-                  <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8, background: t.done ? "#f8fafc" : isDueToday ? "#EFF6FF" : "#fff", border: isDueToday && !t.done ? "1px solid #93C5FD" : "none", opacity: t.done ? 0.6 : 1 }}>
+                  <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8, background: t.done ? "#f8fafc" : isPastDue ? "#FEF2F2" : isDueToday ? "#EFF6FF" : "#fff", border: isPastDue && !t.done ? "1px solid #FECACA" : isDueToday && !t.done ? "1px solid #93C5FD" : "none", opacity: t.done ? 0.6 : 1 }}>
                     <div onClick={() => toggle(t.id)} style={{ width: 20, height: 20, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 11 }}>{t.done ? "✓" : ""}</div>
                     {isEditing ? (
                       <input value={editText} onChange={e => setEditText(e.target.value)}
@@ -4499,7 +4501,7 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
                       <div onClick={() => { setEditingTaskId(t.id); setEditText(t.text); setMenuTaskId(null); }} style={{ flex: 1, fontSize: 13, color: "#1a2332", textDecoration: t.done ? "line-through" : "none", minWidth: 0, cursor: "text" }}>{t.text}</div>
                     )}
                     <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, position: "relative" }}>
-                      {t.dueDate && <div style={{ fontSize: 11, color: isDueToday ? "#3B82F6" : "#94a3b8", fontWeight: isDueToday ? 600 : 400, whiteSpace: "nowrap" }}>{isDueToday ? "Due Today" : formatDate(t.dueDate)}</div>}
+                      {t.dueDate && <div style={{ fontSize: 11, color: isPastDue ? "#E85D75" : isDueToday ? "#3B82F6" : "#94a3b8", fontWeight: isPastDue || isDueToday ? 600 : 400, whiteSpace: "nowrap" }}>{isPastDue ? "Past Due" : isDueToday ? "Due Today" : formatDate(t.dueDate)}</div>}
                       {(t.linkedMetricId || t.linkedGoalId) && (
                         <div style={{ display: "flex", gap: 4 }}>
                           {t.linkedMetricId && (
@@ -7172,7 +7174,8 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
   const sidebarDoneCount = mySidebarTasks.filter(t => t.done).length;
   const sidebarTotalCount = mySidebarTasks.length;
   const sidebarPct = sidebarTotalCount > 0 ? Math.round((sidebarDoneCount / sidebarTotalCount) * 100) : 0;
-  const sidebarTaskList = mySidebarTasks.filter(t => !t.done).slice(0, 5);
+  const sidebarPriorityList = mySidebarTasks.filter(t => t.priority && !t.done);
+  const sidebarRegularList = mySidebarTasks.filter(t => !t.priority && !t.done).slice(0, 5);
   const sidebarToggle = (id: string) => setTasks(prev => prev.map(t => t.id === id ? { ...t, done: !t.done } : t));
   const sidebarAddTask = () => {
     if (!sidebarAddText.trim()) return;
@@ -7269,7 +7272,14 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
         <div style={{ height: 6, borderRadius: 99, background: "#e2e8f0", marginBottom: 10, overflow: "hidden" }}>
           <div style={{ width: `${sidebarPct}%`, height: "100%", borderRadius: 99, background: "#4CAF7D", transition: "width 0.3s" }} />
         </div>
-        {sidebarTaskList.map(t => (
+        {sidebarPriorityList.map(t => (
+          <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 6px", cursor: "pointer", background: "#FFF8ED", borderRadius: 6, marginBottom: 2 }}
+            onClick={() => sidebarToggle(t.id)}>
+            <div style={{ width: 16, height: 16, borderRadius: "50%", flexShrink: 0, border: t.done ? "none" : "1.5px solid #F5A623", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 8 }}>{t.done ? "✓" : ""}</div>
+            <span style={{ fontSize: 11, color: "#1a2332", flex: 1, fontWeight: 600, textDecoration: t.done ? "line-through" : "none", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.text}</span>
+          </div>
+        ))}
+        {sidebarRegularList.map(t => (
           <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 0", cursor: "pointer" }}
             onClick={() => sidebarToggle(t.id)}>
             <div style={{ width: 16, height: 16, borderRadius: "50%", flexShrink: 0, border: t.done ? "none" : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 8 }}>{t.done ? "✓" : ""}</div>
