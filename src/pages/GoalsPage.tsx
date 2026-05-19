@@ -462,7 +462,7 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
             { n: "2", title: "Formulate the issue in a proposal",
               body: "Frame your decision as either X vs. non-X (e.g., \"I will accept the job offer\" vs. \"I will not accept it\") or X vs. Y (e.g., \"I will stay at my current job\" vs. \"I will accept the new offer\"). Multiple options like A vs. B vs. C work well for complex decisions. Each option label in the filter columns should be a concrete choice - not vague, but specific about what you will do, where, and when." },
             { n: "3", title: "Pray for openness and inner freedom",
-              body: "Before weighing evidence, pause. Ask to be free from prejudgment, fear, pride, or any attachment that might steer you unconsciously. The goal is to want only what is truly best - not easiest or most comfortable. Read Scripture slowly and notice what stirs in you. Bring any obstacles - perfectionism, people-pleasing, impatience - to God in prayer. Suggested passages:" },
+              body: "Before weighing evidence, pause. Ask to be free from prejudgment, fear, pride, or any attachment that might steer you unconsciously. The goal is to want only what is truly best - not easiest or most comfortable. Read Scripture slowly and notice what stirs in you. Bring any obstacles - perfectionism, people-pleasing, impatience - to God in prayer." },
             { n: "4", title: "Gather all necessary information",
               body: "Find out the relevant specifics: Who? What? Where? When? How much? Consult everyone who will be affected by the decision - spouse, family, colleagues, friends. Discuss the matter with a spiritually mature person who can be honest and objective with you." },
             { n: "5", title: "Repeat the prayer for freedom",
@@ -485,20 +485,15 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
               <div>
                 <div style={{ fontWeight: 600, fontSize: 15 }}>{s.title}</div>
                 <div style={{ fontSize: 14, color: "#64748b" }}>{s.body}</div>
+                {s.n === "3" && (
+                  <div style={{ marginTop: 8, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 2 }}>
+                    {["Luke 17:5-6", "Luke 12:22-32", "Matthew 13:44-46", "Matthew 14:22-33", "Luke 18:35-43", "Mark 10:17-22", "Matthew 5:13-16", "Luke 14:33", "2 Timothy 1:7", "Matthew 7:24-25", "Luke 16:13", "Philippians 3:7-10", "Luke 11:5-13", "Matthew 20:26-28"].map(ref => (
+                      <div key={ref} style={{ fontSize: 13, color: "#475569", padding: "2px 4px" }}>• {ref}</div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
-          ))}
-        </div>
-
-        {/* Multi-column scripture passages */}
-        <div style={{ marginTop: 12, marginBottom: 4, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 4 }}>
-          {[
-            "Luke 17:5-6", "Luke 12:22-32", "Matthew 13:44-46", "Matthew 14:22-33",
-            "Luke 18:35-43", "Mark 10:17-22", "Matthew 5:13-16", "Luke 14:33",
-            "2 Timothy 1:7", "Matthew 7:24-25", "Luke 16:13", "Philippians 3:7-10",
-            "Luke 11:5-13", "Matthew 20:26-28",
-          ].map(ref => (
-            <div key={ref} style={{ fontSize: 13, color: "#475569", padding: "3px 6px" }}>• {ref}</div>
           ))}
         </div>
 
