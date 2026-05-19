@@ -6036,7 +6036,7 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
             </div>
         </div>
 
-        {/* Plan + Preferences */}
+        {/* Column 2: Plan + Preferences */}
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {/* Plan — owner only */}
           {(currentUserLevel === "owner" || !currentUserLevel) && (
@@ -6056,40 +6056,7 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
           </div>
           )}
 
-          {/* Menu Visibility — owner only */}
-          {(currentUserLevel === "owner" || !currentUserLevel) && (
-          <div style={{ background: "#fff", borderRadius: 14, padding: 20, border: "1px solid #f1f5f9" }}>
-            <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 600, color: "#1a2332" }}>{__('common.menuVisibility', 'Menu Visibility')}</h3>
-            <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 14 }}>{__('settings.menuVisibilityDesc', 'Customize which menu items each role can access. Home is always visible.')}</div>
-            {(["viewer","editor","admin"] as const).map(level => {
-              const hidden = localProfile.menu_permissions?.[level] || [];
-              return (
-                <div key={level} style={{ marginBottom: 12, background: "#F8FAFC", borderRadius: 10, padding: "12px 14px" }}>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: "#1a2332", marginBottom: 8, textTransform: "capitalize" }}>{level}</div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                    {(["goals","tasks","playbooks","integrations","team","settings"] as const).map(item => {
-                      const isHidden = hidden.includes(item);
-                      const forcedOff = level === "viewer" && (item === "integrations" || item === "team");
-                      return (
-                        <label key={item} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 6, background: forcedOff ? "#f1f5f9" : isHidden ? "#fff5f5" : "#F0FDF4", border: forcedOff ? "1px solid #e2e8f0" : isHidden ? "1px solid #fecaca" : "1px solid #c3e6d4", fontSize: 15, color: forcedOff ? "#94a3b8" : isHidden ? "#E85D75" : "#0F6E56", cursor: forcedOff ? "not-allowed" : "pointer", userSelect: "none", opacity: forcedOff ? 0.5 : 1 }}>
-                          <input type="checkbox" checked={!forcedOff && !isHidden} disabled={forcedOff}
-                            onChange={() => {
-                              const next = isHidden ? hidden.filter(h => h !== item) : [...hidden, item];
-                              setLocalProfile(p => ({ ...p, menu_permissions: { ...p.menu_permissions, [level]: next } })); setDirty(true);
-                            }}
-                            style={{ accentColor: "#3B82F6", pointerEvents: forcedOff ? "none" : "auto" }} />
-                          {item === "goals" ? "Goals" : item === "tasks" ? "Tasks" : item === "playbooks" ? "Playbooks" : item === "integrations" ? "Integrations" : item === "team" ? "Team" : "Settings"}
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          )}
-
-          {/* Preferences */}
+          {/* Preferences + Five-Account */}
           <div style={{ background: "#fff", borderRadius: 14, padding: 20, border: "1px solid #f1f5f9" }}>
             <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 600, color: "#1a2332" }}>{__('common.preferences', 'Preferences')}</h3>
             <GrayPref label="Email notifications" sub="Daily digest of key metrics" />
@@ -6181,6 +6148,77 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
               </div>
             )}
           </div>
+
+          {/* Health Score multipliers */}
+          <div style={{ background: "#fff", borderRadius: 14, padding: 20, border: "1px solid #f1f5f9" }}>
+            <h3 style={{ margin: "0 0 6px", fontSize: 15, fontWeight: 600, color: "#1a2332" }}>{__('common.healthScore', 'Health Score')}</h3>
+            <p style={{ margin: "0 0 14px", fontSize: 15, color: "#94a3b8", lineHeight: 1.5 }}>
+              Adjust how each metric color contributes to your overall dashboard health score. Only boxes with color rules count.
+            </p>
+            {[
+              { key: "health_green_multiplier" as const, label: "Green multiplier", color: "#4CAF7D" },
+              { key: "health_yellow_multiplier" as const, label: "Yellow multiplier", color: "#F5A623" },
+              { key: "health_red_multiplier" as const, label: "Red multiplier", color: "#E85D75" },
+            ].map(({ key, label, color }) => (
+              <div key={key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #f1f5f9" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ width: 10, height: 10, borderRadius: "50%", background: color, display: "inline-block" }} />
+                  <span style={{ fontSize: 15, color: "#1a2332" }}>{label}</span>
+                </div>
+                <input
+                  type="number"
+                  step={0.1}
+                  value={localProfile[key]}
+                  onChange={e => {
+                    const v = parseFloat(e.target.value);
+                    if (isNaN(v)) return;
+                    setLocalProfile(p => ({ ...p, [key]: v }));
+                    setDirty(true);
+                  }}
+                  style={{ width: 72, padding: "5px 9px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", textAlign: "right" }}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Column 3: Menu Visibility */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {(currentUserLevel === "owner" || !currentUserLevel) && (
+          <div style={{ background: "#fff", borderRadius: 14, padding: 20, border: "1px solid #f1f5f9" }}>
+            <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 600, color: "#1a2332" }}>{__('common.menuVisibility', 'Menu Visibility')}</h3>
+            <div style={{ fontSize: 15, color: "#94a3b8", marginBottom: 14 }}>{__('settings.menuVisibilityDesc', 'Customize which menu items each role can access. Home is always visible.')}</div>
+            {(["viewer","editor","admin"] as const).map(level => {
+              const hidden = localProfile.menu_permissions?.[level] || [];
+              return (
+                <div key={level} style={{ marginBottom: 12, background: "#F8FAFC", borderRadius: 10, padding: "12px 14px" }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#1a2332", marginBottom: 8, textTransform: "capitalize" }}>{level}</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {(["goals","tasks","playbooks","integrations","team","settings"] as const).map(item => {
+                      const isHidden = hidden.includes(item);
+                      const forcedOff = level === "viewer" && (item === "integrations" || item === "team");
+                      return (
+                        <label key={item} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 6, background: forcedOff ? "#f1f5f9" : isHidden ? "#fff5f5" : "#F0FDF4", border: forcedOff ? "1px solid #e2e8f0" : isHidden ? "1px solid #fecaca" : "1px solid #c3e6d4", fontSize: 15, color: forcedOff ? "#94a3b8" : isHidden ? "#E85D75" : "#0F6E56", cursor: forcedOff ? "not-allowed" : "pointer", userSelect: "none", opacity: forcedOff ? 0.5 : 1 }}>
+                          <input type="checkbox" checked={!forcedOff && !isHidden} disabled={forcedOff}
+                            onChange={() => {
+                              const next = isHidden ? hidden.filter(h => h !== item) : [...hidden, item];
+                              setLocalProfile(p => ({ ...p, menu_permissions: { ...p.menu_permissions, [level]: next } })); setDirty(true);
+                            }}
+                            style={{ accentColor: "#3B82F6", pointerEvents: forcedOff ? "none" : "auto" }} />
+                          {item === "goals" ? "Goals" : item === "tasks" ? "Tasks" : item === "playbooks" ? "Playbooks" : item === "integrations" ? "Integrations" : item === "team" ? "Team" : "Settings"}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          )}
+        </div>
+
+        {/* Column 4: Health Score + Accessibility */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
           {/* Health Score multipliers */}
           <div style={{ background: "#fff", borderRadius: 14, padding: 20, border: "1px solid #f1f5f9" }}>
