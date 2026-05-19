@@ -808,7 +808,7 @@ async function seedDemoData(userId: string, existingRows: PlaybookRow[], setRows
   const [createDeleteConfirm, setCreateDeleteConfirm] = useState(false);
   const handleDeleteTemplate = async () => {
     if (!editTemplateId) return;
-    const updated = rows.map(r => ({ ...r, items: r.items.filter(i => i.id !== editTemplateId) })).filter(r => r.items.length > 0);
+    const updated = rows.map(r => ({ ...r, items: r.items.filter(i => i.id !== editTemplateId) }));
     setRows(updated);
     if (userId) await saveUserData("playbooks", userId, updated);
     setSubView("list");
