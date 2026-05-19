@@ -273,9 +273,6 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
                       {isSelf && (
                         <div style={{ background: "#334155", borderRadius: 99, padding: "2px 8px", fontSize: isExpanded ? 15 : 12, fontWeight: 700, color: "#fff" }}>YOU</div>
                       )}
-                      <div style={{ fontSize: 18, fontWeight: 700, color: "#1a2332", textAlign: "center" }}>
-                        {capitalize(member.name) || member.email.split("@")[0]}
-                      </div>
                       {isExpanded && (
                         <>
                           <div style={{ textAlign: "left", width: "100%", background: "#f8fafc", borderRadius: 12, padding: "14px 16px", marginBottom: 8 }}>
@@ -314,11 +311,6 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
                             </div>
                           )}
                         </>
-                      )}
-                      {isSelf && (
-                        <div style={{ background: "#334155", borderRadius: 99, padding: "2px 8px", fontSize: 15, fontWeight: 700, color: "#fff", marginTop: isExpanded ? 0 : -4 }}>
-                          YOU
-                        </div>
                       )}
                     </div>
                   );

@@ -97,9 +97,26 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
   }, [forceDisableFiveAccount]);
 
   const handleSave = async () => {
+    if (!dirty || saving) return;
     setSaving(true);
-    const { error } = await supabase.from("profiles").upsert({ id: userId, ...localProfile, updated_at: new Date().toISOString() });
-    if (!error) { onProfileSaved({ ...localProfile }); setSaved(true); setTimeout(() => setSaved(false), 3000); }
+    try {
+      const { error } = await supabase.from("profiles").upsert({ id: userId, ...localProfile, updated_at: new Date().toISOString() });
+      if (error) {
+        console.error("Save error:", error);
+        setSaving(false);
+        return;
+      }
+      onProfileSaved({ ...localProfile });
+      applyAccessibilitySettings(localProfile.acc_header_size, localProfile.acc_min_body, localProfile.acc_subheading_size);
+      if (activeOrg && !activeOrg.isPersonal && orgName.trim() && orgName !== activeOrg.name && onRenameOrg) {
+        await onRenameOrg(activeOrg.id, orgName.trim());
+      }
+      setDirtyBoth(false);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (e) {
+      console.error("Save exception:", e);
+    }
     setSaving(false);
   };
   
@@ -145,8 +162,47 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
   return (
     <div style={{ padding: "clamp(16px,4vw,32px)", maxWidth: 860 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24, flexWrap: "wrap" }}>
-        <h1 style={{ margin: 0, fontSize: "clamp(20px,4vw,26px)", fontWeight: 700, color: "#1a2332" }}>{__('common.profile', 'Profile')}</h1>
+        <h1 style={{ margin: 0, fontSize: "clamp(20px,4vw,26px)", fontWeight: 700, color: "#1a2332" }}>{__('common.settings', 'Settings')}</h1>
       </div>
+      {activeOrg && (
+        <div style={{ background: "#fff", borderRadius: 14, padding: 22, border: "1px solid #f1f5f9", marginBottom: 20 }}>
+          <h3 style={{ margin: "0 0 12px", fontSize: 15, fontWeight: 600, color: "#1a2332" }}>Organization</h3>
+          <ProfileField label="Organization Name" value={orgName} onChange={v => { setOrgName(v); setDirtyBoth(true); }} />
+          <div ref={orgDropdownRef} style={{ marginBottom: 13 }}>
+            <label style={{ fontSize: 15, color: "#64748b", display: "block", marginBottom: 3 }}>Switch Organization</label>
+            <div style={{ position: "relative" }}>
+              <div onClick={() => setShowOrgSettingsDropdown(v => !v)}
+                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, cursor: "pointer", color: "#1a2332", background: "#fff", userSelect: "none" }}>
+                <span>{activeOrg.isPersonal ? "Your Dashboard" : activeOrg.name}</span>
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ transform: showOrgSettingsDropdown ? "rotate(180deg)" : "none", transition: "transform 0.15s", flexShrink: 0 }}>
+                  <path d="M2 4L5 7L8 4" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
+              {showOrgSettingsDropdown && (
+                <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 110, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.15)", border: "1px solid #e2e8f0", marginTop: 2, overflow: "hidden" }}>
+                  {orgs?.map(org => (
+                    <div key={org.id} onClick={() => { onSwitchOrg?.(org); setShowOrgSettingsDropdown(false); }}
+                      style={{ padding: "8px 14px", fontSize: 15, cursor: "pointer", color: activeOrg?.id === org.id ? "#3B82F6" : "#1a2332", fontWeight: activeOrg?.id === org.id ? 600 : 400, borderBottom: "1px solid #f1f5f9" }}
+                      onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
+                      onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                      {org.name}
+                    </div>
+                  ))}
+                  <div onClick={() => { onAddNewOrg?.(); setShowOrgSettingsDropdown(false); }}
+                    style={{ padding: "10px 14px", fontSize: 15, cursor: "pointer", color: "#3B82F6", fontWeight: 500, borderTop: "1px solid #f1f5f9" }}
+                    onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
+                    onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                    + Add New
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+          {!activeOrg.isPersonal && (
+            <button onClick={() => onDeleteOrg?.(activeOrg)} style={{ padding: "6px 14px", borderRadius: 6, border: "1.5px solid #fee2e2", background: "#fff", fontSize: 13, cursor: "pointer", color: "#E85D75", fontWeight: 600, marginTop: 4 }}>Delete Organization</button>
+          )}
+        </div>
+      )}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20, alignItems: "start" }}>
         <div style={{ background: "#fff", borderRadius: 14, padding: 22, border: "1px solid #f1f5f9", alignSelf: "start" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20 }}>
@@ -159,46 +215,6 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
               <button onClick={() => fileRef.current?.click()} style={{ fontSize: 15, color: "#3B82F6", background: "none", border: "none", cursor: "pointer", padding: 0 }}>{uploading ? "Uploading..." : "Change photo"}</button>
             </div>
           </div>
-          {activeOrg && (
-            <div style={{ background: "#fff", borderRadius: 14, padding: 22, border: "1px solid #f1f5f9", marginBottom: 20 }}>
-              <h3 style={{ margin: "0 0 12px", fontSize: 15, fontWeight: 600, color: "#1a2332" }}>Organization</h3>
-              <ProfileField label="Organization Name" value={orgName} onChange={v => { setOrgName(v); setDirtyBoth(true); }} />
-              <div ref={orgDropdownRef} style={{ marginBottom: 13 }}>
-                <label style={{ fontSize: 15, color: "#64748b", display: "block", marginBottom: 3 }}>Switch Organization</label>
-                <div style={{ position: "relative" }}>
-                  <div onClick={() => setShowOrgSettingsDropdown(v => !v)}
-                    style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, cursor: "pointer", color: "#1a2332", background: "#fff", userSelect: "none" }}>
-                    <span>{activeOrg.isPersonal ? "Your Dashboard" : activeOrg.name}</span>
-                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ transform: showOrgSettingsDropdown ? "rotate(180deg)" : "none", transition: "transform 0.15s", flexShrink: 0 }}>
-                      <path d="M2 4L5 7L8 4" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  </div>
-                  {showOrgSettingsDropdown && (
-                    <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 110, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.15)", border: "1px solid #e2e8f0", marginTop: 2, overflow: "hidden" }}>
-                      {orgs?.map(org => (
-                        <div key={org.id} onClick={() => { onSwitchOrg?.(org); setShowOrgSettingsDropdown(false); }}
-                          style={{ padding: "8px 14px", fontSize: 15, cursor: "pointer", color: activeOrg?.id === org.id ? "#3B82F6" : "#1a2332", fontWeight: activeOrg?.id === org.id ? 600 : 400, borderBottom: "1px solid #f1f5f9" }}
-                          onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
-                          onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
-                          {org.name}
-                        </div>
-                      ))}
-                      <div onClick={() => { onAddNewOrg?.(); setShowOrgSettingsDropdown(false); }}
-                        style={{ padding: "10px 14px", fontSize: 15, cursor: "pointer", color: "#3B82F6", fontWeight: 500, borderTop: "1px solid #f1f5f9" }}
-                        onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
-                        onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
-                        + Add New
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-              {!activeOrg.isPersonal && (
-                <button onClick={() => onDeleteOrg?.(activeOrg)} style={{ padding: "6px 14px", borderRadius: 6, border: "1.5px solid #fee2e2", background: "#fff", fontSize: 13, cursor: "pointer", color: "#E85D75", fontWeight: 600, marginTop: 4 }}>Delete Organization</button>
-              )}
-            </div>
-          )}
-          <h3 style={{ margin: "0 0 12px", fontSize: 15, fontWeight: 600, color: "#1a2332" }}>Account</h3>
           <ProfileField label="Full Name" value={localProfile.full_name} onChange={v => { setLocalProfile(p => ({ ...p, full_name: v })); setDirtyBoth(true); }} />
           <ProfileField label="Email" value={userEmail} disabled />
           <ProfileField label="Company" value={localProfile.company} onChange={currentUserLevel === "owner" || !currentUserLevel ? v => { setLocalProfile(p => ({ ...p, company: v })); setDirtyBoth(true); } : undefined} disabled={currentUserLevel !== "owner" && currentUserLevel !== undefined} />
@@ -451,15 +467,7 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
             <LanguageSelector onChange={() => setDirtyBoth(true)} />
           </div>
         <div style={{ position: "sticky", bottom: 0, background: "#F8FAFC", padding: "16px 0", display: "flex", justifyContent: "center", zIndex: 100 }}>
-          <button onClick={async () => {
-              setSaving(true);
-              const { error } = await supabase.from("profiles").upsert({ id: userId, ...localProfile, updated_at: new Date().toISOString() });
-              if (!error) { onProfileSaved({ ...localProfile }); applyAccessibilitySettings(localProfile.acc_header_size, localProfile.acc_min_body, localProfile.acc_subheading_size); setSaved(true); setDirtyBoth(false); }
-              if (activeOrg && !activeOrg.isPersonal && orgName.trim() && orgName !== activeOrg.name && onRenameOrg) {
-                await onRenameOrg(activeOrg.id, orgName.trim());
-              }
-              setSaving(false);
-            }} disabled={saving}
+          <button onClick={handleSave} disabled={saving || !dirty}
             style={{ padding: "12px 48px", borderRadius: 8, border: "none", background: saved ? "#4CAF7D" : dirty ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0", color: "#fff", fontSize: 15, fontWeight: 600, cursor: dirty && !saving ? "pointer" : "default" }}>
              {saving ? "Saving..." : saved ? "✓ Saved" : dirty ? "Save Settings" : "✓ Saved"}
           </button>
