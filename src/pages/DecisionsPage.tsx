@@ -83,39 +83,39 @@ export function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
   const renderColumn = (option: DecisionOption) => {
     const isFavorite = option.id === favoriteOptionId;
     return (
-      <div key={option.id} style={{ flex: "1 1 100%", minWidth: 0, maxWidth: "100%", background: isFavorite ? "#EFF6FF" : "#fff", borderRadius: 12, border: isFavorite ? "2px solid #3B82F6" : "1px solid #e2e8f0", padding: "12px", display: "flex", flexDirection: "column", gap: 8, position: "relative", opacity: favoriteOptionId && !isFavorite ? 0.5 : 1, transition: "opacity 0.2s, border-color 0.2s", boxSizing: "border-box" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-          <input value={option.label} onChange={e => updateLabel(option.id, e.target.value)} style={{ flex: 1, fontSize: 15, fontWeight: 700, color: "#1a2332", border: "none", background: "transparent", outline: "none", fontFamily: "inherit", padding: "2px 0" }} />
-          <div onClick={() => { if (favoriteOptionId === option.id) setFavoriteOptionId(null); else setFavoriteOptionId(option.id); }} style={{ cursor: "pointer", fontSize: 18, color: isFavorite ? "#F5A623" : "#cbd5e1", transition: "color 0.2s" }} title={isFavorite ? "Remove as favorite" : "Set as favorite"}>{isFavorite ? "★" : "☆"}</div>
-          <div onClick={() => removeOption(option.id)} style={{ cursor: "pointer", fontSize: 15, color: "#cbd5e1" }} title="Delete option">×</div>
+      <div key={option.id} style={{ flex: "1 1 100%", minWidth: 0, maxWidth: "100%", background: isFavorite ? "#EFF6FF" : "#fff", borderRadius: 12, border: isFavorite ? "2px solid #3B82F6" : "1px solid #e2e8f0", padding: "16px", display: "flex", flexDirection: "column", gap: 10, position: "relative", opacity: favoriteOptionId && !isFavorite ? 0.5 : 1, transition: "opacity 0.2s, border-color 0.2s", boxSizing: "border-box" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+          <input value={option.label} onChange={e => updateLabel(option.id, e.target.value)} style={{ flex: 1, fontSize: 16, fontWeight: 700, color: "#1a2332", border: "none", background: "transparent", outline: "none", fontFamily: "inherit", padding: "4px 0" }} />
+          <div onClick={() => { if (favoriteOptionId === option.id) setFavoriteOptionId(null); else setFavoriteOptionId(option.id); }} style={{ cursor: "pointer", fontSize: 20, color: isFavorite ? "#F5A623" : "#cbd5e1", transition: "color 0.2s" }} title={isFavorite ? "Remove as favorite" : "Set as favorite"}>{isFavorite ? "★" : "☆"}</div>
+          <div onClick={() => removeOption(option.id)} style={{ cursor: "pointer", fontSize: 16, color: "#cbd5e1" }} title="Delete option">×</div>
         </div>
-        <div style={{ display: "flex", gap: 12, flex: 1, flexWrap: "wrap" }}>
-          <div style={{ flex: "1 1 120px", minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: "#4CAF7D", marginBottom: 4 }}>Pros</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <div style={{ display: "flex", gap: 32, flex: 1, flexWrap: "wrap" }}>
+          <div style={{ flex: "1 1 160px", minWidth: 0 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "#4CAF7D", marginBottom: 8, paddingLeft: 2 }}>Pros</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, background: "#F8FAFC", borderRadius: 8, padding: "8px 6px" }}>
               {option.pros.map((pro, pi) => (
-                <div key={pi} style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                  <span style={{ fontSize: 13, color: "#4CAF7D", flexShrink: 0 }}>+</span>
-                  <input id={`pro-${option.id}-${pi}`} value={pro} onChange={e => updatePro(option.id, pi, e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); if (pro.trim()) addPro(option.id); } }} placeholder="Add a pro..." style={{ flex: 1, fontSize: 13, color: "#1a2332", border: "none", background: "transparent", outline: "none", fontFamily: "inherit", padding: "1px 0", minWidth: 0 }} />
-                  {option.pros.length > 1 && <div onClick={() => removePro(option.id, pi)} style={{ cursor: "pointer", fontSize: 13, color: "#cbd5e1", flexShrink: 0 }}>×</div>}
-                  {pro.trim() && <div ref={el => { dotRefs.current[`pro-${option.id}-${pi}`] = el; }} data-pro-dot="true" data-option-id={option.id} data-pro-index={pi} onMouseDown={e => handleProDotMouseDown(e, option.id, pi)} style={{ width: 14, height: 14, borderRadius: "50%", background: "#4CAF7D", cursor: "crosshair", flexShrink: 0, marginLeft: 2 }} title="Drag to connect to a con" />}
+                <div key={pi} style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 4px", borderRadius: 6, background: "#fff", border: "1px solid #f0f2f5" }}>
+                  <span style={{ fontSize: 14, color: "#4CAF7D", flexShrink: 0 }}>+</span>
+                  <input id={`pro-${option.id}-${pi}`} value={pro} onChange={e => updatePro(option.id, pi, e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); if (pro.trim()) addPro(option.id); } }} placeholder="Add a pro..." style={{ flex: 1, fontSize: 14, color: "#1a2332", border: "none", background: "transparent", outline: "none", fontFamily: "inherit", padding: "2px 0", minWidth: 0 }} />
+                  {option.pros.length > 1 && <div onClick={() => removePro(option.id, pi)} style={{ cursor: "pointer", fontSize: 14, color: "#cbd5e1", flexShrink: 0 }}>×</div>}
+                  {pro.trim() && <div ref={el => { dotRefs.current[`pro-${option.id}-${pi}`] = el; }} data-pro-dot="true" data-option-id={option.id} data-pro-index={pi} onMouseDown={e => handleProDotMouseDown(e, option.id, pi)} style={{ width: 16, height: 16, borderRadius: "50%", background: "#4CAF7D", cursor: "crosshair", flexShrink: 0, marginLeft: 4 }} title="Drag to connect to a con" />}
                 </div>
               ))}
-              <div onClick={() => addPro(option.id)} style={{ fontSize: 12, color: "#4CAF7D", cursor: "pointer", display: "flex", alignItems: "center", gap: 2 }}><span style={{ fontSize: 12 }}>+</span> Add pro</div>
+              <div onClick={() => addPro(option.id)} style={{ fontSize: 13, color: "#4CAF7D", cursor: "pointer", display: "flex", alignItems: "center", gap: 2, padding: "2px 4px" }}><span style={{ fontSize: 13 }}>+</span> Add pro</div>
             </div>
           </div>
-          <div style={{ flex: "1 1 120px", minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: "#E85D75", marginBottom: 4 }}>Cons</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <div style={{ flex: "1 1 160px", minWidth: 0 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "#E85D75", marginBottom: 8, paddingLeft: 2 }}>Cons</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, background: "#FFF5F5", borderRadius: 8, padding: "8px 6px" }}>
               {option.cons.map((con, ci) => (
-                <div key={ci} style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                  {con.trim() && <div ref={el => { dotRefs.current[`con-${option.id}-${ci}`] = el; }} data-con-dot="true" data-option-id={option.id} data-con-index={ci} onMouseDown={e => handleConDotMouseDown(e, option.id, ci)} style={{ width: 14, height: 14, borderRadius: "50%", background: "#E85D75", cursor: "crosshair", flexShrink: 0, marginRight: 2 }} title="Drop here to connect from a pro" />}
-                  <span style={{ fontSize: 13, color: "#E85D75", flexShrink: 0 }}>−</span>
-                  <input id={`con-${option.id}-${ci}`} value={con} onChange={e => updateCon(option.id, ci, e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); if (con.trim()) addCon(option.id); } }} placeholder="Add a con..." style={{ flex: 1, fontSize: 13, color: "#1a2332", border: "none", background: "transparent", outline: "none", fontFamily: "inherit", padding: "1px 0", minWidth: 0 }} />
-                  {option.cons.length > 1 && <div onClick={() => removeCon(option.id, ci)} style={{ cursor: "pointer", fontSize: 13, color: "#cbd5e1", flexShrink: 0 }}>×</div>}
+                <div key={ci} style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 4px", borderRadius: 6, background: "#fff", border: "1px solid #fee2e2" }}>
+                  {con.trim() && <div ref={el => { dotRefs.current[`con-${option.id}-${ci}`] = el; }} data-con-dot="true" data-option-id={option.id} data-con-index={ci} onMouseDown={e => handleConDotMouseDown(e, option.id, ci)} style={{ width: 16, height: 16, borderRadius: "50%", background: "#E85D75", cursor: "crosshair", flexShrink: 0, marginRight: 4 }} title="Drop here to connect from a pro" />}
+                  <span style={{ fontSize: 14, color: "#E85D75", flexShrink: 0 }}>−</span>
+                  <input id={`con-${option.id}-${ci}`} value={con} onChange={e => updateCon(option.id, ci, e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); if (con.trim()) addCon(option.id); } }} placeholder="Add a con..." style={{ flex: 1, fontSize: 14, color: "#1a2332", border: "none", background: "transparent", outline: "none", fontFamily: "inherit", padding: "2px 0", minWidth: 0 }} />
+                  {option.cons.length > 1 && <div onClick={() => removeCon(option.id, ci)} style={{ cursor: "pointer", fontSize: 14, color: "#cbd5e1", flexShrink: 0 }}>×</div>}
                 </div>
               ))}
-              <div onClick={() => addCon(option.id)} style={{ fontSize: 12, color: "#E85D75", cursor: "pointer", display: "flex", alignItems: "center", gap: 2, justifyContent: "flex-end" }}><span style={{ fontSize: 12 }}>+</span> Add con</div>
+              <div onClick={() => addCon(option.id)} style={{ fontSize: 13, color: "#E85D75", cursor: "pointer", display: "flex", alignItems: "center", gap: 2, padding: "2px 4px", justifyContent: "flex-end" }}><span style={{ fontSize: 13 }}>+</span> Add con</div>
             </div>
           </div>
         </div>
