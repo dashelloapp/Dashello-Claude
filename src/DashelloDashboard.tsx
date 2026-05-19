@@ -5112,14 +5112,14 @@ function TeamPage({ sections, orgMembers, setOrgMembers, teamRows, setTeamRows, 
                   const isExpanded = teamViewMode === "expanded";
                   return (
                     <div key={member.id}
-                      onClick={() => setMemberDetail(member)}
-                      onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = "0 10px 28px rgba(0,0,0,0.15)"; }}
+                      onClick={() => { if (teamViewMode !== "expanded") setMemberDetail(member); }}
+                      onMouseEnter={e => { if (teamViewMode !== "expanded") { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = "0 10px 28px rgba(0,0,0,0.15)"; } }}
                       onMouseLeave={e => { e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.06)"; }}
                       style={{
-                        width: isExpanded ? 200 : 140, minHeight: isExpanded ? 200 : 140, borderRadius: 16, background: "#f1f5f9",
-                        padding: isExpanded ? "18px 14px" : "14px 10px", display: "flex", flexDirection: "column",
-                        alignItems: "center", justifyContent: "flex-start", gap: isExpanded ? 8 : 10,
-                        cursor: "pointer", flexShrink: 0,
+                        width: isExpanded ? 320 : 140, minHeight: isExpanded ? 200 : 140, borderRadius: 16, background: "#f1f5f9",
+                        padding: isExpanded ? "24px 20px" : "14px 10px", display: "flex", flexDirection: "column",
+                        alignItems: "center", justifyContent: "flex-start", gap: isExpanded ? 10 : 10,
+                        cursor: isExpanded ? "default" : "pointer", flexShrink: 0,
                         transition: "transform 0.15s, box-shadow 0.15s",
                         boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
                         position: "relative",
