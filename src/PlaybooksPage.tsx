@@ -774,6 +774,7 @@ function getDateString(format: string, date?: Date): string {
   const [createColumns, setCreateColumns] = useState<1 | 2>(1);
   const [createLayout, setCreateLayout] = useState<1 | 2>(1);
   const [createRecurrence, setCreateRecurrence] = useState<RecurrenceConfig>({ enabled: false, interval: "monthly" });
+  const [editTemplateId, setEditTemplateId] = useState<string | null>(null);
 
   // Template fill state
   const [fillTemplateId, setFillTemplateId] = useState<string | null>(null);
@@ -936,10 +937,30 @@ function getDateString(format: string, date?: Date): string {
     setCreateContent(""); setCreateFiles([]); setCreateLinks([]); setCreateTemplateFields([]);
     setShowCreate(false); setCreateRowId(null);
     setCreateColumns(1); setCreateLayout(1); setCreateRecurrence({ enabled: false, interval: "monthly" });
-    setCreateIcon("");
+    setCreateIcon(""); setEditTemplateId(null);
   };
   const handleCreateSave = async () => {
     if (!createName.trim() || !createRowId || !createType) return;
+    if (editTemplateId) {
+      // Update existing template
+      const iconValue = createIcon || autoSelectIcon({ type: "template", files: [], links: [], content: "" });
+      const updated = rows.map(r => ({
+        ...r,
+        items: r.items.map(i => i.id === editTemplateId ? {
+          ...i,
+          label: createName.trim(),
+          icon: iconValue,
+          templateFields: createTemplateFields.length > 0 ? createTemplateFields : undefined,
+          columns: createLayout === 2 || createTemplateFields.some(f => (f.column || 1) === 2) ? 2 as const : 1 as const,
+          recurrence: createRecurrence.enabled ? createRecurrence : undefined,
+        } : i),
+      }));
+      setRows(updated);
+      if (userId) await saveUserData("playbooks", userId, updated);
+      setSubView("list");
+      resetCreate();
+      return;
+    }
     const newItem: PlaybookItem = {
       id: crypto.randomUUID(), label: createName.trim(),
       icon: createIcon || ICON_NONE, type: createType,
@@ -1110,6 +1131,7 @@ function getDateString(format: string, date?: Date): string {
         setCreateLayout(item.columns === 2 ? 2 : 1);
         setCreateTemplateFields(item.templateFields ? [...item.templateFields] : []);
         setCreateRecurrence(item.recurrence || { enabled: false, interval: "monthly" });
+        setEditTemplateId(item.id);
       }
       return;
     }
