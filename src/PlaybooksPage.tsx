@@ -140,7 +140,7 @@ function autoSelectIcon(item: { type: string; files?: {type:string}[]; links?: u
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────
-type TemplateFieldType = "text" | "textarea" | "checkbox" | "radio" | "fill-checklist" | "big-checklist" | "sync-checklist";
+type TemplateFieldType = "text" | "textarea" | "checkbox" | "radio" | "info" | "fill-checklist" | "big-checklist" | "sync-checklist";
 interface TemplateField {
   id: string;
   type: TemplateFieldType;
@@ -1149,6 +1149,7 @@ function getDateString(format: string, date?: Date): string {
         checkbox: { options: ["Option 1"], color: "#1a2332", textSize: 30, checklistLayout: "together" },
         "fill-checklist": { options: undefined, color: "#1a2332" },
         "sync-checklist": { options: undefined, color: "#1a2332" },
+        info: { options: undefined, color: "#64748b" },
       };
       Object.assign(newField, subtypes[type]);
       setCreateTemplateFields(p => [...p, newField]);
@@ -1242,7 +1243,7 @@ function getDateString(format: string, date?: Date): string {
                       {(() => {
                         const fType = f.type === "checkbox" ? (f.checkboxSubtype || "checkbox") : f.type;
                         return (<>
-                      {f.type !== "checkbox" && f.type !== "radio" && f.type !== "big-checklist" && f.type !== "fill-checklist" && f.type !== "sync-checklist" && (
+                      {f.type !== "checkbox" && f.type !== "radio" && f.type !== "info" && f.type !== "big-checklist" && f.type !== "fill-checklist" && f.type !== "sync-checklist" && (
                       <div style={{ marginBottom: 6 }}>
                         <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 2 }}>Placeholder</div>
                         <RichEditorSmall content={f.placeholder} onChange={html => updateField(f.id, { placeholder: html })} />
@@ -1494,10 +1495,10 @@ function getDateString(format: string, date?: Date): string {
               </div>
             </div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
-              {(["text","textarea","checkbox","radio"] as TemplateFieldType[]).map(t => (
+              {(["text","textarea","checkbox","radio","info"] as TemplateFieldType[]).map(t => (
                 <button key={t} onClick={() => addField(t)}
                   style={{ padding: "5px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 10, cursor: "pointer", color: "#64748b", textTransform: "capitalize" }}>
-                  + {t === "textarea" ? "Text Area" : t === "checkbox" ? "Checkbox" : t === "radio" ? "Radio" : "Text"}
+                  + {t === "textarea" ? "Text Area" : t === "info" ? "Info" : t === "checkbox" ? "Checkbox" : t === "radio" ? "Radio" : "Text"}
                 </button>
               ))}
             </div>
@@ -1505,7 +1506,7 @@ function getDateString(format: string, date?: Date): string {
               style={{ padding: "10px 28px", borderRadius: 8, border: "none",
                 background: createName.trim() ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0",
                 color: "#fff", fontSize: 13, fontWeight: 600, cursor: createName.trim() ? "pointer" : "default" }}>
-              Save Template
+              Playbook Template Settings
             </button>
           </div>
 
@@ -1549,6 +1550,9 @@ function getDateString(format: string, date?: Date): string {
                         {opt}
                       </div>
                     ))}
+                    {f.type === "info" && f.description && (
+                      <div style={{ fontSize: 12, color: "#64748b", lineHeight: 1.5, fontStyle: "italic" }} dangerouslySetInnerHTML={{ __html: renderShortcodes(f.description) }} />
+                    )}
                     {f.type === "fill-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "fill-checklist") && (
                       <div style={{ fontSize: 13, color: "#94a3b8", fontStyle: "italic" }} dangerouslySetInnerHTML={{ __html: f.placeholder || "Add checklist items..." }} />
                     )}
@@ -1637,6 +1641,9 @@ function getDateString(format: string, date?: Date): string {
                             {opt}
                           </label>
                         ))}
+                        {f.type === "info" && (
+                          <div style={{ fontSize: 13, color: "#64748b", lineHeight: 1.6, marginBottom: 4 }}>{f.description ? <span dangerouslySetInnerHTML={{ __html: renderShortcodes(f.description) }} /> : null}</div>
+                        )}
                         {f.type === "fill-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "fill-checklist") && (() => {
                           const items: {id:string,text:string,checked:boolean}[] = (() => { try { const p = JSON.parse(fillData[f.id] || "[]"); return Array.isArray(p) ? p : []; } catch { return []; } })();
                           return (
@@ -1802,7 +1809,7 @@ function getDateString(format: string, date?: Date): string {
                     <div key={f.id} style={{ background: "#f1f5f9", borderRadius: 10, padding: 14, marginBottom: 10 }}>
                       {displayHeader && <div style={{ fontSize: 13, fontWeight: 600, color: f.color, marginBottom: 4 }} dangerouslySetInnerHTML={{ __html: renderShortcodes(displayHeader) }} />}
                       {f.description && <div style={{ fontSize: 12, color: "#64748b", marginBottom: 6, fontStyle: "italic" }} dangerouslySetInnerHTML={{ __html: renderShortcodes(f.description) }} />}
-                      <div style={{ fontSize: 13, color: "#1a2332" }}>{f.type === "fill-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "fill-checklist") || f.type === "big-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "big-checklist") || f.type === "sync-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "sync-checklist") ? renderChecklistPreview(fillData[f.id], f.placeholder) : fillData[f.id] || (f.placeholder && f.type !== "checkbox" && f.type !== "radio" ? <span style={{ color: "#94a3b8" }} dangerouslySetInnerHTML={{ __html: f.placeholder }} /> : <span style={{ color: "#cbd5e1", fontStyle: "italic" }}>Empty</span>)}</div>
+                      <div style={{ fontSize: 13, color: "#1a2332" }}>{f.type === "fill-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "fill-checklist") || f.type === "big-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "big-checklist") || f.type === "sync-checklist" || (f.type === "checkbox" && f.checkboxSubtype === "sync-checklist") ? renderChecklistPreview(fillData[f.id], f.placeholder) : fillData[f.id] || (f.placeholder && f.type !== "checkbox" && f.type !== "radio" && f.type !== "info" ? <span style={{ color: "#94a3b8" }} dangerouslySetInnerHTML={{ __html: f.placeholder }} /> : <span style={{ color: "#cbd5e1", fontStyle: "italic" }}>Empty</span>)}</div>
                     </div>
                     );
                   })}
@@ -2203,6 +2210,9 @@ function getDateString(format: string, date?: Date): string {
                         <textarea value={detailFillData[f.id] || ""} onChange={e => { setDetailFillData(p => ({ ...p, [f.id]: e.target.value })); autoSaveDetail(); }}
                           placeholder={f.placeholder?.replace(/<[^>]*>/g, "")}
                           style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none", boxSizing: "border-box", minHeight: 60, resize: "vertical", fontFamily: "inherit" }} />
+                      )}
+                      {f.type === "info" && f.description && (
+                        <div style={{ fontSize: 13, color: "#64748b", lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: renderShortcodes(f.description) }} />
                       )}
                       {(f.type === "checkbox") && (f.options || []).map((opt, oi) => (
                         <label key={oi} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, fontSize: 13, color: "#1a2332", cursor: "pointer" }}>
