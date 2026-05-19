@@ -6269,7 +6269,7 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
               </div>
             </div>
             <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>{__('settings.bodyTextSize', 'Minimum Body Text Size')} (px)</div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>{__('settings.bodyTextSize', 'Body Text Size')} (px)</div>
               <input type="number" min={11} max={24} value={localProfile.acc_min_body}
                 onChange={e => {
                   const v = parseInt(e.target.value);
@@ -6295,7 +6295,7 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
               setSaving(false);
             }} disabled={saving}
             style={{ padding: "12px 48px", borderRadius: 8, border: "none", background: saved ? "#4CAF7D" : dirty ? "linear-gradient(135deg,#3B82F6,#06B6D4)" : "#e2e8f0", color: "#fff", fontSize: 15, fontWeight: 600, cursor: dirty && !saving ? "pointer" : "default" }}>
-            {saving ? "Saving..." : saved ? "✓ Saved!" : dirty ? "Save All Changes" : "All Saved"}
+            {saving ? "Saving..." : saved ? "✓ Saved!" : dirty ? "Save All Changes" : "All settings saved"}
           </button>
         </div>
       </div>
