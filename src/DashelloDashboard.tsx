@@ -47,9 +47,13 @@ async function inviteTeamMember(email: string, orgId: string, level: OrgPermissi
       let msg = res.error.message || "Unknown error";
       try {
         const ctx = res.error.context;
-        if (ctx && typeof ctx.json === "function") {
-          const parsed = await ctx.json();
-          if (parsed?.error) msg = parsed.error;
+        if (ctx && typeof ctx.text === "function") {
+          const bodyText = await ctx.text();
+          console.error("invite-member raw response body:", bodyText);
+          try {
+            const parsed = JSON.parse(bodyText);
+            if (parsed?.error) msg = parsed.error;
+          } catch {}
         } else if (ctx?.error) {
           msg = ctx.error;
         }
