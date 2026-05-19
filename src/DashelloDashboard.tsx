@@ -4414,7 +4414,7 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
         <div style={{ marginLeft: "auto" }} />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, alignItems: "start" }} className="stack-mobile">
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "clamp(12px,2vw,20px)", alignItems: "start" }} className="stack-mobile">
         {/* ── Left Column ── */}
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
           {/* Your Tasks */}
@@ -4428,19 +4428,6 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
             <div style={{ height: 8, borderRadius: 99, background: "#e2e8f0", marginBottom: 16, overflow: "hidden" }}>
               <div style={{ width: `${pct}%`, height: "100%", borderRadius: 99, background: "#4CAF7D", transition: "width 0.3s" }} />
             </div>
-            {/* Metric/Goal tabs */}
-            {allTabs.length > 0 && (
-              <div style={{ display: "flex", gap: 4, overflowX: "auto", marginBottom: 10, paddingBottom: 2 }}>
-                <div onClick={() => setTaskTabFilter(null)}
-                  style={{ padding: "3px 10px", borderRadius: 20, fontSize: 10, fontWeight: 500, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0,
-                    background: !taskTabFilter ? "#3B82F6" : "#f1f5f9", color: !taskTabFilter ? "#fff" : "#64748b" }}>All</div>
-                {allTabs.map(tab => (
-                  <div key={`${tab.type}:${tab.id}`} onClick={() => setTaskTabFilter(activeTab === `${tab.type}:${tab.id}` ? null : `${tab.type}:${tab.id}`)}
-                    style={{ padding: "3px 10px", borderRadius: 20, fontSize: 10, fontWeight: 500, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0,
-                      background: activeTab === `${tab.type}:${tab.id}` ? "#3B82F6" : "#f1f5f9", color: activeTab === `${tab.type}:${tab.id}` ? "#fff" : "#64748b" }}>{tab.label}</div>
-                ))}
-              </div>
-            )}
             {/* Priorities */}
             {priorityTasks.length > 0 && (
               <div style={{ marginBottom: 12 }}
@@ -4458,7 +4445,6 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
                     <div key={t.id} draggable onDragStart={() => handleTaskDragStart(t.id)} onDragEnter={() => handleTaskDragEnter(t.id)} onDragOver={e => e.preventDefault()} onDrop={() => handleTaskDrop(t.id)} onDragEnd={() => { dragTaskRef.current = null; dragOverTaskRef.current = null; }}
                       style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 8, background: isPastDue ? "#FEF2F2" : "#FFF8ED", border: isPastDue ? "1px solid #FECACA" : "1px solid #FDE68A", marginBottom: 6, fontSize: 15 }}>
                       <div style={{ cursor: "grab", color: "#cbd5e1", fontSize: 13, lineHeight: 1, letterSpacing: 1, flexShrink: 0, userSelect: "none" }} title="Drag to reorder">⠿</div>
-                      <div onClick={() => toggle(t.id)} style={{ width: 24, height: 24, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "2px solid #F5A623", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 13 }}>{t.done ? "✓" : ""}</div>
                       <div onClick={() => toggle(t.id)} style={{ width: 24, height: 24, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "2px solid #F5A623", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 13 }}>{t.done ? "✓" : ""}</div>
                       {isEditing ? (
                         <input value={editText} onChange={e => setEditText(e.target.value)}
@@ -4530,14 +4516,22 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
                 <span style={{ fontSize: 16 }}>+</span> Add Priority
               </div>
             )}
-            {/* Filter tabs */}
-            <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+            {/* Filter tabs + metric/goal tabs */}
+            <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
               <div onClick={() => setTaskFilter("current")} style={{ padding: "5px 14px", borderRadius: 20, fontSize: 12, fontWeight: 500, cursor: "pointer", background: taskFilter === "current" ? "#3B82F6" : "#f1f5f9", color: taskFilter === "current" ? "#fff" : "#64748b" }}>
                 Current ({tabFiltered.filter(t => !t.done).length})
               </div>
               <div onClick={() => setTaskFilter("completed")} style={{ padding: "5px 14px", borderRadius: 20, fontSize: 12, fontWeight: 500, cursor: "pointer", background: taskFilter === "completed" ? "#3B82F6" : "#f1f5f9", color: taskFilter === "completed" ? "#fff" : "#64748b" }}>
                 Completed ({tabFiltered.filter(t => t.done).length})
               </div>
+              {allTabs.map(tab => {
+                const isActive = activeTab === `${tab.type}:${tab.id}`;
+                return (
+                  <div key={`${tab.type}:${tab.id}`} onClick={() => setTaskTabFilter(isActive ? null : `${tab.type}:${tab.id}`)}
+                    style={{ padding: "5px 14px", borderRadius: 20, fontSize: 12, fontWeight: 500, cursor: "pointer", whiteSpace: "nowrap",
+                      background: isActive ? "#3B82F6" : "#f1f5f9", color: isActive ? "#fff" : "#64748b" }}>{tab.label}</div>
+                );
+              })}
             </div>
             {/* Task list */}
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
