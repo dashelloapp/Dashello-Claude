@@ -1401,12 +1401,12 @@ function ChatPanel({ sections, onClose, isMobile }: { sections: Section[]; onClo
 // SIDEBAR
 // ═══════════════════════════════════════════════════════════════════════════
 
-function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, health, activeOrg, orgs, showOrgDropdown, onToggleOrgDropdown, onSwitchOrg, currentUserLevel, onOpenInviteModal, menuPermissions, tasks, setTasks, orgMembers, userEmail }: {
+function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, health, activeOrg, orgs, showOrgDropdown, onToggleOrgDropdown, onSwitchOrg, onAddNewOrg, currentUserLevel, onOpenInviteModal, menuPermissions, tasks, setTasks, orgMembers, userEmail }: {
   active: Page; onNav: (p: Page) => void; onClose: () => void;
   isMobile: boolean; avatarUrl?: string; firstName?: string;
   health: HealthResult;
   activeOrg: Org | null; orgs: Org[]; showOrgDropdown: boolean;
-  onToggleOrgDropdown: () => void; onSwitchOrg: (org: Org) => void;
+  onToggleOrgDropdown: () => void; onSwitchOrg: (org: Org) => void; onAddNewOrg: () => void;
   currentUserLevel: OrgPermissionLevel; onOpenInviteModal: () => void;
   menuPermissions: Record<string, string[]>;
   tasks: Task[]; setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
@@ -1483,16 +1483,22 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
               </svg>
             </div>
             {showOrgDropdown && (
-              <div style={{ position: "absolute", top: 28, left: "50%", transform: "translateX(-50%)", zIndex: 110, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.15)", border: "1px solid #e2e8f0", minWidth: 180, overflow: "hidden" }}>
-                {orgs.map(org => (
-                  <div key={org.id} onClick={() => onSwitchOrg(org)}
-                    style={{ padding: "10px 14px", fontSize: 15, cursor: "pointer", color: activeOrg?.id === org.id ? "#3B82F6" : "#1a2332", fontWeight: activeOrg?.id === org.id ? 600 : 400, background: activeOrg?.id === org.id ? "#EFF6FF" : "transparent", borderBottom: "1px solid #f1f5f9", textAlign: "left" }}
+                <div style={{ position: "absolute", top: 28, left: "50%", transform: "translateX(-50%)", zIndex: 110, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.15)", border: "1px solid #e2e8f0", minWidth: 180, overflow: "hidden" }}>
+                  {orgs.map(org => (
+                    <div key={org.id} onClick={() => onSwitchOrg(org)}
+                      style={{ padding: "10px 14px", fontSize: 15, cursor: "pointer", color: activeOrg?.id === org.id ? "#3B82F6" : "#1a2332", fontWeight: activeOrg?.id === org.id ? 600 : 400, background: activeOrg?.id === org.id ? "#EFF6FF" : "transparent", borderBottom: "1px solid #f1f5f9", textAlign: "left" }}
+                      onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
+                      onMouseLeave={e => (e.currentTarget.style.background = activeOrg?.id === org.id ? "#EFF6FF" : "transparent")}>
+                      {org.name}
+                    </div>
+                  ))}
+                  <div onClick={onAddNewOrg}
+                    style={{ padding: "10px 14px", fontSize: 15, cursor: "pointer", color: "#3B82F6", fontWeight: 500, borderTop: "1px solid #f1f5f9", textAlign: "left" }}
                     onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
-                    onMouseLeave={e => (e.currentTarget.style.background = activeOrg?.id === org.id ? "#EFF6FF" : "transparent")}>
-                    {org.name}
+                    onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                    + Add New
                   </div>
-                ))}
-              </div>
+                </div>
             )}
           </div>
         </div>
@@ -1645,6 +1651,7 @@ export default function DashelloDashboard() {
   const [teamRows, setTeamRows] = useState<TeamRow[]>([]);
   const [teamPermissions, setTeamPermissions] = useState<TeamPermissions[]>([]);
   const [showOrgDropdown, setShowOrgDropdown] = useState(false);
+  const [showCreateOrg, setShowCreateOrg] = useState(false);
   const [previewMember, setPreviewMember] = useState<OrgMember | null>(null);
   const [previewPerms, setPreviewPerms] = useState<TeamPermissions | null>(null);
   const [previewFromSave, setPreviewFromSave] = useState(false);
@@ -2399,6 +2406,34 @@ export default function DashelloDashboard() {
     if (remaining2 > 0) setTimeout(finish, remaining2); else finish();
   }, [userId, activeOrg]);
 
+  const handleCreateOrg = useCallback(async (name: string) => {
+    if (!userId || !name.trim()) return;
+    const newOrg: Org = { id: crypto.randomUUID(), name: name.trim(), isPersonal: false, createdAt: new Date().toISOString() };
+    const defaultTeamId = crypto.randomUUID();
+    const defaultTeam: TeamRow = { id: defaultTeamId, name: "My Team", order: 0 };
+    const ownerMember: OrgMember = {
+      id: crypto.randomUUID(), email: userEmail!, name: userEmail!.split("@")[0] || "Me",
+      avatarUrl: profile.avatar_url || "", level: "owner", status: "active", teamId: defaultTeamId,
+    };
+    const newOrgs = [...orgs, newOrg];
+    const newMembers = [...orgMembers, ownerMember];
+    const newTeams = [...teamRows, defaultTeam];
+    const newPerms = [...teamPermissions, { teamId: defaultTeamId, allowedSectionIds: null, metricOverrides: null }];
+    setOrgs(newOrgs);
+    setActiveOrg(newOrg);
+    setTeamRows(newTeams);
+    setOrgMembers(newMembers);
+    setTeamPermissions(newPerms);
+    setSections([]);
+    setTasksData([]);
+    setGoalsData([]);
+    await saveOrgData(userId, { orgs: newOrgs, members: newMembers, teams: newTeams, permissions: newPerms });
+    localStorage.setItem("activeOrgId", newOrg.id);
+    setShowCreateOrg(false);
+    setDbReady(true);
+    setPage("home");
+  }, [userId, userEmail, orgs, orgMembers, teamRows, teamPermissions, profile.avatar_url]);
+
   // Seed demo data when URL has #seed
   useEffect(() => {
     if (!dbReady || typeof window === "undefined" || window.location.hash !== "#seed") return;
@@ -2532,6 +2567,7 @@ const sidebarEl = (
     showOrgDropdown={showOrgDropdown}
     onToggleOrgDropdown={() => setShowOrgDropdown(v => !v)}
     onSwitchOrg={handleSwitchOrg}
+    onAddNewOrg={() => setShowCreateOrg(true)}
     currentUserLevel={currentUserLevel}
     onOpenInviteModal={() => setShowInviteModal(true)}
     menuPermissions={profile.menu_permissions ?? {}}
@@ -2806,6 +2842,23 @@ const sidebarEl = (
       {editingGoal && <GoalSettingsModal goal={editingGoal} sections={sections} isMobile={isMobile} onSave={handleSaveGoal} onDuplicate={handleDuplicateGoal} onDelete={handleDeleteGoal} onClose={() => setEditingGoal(null)} />}
 
       {showInviteModal && <AddTeamModal orgId={activeOrg?.id ?? ""} orgs={orgs} setOrgs={setOrgs} orgMembers={orgMembers} setOrgMembers={setOrgMembers} teamRows={teamRows} setTeamRows={setTeamRows} invitedByName={profile.full_name} onClose={() => setShowInviteModal(false)} currentUserLevel={currentUserLevel} />}
+
+      {showCreateOrg && (
+        <div onClick={() => setShowCreateOrg(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000, padding: 16 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 20, padding: "32px", width: "100%", maxWidth: 400, boxShadow: "0 24px 64px rgba(0,0,0,0.18)", textAlign: "center" }}>
+            <div style={{ fontSize: 18, fontWeight: 700, color: "#1a2332", marginBottom: 16 }}>Create New Dashboard Account</div>
+            <input id="new-org-name" autoFocus placeholder="Dashboard account name"
+              onKeyDown={e => { if (e.key === "Enter") { const val = (document.getElementById("new-org-name") as HTMLInputElement)?.value; if (val?.trim()) handleCreateOrg(val); } }}
+              style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box", marginBottom: 16 }} />
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => { const val = (document.getElementById("new-org-name") as HTMLInputElement)?.value; if (val?.trim()) handleCreateOrg(val); }}
+                style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Create</button>
+              <button onClick={() => setShowCreateOrg(false)}
+                style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>Go Back</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── POPUP mode: metric detail modal ── */}
       {viewMode === "popup" && activeModal && (() => (
