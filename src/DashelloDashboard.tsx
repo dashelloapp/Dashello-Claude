@@ -1499,12 +1499,8 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
                         {org.name}
                       </div>
                       {!org.isPersonal && (
-                        <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-                          <div onClick={(e) => { e.stopPropagation(); onRenameOrg(org); }}
-                            style={{ width: 24, height: 24, borderRadius: 4, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, color: "#94a3b8" }} title="Rename">✎</div>
-                          <div onClick={(e) => { e.stopPropagation(); onDeleteOrg(org); }}
-                            style={{ width: 24, height: 24, borderRadius: 4, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, color: "#E85D75" }} title="Delete">✕</div>
-                        </div>
+                        <div onClick={(e) => { e.stopPropagation(); onDeleteOrg(org); }}
+                          style={{ width: 24, height: 24, borderRadius: 4, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, color: "#E85D75", flexShrink: 0 }} title="Delete">✕</div>
                       )}
                     </div>
                   ))}
@@ -2747,7 +2743,7 @@ const sidebarEl = (
           {page === "integrations" && isPageAccessible("integrations") && <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}><IntegrationsPage onSelectApp={a => { setSelectedApp(a); setPage("app-detail"); }} /></div>}
           {page === "app-detail" && selectedApp && <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}><AppDetailPage app={selectedApp} onBack={() => setPage("integrations")} /></div>}
           {page === "team" && isPageAccessible("team") && <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}><TeamPage sections={isPreviewMode && previewSections ? previewSections : sections} orgMembers={orgMembers} setOrgMembers={setOrgMembers} teamRows={teamRows} setTeamRows={setTeamRows} teamPermissions={teamPermissions} setTeamPermissions={setTeamPermissions} currentUserLevel={currentUserLevel} userEmail={userEmail} onOpenInvite={() => setShowInviteModal(true)} onPreviewMember={(member, perms) => { setPreviewMember(member); setPreviewPerms(perms); setPage("home"); }} onExitPreviewSave={() => { setPreviewFromSave(false); }} previewFromSave={previewFromSave} pendingMemberDetail={pendingMemberDetail} onClearPendingMember={() => setPendingMemberDetail(null)} tasks={tasksData} setTasks={setTasksData} teamViewMode={teamViewMode} menuPermissions={profile.menu_permissions ?? {}} /></div>}
-          {page === "settings" && isPageAccessible("settings") && <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}><SettingsPage userId={userId!} userEmail={userEmail} profile={profile} forceDisableFiveAccount={fiveAccountForceOff} onForceDisableAcknowledged={() => setFiveAccountForceOff(false)} onProfileSaved={p => setProfile(p)} onFiveAccountCreated={handleFiveAccountCreated} onFiveAccountDisabled={handleGlobalFiveAccountDisabled} fiveAccountSettings={fiveAccountSettings} onFiveAccountSettingsChange={handleUpdateSettings} currentUserLevel={currentUserLevel} activeOrg={activeOrg} onRenameOrg={handleRenameOrg} /></div>}
+          {page === "settings" && isPageAccessible("settings") && <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}><SettingsPage userId={userId!} userEmail={userEmail} profile={profile} forceDisableFiveAccount={fiveAccountForceOff} onForceDisableAcknowledged={() => setFiveAccountForceOff(false)} onProfileSaved={p => setProfile(p)} onFiveAccountCreated={handleFiveAccountCreated} onFiveAccountDisabled={handleGlobalFiveAccountDisabled} fiveAccountSettings={fiveAccountSettings} onFiveAccountSettingsChange={handleUpdateSettings} currentUserLevel={currentUserLevel} activeOrg={activeOrg} onRenameOrg={handleRenameOrg} orgs={orgs} onSwitchOrg={handleSwitchOrg} onAddNewOrg={() => setShowCreateOrg(true)} onDeleteOrg={(org) => setDeleteOrgTarget(org)} /></div>}
           {page === "playbooks" && isPageAccessible("playbooks") && <Suspense fallback={<div style={{ display: "flex", height: "100%", alignItems: "center", justifyContent: "center" }}><DashelloLoader size={120} /></div>}><PlaybooksPage userId={userId} tasks={tasksData} setTasks={setTasksData} userEmail={userEmail} /></Suspense>}
           {page === "equation-builder" && equationBuilderTarget && (
             <EquationBuilderPage

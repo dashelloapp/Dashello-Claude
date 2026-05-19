@@ -16,7 +16,7 @@ function ProfileField({ label, value, onChange, disabled }: { label: string; val
   );
 }
 
-function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisableFiveAccount, onForceDisableAcknowledged, onProfileSaved, onFiveAccountCreated, onFiveAccountDisabled, fiveAccountSettings, onFiveAccountSettingsChange, currentUserLevel, activeOrg, onRenameOrg }: {
+function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisableFiveAccount, onForceDisableAcknowledged, onProfileSaved, onFiveAccountCreated, onFiveAccountDisabled, fiveAccountSettings, onFiveAccountSettingsChange, currentUserLevel, activeOrg, onRenameOrg, orgs, onSwitchOrg, onAddNewOrg, onDeleteOrg }: {
   userId: string; userEmail: string; profile: any;
   forceDisableFiveAccount?: boolean;
   onForceDisableAcknowledged?: () => void;
@@ -27,6 +27,7 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
   onFiveAccountSettingsChange: (s: FiveAccountSettings) => void;
   currentUserLevel?: OrgPermissionLevel;
   activeOrg?: Org | null; onRenameOrg?: (orgId: string, newName: string) => Promise<void>;
+  orgs?: Org[]; onSwitchOrg?: (org: Org) => void; onAddNewOrg?: () => void; onDeleteOrg?: (org: Org) => void;
 }) {
   const { t: __ } = useTranslation();
   const [localProfile, setLocalProfile] = useState({
@@ -51,10 +52,16 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
   const [fiveAccountConfirm, setFiveAccountConfirm] = useState(false);
   const [timezoneSearch, setTimezoneSearch] = useState("");
   const [orgName, setOrgName] = useState(activeOrg?.name || "");
+  const [showOrgSettingsDropdown, setShowOrgSettingsDropdown] = useState(false);
   useEffect(() => {
     const h = (e: BeforeUnloadEvent) => { if (dirtyRef.current) e.preventDefault(); };
     window.addEventListener("beforeunload", h);
     return () => window.removeEventListener("beforeunload", h);
+  }, []);
+  const orgDropdownRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (orgDropdownRef.current && !orgDropdownRef.current.contains(e.target as Node)) setShowOrgSettingsDropdown(false); };
+    document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h);
   }, []);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -152,10 +159,43 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
               <button onClick={() => fileRef.current?.click()} style={{ fontSize: 15, color: "#3B82F6", background: "none", border: "none", cursor: "pointer", padding: 0 }}>{uploading ? "Uploading..." : "Change photo"}</button>
             </div>
           </div>
-          {activeOrg && !activeOrg.isPersonal && (
+          {activeOrg && (
             <div style={{ background: "#fff", borderRadius: 14, padding: 22, border: "1px solid #f1f5f9", marginBottom: 20 }}>
-              <h3 style={{ margin: "0 0 12px", fontSize: 15, fontWeight: 600, color: "#1a2332" }}>Dashboard</h3>
-              <ProfileField label="Dashboard Name" value={orgName} onChange={v => { setOrgName(v); setDirtyBoth(true); }} />
+              <h3 style={{ margin: "0 0 12px", fontSize: 15, fontWeight: 600, color: "#1a2332" }}>Organization</h3>
+              <ProfileField label="Organization Name" value={orgName} onChange={v => { setOrgName(v); setDirtyBoth(true); }} />
+              <div ref={orgDropdownRef} style={{ marginBottom: 13 }}>
+                <label style={{ fontSize: 15, color: "#64748b", display: "block", marginBottom: 3 }}>Switch Organization</label>
+                <div style={{ position: "relative" }}>
+                  <div onClick={() => setShowOrgSettingsDropdown(v => !v)}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, cursor: "pointer", color: "#1a2332", background: "#fff", userSelect: "none" }}>
+                    <span>{activeOrg.isPersonal ? "Your Dashboard" : activeOrg.name}</span>
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ transform: showOrgSettingsDropdown ? "rotate(180deg)" : "none", transition: "transform 0.15s", flexShrink: 0 }}>
+                      <path d="M2 4L5 7L8 4" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </div>
+                  {showOrgSettingsDropdown && (
+                    <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 110, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.15)", border: "1px solid #e2e8f0", marginTop: 2, overflow: "hidden" }}>
+                      {orgs?.map(org => (
+                        <div key={org.id} onClick={() => { onSwitchOrg?.(org); setShowOrgSettingsDropdown(false); }}
+                          style={{ padding: "8px 14px", fontSize: 15, cursor: "pointer", color: activeOrg?.id === org.id ? "#3B82F6" : "#1a2332", fontWeight: activeOrg?.id === org.id ? 600 : 400, borderBottom: "1px solid #f1f5f9" }}
+                          onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
+                          onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                          {org.name}
+                        </div>
+                      ))}
+                      <div onClick={() => { onAddNewOrg?.(); setShowOrgSettingsDropdown(false); }}
+                        style={{ padding: "10px 14px", fontSize: 15, cursor: "pointer", color: "#3B82F6", fontWeight: 500, borderTop: "1px solid #f1f5f9" }}
+                        onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
+                        onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                        + Add New
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              {!activeOrg.isPersonal && (
+                <button onClick={() => onDeleteOrg?.(activeOrg)} style={{ padding: "6px 14px", borderRadius: 6, border: "1.5px solid #fee2e2", background: "#fff", fontSize: 13, cursor: "pointer", color: "#E85D75", fontWeight: 600, marginTop: 4 }}>Delete Organization</button>
+              )}
             </div>
           )}
           <h3 style={{ margin: "0 0 12px", fontSize: 15, fontWeight: 600, color: "#1a2332" }}>Account</h3>
