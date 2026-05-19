@@ -1401,12 +1401,13 @@ function ChatPanel({ sections, onClose, isMobile }: { sections: Section[]; onClo
 // SIDEBAR
 // ═══════════════════════════════════════════════════════════════════════════
 
-function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, health, activeOrg, orgs, showOrgDropdown, onToggleOrgDropdown, onSwitchOrg, onAddNewOrg, currentUserLevel, onOpenInviteModal, menuPermissions, tasks, setTasks, orgMembers, userEmail }: {
+function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, health, activeOrg, orgs, showOrgDropdown, onToggleOrgDropdown, onSwitchOrg, onAddNewOrg, onRenameOrg, onDeleteOrg, currentUserLevel, onOpenInviteModal, menuPermissions, tasks, setTasks, orgMembers, userEmail }: {
   active: Page; onNav: (p: Page) => void; onClose: () => void;
   isMobile: boolean; avatarUrl?: string; firstName?: string;
   health: HealthResult;
   activeOrg: Org | null; orgs: Org[]; showOrgDropdown: boolean;
   onToggleOrgDropdown: () => void; onSwitchOrg: (org: Org) => void; onAddNewOrg: () => void;
+  onRenameOrg: (org: Org) => void; onDeleteOrg: (org: Org) => void;
   currentUserLevel: OrgPermissionLevel; onOpenInviteModal: () => void;
   menuPermissions: Record<string, string[]>;
   tasks: Task[]; setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
@@ -1485,11 +1486,21 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
             {showOrgDropdown && (
                 <div style={{ position: "absolute", top: 28, left: "50%", transform: "translateX(-50%)", zIndex: 110, background: "#fff", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.15)", border: "1px solid #e2e8f0", minWidth: 180, overflow: "hidden" }}>
                   {orgs.map(org => (
-                    <div key={org.id} onClick={() => onSwitchOrg(org)}
-                      style={{ padding: "10px 14px", fontSize: 15, cursor: "pointer", color: activeOrg?.id === org.id ? "#3B82F6" : "#1a2332", fontWeight: activeOrg?.id === org.id ? 600 : 400, background: activeOrg?.id === org.id ? "#EFF6FF" : "transparent", borderBottom: "1px solid #f1f5f9", textAlign: "left" }}
-                      onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
-                      onMouseLeave={e => (e.currentTarget.style.background = activeOrg?.id === org.id ? "#EFF6FF" : "transparent")}>
-                      {org.name}
+                    <div key={org.id} style={{ display: "flex", alignItems: "center", padding: "8px 14px", borderBottom: "1px solid #f1f5f9" }}>
+                      <div onClick={() => onSwitchOrg(org)}
+                        style={{ flex: 1, fontSize: 15, cursor: "pointer", color: activeOrg?.id === org.id ? "#3B82F6" : "#1a2332", fontWeight: activeOrg?.id === org.id ? 600 : 400, textAlign: "left" }}
+                        onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
+                        onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                        {org.name}
+                      </div>
+                      {!org.isPersonal && (
+                        <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                          <div onClick={(e) => { e.stopPropagation(); onRenameOrg(org); }}
+                            style={{ width: 24, height: 24, borderRadius: 4, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, color: "#94a3b8" }} title="Rename">✎</div>
+                          <div onClick={(e) => { e.stopPropagation(); onDeleteOrg(org); }}
+                            style={{ width: 24, height: 24, borderRadius: 4, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, color: "#E85D75" }} title="Delete">✕</div>
+                        </div>
+                      )}
                     </div>
                   ))}
                   <div onClick={onAddNewOrg}
@@ -1652,6 +1663,9 @@ export default function DashelloDashboard() {
   const [teamPermissions, setTeamPermissions] = useState<TeamPermissions[]>([]);
   const [showOrgDropdown, setShowOrgDropdown] = useState(false);
   const [showCreateOrg, setShowCreateOrg] = useState(false);
+  const [renamingOrg, setRenamingOrg] = useState<Org | null>(null);
+  const [deleteOrgTarget, setDeleteOrgTarget] = useState<Org | null>(null);
+  const [deleteOrgConfirmText, setDeleteOrgConfirmText] = useState("");
   const [previewMember, setPreviewMember] = useState<OrgMember | null>(null);
   const [previewPerms, setPreviewPerms] = useState<TeamPermissions | null>(null);
   const [previewFromSave, setPreviewFromSave] = useState(false);
@@ -2424,15 +2438,39 @@ export default function DashelloDashboard() {
     setTeamRows(newTeams);
     setOrgMembers(newMembers);
     setTeamPermissions(newPerms);
-    setSections([]);
-    setTasksData([]);
-    setGoalsData([]);
     await saveOrgData(userId, { orgs: newOrgs, members: newMembers, teams: newTeams, permissions: newPerms });
     localStorage.setItem("activeOrgId", newOrg.id);
     setShowCreateOrg(false);
     setDbReady(true);
     setPage("home");
   }, [userId, userEmail, orgs, orgMembers, teamRows, teamPermissions, profile.avatar_url]);
+
+  const handleRenameOrg = async (orgId: string, newName: string) => {
+    if (!userId || !newName.trim()) return;
+    const updated = orgs.map(o => o.id === orgId ? { ...o, name: newName.trim() } : o);
+    setOrgs(updated);
+    setRenamingOrg(null);
+    await saveOrgData(userId, { orgs: updated, members: orgMembers, teams: teamRows, permissions: teamPermissions });
+  };
+
+  const handleDeleteOrg = async () => {
+    if (!userId || !deleteOrgTarget) return;
+    const updated = orgs.filter(o => o.id !== deleteOrgTarget.id);
+    const membersUpdated = orgMembers.filter(m => {
+      // Keep members not tied to this org, or that belong to other orgs
+      return true; // members are per-user, keep them all
+    });
+    setOrgs(updated);
+    if (activeOrg?.id === deleteOrgTarget.id) {
+      const personal = updated.find(o => o.isPersonal);
+      if (personal) setActiveOrg(personal);
+      else if (updated.length > 0) setActiveOrg(updated[0]);
+    }
+    setDeleteOrgTarget(null);
+    setDeleteOrgConfirmText("");
+    await saveOrgData(userId, { orgs: updated, members: orgMembers, teams: teamRows, permissions: teamPermissions });
+    // For now, just remove from the list. A full 7-day soft delete would need server-side logic.
+  };
 
   // Seed demo data when URL has #seed
   useEffect(() => {
@@ -2568,6 +2606,8 @@ const sidebarEl = (
     onToggleOrgDropdown={() => setShowOrgDropdown(v => !v)}
     onSwitchOrg={handleSwitchOrg}
     onAddNewOrg={() => setShowCreateOrg(true)}
+    onRenameOrg={(org) => setRenamingOrg(org)}
+    onDeleteOrg={(org) => setDeleteOrgTarget(org)}
     currentUserLevel={currentUserLevel}
     onOpenInviteModal={() => setShowInviteModal(true)}
     menuPermissions={profile.menu_permissions ?? {}}
@@ -2855,6 +2895,47 @@ const sidebarEl = (
                 style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Create</button>
               <button onClick={() => setShowCreateOrg(false)}
                 style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>Go Back</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rename org modal */}
+      {renamingOrg && (
+        <div onClick={() => setRenamingOrg(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000, padding: 16 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 20, padding: "32px", width: "100%", maxWidth: 400, boxShadow: "0 24px 64px rgba(0,0,0,0.18)", textAlign: "center" }}>
+            <div style={{ fontSize: 18, fontWeight: 700, color: "#1a2332", marginBottom: 16 }}>Rename Dashboard</div>
+            <input id="rename-org-input" defaultValue={renamingOrg.name} autoFocus placeholder="Dashboard name"
+              onKeyDown={e => { if (e.key === "Enter") { const val = (document.getElementById("rename-org-input") as HTMLInputElement)?.value; if (val?.trim()) handleRenameOrg(renamingOrg.id, val); } }}
+              style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box", marginBottom: 16 }} />
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => { const val = (document.getElementById("rename-org-input") as HTMLInputElement)?.value; if (val?.trim()) handleRenameOrg(renamingOrg.id, val); }}
+                style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3B82F6,#06B6D4)", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Save</button>
+              <button onClick={() => setRenamingOrg(null)}
+                style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete org modal */}
+      {deleteOrgTarget && (
+        <div onClick={() => { setDeleteOrgTarget(null); setDeleteOrgConfirmText(""); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000, padding: 16 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 20, padding: "32px", width: "100%", maxWidth: 440, boxShadow: "0 24px 64px rgba(0,0,0,0.18)" }}>
+            <div style={{ fontSize: 18, fontWeight: 700, color: "#E85D75", marginBottom: 12 }}>Delete Dashboard</div>
+            <div style={{ fontSize: 15, color: "#475569", marginBottom: 16, lineHeight: 1.6 }}>
+              <strong>Warning:</strong> All content, integrations, users, and data associated with this dashboard account will be permanently deleted. This action cannot be undone.
+            </div>
+            <div style={{ fontSize: 15, color: "#475569", marginBottom: 12 }}>
+              Type <strong>{deleteOrgTarget.name}</strong> to confirm deletion:
+            </div>
+            <input value={deleteOrgConfirmText} onChange={e => setDeleteOrgConfirmText(e.target.value)} autoFocus placeholder="Type the dashboard name to confirm"
+              style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box", marginBottom: 16 }} />
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={handleDeleteOrg} disabled={deleteOrgConfirmText !== deleteOrgTarget.name}
+                style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "none", background: deleteOrgConfirmText === deleteOrgTarget.name ? "#E85D75" : "#e2e8f0", color: "#fff", fontSize: 15, fontWeight: 600, cursor: deleteOrgConfirmText === deleteOrgTarget.name ? "pointer" : "not-allowed" }}>Permanently Delete</button>
+              <button onClick={() => { setDeleteOrgTarget(null); setDeleteOrgConfirmText(""); }}
+                style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 15, cursor: "pointer", color: "#64748b" }}>Cancel</button>
             </div>
           </div>
         </div>
