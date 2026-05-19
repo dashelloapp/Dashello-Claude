@@ -73,6 +73,7 @@ async function inviteTeamMember(email: string, orgId: string, level: OrgPermissi
       return res.data;
     }
   } catch (e) {
+    // Edge function not deployed or unavailable — silently continue to signUp
     edgeFunctionFailed = true;
   }
   
@@ -110,6 +111,10 @@ async function inviteTeamMember(email: string, orgId: string, level: OrgPermissi
         });
         if (!otpErr2) return { sent: true, method: "magic-link" };
       } catch (_) {}
+    }
+    // Ensure we always throw a meaningful error, never an empty object
+    if (typeof signUpErr === "object" && !signUpErr?.message) {
+      throw new Error("Failed to invite user. Please check your email configuration in Supabase Auth settings.");
     }
     throw signUpErr;
   }
