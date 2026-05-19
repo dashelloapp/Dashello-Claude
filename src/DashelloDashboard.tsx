@@ -4297,6 +4297,9 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
   const [inlineAddText, setInlineAddText] = useState("");
   const [showAddPriority, setShowAddPriority] = useState(false);
   const [priorityAddText, setPriorityAddText] = useState("");
+  const [taskTabFilter, setTaskTabFilter] = useState<string | null>(null);
+  const dragTaskRef = useRef<string | null>(null);
+  const dragOverTaskRef = useRef<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const menuTriggerElRef = useRef<HTMLElement | null>(null);
   const [menuPos, setMenuPos] = useState<React.CSSProperties>({ position: "absolute", top: 28, right: 0, visibility: "hidden" });
@@ -4337,6 +4340,14 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
     document.addEventListener("keydown", h);
     return () => document.removeEventListener("keydown", h);
   }, [tasks]);
+  const handleTaskDragStart = (id: string) => { dragTaskRef.current = id; };
+  const handleTaskDragEnter = (targetId: string) => { if (dragTaskRef.current && dragTaskRef.current !== targetId) dragOverTaskRef.current = targetId; };
+  const handleTaskDrop = (targetId: string) => {
+    const from = dragTaskRef.current;
+    if (!from || from === targetId) { dragTaskRef.current = null; dragOverTaskRef.current = null; return; }
+    setTasks(prev => { const arr = [...prev]; const fi = arr.findIndex(t => t.id === from); const ti = arr.findIndex(t => t.id === targetId); if (fi === -1 || ti === -1) return prev; const [moved] = arr.splice(fi, 1); arr.splice(ti, 0, moved); return arr; });
+    dragTaskRef.current = null; dragOverTaskRef.current = null;
+  };
   const myTasks = tasks.filter(t => t.assignedTo === userEmail);
   const priorityTasks = myTasks.filter(t => t.priority && !t.done);
   const nonPriority = myTasks.filter(t => !t.priority);
@@ -4345,7 +4356,12 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
   const doneCount = completedTasks.length;
   const totalCount = myTasks.length;
   const pct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
-  const displayedTasks = taskFilter === "current" ? currentTasks : completedTasks;
+  const metricTabs = sections.flatMap(s => s.metrics.filter(m => myTasks.some(t => t.linkedMetricId === m.id)).map(m => ({ id: m.id, label: m.label, type: "metric" as const })));
+  const goalTabs = goals.filter(g => myTasks.some(t => t.linkedGoalId === g.id)).map(g => ({ id: g.id, label: g.label.length > 30 ? "Active Goals" : g.label, type: "goal" as const }));
+  const allTabs = [...metricTabs, ...goalTabs];
+  const activeTab = taskTabFilter || "all";
+  const tabFiltered = taskTabFilter ? (taskTabFilter.startsWith("metric:") ? nonPriority.filter(t => t.linkedMetricId === taskTabFilter.replace("metric:", "")) : taskTabFilter.startsWith("goal:") ? nonPriority.filter(t => t.linkedGoalId === taskTabFilter.replace("goal:", "")) : nonPriority) : nonPriority;
+  const displayedTasks = taskFilter === "current" ? tabFiltered.filter(t => !t.done) : tabFiltered.filter(t => t.done);
 
   const handleInlineAdd = (e: React.KeyboardEvent) => {
     if (e.key !== "Enter" || !inlineAddText.trim()) return;
@@ -4398,6 +4414,19 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
             <div style={{ height: 8, borderRadius: 99, background: "#e2e8f0", marginBottom: 16, overflow: "hidden" }}>
               <div style={{ width: `${pct}%`, height: "100%", borderRadius: 99, background: "#4CAF7D", transition: "width 0.3s" }} />
             </div>
+            {/* Metric/Goal tabs */}
+            {allTabs.length > 0 && (
+              <div style={{ display: "flex", gap: 4, overflowX: "auto", marginBottom: 10, paddingBottom: 2 }}>
+                <div onClick={() => setTaskTabFilter(null)}
+                  style={{ padding: "3px 10px", borderRadius: 20, fontSize: 10, fontWeight: 500, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0,
+                    background: !taskTabFilter ? "#3B82F6" : "#f1f5f9", color: !taskTabFilter ? "#fff" : "#64748b" }}>All</div>
+                {allTabs.map(tab => (
+                  <div key={`${tab.type}:${tab.id}`} onClick={() => setTaskTabFilter(activeTab === `${tab.type}:${tab.id}` ? null : `${tab.type}:${tab.id}`)}
+                    style={{ padding: "3px 10px", borderRadius: 20, fontSize: 10, fontWeight: 500, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0,
+                      background: activeTab === `${tab.type}:${tab.id}` ? "#3B82F6" : "#f1f5f9", color: activeTab === `${tab.type}:${tab.id}` ? "#fff" : "#64748b" }}>{tab.label}</div>
+                ))}
+              </div>
+            )}
             {/* Priorities */}
             {priorityTasks.length > 0 && (
               <div style={{ marginBottom: 12 }}>
@@ -4411,7 +4440,10 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
                   const isDueToday = t.dueDate === todayStr;
                   const isPastDue = !t.done && !!t.dueDate && t.dueDate < todayStr && !isDueToday;
                   return (
-                    <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 8, background: isPastDue ? "#FEF2F2" : "#FFF8ED", border: isPastDue ? "1px solid #FECACA" : "1px solid #FDE68A", marginBottom: 6, fontSize: 15 }}>
+                    <div key={t.id} draggable onDragStart={() => handleTaskDragStart(t.id)} onDragEnter={() => handleTaskDragEnter(t.id)} onDragOver={e => e.preventDefault()} onDrop={() => handleTaskDrop(t.id)} onDragEnd={() => { dragTaskRef.current = null; dragOverTaskRef.current = null; }}
+                      style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 8, background: isPastDue ? "#FEF2F2" : "#FFF8ED", border: isPastDue ? "1px solid #FECACA" : "1px solid #FDE68A", marginBottom: 6, fontSize: 15 }}>
+                      <div draggable onDragStart={e => { e.stopPropagation(); handleTaskDragStart(t.id); }}
+                        style={{ cursor: "grab", color: "#cbd5e1", fontSize: 13, lineHeight: 1, letterSpacing: 1, flexShrink: 0, userSelect: "none" }} title="Drag to reorder">⠿</div>
                       <div onClick={() => toggle(t.id)} style={{ width: 24, height: 24, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "2px solid #F5A623", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 13 }}>{t.done ? "✓" : ""}</div>
                       {isEditing ? (
                         <input value={editText} onChange={e => setEditText(e.target.value)}
@@ -4486,10 +4518,10 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
             {/* Filter tabs */}
             <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
               <div onClick={() => setTaskFilter("current")} style={{ padding: "5px 14px", borderRadius: 20, fontSize: 12, fontWeight: 500, cursor: "pointer", background: taskFilter === "current" ? "#3B82F6" : "#f1f5f9", color: taskFilter === "current" ? "#fff" : "#64748b" }}>
-                Current ({currentTasks.length})
+                Current ({tabFiltered.filter(t => !t.done).length})
               </div>
               <div onClick={() => setTaskFilter("completed")} style={{ padding: "5px 14px", borderRadius: 20, fontSize: 12, fontWeight: 500, cursor: "pointer", background: taskFilter === "completed" ? "#3B82F6" : "#f1f5f9", color: taskFilter === "completed" ? "#fff" : "#64748b" }}>
-                Completed ({completedTasks.length})
+                Completed ({tabFiltered.filter(t => t.done).length})
               </div>
             </div>
             {/* Task list */}
@@ -4505,8 +4537,10 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
                 const isDueToday = t.dueDate === todayStr;
                 const isPastDue = !t.done && !!t.dueDate && t.dueDate < todayStr && !isDueToday;
                 return (
-                  <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8, background: t.done ? "#f8fafc" : isPastDue ? "#FEF2F2" : isDueToday ? "#EFF6FF" : "#fff", border: isPastDue && !t.done ? "1px solid #FECACA" : isDueToday && !t.done ? "1px solid #93C5FD" : "none", opacity: t.done ? 0.6 : 1 }}>
-                    <div onClick={() => toggle(t.id)} style={{ width: 20, height: 20, borderRadius: "50%", flexShrink: 0, cursor: "pointer", border: t.done ? "none" : "1.5px solid #d1d5db", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 11 }}>{t.done ? "✓" : ""}</div>
+                  <div key={t.id} draggable onDragStart={() => handleTaskDragStart(t.id)} onDragEnter={() => handleTaskDragEnter(t.id)} onDragOver={e => e.preventDefault()} onDrop={() => handleTaskDrop(t.id)} onDragEnd={() => { dragTaskRef.current = null; dragOverTaskRef.current = null; }}
+                    style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8, background: t.done ? "#f8fafc" : isPastDue ? "#FEF2F2" : isDueToday ? "#EFF6FF" : "#fff", border: isPastDue && !t.done ? "1px solid #FECACA" : isDueToday && !t.done ? "1px solid #93C5FD" : "none", opacity: t.done ? 0.6 : 1 }}>
+                    <div draggable onDragStart={e => { e.stopPropagation(); handleTaskDragStart(t.id); }}
+                      style={{ cursor: "grab", color: "#cbd5e1", fontSize: 12, lineHeight: 1, letterSpacing: 1, flexShrink: 0, userSelect: "none" }} title="Drag to reorder">⠿</div>
                     {isEditing ? (
                       <input value={editText} onChange={e => setEditText(e.target.value)}
                         onBlur={() => { if (editText.trim()) setTasks(prev => prev.map(x => x.id === t.id ? { ...x, text: editText.trim() } : x)); setEditingTaskId(null); }}
