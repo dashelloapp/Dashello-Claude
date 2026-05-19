@@ -297,6 +297,7 @@ interface Task {
   createdBy: string;
   linkedMetricId?: string;
   linkedGoalId?: string;
+  linkedDecisionId?: string;
   createdAt: string;
   priority?: boolean;
 }
@@ -3436,6 +3437,7 @@ interface CompletedDecision {
   priorityText: string;
   allOptions: DecisionOption[];
   completedAt: string;
+  priorityTaskId?: string;
 }
 interface DecisionSnapshot {
   id: string;
@@ -3443,6 +3445,7 @@ interface DecisionSnapshot {
   favoriteOptionId: string | null;
   options: DecisionOption[];
   savedAt: string;
+  priorityTaskId?: string;
 }
 
 const STORAGE_KEY = "decision-filter-current";
@@ -3625,23 +3628,70 @@ function DecisionMakingFilter({ tasks, setTasks, userEmail }: {
 
   const handleConvertToPriority = () => {
     if (!convertText.trim() || !setTasks || !userEmail || !favoriteOption) return;
+    const taskId = crypto.randomUUID();
     setTasks(prev => [...prev, {
-      id: crypto.randomUUID(), text: convertText.trim(), done: false,
+      id: taskId, text: convertText.trim(), done: false,
       assignedTo: userEmail, createdBy: userEmail, createdAt: new Date().toISOString(),
-      priority: true,
+      priority: true, linkedDecisionId: taskId,
     }]);
-    setCompletedDecisions(prev => [...prev, {
+    const snapshot: DecisionSnapshot = {
       id: crypto.randomUUID(),
       decisionStatement,
-      favoriteOption: JSON.parse(JSON.stringify(favoriteOption)),
-      priorityText: convertText.trim(),
-      allOptions: JSON.parse(JSON.stringify(options)),
-      completedAt: new Date().toISOString(),
-    }]);
-    resetCurrent();
+      favoriteOptionId,
+      options,
+      savedAt: new Date().toISOString(),
+      priorityTaskId: taskId,
+    };
+    setSavedDecisions(prev => [...prev, snapshot]);
     setShowConvert(false);
     setConvertText("");
+    resetCurrent();
   };
+
+  // Sync decision status with linked task done state
+  useEffect(() => {
+    const taskArr = tasks ?? [];
+    // Move from in-progress to completed when task is done
+    setSavedDecisions(prev => prev.map(sd => {
+      if (!sd.priorityTaskId) return sd;
+      const task = taskArr.find(t => t.id === sd.priorityTaskId);
+      if (task?.done) {
+        const favOpt = sd.options.find(o => o.id === sd.favoriteOptionId);
+        if (favOpt) {
+          const cd: CompletedDecision = {
+            id: crypto.randomUUID(),
+            decisionStatement: sd.decisionStatement,
+            favoriteOption: JSON.parse(JSON.stringify(favOpt)),
+            priorityText: task.text,
+            allOptions: JSON.parse(JSON.stringify(sd.options)),
+            completedAt: new Date().toISOString(),
+            priorityTaskId: sd.priorityTaskId,
+          };
+          setCompletedDecisions(prev => [...prev, cd]);
+        }
+        return null;
+      }
+      return sd;
+    }).filter(Boolean) as DecisionSnapshot[]);
+    // Move from completed back to in-progress when task is unchecked
+    setCompletedDecisions(prev => prev.filter(cd => {
+      if (!cd.priorityTaskId) return true;
+      const task = taskArr.find(t => t.id === cd.priorityTaskId);
+      if (task && !task.done) {
+        const snapshot: DecisionSnapshot = {
+          id: crypto.randomUUID(),
+          decisionStatement: cd.decisionStatement,
+          favoriteOptionId: cd.allOptions.find(o => o.label === cd.favoriteOption.label)?.id ?? null,
+          options: JSON.parse(JSON.stringify(cd.allOptions)),
+          savedAt: new Date().toISOString(),
+          priorityTaskId: cd.priorityTaskId,
+        };
+        setSavedDecisions(prev => [...prev, snapshot]);
+        return false;
+      }
+      return true;
+    }));
+  }, [tasks]);
 
   const handleRevertDecision = (completed: CompletedDecision) => {
     const snapshot: DecisionSnapshot = {
@@ -5088,11 +5138,11 @@ function formatDate(dateStr: string) {
 // PAGE: TASKS
 // ═══════════════════════════════════════════════════════════════════════════
 
-function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections, goals, onViewMetric, onViewGoal, onViewTeamMember, timezone, healthBarColor }: {
+function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections, goals, onViewMetric, onViewGoal, onViewDecision, onViewTeamMember, timezone, healthBarColor }: {
   tasks: Task[]; setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
   userEmail: string; orgMembers: OrgMember[]; teamRows: TeamRow[];
   sections: Section[]; goals: Goal[];
-  onViewMetric: (id: string) => void; onViewGoal: (id: string) => void;
+  onViewMetric: (id: string) => void; onViewGoal: (id: string) => void; onViewDecision?: () => void;
   onViewTeamMember: (m: OrgMember) => void; timezone: string; healthBarColor?: MetricColor;
 }) {
   const { t: __ } = useTranslation();
@@ -5275,13 +5325,16 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
                       )}
                       <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, position: "relative" }}>
                         {t.dueDate && <div style={{ fontSize: 15, color: isPastDue ? "#E85D75" : isDueToday ? "#F5A623" : "#94a3b8", fontWeight: isPastDue || isDueToday ? 600 : 400, whiteSpace: "nowrap" }}>{isPastDue ? "Past Due" : isDueToday ? "Due Today" : formatDate(t.dueDate)}</div>}
-                        {(t.linkedMetricId || t.linkedGoalId) && (
+                        {(t.linkedMetricId || t.linkedGoalId || t.linkedDecisionId) && (
                           <div style={{ display: "flex", gap: 4 }}>
                             {t.linkedMetricId && <div onClick={() => onViewMetric(t.linkedMetricId!)} style={{ width: 22, height: 22, borderRadius: "50%", background: "#EFF6FF", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
                               <IconGlyph name="Eye" size={12} color="#3B82F6" />
                             </div>}
                             {t.linkedGoalId && <div onClick={() => onViewGoal(t.linkedGoalId!)} style={{ width: 22, height: 22, borderRadius: "50%", background: "#F3F0FF", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
                               <IconGlyph name="Target" size={12} color="#7B68EE" />
+                            </div>}
+                            {t.linkedDecisionId && <div onClick={() => onViewDecision?.()} style={{ width: 22, height: 22, borderRadius: "50%", background: "#FFF8ED", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
+                              <IconGlyph name="Funnel" size={12} color="#F5A623" weight="fill" />
                             </div>}
                           </div>
                         )}
@@ -5379,7 +5432,7 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
                     )}
                     <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, position: "relative" }}>
                       {t.dueDate && <div style={{ fontSize: 15, color: isPastDue ? "#E85D75" : isDueToday ? "#3B82F6" : "#94a3b8", fontWeight: isPastDue || isDueToday ? 600 : 400, whiteSpace: "nowrap" }}>{isPastDue ? "Past Due" : isDueToday ? "Due Today" : formatDate(t.dueDate)}</div>}
-                      {(t.linkedMetricId || t.linkedGoalId) && (
+                      {(t.linkedMetricId || t.linkedGoalId || t.linkedDecisionId) && (
                         <div style={{ display: "flex", gap: 4 }}>
                           {t.linkedMetricId && (
                             <div onClick={() => onViewMetric(t.linkedMetricId!)} style={{ width: 22, height: 22, borderRadius: "50%", background: "#EFF6FF", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
@@ -5389,6 +5442,11 @@ function TasksPage({ tasks, setTasks, userEmail, orgMembers, teamRows, sections,
                           {t.linkedGoalId && (
                             <div onClick={() => onViewGoal(t.linkedGoalId!)} style={{ width: 22, height: 22, borderRadius: "50%", background: "#F3F0FF", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
                               <IconGlyph name="Target" size={12} color="#7B68EE" />
+                            </div>
+                          )}
+                          {t.linkedDecisionId && (
+                            <div onClick={() => onViewDecision?.()} style={{ width: 22, height: 22, borderRadius: "50%", background: "#FFF8ED", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
+                              <IconGlyph name="Funnel" size={12} color="#F5A623" weight="fill" />
                             </div>
                           )}
                         </div>
@@ -9736,7 +9794,7 @@ const sidebarEl = (
             onOpenEquationBuilder={handleOpenEquationBuilder}
             orgMembers={orgMembers} />}
           {page === "goals" && isPageAccessible("goals") && <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}><GoalsPage goals={goalsData} setGoals={setGoalsData} sections={isPreviewMode && previewSections ? previewSections : sections} viewMode={goalsViewMode} onOpenOnboarding={() => setShowGoalOnboarding(true)} onEditGoal={handleEditGoal} onDuplicateGoal={handleDuplicateGoal} tasks={tasksData} setTasks={setTasksData} userEmail={userEmail} orgMembers={orgMembers} /></div>}
-          {page === "tasks" && isPageAccessible("tasks") && <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}><TasksPage tasks={tasksData} setTasks={setTasksData} userEmail={userEmail} orgMembers={orgMembers} teamRows={teamRows} sections={sections} goals={goalsData} onViewMetric={id => setViewMetricId(id)} onViewGoal={id => setViewGoalId(id)} onViewTeamMember={m => { setPendingMemberDetail(m); }} timezone={profile.timezone} healthBarColor={health.barColor} /></div>}
+          {page === "tasks" && isPageAccessible("tasks") && <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}><TasksPage tasks={tasksData} setTasks={setTasksData} userEmail={userEmail} orgMembers={orgMembers} teamRows={teamRows} sections={sections} goals={goalsData} onViewMetric={id => setViewMetricId(id)} onViewGoal={id => setViewGoalId(id)} onViewDecision={() => setPage("goals")} onViewTeamMember={m => { setPendingMemberDetail(m); }} timezone={profile.timezone} healthBarColor={health.barColor} /></div>}
           {page === "integrations" && isPageAccessible("integrations") && <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}><IntegrationsPage onSelectApp={a => { setSelectedApp(a); setPage("app-detail"); }} /></div>}
           {page === "app-detail" && selectedApp && <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}><AppDetailPage app={selectedApp} onBack={() => setPage("integrations")} /></div>}
           {page === "team" && isPageAccessible("team") && <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}><TeamPage sections={isPreviewMode && previewSections ? previewSections : sections} orgMembers={orgMembers} setOrgMembers={setOrgMembers} teamRows={teamRows} setTeamRows={setTeamRows} teamPermissions={teamPermissions} setTeamPermissions={setTeamPermissions} currentUserLevel={currentUserLevel} userEmail={userEmail} onOpenInvite={() => setShowInviteModal(true)} onPreviewMember={(member, perms) => { setPreviewMember(member); setPreviewPerms(perms); setPage("home"); }} onExitPreviewSave={() => { setPreviewFromSave(false); }} previewFromSave={previewFromSave} pendingMemberDetail={pendingMemberDetail} onClearPendingMember={() => setPendingMemberDetail(null)} tasks={tasksData} setTasks={setTasksData} teamViewMode={teamViewMode} menuPermissions={profile.menu_permissions ?? {}} /></div>}
