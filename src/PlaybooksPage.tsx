@@ -1012,7 +1012,8 @@ function getDateString(format: string, date?: Date): string {
         recurrence: templateItem.recurrence ? { ...templateItem.recurrence } : undefined,
       };
       newItem.icon = autoSelectIcon(newItem);
-      const updated = rows.map(r => r.id === fillTemplateRowId ? { ...r, items: [...r.items, newItem] } : r);
+      const docRowId = rows.find(r => r.items.some(i => i.type === "document"))?.id || rows.find(r => r.id !== fillTemplateRowId)?.id || fillTemplateRowId;
+      const updated = rows.map(r => r.id === docRowId ? { ...r, items: [...r.items, newItem] } : r);
       setRows(updated);
       if (userId) saveUserData("playbooks", userId, updated);
       fillSavedItemRef.current = newItem.id;
@@ -1033,6 +1034,8 @@ function getDateString(format: string, date?: Date): string {
         setRows(updated);
         if (userId) await saveUserData("playbooks", userId, updated);
       } else {
+        // Find the Documents/Playbooks row (first row with document-type items, or first non-template row)
+        const docRowId = rows.find(r => r.items.some(i => i.type === "document"))?.id || rows.find(r => r.id !== fillTemplateRowId)?.id || fillTemplateRowId;
         const newItem: PlaybookItem = {
           id: crypto.randomUUID(), label: tItem.label,
           icon: "Notebook", type: "filled-template",
@@ -1042,7 +1045,7 @@ function getDateString(format: string, date?: Date): string {
           recurrence: tItem.recurrence ? { ...tItem.recurrence } : undefined,
         };
         newItem.icon = autoSelectIcon(newItem);
-        const updated = rows.map(r => r.id === fillTemplateRowId ? { ...r, items: [...r.items, newItem] } : r);
+        const updated = rows.map(r => r.id === docRowId ? { ...r, items: [...r.items, newItem] } : r);
         setRows(updated);
         if (userId) await saveUserData("playbooks", userId, updated);
         fillSavedItemRef.current = newItem.id;
