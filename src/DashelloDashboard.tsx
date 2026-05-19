@@ -100,12 +100,12 @@ function LanguageSelector() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
   return (
-    <div style={{ marginBottom: 14 }} ref={ref}>
+    <div style={{ marginBottom: 14, position: "relative" }} ref={ref}>
       <div style={{ fontSize: 15, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>{__('settings.language', 'Language')}</div>
       <input
         value={show ? query : `${language.name} (${language.nativeName})`}
         onChange={e => { setQuery(e.target.value); setShow(true); }}
-        onFocus={() => { setQuery(""); setShow(true); }}
+        onFocus={() => { setShow(true); }}
         placeholder={__('settings.searchLanguage', 'Search for a language...')}
         style={{ width: "100%", padding: "6px 10px", borderRadius: 6, border: "1.5px solid #e2e8f0", fontSize: 15, outline: "none", boxSizing: "border-box" }}
       />
@@ -5880,8 +5880,8 @@ function SettingsPage({ userId, userEmail, profile: externalProfile, forceDisabl
   const [uploading, setUploading] = useState(false);
   const [fiveAccountConfirm, setFiveAccountConfirm] = useState(false);
   const [timezoneSearch, setTimezoneSearch] = useState("");
-  const [accHeaderSize, setAccHeaderSize] = useState<number>(() => parseInt(localStorage.getItem("acc_header_size") || "15") || 15);
-  const [accMinBody, setAccMinBody] = useState<number>(() => parseInt(localStorage.getItem("acc_min_body") || "11") || 11);
+  const [accHeaderSize, setAccHeaderSize] = useState<number>(() => parseInt(localStorage.getItem("acc_header_size") || "30") || 30);
+  const [accMinBody, setAccMinBody] = useState<number>(() => parseInt(localStorage.getItem("acc_min_body") || "15") || 15);
   useEffect(() => {
     localStorage.setItem("acc_header_size", String(accHeaderSize));
     localStorage.setItem("acc_min_body", String(accMinBody));
@@ -7582,6 +7582,7 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
     document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h);
   }, [showOrgDropdown, onToggleOrgDropdown]);
 
+  const pc = ({ green: { bg: "#F0FDF4", border: "#4CAF7D", accent: "#4CAF7D" }, yellow: { bg: "#FFF8ED", border: "#F5A623", accent: "#F5A623" }, red: { bg: "#FEF2F2", border: "#E85D75", accent: "#E85D75" }, gray: { bg: "#FFF8ED", border: "#F5A623", accent: "#F5A623" } } as Record<string, { bg: string; border: string; accent: string }>)[health?.barColor || "yellow"]!;
   const hiddenItems = currentUserLevel === "owner" ? [] : (menuPermissions[currentUserLevel] || []);
   const filteredNav = NAV.filter(item => {
     if (item.page === "home") return true;
@@ -7698,9 +7699,9 @@ function Sidebar({ active, onNav, onClose, isMobile, avatarUrl, firstName, healt
           <div style={{ width: `${sidebarPct}%`, height: "100%", borderRadius: 99, background: "#4CAF7D", transition: "width 0.3s" }} />
         </div>
         {sidebarPriorityList.map(t => (
-          <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 6px", cursor: "pointer", background: "#FFF8ED", borderRadius: 6, marginBottom: 2 }}
+          <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 6px", cursor: "pointer", background: pc.bg, borderRadius: 6, marginBottom: 2 }}
             onClick={() => sidebarToggle(t.id)}>
-            <div style={{ width: 16, height: 16, borderRadius: "50%", flexShrink: 0, border: t.done ? "none" : "1.5px solid #F5A623", background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 15 }}>{t.done ? "✓" : ""}</div>
+            <div style={{ width: 16, height: 16, borderRadius: "50%", flexShrink: 0, border: t.done ? "none" : `1.5px solid ${pc.accent}`, background: t.done ? "#4CAF7D" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 15 }}>{t.done ? "✓" : ""}</div>
             <span style={{ fontSize: 15, color: "#1a2332", flex: 1, fontWeight: 600, textDecoration: t.done ? "line-through" : "none", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.text}</span>
           </div>
         ))}
@@ -7967,8 +7968,8 @@ export default function DashelloDashboard() {
   const [activeModal, setActiveModal] = useState<{ data: MetricModalData; metric: Metric } | null>(null);
   useEffect(() => { localStorage.setItem("dashello_page", page); }, [page]);
   useEffect(() => {
-    const hdr = parseInt(localStorage.getItem("acc_header_size") || "15") || 15;
-    const body = parseInt(localStorage.getItem("acc_min_body") || "11") || 11;
+    const hdr = parseInt(localStorage.getItem("acc_header_size") || "30") || 30;
+    const body = parseInt(localStorage.getItem("acc_min_body") || "15") || 15;
     applyAccessibilitySettings(hdr, body);
   }, []);
   const [editingMetricFromModal, setEditingMetricFromModal] = useState<Metric | null>(null);
@@ -8972,9 +8973,11 @@ const sidebarEl = (
           {isMobile ? (
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               {(page === "home" || page === "goals" || page === "integrations" || page === "tasks") && <TopBarRefreshButton isMobile={isMobile} onRefresh={handleRefreshAll} lastSyncedAt={lastDashboardSync} />}
-              <div style={{ position: "relative" }}>
-                <div ref={mobileMenuTriggerRef} onClick={() => setShowMobileMenu(v => !v)} style={{ width: 34, height: 34, borderRadius: "50%", border: "1.5px solid #e2e8f0", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 15, color: "#64748b" }}>‹</div>
-                {showMobileMenu && <MobileMenu triggerRef={mobileMenuTriggerRef} onClose={() => setShowMobileMenu(false)} onChat={() => setShowChat(v => !v)} onCustomize={() => setPage("integrations")} />}
+              <div onClick={() => setShowChat(v => !v)} style={{ width: 34, height: 34, borderRadius: "50%", border: "1.5px solid #e2e8f0", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                <IconGlyph name="ChatCircleDots" size={18} color="#64748b" />
+              </div>
+              <div onClick={() => setPage("integrations")} style={{ width: 34, height: 34, borderRadius: "50%", border: "1.5px solid #e2e8f0", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                <IconGlyph name="Plugs" size={18} color="#64748b" />
               </div>
             </div>
           ) : (
